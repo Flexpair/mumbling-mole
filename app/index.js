@@ -340,9 +340,9 @@ class GlobalBindings {
                 if (guac_login) {
                   this.guacamoleFrame.guacSource(
                     "/guacamole/#/?username=" +
-                      guac_login +
-                      "&password=" +
-                      this.connectDialog.password()
+                    guac_login +
+                    "&password=" +
+                    this.connectDialog.password()
                   );
                   this.guacamoleFrame.show();
                 } else {
@@ -643,8 +643,8 @@ class GlobalBindings {
 
     this.mailToDesktop = ko.observable(
       "mailto:mail@" +
-        window.location.hostname +
-        "?subject=Send%20attachment%20to%20desktop"
+      window.location.hostname +
+      "?subject=Send%20attachment%20to%20desktop"
     );
 
     this.sendMessage = (target, message) => {
