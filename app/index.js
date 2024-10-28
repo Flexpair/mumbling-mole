@@ -285,11 +285,12 @@ class GlobalBindings {
       tokens = [],
       channelName = ""
     ) => {
-      var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+      var user_roles = (this.netlifyIdentity.currentUser().app_metadata.roles) || [];
       if (Array.isArray(user_roles)) {
         // Add "watch" and "listen" roles if they are not already present
         if (!user_roles.includes("watch")) user_roles.push("watch");
-        if (!user_roles.includes("listen")) user_roles.push("listen"); 
+        if (!user_roles.includes("listen")) user_roles.push("listen");
+        this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
         if (this.audioContext.sampleRate == 48000) {
           initVoice(
             (data) => {
