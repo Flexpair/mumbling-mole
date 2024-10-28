@@ -285,8 +285,7 @@ class GlobalBindings {
       tokens = [],
       channelName = ""
     ) => {
-      var currentUser = this.netlifyIdentity.currentUser();
-      var user_roles = (currentUser && currentUser.app_metadata && Array.isArray(currentUser.app_metadata.roles)) ? currentUser.app_metadata.roles : [];
+      var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
       if (Array.isArray(user_roles)) {
         // Add "watch" and "listen" roles if they are not already present
         if (!user_roles.includes("watch")) user_roles.push("watch");
@@ -328,8 +327,7 @@ class GlobalBindings {
             })
             .done(
               (client) => {
-                var user_roles =
-                  this.netlifyIdentity.currentUser().app_metadata.roles;
+                var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
                 let guac_login = false;
                 if (user_roles.includes("admin")) {
                   guac_login = "admin";
