@@ -1,5 +1,5 @@
 {
-  "name": "mumble-web",
+  "name": "mumbling-mole",
   "version": "0.5.1",
   "description": "An HTML5 Mumble client.",
   "scripts": {
@@ -9,7 +9,7 @@
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "license": "ISC",
-  "repository": "jafudi/mumble-web",
+  "repository": "Flexpair/mumbling-mole",
   "homepage": "https://github.com/jafudi/flexpair",
   "files": [
     "dist"
@@ -33,8 +33,8 @@
     "knockout": "3.5.1",
     "libopus.js": "0.0.1",
     "microphone-stream": "5.3.1",
-    "mumble-client": "jafudi/mumble-client#master",
-    "netlify-identity-widget": "jafudi/netlify-identity-widget#master",
+    "mumble-client": "Flexpair/mumble-client#master",
+    "netlify-identity-widget": "Flexpair/netlify-identity-widget#master",
     "node-polyfill-webpack-plugin": "1.1.4",
     "promise": "8.1.0",
     "raw-loader": "4.0.2",
