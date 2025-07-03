@@ -749,7 +749,7 @@ window.mumbleUi = ui;
 
 function initializeUI() {
   ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/.netlify/identity", // Absolute url to endpoint.
+    APIUrl: "https://welcome.flexpair.com/identity-proxy",  // <— geändert wegen CORS-Problem
     locale: "en",
   });
 
