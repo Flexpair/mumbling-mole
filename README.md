@@ -11,7 +11,7 @@ mumble-web is an HTML5 [Mumble] client that runs directly in your browser. This 
 - Removed stubs in code and user interface
 - Integrated a proposed patch into the code base
 - Enable optimizations in webpack bundling
-- Added support for a couple of languages
+- Added support for a couple of languages 
 
 ## Installing
 
