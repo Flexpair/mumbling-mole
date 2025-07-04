@@ -4,7 +4,7 @@ FROM node:16-alpine
 RUN apk update && \
     apk upgrade && \
     apk add --no-cache git tini bash python3 py3-pip && \
-    pip install --no-cache-dir websockify
+    pip install --no-cache-dir websockify==0.12.0
 
 # Set the working directory
 WORKDIR /home/node
