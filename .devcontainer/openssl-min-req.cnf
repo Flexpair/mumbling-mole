@@ -1,3 +1,0 @@
-[ req ]
-distinguished_name = req_dn
-[ req_dn ]

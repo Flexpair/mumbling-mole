@@ -1,34 +1,16 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.234.0/containers/docker-from-docker-compose
 {
-	"name": "Docker from Docker Compose",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "nginx",
-	"workspaceFolder": "/workspace",
-
-	// "initializeCommand": "curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > ./nginx/conf.d/options-ssl-nginx.conf",
-
-	// Use this environment variable if you need to bind mount your local source code into a new container.
-	"remoteEnv": {
-		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
-	},
-	
-	// Set *default* container specific settings.json values on container create.
-	"settings": {},
-
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"ms-azuretools.vscode-docker"
-	],
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [443],
-
-	"onCreateCommand": "apt-get -y install git",
-
-	// Uncomment the next line to run commands after the container is created - for example installing curl.
-	"postCreateCommand": "/bin/bash -c \"nginx -g 'daemon off;'\""
-
-	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	// "remoteUser": "node"
+  "name": "Mumbling Mole Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "forwardPorts": [8081],
+  "workspaceFolder": "/home/node",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      }
+    }
+  },
+  "remoteUser": "node"
 }
