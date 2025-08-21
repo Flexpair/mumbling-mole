@@ -1,5 +1,5 @@
 import { Writable } from "stream";
-import MicrophoneStream from "microphone-stream";
+// import MicrophoneStream from "microphone-stream"; // nicht mehr benötigt
 import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
@@ -144,29 +144,77 @@ export function enumMicrophones() {
   navigator.mediaDevices.enumerateDevices().then(gotDevices).catch(handleError);
 }
 
+/**
+ * Init microphone capture.
+ * Liefert per onData PCM-Frames (Float32) weiter – wie bisher, nur stabil via AudioWorklet.
+ */
 export function initVoice(onData, onUserMediaError) {
   const audioSource = audioInputSelect.value;
 
   const constraints = {
     audio: {
-      deviceId: audioSource
-        ? {
-            exact: audioSource,
-          }
-        : undefined,
+      deviceId: audioSource ? { exact: audioSource } : undefined,
       echoCancellation: true,
+      channelCount: { ideal: 1 },
+      sampleRate: { ideal: 48000 },
     },
   };
 
-  getUserMedia(constraints, (err, userMedia) => {
+  getUserMedia(constraints, async (err, userMedia) => {
     if (err) {
       onUserMediaError(err);
-    } else {
+      return;
+    }
+
+    try {
       theUserMedia = userMedia;
-      var micStream = new MicrophoneStream(userMedia, { objectMode: true });
-      micStream.on("data", (data) => {
-        onData(Buffer.from(data.getChannelData(0).buffer));
+
+      // === NEU: AudioWorklet statt microphone-stream ===
+      const ac = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 48000,
       });
+
+      // Worklet laden
+      await ac.audioWorklet.addModule("app/recorder.worklet.js");
+
+      // Quelle aus getUserMedia
+      const src = ac.createMediaStreamSource(userMedia);
+
+      // Worklet-Node (mono)
+      const node = new AudioWorkletNode(ac, "recorder-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 0, // kein Audio-Out nötig
+        channelCount: 1,
+      });
+
+      // PCM-Frames (Float32, 960 Samples @48k) an bestehende Pipeline geben
+      node.port.onmessage = (ev) => {
+        if (ev.data?.type === "pcm" && ev.data.data) {
+          const f32 = new Float32Array(ev.data.data);
+          onData(Buffer.from(f32.buffer));
+        }
+      };
+
+      // verbinden
+      src.connect(node);
+
+      // optional: aufräumen, wenn das mediastream endet
+      userMedia.getTracks().forEach((t) =>
+        t.addEventListener("ended", () => {
+          try {
+            node.disconnect();
+          } catch {}
+          try {
+            src.disconnect();
+          } catch {}
+          try {
+            ac.close();
+          } catch {}
+        })
+      );
+    } catch (e) {
+      console.error("AudioWorklet init failed:", e);
+      onUserMediaError(e);
     }
   });
 }
