@@ -4,7 +4,7 @@
   "description": "An HTML5 Mumble client.",
   "scripts": {
     "build": "npm install node-polyfill-webpack-plugin && webpack && [ -f dist/config.local.js ] || cp app/config.local.js dist/",
-    "prepare": "rm -rf dist && mkdir dist && npm run build",
+    "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
@@ -35,7 +35,7 @@
     "microphone-stream": "5.3.1",
     "mumble-client": "Flexpair/mumble-client#master",
     "netlify-identity-widget": "Flexpair/netlify-identity-widget#master",
-    "node-polyfill-webpack-plugin": "1.1.4",
+    "node-polyfill-webpack-plugin": "^1.1.4",
     "promise": "8.1.0",
     "raw-loader": "4.0.2",
     "regexp-replace-loader": "1.0.1",

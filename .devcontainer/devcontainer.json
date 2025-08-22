@@ -1,16 +1,32 @@
 {
-  "name": "Mumbling Mole Dev Container",
+  // Name of the dev container
+  "name": "App Dev (Multi-stage target=dev)",
+
+  // Build configuration for the dev container
   "build": {
-    "dockerfile": "Dockerfile"
+    "context": "..", // Build context directory
+    "dockerfile": "../Dockerfile", // Path to Dockerfile
+    "target": "dev" // Multi-stage build target
   },
-  "forwardPorts": [8081],
-  "workspaceFolder": "/home/node",
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "terminal.integrated.shell.linux": "/bin/bash"
-      }
-    }
+
+  "remoteUser": "node", // Default user inside the container
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}", // Workspace folder path
+  "overrideCommand": true, // Override default container command
+  "runArgs": ["--init"], // Additional Docker run arguments
+
+  // Install dependencies after container creation
+  "containerEnv": {
+    "SKIP_PREPARE": "1"
   },
-  "remoteUser": "node"
+  "postCreateCommand": "bash -lc 'npm ci || npm install'",
+
+  // Show Node and npm versions after container starts
+  "postStartCommand": "bash -lc 'node -v && npm -v'",
+
+  "forwardPorts": [8081], // Forward port 8081 from container to host
+
+  // Port attributes for forwarded ports
+  "portsAttributes": {
+    "8081": { "label": "App", "onAutoForward": "notify" }
+  }
 }
