@@ -175,7 +175,7 @@ export function initVoice(onData, onUserMediaError) {
       });
 
       // Worklet laden
-      await ac.audioWorklet.addModule("recorder.worklet.js");
+      await ac.audioWorklet.addModule("recorder-worker.js");
 
       // Quelle aus getUserMedia
       const src = ac.createMediaStreamSource(userMedia);

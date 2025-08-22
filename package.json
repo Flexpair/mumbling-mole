@@ -3,7 +3,7 @@
   "version": "0.5.1",
   "description": "An HTML5 Mumble client.",
   "scripts": {
-    "build": "npm install node-polyfill-webpack-plugin && webpack && [ -f dist/config.local.js ] || cp app/config.local.js dist/",
+    "build": "npm install node-polyfill-webpack-plugin && webpack && ([ -f dist/config.local.js ] || cp app/config.local.js dist/) && cp app/recorder-worker.js dist/",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
