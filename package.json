@@ -32,7 +32,6 @@
     "keyboardjs": "2.6.4",
     "knockout": "3.5.1",
     "libopus.js": "0.0.1",
-    "microphone-stream": "5.3.1",
     "mumble-client": "Flexpair/mumble-client#master",
     "netlify-identity-widget": "Flexpair/netlify-identity-widget#master",
     "node-polyfill-webpack-plugin": "^1.1.4",

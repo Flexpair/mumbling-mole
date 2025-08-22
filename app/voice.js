@@ -1,5 +1,4 @@
 import { Writable } from "stream";
-// import MicrophoneStream from "microphone-stream"; // nicht mehr benötigt
 import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
