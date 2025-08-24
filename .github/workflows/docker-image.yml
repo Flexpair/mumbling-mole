@@ -61,6 +61,9 @@ jobs:
       - name: HTTP smoke test (content-length)
         run: |
           set -euo pipefail
+          cleanup() { docker rm -f mm-http >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
           docker run -d --rm \
             -p 8081:8081 \
             -e SKIP_TUNNEL=1 \
@@ -73,11 +76,19 @@ jobs:
             sleep 1
           done
 
-          bytes=$(awk '/Content-Length/ {print $2}' /tmp/headers | tr -cd '0-9')
-          echo "Content-Length: ${bytes:-0}"
-          test -n "$bytes" && [ "$BYTES" -gt 5000 ] || [ "${bytes:-0}" -gt 5000 ]
+          if ! [ -s /tmp/headers ]; then
+            echo "HTTP headers could not be fetched from :8081"
+            exit 1
+          fi
 
-          docker rm -f mm-http
+          # Zahl extrahieren; awk +0 wandelt in Integer (strippt CR/LF)
+          bytes=$(awk '/^Content-Length:/ {print $2+0}' /tmp/headers | tail -n1)
+          echo "Content-Length: ${bytes:-0}"
+
+          if [ "${bytes:-0}" -le 5000 ]; then
+            echo "Expected Content-Length > 5000 bytes"
+            exit 1
+          fi
 
       # --- Node 16 für das E2E-Testskript bereitstellen ---
       - name: Setup Node 16 for E2E script
