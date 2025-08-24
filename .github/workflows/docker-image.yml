@@ -81,7 +81,6 @@ jobs:
             exit 1
           fi
 
-          # Zahl extrahieren; awk +0 wandelt in Integer (strippt CR/LF)
           bytes=$(awk '/^Content-Length:/ {print $2+0}' /tmp/headers | tail -n1)
           echo "Content-Length: ${bytes:-0}"
 
@@ -119,6 +118,15 @@ jobs:
           E2E_TCP_PORT: '5900'
           E2E_TARGET_HOST: '127.0.0.1'
         run: node scripts/e2e-check.cjs --mode=container
+
+      # --- Debug: Logs zeigen, falls E2E fehlschlägt ---
+      - name: Debug logs (mm-e2e)
+        if: failure()
+        run: |
+          echo "----- docker logs mm-e2e -----"
+          docker logs mm-e2e || true
+          echo "----- curl http://localhost:8081 (best effort) -----"
+          curl -sS http://localhost:8081 || true
 
       # --- Aufräumen des E2E-Containers ---
       - name: Cleanup E2E container
