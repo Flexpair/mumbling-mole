@@ -97,4 +97,4 @@ RUN npm run build
 EXPOSE 8081
 RUN chmod +x ./docker-entrypoint.sh
 
-ENTRYPOINT ["/usr/bin/tini", "--", "docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/home/node/docker-entrypoint.sh"]
