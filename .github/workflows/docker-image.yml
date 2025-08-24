@@ -1,5 +1,10 @@
 name: Build and push to DockerHub
 
+# Verhindert parallele Doppel-Läufe pro Branch/Tag
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: ["lite"]
@@ -8,6 +13,7 @@ on:
     branches: ["lite"]
 
 env:
+  # Lokales Test-Tag für Lauf auf dem Runner
   TEST_TAG: jafudi/mumbling-mole:test
 
 jobs:
@@ -15,17 +21,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --- Checkout ---
+      # --- Code holen ---
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- Buildx / QEMU ---
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      # --- Buildx für Cache (kein QEMU, da kein Multi-Arch) ---
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # --- Image-Metadaten (Tags/Labels) ---
+      # --- Tags/Labels generieren (Branch/Tag/SHA) ---
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -44,20 +48,28 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # --- Test-Image lokal bauen (prod-Stage), mit Cache ---
-      - name: Build test image (prod stage, local)
+      # =========================================================
+      # EINMALIGES BUILD (amd64), ins lokale Docker laden
+      # -> gleiche Image-Instanz wird getestet und danach gepusht
+      # =========================================================
+      - name: Build image (prod stage, amd64 only)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           target: prod
           load: true
-          tags: ${{ env.TEST_TAG }}
+          # Wir vergeben sowohl das Test-Tag als auch die finalen Tags.
+          # So können wir sie später ohne Rebuild pushen.
+          tags: |
+            ${{ env.TEST_TAG }}
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # --- HTTP-Smoke: nur statische Web-App prüfen ---
-      # Voraussetzung: docker-entrypoint.sh unterstützt SKIP_TUNNEL=1
+      # --- HTTP-Smoke: statische Web-App prüft Basis-Funktion ---
+      # Voraussetzung: docker-entrypoint.sh respektiert SKIP_TUNNEL=1
       - name: HTTP smoke test (content-length)
         run: |
           set -euo pipefail
@@ -70,37 +82,37 @@ jobs:
             --name mm-http \
             ${{ env.TEST_TAG }}
 
-          # Auf Port warten und HEAD abrufen
+          # Warte bis der Port antwortet und hole HTTP-Header
           for i in {1..30}; do
             if curl -sfI "http://localhost:8081" >/tmp/headers; then break; fi
             sleep 1
           done
 
           if ! [ -s /tmp/headers ]; then
-            echo "HTTP headers could not be fetched from :8081"
+            echo "Kein HTTP-Header von :8081 erhalten"
             exit 1
           fi
 
           bytes=$(awk '/^Content-Length:/ {print $2+0}' /tmp/headers | tail -n1)
           echo "Content-Length: ${bytes:-0}"
-
           if [ "${bytes:-0}" -le 5000 ]; then
-            echo "Expected Content-Length > 5000 bytes"
+            echo "Erwartet Content-Length > 5000 Bytes"
             exit 1
           fi
 
-      # --- Node 16 für das E2E-Testskript bereitstellen ---
-      - name: Setup Node 16 for E2E script
+      # --- Node 16 nur für das E2E-Skript (ws/wait-port) ---
+      - name: Setup Node 16 (for E2E script)
         uses: actions/setup-node@v4
         with:
           node-version: '16.x'
 
-      # --- Dev-Dependencies für E2E installieren (ws, wait-port) ---
+      # Nur nötige Dev-Dependencies installieren (greift auf package-lock.json zu;
+      # fällt andernfalls auf npm i zurück; engine-warnungen sind ok)
       - name: Install dev deps for E2E
         run: |
           npm ci --omit=optional || npm i --omit=optional
 
-      # --- Container für E2E starten: websockify 8081 -> host.docker.internal:5900 (Plain TCP) ---
+      # --- E2E-Container starten: websockify 8081 -> Host:5900 (Plain TCP) ---
       - name: Run container for E2E
         run: |
           docker run -d --rm \
@@ -111,7 +123,7 @@ jobs:
             -e PLAIN_TARGET=1 \
             ${{ env.TEST_TAG }}
 
-      # --- E2E: WebSocket-Tunnel Echo-Roundtrip (nutzt Repo-Skript) ---
+      # --- E2E: WS-Tunnel Echo-Roundtrip (nutzt Repo-Skript) ---
       - name: E2E websocket tunnel (echo roundtrip)
         env:
           E2E_WS_PORT: '8081'
@@ -119,30 +131,33 @@ jobs:
           E2E_TARGET_HOST: '127.0.0.1'
         run: node scripts/e2e-check.cjs --mode=container
 
-      # --- Debug: Logs zeigen, falls E2E fehlschlägt ---
+      # --- Bei Fehler: Logs helfen sofort ---
       - name: Debug logs (mm-e2e)
         if: failure()
         run: |
           echo "----- docker logs mm-e2e -----"
           docker logs mm-e2e || true
-          echo "----- curl http://localhost:8081 (best effort) -----"
+          echo "----- best effort curl http://localhost:8081 -----"
           curl -sS http://localhost:8081 || true
 
-      # --- Aufräumen des E2E-Containers ---
+      # --- Aufräumen E2E-Container ---
       - name: Cleanup E2E container
         if: always()
         run: docker rm -f mm-e2e || true
 
-      # --- Final: Multi-Arch Build & Push (nur bei Nicht-PRs) ---
-      - name: Build and push (multi-arch)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          target: prod
-          push: ${{ github.event_name != 'pull_request' }}
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # =========================================================
+      # PUSH OHNE REBUILD
+      # Wir haben oben bereits alle finalen Tags lokal gesetzt.
+      # Jetzt pushen wir genau diese Tags – einer nach dem anderen.
+      # =========================================================
+      - name: Push image tags
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          # Schritte aus meta.outputs.tags (Zeilenliste) einzeln pushen
+          echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' | while read -r tag; do
+            if [ -n "$tag" ]; then
+              echo "Pushing $tag"
+              docker push "$tag"
+            fi
+          done
