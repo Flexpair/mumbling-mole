@@ -26,10 +26,16 @@ const { spawn } = require('child_process');
 const waitPort = require('wait-port');
 const WebSocket = require('ws');
 
-// Fest definierte Standard-Ports (per ENV überschreibbar)
-const WS_PORT = Number(process.env.E2E_WS_PORT || 8081);   // WebSocket (websockify)
-const TCP_PORT = Number(process.env.E2E_TCP_PORT || 5900); // lokaler Echo-Server
-const TARGET_HOST = process.env.E2E_TARGET_HOST || '127.0.0.1';
+// WS-Port von websockify (im Container fest 8081), Echo-Server-Port
+const WS_PORT = Number(process.env.E2E_WS_PORT || 8081);
+const TCP_PORT = Number(process.env.E2E_TCP_PORT || 5900);
+
+// Der WS-Client soll lokal testen → 127.0.0.1 ist ok
+const CLIENT_HOST = process.env.E2E_TARGET_HOST || '127.0.0.1';
+
+// WICHTIG: Der Echo-Server muss Verbindungen vom Container (host.docker.internal) annehmen.
+// Deshalb an 0.0.0.0 binden (alle Interfaces). Überschreibbar via ENV, falls nötig.
+const BIND_HOST = process.env.E2E_BIND_HOST || '0.0.0.0';
 
 // Modus: "local" (Default) oder "container"
 const MODE = (process.argv.includes('--mode=container') ? 'container' : 'local');
@@ -39,14 +45,14 @@ let entryProc;
 
 function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-// TCP-Echo-Server starten
+// TCP-Echo-Server starten (an 0.0.0.0 binden!)
 function startEchoServer() {
   return new Promise((resolve, reject) => {
     const server = net.createServer((socket) => {
       socket.on('data', (chunk) => socket.write(chunk)); // 1:1 Echo
     });
     server.once('error', reject);
-    server.listen(TCP_PORT, TARGET_HOST, () => resolve(server));
+    server.listen(TCP_PORT, BIND_HOST, () => resolve(server));
   });
 }
 
@@ -60,8 +66,9 @@ function startEntrypointIfNeeded() {
     env: {
       ...process.env,
       // Entrypoint erwartet MUMBLE_SERVER; Port 8081 ist dort fest verdrahtet
-      MUMBLE_SERVER: `${TARGET_HOST}:${TCP_PORT}`,
-      PLAIN_TARGET: '1',          // WICHTIG: Echo-Server ist Plain TCP (kein TLS)
+      // websockify im Test soll Plain-TCP sprechen → PLAIN_TARGET=1
+      MUMBLE_SERVER: `${CLIENT_HOST}:${TCP_PORT}`,
+      PLAIN_TARGET: '1',
       TINI_SUBREAPER: '1'
     },
     stdio: 'inherit'
@@ -77,19 +84,19 @@ async function stopEntrypointIfNeeded() {
 
 async function main() {
   try {
-    // 1) Echo-Server starten und verfügbar machen
+    // 1) Echo-Server starten (an 0.0.0.0) und warten, bis Port offen ist
     echoServer = await startEchoServer();
-    await waitPort({ host: TARGET_HOST, port: TCP_PORT, timeout: 5000 });
+    await waitPort({ host: CLIENT_HOST, port: TCP_PORT, timeout: 5000 });
 
     // 2) Entrypoint ggf. starten (nur local)
     startEntrypointIfNeeded();
 
-    // 3) Auf WebSocket-Port warten
-    const wsOpen = await waitPort({ host: TARGET_HOST, port: WS_PORT, timeout: 8000 });
+    // 3) Auf WebSocket-Port warten (Client verbindet lokal auf 127.0.0.1)
+    const wsOpen = await waitPort({ host: CLIENT_HOST, port: WS_PORT, timeout: 8000 });
     if (!wsOpen) throw new Error('WebSocket-Port wurde nicht geöffnet');
 
     // 4) WebSocket-Roundtrip prüfen (Echo muss identisch sein)
-    const ws = new WebSocket(`ws://${TARGET_HOST}:${WS_PORT}`);
+    const ws = new WebSocket(`ws://${CLIENT_HOST}:${WS_PORT}`);
 
     await new Promise((resolve, reject) => {
       const to = setTimeout(() => reject(new Error('WS Open Timeout')), 5000);
@@ -116,7 +123,6 @@ async function main() {
     console.error('❌ E2E fehlgeschlagen:', err && err.message ? err.message : err);
     process.exitCode = 1;
   } finally {
-    // Aufräumen
     await stopEntrypointIfNeeded();
     if (echoServer) await new Promise((res) => echoServer.close(res));
     await delay(100);
