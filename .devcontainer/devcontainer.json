@@ -1,32 +1,38 @@
 {
-  // Name of the dev container
   "name": "App Dev (Multi-stage target=dev)",
 
-  // Build configuration for the dev container
+  // Wir bauen mit unserem Multi-Stage-Dockerfile, Target = dev
   "build": {
-    "context": "..", // Build context directory
-    "dockerfile": "../Dockerfile", // Path to Dockerfile
-    "target": "dev" // Multi-stage build target
+    "context": "..",
+    "dockerfile": "../Dockerfile",
+    "target": "dev"
   },
 
-  "remoteUser": "node", // Default user inside the container
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}", // Workspace folder path
-  "overrideCommand": true, // Override default container command
-  "runArgs": ["--init"], // Additional Docker run arguments
+  // Container läuft standardmäßig als 'node'
+  "remoteUser": "node",
 
-  // Install dependencies after container creation
+  // Wichtige Ordnerzuordnung:
+  // - VS Code sieht /home/node als Workspace
+  // - Dein lokales Repo wird genau dort gebind-mounted
+  "workspaceFolder": "/home/node",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/node,type=bind,consistency=cached",
+
+  "overrideCommand": true,
+  "runArgs": ["--init"],
+
+  // Beispiel für zusätzliche Umgebungsvariablen (falls nötig)
   "containerEnv": {
     "SKIP_PREPARE": "1"
   },
-  "postCreateCommand": "bash -lc 'npm ci || npm install'",
 
-  // Show Node and npm versions after container starts
-  "postStartCommand": "bash -lc 'node -v && npm -v'",
+  // Nach Container-Erstellung: Dependencies installieren
+  "postCreateCommand": "bash -lc 'cd /home/node && if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'",
 
-  "forwardPorts": [8081], // Forward port 8081 from container to host
+  // Nach jedem Start: Node- und npm-Version ausgeben
+  "postStartCommand": "bash -lc 'cd /home/node && node -v && npm -v'",
 
-  // Port attributes for forwarded ports
+  // Port-Weiterleitung (z. B. lokale App auf 8081)
+  "forwardPorts": [8081],
   "portsAttributes": {
-    "8081": { "label": "App", "onAutoForward": "notify" }
-  }
-}
+    "8081": {
+      "labe
