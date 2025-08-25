@@ -13,7 +13,6 @@ on:
 
 env:
   TEST_TAG: jafudi/mumbling-mole:test
-  # Ports: Smoke nutzt 8081, E2E nutzt 8082 (kein Konflikt)
   SMOKE_HTTP_PORT: "8081"
   E2E_WS_PORT: "8082"
   E2E_TCP_PORT: "5900"
@@ -46,7 +45,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ===== EINMAL BAUEN (amd64), für Tests laden =====
       - name: Build image (prod stage, amd64 only)
         uses: docker/build-push-action@v6
         with:
@@ -61,7 +59,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ===== HTML SMOKE (nur statische Files) =====
       - name: HTML smoke test (content-length on :${{ env.SMOKE_HTTP_PORT }})
         env:
           SMOKE_HTTP_PORT: ${{ env.SMOKE_HTTP_PORT }}
@@ -76,7 +73,6 @@ jobs:
             --name mm-http \
             ${{ env.TEST_TAG }}
 
-          # Warten bis HTTP antwortet
           for i in {1..30}; do
             if curl -sfI "http://127.0.0.1:${SMOKE_HTTP_PORT}" >/tmp/headers; then break; fi
             sleep 1
@@ -94,7 +90,6 @@ jobs:
             exit 1
           fi
 
-      # ===== Node 16 für E2E-Skript =====
       - name: Setup Node 16 (for E2E script)
         uses: actions/setup-node@v4
         with:
@@ -103,20 +98,18 @@ jobs:
       - name: Install dev deps for E2E
         run: npm ci --omit=optional || npm i --omit=optional
 
-      # ===== E2E: Container starten (websockify :8081 -> Host:5900) =====
       - name: Run container for E2E
         env:
           E2E_WS_PORT: ${{ env.E2E_WS_PORT }}
           E2E_TCP_PORT: ${{ env.E2E_TCP_PORT }}
         run: |
           set -euo pipefail
-          # Vorsichtshalber alten Container entfernen
           docker rm -f mm-e2e >/dev/null 2>&1 || true
 
           docker run -d --rm \
             --name mm-e2e \
             --add-host host.docker.internal:host-gateway \
-            -p ${E2E_WS_PORT}:8081 \            # <— Host-Port an E2E_WS_PORT koppeln!
+            -p ${E2E_WS_PORT}:8081 \
             -e MUMBLE_SERVER=host.docker.internal:${E2E_TCP_PORT} \
             -e PLAIN_TARGET=1 \
             ${{ env.TEST_TAG }}
@@ -128,7 +121,6 @@ jobs:
           E2E_TARGET_HOST: "127.0.0.1"
         run: node scripts/e2e-check.cjs --mode=container
 
-      # Debug bei Fehlern: Logs helfen sofort
       - name: Debug logs (mm-e2e)
         if: failure()
         run: |
@@ -141,7 +133,6 @@ jobs:
         if: always()
         run: docker rm -f mm-e2e || true
 
-      # ===== Push ohne Rebuild =====
       - name: Push image tags
         if: github.event_name != 'pull_request'
         run: |
