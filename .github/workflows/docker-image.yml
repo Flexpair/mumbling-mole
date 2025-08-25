@@ -118,7 +118,7 @@ jobs:
           docker run -d --rm \
             --name mm-e2e \
             --add-host host.docker.internal:host-gateway \
-            -p 8081:8081 \
+            -p 8082:8081 \
             -e MUMBLE_SERVER=host.docker.internal:5900 \
             -e PLAIN_TARGET=1 \
             ${{ env.TEST_TAG }}
@@ -126,7 +126,7 @@ jobs:
       # --- E2E: WS-Tunnel Echo-Roundtrip (nutzt Repo-Skript) ---
       - name: E2E websocket tunnel (echo roundtrip)
         env:
-          E2E_WS_PORT: '8081'
+          E2E_WS_PORT: '8082'
           E2E_TCP_PORT: '5900'
           E2E_TARGET_HOST: '127.0.0.1'
         run: node scripts/e2e-check.cjs --mode=container
@@ -137,8 +137,8 @@ jobs:
         run: |
           echo "----- docker logs mm-e2e -----"
           docker logs mm-e2e || true
-          echo "----- best effort curl http://localhost:8081 -----"
-          curl -sS http://localhost:8081 || true
+          echo "----- best effort curl http://localhost:8082 -----"
+          curl -sS http://localhost:8082 || true
 
       # --- Aufräumen E2E-Container ---
       - name: Cleanup E2E container
