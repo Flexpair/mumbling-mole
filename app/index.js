@@ -1,5 +1,4 @@
 import "subworkers";
-import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
 import BufferQueueNode from "web-audio-buffer-queue";
@@ -223,7 +222,7 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    this.netlifyIdentity = require("netlify-identity-widget");
+  this.netlifyIdentity = require("netlify-identity-widget");
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.guacamoleFrame = new GuacamoleFrame();
@@ -319,8 +318,7 @@ class GlobalBindings {
           log(translate("logentry.connecting"), host);
 
           this.audioContext.resume();
-
-          this.connector
+      this.connector
             .connect(`wss://${host}:${port}`, {
               username: username,
               password: password,
@@ -328,7 +326,7 @@ class GlobalBindings {
             })
             .done(
               (client) => {
-                var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+        var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
                 let guac_login = false;
                 if (user_roles.includes("admin")) {
                   guac_login = "admin";
@@ -776,8 +774,12 @@ function initializeUI() {
       user.user_metadata.full_name.replace(/[\s]+/g, "_")
     );
 
-  var queryParams = url.parse(document.location.href, true).query;
-  queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
+  const searchParams = new URL(document.location.href).searchParams;
+  const queryParams = Object.assign(
+    {},
+    window.mumbleWebConfig.defaults,
+    Object.fromEntries(searchParams.entries())
+  );
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
   }

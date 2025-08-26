@@ -1,4 +1,3 @@
-import url from "url";
 
 var loadingTheme = require("../themes/MetroMumbleLight/loading.scss");
 var mainTheme = require("../themes/MetroMumbleLight/main.scss");

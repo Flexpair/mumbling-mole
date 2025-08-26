@@ -142,5 +142,11 @@ module.exports = {
   optimization: {
     minimize: true,
   },
+  performance: {
+    // Keep hints but lift thresholds to avoid noisy warnings while we work on slimming bundles
+    hints: "warning",
+    maxAssetSize: 3_500_000, // ~3.3 MiB workers currently
+    maxEntrypointSize: 1_600_000, // ~1.5 MiB main currently
+  },
   plugins: [new NodePolyfillPlugin()],
 };
