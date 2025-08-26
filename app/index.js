@@ -223,7 +223,12 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    this.netlifyIdentity = require("netlify-identity-widget");
+    try {
+      this.netlifyIdentity = require("netlify-identity-widget");
+    } catch (e) {
+      console.warn("netlify-identity-widget not available:", e.message);
+      this.netlifyIdentity = null;
+    }
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.guacamoleFrame = new GuacamoleFrame();
@@ -255,7 +260,9 @@ class GlobalBindings {
     };
 
     this.logoutUser = () => {
-      this.netlifyIdentity.logout();
+      if (this.netlifyIdentity) {
+        this.netlifyIdentity.logout();
+      }
       location.reload()
     };
 
@@ -285,12 +292,17 @@ class GlobalBindings {
       tokens = [],
       channelName = ""
     ) => {
-      var user_roles = (this.netlifyIdentity.currentUser().app_metadata.roles) || [];
+      var user_roles = [];
+      if (this.netlifyIdentity && this.netlifyIdentity.currentUser()) {
+        user_roles = (this.netlifyIdentity.currentUser().app_metadata.roles) || [];
+      }
       if (Array.isArray(user_roles)) {
         // Add "watch" and "listen" roles if they are not already present
         if (!user_roles.includes("watch")) user_roles.push("watch");
         if (!user_roles.includes("listen")) user_roles.push("listen");
-        this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
+        if (this.netlifyIdentity && this.netlifyIdentity.currentUser()) {
+          this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
+        }
         if (this.audioContext.sampleRate == 48000) {
           initVoice(
             (data) => {
@@ -328,7 +340,10 @@ class GlobalBindings {
             })
             .done(
               (client) => {
-                var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+                var user_roles = [];
+                if (this.netlifyIdentity && this.netlifyIdentity.currentUser()) {
+                  user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+                }
                 let guac_login = false;
                 if (user_roles.includes("admin")) {
                   guac_login = "admin";
@@ -748,33 +763,35 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 window.mumbleUi = ui;
 
 function initializeUI() {
-  ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/identity-proxy",  // <— geändert wegen CORS-Problem
-    locale: "en",
-  });
+  if (ui.netlifyIdentity) {
+    ui.netlifyIdentity.init({
+      APIUrl: "https://welcome.flexpair.com/identity-proxy",  // <— geändert wegen CORS-Problem
+      locale: "en",
+    });
 
-  var user = ui.netlifyIdentity.currentUser();
+    var user = ui.netlifyIdentity.currentUser();
 
-  ui.netlifyIdentity.on("login", (user) => {
-    console.log("login", user);
-    ui.connectDialog.username(
-      user.user_metadata.full_name.replace(/[\s]+/g, "_")
-    );
-    ui.netlifyIdentity.close();
-  });
+    ui.netlifyIdentity.on("login", (user) => {
+      console.log("login", user);
+      ui.connectDialog.username(
+        user.user_metadata.full_name.replace(/[\s]+/g, "_")
+      );
+      ui.netlifyIdentity.close();
+    });
 
-  ui.netlifyIdentity.on("close", () => {
-    if (!ui.connectDialog.username()) {
-      ui.netlifyIdentity.open("login"); // open the modal to the login tab
-    }
-  });
+    ui.netlifyIdentity.on("close", () => {
+      if (!ui.connectDialog.username()) {
+        ui.netlifyIdentity.open("login"); // open the modal to the login tab
+      }
+    });
 
-  if (user == null)
-    ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
-  else
-    ui.connectDialog.username(
-      user.user_metadata.full_name.replace(/[\s]+/g, "_")
-    );
+    if (user == null)
+      ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
+    else
+      ui.connectDialog.username(
+        user.user_metadata.full_name.replace(/[\s]+/g, "_")
+      );
+  }
 
   var queryParams = url.parse(document.location.href, true).query;
   queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);

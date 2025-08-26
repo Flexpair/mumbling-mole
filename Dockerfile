@@ -77,8 +77,8 @@ RUN chown -R node:node /home/node
 USER node
 WORKDIR /home/node
 
-RUN bash -lc 'npm config set strict-ssl false && if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm install; else npm install; fi'
-RUN npm config set strict-ssl false && npm rebuild && ls -la node_modules/.bin/ | head -10 && npm run build
+RUN bash -lc 'npm config set strict-ssl false && npm ci --ignore-scripts'
+RUN npm config set strict-ssl false && npm run build
 
 EXPOSE 8081 8082
 RUN chmod +x ./docker-entrypoint.sh
