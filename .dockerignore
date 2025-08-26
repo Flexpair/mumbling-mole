@@ -1,0 +1,18 @@
+# Ignore local development and build artifacts
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+.git
+.github
+.vscode
+.idea
+.cache
+coverage
+.tmp
+dist
+**/*.local.*
+.env
+.env.*
