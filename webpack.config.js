@@ -6,7 +6,7 @@ const theme = path.join(__dirname, "themes/MetroMumbleLight");
 module.exports = {
   mode: "production",
   entry: {
-  index: ["./app/index.js", "./app/index.html"],
+  index: ["./app/index.html", "./app/index.js"],
     config: "./app/config.js",
     theme: "./app/theme.js",
   },
@@ -87,6 +87,7 @@ module.exports = {
             options: {
               attrs: ["img:src", "link:href"],
               root: theme,
+              minimize: false
             },
           },
         ],

@@ -3,7 +3,7 @@
   "version": "0.5.1",
   "description": "An HTML5 Mumble client.",
   "scripts": {
-  "build": "[ -e dist ] && [ ! -d dist ] && rm -f dist || true; mkdir -p dist && BABEL_ENV=production NODE_ENV=production npx webpack --stats=errors-warnings --no-color && if [ -f app/config.local.js ]; then cp -f app/config.local.js dist/; fi && cp -f app/recorder-worker.js dist/ && bytes=$(stat -c %s dist/index.html 2>/dev/null || echo 0); if [ \"$bytes\" -le 5000 ]; then echo 'ERROR: dist/index.html not emitted or too small ('$bytes' bytes)'; exit 1; fi && echo 'Build OK'",
+  "build": "[ -e dist ] && [ ! -d dist ] && rm -f dist || true; mkdir -p dist && BABEL_ENV=production NODE_ENV=production npx webpack --stats=errors-warnings --no-color && if [ -f app/config.local.js ]; then cp -f app/config.local.js dist/; fi && cp -f app/recorder-worker.js dist/ && if [ -n \"$CI\" ]; then echo '--- dist after webpack ---'; (ls -l dist || true); fi; bytes=$(stat -c %s dist/index.html 2>/dev/null || echo 0); if [ \"$bytes\" -le 5000 ]; then echo 'ERROR: dist/index.html not emitted or too small ('$bytes' bytes)'; exit 1; fi && echo 'Build OK'",
   "build:verbose": "[ -e dist ] && [ ! -d dist ] && rm -f dist || true; mkdir -p dist && npx webpack --progress --profile --color && if [ -f app/config.local.js ] && [ ! -f dist/config.local.js ]; then cp app/config.local.js dist/; fi && cp app/recorder-worker.js dist/",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test:e2e": "node scripts/e2e-check.cjs",
