@@ -35,6 +35,12 @@ const TCP_PORT = Number(process.env.E2E_TCP_PORT || 5900);
 // Der WS-Client soll lokal testen → 127.0.0.1 ist ok; überschreibbar
 const CLIENT_HOST = process.env.E2E_TARGET_HOST || '127.0.0.1';
 
+// WebSocket-Pfad:
+// In vielen Setups funktioniert der Upgrade direkt auf der Root-URL ("/").
+// Manche noVNC/Websockify-Deployments nutzen stattdessen "/websockify".
+// Standard: Root-Pfad, mit Fallback auf "/websockify".
+const WS_PATH_ENV = process.env.E2E_WS_PATH || process.env.WS_PATH || '';
+
 // Echo-Server Bind-Host (alle Interfaces, damit Container zugreifen kann)
 const BIND_HOST = process.env.E2E_BIND_HOST || '0.0.0.0';
 
@@ -97,26 +103,46 @@ async function main() {
     if (!wsOpen) throw new Error('WebSocket-Port wurde nicht geöffnet');
 
     // 4) WebSocket-Roundtrip prüfen (Echo muss identisch sein)
-    const ws = new WebSocket(`ws://${CLIENT_HOST}:${WS_PORT}`);
+    // Versuche in Reihenfolge: expliziter Pfad (falls gesetzt), '/', '/websockify'
+    const candidates = [];
+    if (WS_PATH_ENV) candidates.push(WS_PATH_ENV);
+    candidates.push('/');
+    if (!candidates.includes('/websockify')) candidates.push('/websockify');
 
-    await new Promise((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('WS Open Timeout')), 5000);
-      ws.on('open', () => { clearTimeout(to); resolve(); });
-      ws.on('error', reject);
-    });
+    let lastErr;
+    let ok = false;
+    for (const p of candidates) {
+      const norm = p.startsWith('/') ? p : '/' + p;
+      const url = `ws://${CLIENT_HOST}:${WS_PORT}${norm}`;
+      try {
+        console.log(`[e2e] Versuch WS-Handshake auf Pfad: ${norm}`);
+        const ws = new WebSocket(url, { perMessageDeflate: false });
 
-    const payload = Buffer.from('hello-e2e');
-    const echoed = await new Promise((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('WS Message Timeout')), 5000);
-      ws.once('message', (data) => { clearTimeout(to); resolve(Buffer.from(data)); });
-      ws.send(payload);
-    });
+        await new Promise((resolve, reject) => {
+          const to = setTimeout(() => reject(new Error('WS Open Timeout')), 5000);
+          ws.on('open', () => { clearTimeout(to); resolve(); });
+          ws.on('error', reject);
+        });
 
-    ws.close();
+        const payload = Buffer.from('hello-e2e');
+        const echoed = await new Promise((resolve, reject) => {
+          const to = setTimeout(() => reject(new Error('WS Message Timeout')), 5000);
+          ws.once('message', (data) => { clearTimeout(to); resolve(Buffer.from(data)); });
+          ws.send(payload);
+        });
 
-    if (!echoed.equals(payload)) {
-      throw new Error('Echo-Payload stimmt nicht überein');
+        ws.close();
+        if (!echoed.equals(payload)) throw new Error('Echo-Payload stimmt nicht überein');
+        console.log(`[e2e] WS-Handshake + Echo erfolgreich auf Pfad: ${norm}`);
+        ok = true;
+        break;
+      } catch (e) {
+        lastErr = e;
+        console.log(`[e2e] WS auf Pfad ${p} fehlgeschlagen: ${e && e.message ? e.message : e}`);
+      }
     }
+
+    if (!ok) throw lastErr || new Error('WS Verbindung fehlgeschlagen');
 
     console.log('✅ E2E ok: Tunnel funktioniert (Echo identisch).');
     process.exitCode = 0;
