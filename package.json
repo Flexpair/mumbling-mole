@@ -15,6 +15,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@babel/core": "7.18.5",
     "@babel/plugin-transform-runtime": "7.18.5",
