@@ -1,0 +1,34 @@
+name: Build Preview version
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 16.x
+          cache: "npm"
+          registry-url: "https://npm.pkg.github.com"
+      - run: npm --no-git-tag-version version 1.0.${{ github.run_number }}
+      - run: npm install @actions/languageserver@latest @actions/workflow-parser@latest @actions/expressions@latest @actions/languageservice@latest
+      - run: npm ci
+      - name: create a package.json without scoped name
+        run: |
+          cp package.json package.json.real
+          sed --regexp-extended '/"name"\s*:/ s#@[a-zA-Z\\-]+/##' package.json.real > package.json
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          path: ./vscode-github-actions-1.0.${{ github.run_number }}.vsix

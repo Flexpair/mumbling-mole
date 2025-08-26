@@ -1,0 +1,16 @@
+{
+    "git.autofetch": true,
+    "terraform.experimentalFeatures.validateOnSave": true,
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "terraform.codelens.referenceCount": true,
+    "terraform.experimentalFeatures.prefillRequiredFields": true,
+    "git.ignoreRebaseWarning": true,
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "json5.format.keepLines": true,
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "accessibility.voice.speechLanguage": "de-DE"
+}

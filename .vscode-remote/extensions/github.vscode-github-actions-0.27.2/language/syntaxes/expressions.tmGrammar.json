@@ -1,0 +1,114 @@
+{
+  "scopeName": "source.github-actions-workflow.github-actions-expression",
+  "injectionSelector": "L:source.github-actions-workflow",
+  "patterns": [
+    {
+      "include": "#expression"
+    },
+    {
+      "include": "#if-expression"
+    }
+  ],
+  "repository": {
+    "expression": {
+      "match": "[|-]?\\$\\{\\{(.*?)\\}\\}",
+      "name": "meta.embedded.block.github-actions-expression",
+      "captures": {
+        "1": {
+          "patterns": [
+            {
+              "include": "#function-call"
+            },
+            {
+              "include": "#context"
+            },
+            {
+              "include": "#string"
+            },
+            {
+              "include": "#number"
+            },
+            {
+              "include": "#boolean"
+            },
+            {
+              "include": "#null"
+            }
+          ]
+        }
+      }
+    },
+    "if-expression": {
+      "match": "\\b(if:) (.*?)$",
+      "contentName": "meta.embedded.block.github-actions-expression",
+      "captures": {
+        "1": {
+          "patterns": [
+            {
+              "include": "source.github-actions-workflow"
+            }
+          ]
+        },
+        "2": {
+          "patterns": [
+            {
+              "include": "#function-call"
+            },
+            {
+              "include": "#context"
+            },
+            {
+              "include": "#string"
+            },
+            {
+              "include": "#number"
+            },
+            {
+              "include": "#boolean"
+            },
+            {
+              "include": "#null"
+            }
+          ]
+        }
+      }
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "match": "\\b([A-Za-z]*)\\(",
+          "captures": {
+            "1": {
+              "name": "support.function.github-actions-expression"
+            }
+          }
+        }
+      ]
+    },
+    "context": {
+      "patterns": [
+        {
+          "name": "variable.other.read.github-actions-expression",
+          "match": "\\b[A-Za-z][A-Za-z0-9_\\-]*\\b"
+        }
+      ]
+    },
+    "string": {
+      "name": "string.quoted.single.github-actions-expression",
+      "begin": "'",
+      "end": "'"
+    },
+    "number": {
+      "name": "constant.numeric.github-actions-expression",
+      "match": "\\b[0-9]+(?:.[0-9]+)?\\b"
+    },
+    "boolean": {
+      "name": "constant.language.boolean.github-actions-expression",
+      "match": "\\b(true|false)\\b"
+    },
+    "null": {
+      "name": "constant.language.null.github-actions-expression",
+      "match": "\\bnull\\b"
+    }
+  }
+}

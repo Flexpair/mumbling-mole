@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "workspaces": [
+    "./languageservices/expressions",
+    "./languageservices/workflow-parser",
+    "./languageservices/languageservice",
+    "./languageservices/languageserver",
+    "./vscode-github-actions"
+  ],
+  "dependencies": {
+    "@babel/traverse": "^7.24.7"
+  }
+}

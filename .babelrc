@@ -1,0 +1,46 @@
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "loose": true,
+        "modules": false,
+        "targets": {
+          "browsers": ["> 1%", "last 2 versions", "not ie <= 11"]
+        }
+      }
+    ]
+  ],
+  "plugins": [
+    [
+      "@babel/plugin-transform-runtime",
+      {
+        "loose": true,
+        "regenerator": true
+      }
+    ],
+    [
+      "@babel/plugin-transform-class-properties",
+      {
+        "loose": true
+      }
+    ],
+    [
+      "@babel/plugin-transform-private-methods",
+      {
+        "loose": true
+      }
+    ],
+    [
+      "@babel/plugin-transform-private-property-in-object",
+      {
+        "loose": true
+      }
+    ]
+  ],
+  "env": {
+    "test": {
+      "presets": [["@babel/preset-env", { "loose": true, "targets": { "node": "current" } }]]
+    }
+  }
+}
