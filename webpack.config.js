@@ -1,7 +1,7 @@
 const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
-
-var theme = "../themes/MetroMumbleLight";
-var path = require("path");
+const path = require("path");
+// Resolve theme assets relative to this config file to avoid environment-dependent cwd issues
+const theme = path.join(__dirname, "themes/MetroMumbleLight");
 
 module.exports = {
   mode: "production",
