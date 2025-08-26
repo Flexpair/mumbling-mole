@@ -5,27 +5,22 @@ FROM ubuntu:24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Deadsnakes PPA für Python 3.11
-RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update
-
-# Grundpakete
-RUN apt-get install -y --no-install-recommends \
+# Grundpakete mit Python 3.12 (default in Ubuntu 24.04)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
     tini \
     bash \
-    python3.11 \
-    python3.11-venv \
+    python3 \
+    python3-venv \
     xz-utils && \
     rm -rf /var/lib/apt/lists/*
 
-# Python 3.11 venv + websockify
-RUN /usr/bin/python3.11 -m venv /opt/venv
+# Python 3.12 venv + websockify
+RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
-RUN pip install --no-cache-dir websockify==0.12.0
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org websockify==0.12.0
 
 # ---------------------------------------------------------------------
 # Node.js 20 Installation (robust, feste Symlinks)
@@ -39,7 +34,7 @@ RUN set -eux; \
       arm64) node_arch="arm64" ;; \
       *) echo "Unsupported arch: $arch" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
+    curl -fsSLk "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
     mkdir -p /usr/local/lib/nodejs; \
     tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/node" /usr/local/bin/node; \
@@ -82,8 +77,8 @@ RUN chown -R node:node /home/node
 USER node
 WORKDIR /home/node
 
-RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
-RUN npm run build
+RUN bash -lc 'npm config set strict-ssl false && if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm install; else npm install; fi'
+RUN npm config set strict-ssl false && npm rebuild && ls -la node_modules/.bin/ | head -10 && npm run build
 
 EXPOSE 8081 8082
 RUN chmod +x ./docker-entrypoint.sh
