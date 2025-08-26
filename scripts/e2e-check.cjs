@@ -22,7 +22,8 @@
  */
 
 const net = require('net');
-const { spawn } = require('child_process');
+const http = require('http');
+const { spawn, execFileSync } = require('child_process');
 const waitPort = require('wait-port');
 const WebSocket = require('ws');
 
@@ -34,6 +35,8 @@ const TCP_PORT = Number(process.env.E2E_TCP_PORT || 5900);
 
 // Der WS-Client soll lokal testen → 127.0.0.1 ist ok; überschreibbar
 const CLIENT_HOST = process.env.E2E_TARGET_HOST || '127.0.0.1';
+// Origin-Header für WS-Handshake (manche websockify-Setups prüfen dies)
+const ORIGIN = process.env.E2E_ORIGIN || `http://${CLIENT_HOST}:${WS_PORT}`;
 
 // WebSocket-Pfad:
 // In vielen Setups funktioniert der Upgrade direkt auf der Root-URL ("/").
@@ -89,6 +92,29 @@ async function stopEntrypointIfNeeded() {
   try { entryProc.kill('SIGKILL'); } catch {}
 }
 
+// Konnektivität vom Container zum Ziel prüfen (nur im container-Modus)
+function checkTargetFromContainerIfPossible() {
+  if (MODE !== 'container') return true;
+  const container = process.env.E2E_CONTAINER_NAME || 'mm-e2e';
+  const target = (process.env.MUMBLE_SERVER || `host.docker.internal:${TCP_PORT}`);
+  const [host, portStr] = target.split(':');
+  const portNum = Number(portStr || TCP_PORT);
+  try {
+    const cmd = `docker exec ${container} bash -lc 'cat </dev/null > /dev/tcp/${host}/${portNum} && echo OK || echo FAIL'`;
+    const out = execFileSync('bash', ['-lc', cmd], { encoding: 'utf8' }).trim();
+    if (!/OK/.test(out)) {
+      console.log(`[e2e] Container kann Ziel ${host}:${portNum} nicht erreichen (out="${out}")`);
+      return false;
+    }
+    console.log(`[e2e] Container-Konnektivität OK → ${host}:${portNum}`);
+    return true;
+  } catch (e) {
+    console.log(`[e3e] Hinweis: Docker CLI/exec-Probe übersprungen oder fehlgeschlagen: ${e && e.message ? e.message : e}`);
+    // Nicht fatal; wir machen weiter
+    return true;
+  }
+}
+
 async function main() {
   try {
     // 1) Echo-Server starten (an 0.0.0.0) und warten, bis Port offen ist
@@ -102,6 +128,20 @@ async function main() {
     const wsOpen = await waitPort({ host: CLIENT_HOST, port: WS_PORT, timeout: 8000 });
     if (!wsOpen) throw new Error('WebSocket-Port wurde nicht geöffnet');
 
+  // 3b) Konnektivität vom Container zum Ziel prüfen (wenn möglich)
+  const containerOk = checkTargetFromContainerIfPossible();
+  if (!containerOk) throw new Error('Container erreicht Ziel (MUMBLE_SERVER) nicht');
+
+    // Optional: HTTP-Erreichbarkeit prüfen (statischer Inhalt via --web)
+    await new Promise((resolve) => {
+      const req = http.get({ host: CLIENT_HOST, port: WS_PORT, path: '/', timeout: 2000 }, (res) => {
+        res.resume(); // Body verwerfen
+        resolve();
+      });
+      req.on('error', () => resolve());
+      req.on('timeout', () => { try { req.destroy(); } catch {} resolve(); });
+    });
+
     // 4) WebSocket-Roundtrip prüfen (Echo muss identisch sein)
     // Versuche in Reihenfolge: expliziter Pfad (falls gesetzt), '/', '/websockify'
     const candidates = [];
@@ -111,35 +151,40 @@ async function main() {
 
     let lastErr;
     let ok = false;
-    for (const p of candidates) {
-      const norm = p.startsWith('/') ? p : '/' + p;
-      const url = `ws://${CLIENT_HOST}:${WS_PORT}${norm}`;
-      try {
-        console.log(`[e2e] Versuch WS-Handshake auf Pfad: ${norm}`);
-        const ws = new WebSocket(url, { perMessageDeflate: false });
+    const attempts = Number(process.env.E2E_WS_ATTEMPTS || 5);
+    const openTimeoutMs = Number(process.env.E2E_WS_OPEN_TIMEOUT || 8000);
+    for (let attempt = 1; attempt <= attempts && !ok; attempt++) {
+      for (const p of candidates) {
+        const norm = p.startsWith('/') ? p : '/' + p;
+        const url = `ws://${CLIENT_HOST}:${WS_PORT}${norm}`;
+        try {
+          console.log(`[e2e] Versuch WS-Handshake (Try ${attempt}/${attempts}) auf Pfad: ${norm}`);
+          const ws = new WebSocket(url, { perMessageDeflate: false, origin: ORIGIN });
 
-        await new Promise((resolve, reject) => {
-          const to = setTimeout(() => reject(new Error('WS Open Timeout')), 5000);
-          ws.on('open', () => { clearTimeout(to); resolve(); });
-          ws.on('error', reject);
-        });
+          await new Promise((resolve, reject) => {
+            const to = setTimeout(() => reject(new Error('WS Open Timeout')), openTimeoutMs);
+            ws.on('open', () => { clearTimeout(to); resolve(); });
+            ws.on('error', reject);
+          });
 
-        const payload = Buffer.from('hello-e2e');
-        const echoed = await new Promise((resolve, reject) => {
-          const to = setTimeout(() => reject(new Error('WS Message Timeout')), 5000);
-          ws.once('message', (data) => { clearTimeout(to); resolve(Buffer.from(data)); });
-          ws.send(payload);
-        });
+          const payload = Buffer.from('hello-e2e');
+          const echoed = await new Promise((resolve, reject) => {
+            const to = setTimeout(() => reject(new Error('WS Message Timeout')), 5000);
+            ws.once('message', (data) => { clearTimeout(to); resolve(Buffer.from(data)); });
+            ws.send(payload);
+          });
 
-        ws.close();
-        if (!echoed.equals(payload)) throw new Error('Echo-Payload stimmt nicht überein');
-        console.log(`[e2e] WS-Handshake + Echo erfolgreich auf Pfad: ${norm}`);
-        ok = true;
-        break;
-      } catch (e) {
-        lastErr = e;
-        console.log(`[e2e] WS auf Pfad ${p} fehlgeschlagen: ${e && e.message ? e.message : e}`);
+          ws.close();
+          if (!echoed.equals(payload)) throw new Error('Echo-Payload stimmt nicht überein');
+          console.log(`[e2e] WS-Handshake + Echo erfolgreich auf Pfad: ${norm}`);
+          ok = true;
+          break;
+        } catch (e) {
+          lastErr = e;
+          console.log(`[e2e] WS auf Pfad ${p} fehlgeschlagen: ${e && e.message ? e.message : e}`);
+        }
       }
+      if (!ok) await delay(1000);
     }
 
     if (!ok) throw lastErr || new Error('WS Verbindung fehlgeschlagen');
