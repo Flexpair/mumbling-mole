@@ -26,9 +26,9 @@ const { spawn } = require('child_process');
 const waitPort = require('wait-port');
 const WebSocket = require('ws');
 
-// WS-Port von websockify: bevorzugt PORT/SMOKE_HTTP_PORT/E2E_WS_PORT (Default 8081)
+// WS-Port von websockify: bevorzugt E2E_WS_PORT (Host-Port in CI), dann PORT/SMOKE_HTTP_PORT (Local)
 const WS_PORT = Number(
-  process.env.PORT || process.env.SMOKE_HTTP_PORT || process.env.E2E_WS_PORT || 8081
+  process.env.E2E_WS_PORT || process.env.PORT || process.env.SMOKE_HTTP_PORT || 8081
 );
 const TCP_PORT = Number(process.env.E2E_TCP_PORT || 5900);
 
