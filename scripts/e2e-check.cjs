@@ -109,7 +109,7 @@ function checkTargetFromContainerIfPossible() {
     console.log(`[e2e] Container-Konnektivität OK → ${host}:${portNum}`);
     return true;
   } catch (e) {
-    console.log(`[e3e] Hinweis: Docker CLI/exec-Probe übersprungen oder fehlgeschlagen: ${e && e.message ? e.message : e}`);
+    console.log(`[e2e] Hinweis: Docker CLI/exec-Probe übersprungen oder fehlgeschlagen: ${e && e.message ? e.message : e}`);
     // Nicht fatal; wir machen weiter
     return true;
   }
