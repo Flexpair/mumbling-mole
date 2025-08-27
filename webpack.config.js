@@ -3,6 +3,30 @@ const path = require("path");
 // Resolve theme assets relative to this config file to avoid environment-dependent cwd issues
 const theme = path.join(__dirname, "themes/MetroMumbleLight");
 
+// Tiny diagnostic plugin to log emitted asset sizes (helps when CI differs from local)
+class EmitLogPlugin {
+  apply(compiler) {
+    compiler.hooks.emit.tap("EmitLogPlugin", (compilation) => {
+      try {
+        const assets = Object.entries(compilation.assets || {});
+        const lines = ["[emit-log] Emitted assets:"]; 
+        for (const [name, asset] of assets) {
+          const size = typeof asset.size === "function" ? asset.size() : (asset._value ? asset._value.length : 0);
+          lines.push(` - ${name} (${size} bytes)`);
+        }
+        const idx = assets.find(a => a[0] === "index.html");
+        const idxSize = idx ? (typeof idx[1].size === "function" ? idx[1].size() : (idx[1]._value ? idx[1]._value.length : 0)) : 0;
+        lines.push(`[emit-log] index.html size: ${idxSize} bytes`);
+        // eslint-disable-next-line no-console
+        console.error(lines.join("\n"));
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("[emit-log] failed:", e && e.message ? e.message : e);
+      }
+    });
+  }
+}
+
 module.exports = {
   mode: "production",
   entry: {
@@ -182,5 +206,5 @@ module.exports = {
   optimization: {
     minimize: true,
   },
-  plugins: [new NodePolyfillPlugin()],
+  plugins: [new NodePolyfillPlugin(), new EmitLogPlugin()],
 };
