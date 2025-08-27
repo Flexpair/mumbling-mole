@@ -44,11 +44,6 @@ module.exports = {
   },
   module: {
     rules: [
-      // Special-case the widget's modal CSS: import as string for iframe injection
-      {
-        test: /vendor\/netlify-identity-widget\/src\/components\/modal\.css$/,
-        use: [{ loader: 'raw-loader' }],
-      },
       {
         test: /\.js$/,
         exclude: /node_modules/,
@@ -63,7 +58,7 @@ module.exports = {
         },
       },
       // Transpile the widget source (vendored or node_modules src)
-      {
+  {
         test: /(vendor|node_modules)\/netlify-identity-widget\/src\/.*\.js$/,
         use: {
           loader: 'babel-loader',
@@ -73,7 +68,9 @@ module.exports = {
             plugins: [
               ['@babel/plugin-proposal-decorators', { legacy: true }],
               // Ensure class fields are transpiled for safe minification (Terser)
-              ['@babel/plugin-transform-class-properties', { loose: true }],
+      ['@babel/plugin-transform-class-properties', { loose: true }],
+      ['@babel/plugin-transform-private-methods', { loose: true }],
+      ['@babel/plugin-transform-private-property-in-object', { loose: true }],
               ['@babel/plugin-transform-react-jsx', { pragma: 'h', pragmaFrag: 'Fragment', runtime: 'classic' }],
             ],
           },
