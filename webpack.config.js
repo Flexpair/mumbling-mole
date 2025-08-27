@@ -72,6 +72,8 @@ module.exports = {
             cacheDirectory: true,
             plugins: [
               ['@babel/plugin-proposal-decorators', { legacy: true }],
+              // Ensure class fields are transpiled for safe minification (Terser)
+              ['@babel/plugin-transform-class-properties', { loose: true }],
               ['@babel/plugin-transform-react-jsx', { pragma: 'h', pragmaFrag: 'Fragment', runtime: 'classic' }],
             ],
           },
