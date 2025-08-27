@@ -1,36 +1,19 @@
 const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const webpack = require("webpack");
 const path = require("path");
+
 // Resolve theme assets relative to this config file to avoid environment-dependent cwd issues
 const theme = path.join(__dirname, "themes/MetroMumbleLight");
 
-// Tiny diagnostic plugin to log emitted asset sizes (helps when CI differs from local)
-class EmitLogPlugin {
-  apply(compiler) {
-    compiler.hooks.emit.tap("EmitLogPlugin", (compilation) => {
-      try {
-        const assets = Object.entries(compilation.assets || {});
-        const lines = ["[emit-log] Emitted assets:"]; 
-        for (const [name, asset] of assets) {
-          const size = typeof asset.size === "function" ? asset.size() : (asset._value ? asset._value.length : 0);
-          lines.push(` - ${name} (${size} bytes)`);
-        }
-        const idx = assets.find(a => a[0] === "index.html");
-        const idxSize = idx ? (typeof idx[1].size === "function" ? idx[1].size() : (idx[1]._value ? idx[1]._value.length : 0)) : 0;
-        lines.push(`[emit-log] index.html size: ${idxSize} bytes`);
-        // eslint-disable-next-line no-console
-        console.error(lines.join("\n"));
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("[emit-log] failed:", e && e.message ? e.message : e);
-      }
-    });
-  }
-}
+// No custom diagnostics in production build
 
 module.exports = {
   mode: "production",
   entry: {
-  index: ["./app/index.html", "./app/index.js"],
+    index: "./app/index.js",
     config: "./app/config.js",
     theme: "./app/theme.js",
   },
@@ -40,9 +23,32 @@ module.exports = {
     chunkFilename: "[chunkhash].js",
     filename: "[name].js",
     publicPath: "",
+  clean: true,
+  },
+  resolve: {
+    alias: {
+      // Prefer vendored fork source; fallback to npm/git src; last resort: shim
+      'netlify-identity-widget':
+        require('fs').existsSync(path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'))
+          ? path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js')
+          : (require('fs').existsSync(path.resolve(__dirname, 'node_modules/netlify-identity-widget/src/netlify-identity.js'))
+              ? path.resolve(__dirname, 'node_modules/netlify-identity-widget/src/netlify-identity.js')
+              : path.resolve(__dirname, 'app/netlify-identity-shim.js')),
+    },
+    fallback: {
+      fs: false,
+      net: false,
+      tls: false,
+      dgram: false,
+    },
   },
   module: {
     rules: [
+      // Special-case the widget's modal CSS: import as string for iframe injection
+      {
+        test: /vendor\/netlify-identity-widget\/src\/components\/modal\.css$/,
+        use: [{ loader: 'raw-loader' }],
+      },
       {
         test: /\.js$/,
         exclude: /node_modules/,
@@ -51,129 +57,46 @@ module.exports = {
           options: {
             babelrc: true,
             cacheDirectory: true,
-            presets: [
-              [
-                "@babel/preset-env",
-                {
-                  loose: true,
-                  modules: false,
-                  targets: {
-                    browsers: ["> 1%", "last 2 versions", "not ie <= 11"]
-                  }
-                }
-              ]
-            ],
-            plugins: [
-              [
-                "@babel/plugin-transform-runtime",
-                {
-                  loose: true,
-                  regenerator: true
-                }
-              ],
-              [
-                "@babel/plugin-transform-class-properties",
-                {
-                  loose: true
-                }
-              ],
-              [
-                "@babel/plugin-transform-private-methods",
-                {
-                  loose: true
-                }
-              ],
-              [
-                "@babel/plugin-transform-private-property-in-object",
-                {
-                  loose: true
-                }
-              ]
-            ]
+            presets: [["@babel/preset-env", { loose: true, modules: false, targets: { browsers: ["> 1%", "last 2 versions", "not ie <= 11"] } }]],
+            plugins: [["@babel/plugin-transform-runtime", { loose: true, regenerator: true }]],
           },
         },
       },
+      // Transpile the widget source (vendored or node_modules src)
       {
-        test: /\.html$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              name: "[name].[ext]",
-              esModule: false,
-            },
+        test: /(vendor|node_modules)\/netlify-identity-widget\/src\/.*\.js$/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            babelrc: true,
+            cacheDirectory: true,
+            plugins: [
+              ['@babel/plugin-proposal-decorators', { legacy: true }],
+              ['@babel/plugin-transform-react-jsx', { pragma: 'h', pragmaFrag: 'Fragment', runtime: 'classic' }],
+            ],
           },
-          {
-            loader: "extract-loader",
-          },
-          {
-            loader: "html-loader",
-            options: {
-              attrs: ["img:src", "link:href"],
-              root: theme,
-              minimize: false
-            },
-          },
-        ],
+        },
       },
+      // no extra rule needed for the shim
+      // HTML is generated via HtmlWebpackPlugin
       {
         test: /\.css$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
-            loader: "extract-loader",
-          },
-          {
-            loader: "css-loader",
-          },
-        ],
+        use: [MiniCssExtractPlugin.loader, { loader: "css-loader" }],
       },
       {
         test: /\.scss$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              name: "[hash].css",
-              esModule: false,
-            },
-          },
-          {
-            loader: "extract-loader",
-          },
-          {
-            loader: "css-loader",
-          },
-          {
-            loader: "sass-loader",
-          },
-        ],
+        use: [MiniCssExtractPlugin.loader, { loader: "css-loader" }, { loader: "sass-loader" }],
       },
       {
         type: "javascript/auto",
         test: /manifest\.json$|\.xml$/,
         use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
-            loader: "extract-loader",
-          },
+          { loader: "file-loader", options: { esModule: false } },
+          { loader: "extract-loader" },
           {
             loader: "regexp-replace-loader",
             options: {
-              match: {
-                pattern: "#require\\('([^']*)'\\)",
-                flags: "g",
-              },
+              match: { pattern: "#require\\('([^']*)'\\)", flags: "g" },
               replaceWith: '"+require("$1")+"',
             },
           },
@@ -182,29 +105,30 @@ module.exports = {
       },
       {
         test: /\.(svg|png|ico)$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-        ],
+        use: [{ loader: "file-loader", options: { esModule: false } }],
       },
-      {
-        test: /worker\.js$/,
-        use: { loader: "worker-loader" },
-      },
-      {
-        enforce: "post",
-        test: /mumble-streams\/lib\/data.js/,
-        use: ["transform-loader?brfs"],
-      },
+      { test: /worker\.js$/, use: { loader: "worker-loader" } },
+      // Temporarily disabled: transform-loader with brfs can hang under webpack 5
+      // { enforce: "post", test: /mumble-streams\/lib\/data.js/, use: ["transform-loader?brfs"] },
     ],
   },
   target: "web",
-  optimization: {
-    minimize: true,
-  },
-  plugins: [new NodePolyfillPlugin(), new EmitLogPlugin()],
+  optimization: { minimize: false },
+  plugins: [
+    new NodePolyfillPlugin(),
+    new MiniCssExtractPlugin({ filename: "[name].css" }),
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, "app/index.html"),
+      filename: "index.html",
+      inject: false, // template already includes <script src="...">
+      minify: false,
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: path.join(__dirname, "app/favicons"), to: path.join(__dirname, "dist/favicons") },
+        { from: path.join(theme, "svg"), to: path.join(__dirname, "dist/svg") },
+        { from: path.join(theme, "img"), to: path.join(__dirname, "dist/img") },
+      ],
+    }),
+  ],
 };

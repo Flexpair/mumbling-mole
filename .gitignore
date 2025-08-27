@@ -18,6 +18,16 @@ pnpm-debug.log*
 *.seed
 *.pid.lock
 .node_repl_history
+# Error/output artifacts from local scripts
+*.err
+*.out
+
+# Build stats artifacts
+stats.json
+webpack-stats.json
+
+# Vendored sources fetched by script (do not commit embedded repo)
+vendor/netlify-identity-widget/
 
 # ============================================================
 # Coverage & Testing
