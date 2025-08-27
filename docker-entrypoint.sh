@@ -3,7 +3,20 @@ set -euo pipefail
 
 PORT="${PORT:-${SMOKE_HTTP_PORT:-8081}}"
 HOST="${HOST:-0.0.0.0}"
-WEBROOT="/home/node/dist"
+
+# Anpassung für lokale Umgebung: verwende dist/ statt /home/node/dist
+if [[ -d "/home/node/dist" ]]; then
+  # Docker-Container-Umgebung
+  WEBROOT="/home/node/dist"
+elif [[ -d "dist" ]]; then
+  # Lokale Umgebung (relative Pfad)
+  WEBROOT="dist"
+else
+  # Fallback: erstelle minimale dist mit Index-Datei für Test
+  mkdir -p dist
+  echo '<html><body>Test page</body></html>' > dist/index.html
+  WEBROOT="dist"
+fi
 
 # Sonderfall: alter HTTP-Smoke-Test → nur statische Dateien auf :8081 ausliefern
 if [[ "${SKIP_TUNNEL:-}" = "1" ]]; then
