@@ -50,7 +50,6 @@
     "mobx": "^5.15.4",
     "mobx-preact": "^3.0.0",
     "mumble-client": "Flexpair/mumble-client#master",
-    "netlify-identity-widget": "Flexpair/netlify-identity-widget#master",
     "node-polyfill-webpack-plugin": "^1.1.4",
     "preact": "^8.5.3",
     "promise": "8.1.0",
