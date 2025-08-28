@@ -82,9 +82,8 @@ RUN chown -R node:node /home/node
 USER node
 WORKDIR /home/node
 
-RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci --ignore-scripts --no-audit --no-fund; else npm install --ignore-scripts --no-audit --no-fund; fi'
-RUN bash -lc 'npx update-browserslist-db@latest || true'
-RUN bash -lc 'npm run build'
+# Einheitliche Setup-Schritte (Dependencies + Build)
+RUN bash -lc 'chmod +x ./scripts/setup.sh && ./scripts/setup.sh'
 
 EXPOSE 8081 8082
 RUN chmod +x ./docker-entrypoint.sh

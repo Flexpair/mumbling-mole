@@ -22,7 +22,7 @@
     "SKIP_PREPARE": "1"
   },
   // Nach Container-Erstellung: Dependencies installieren
-  "postCreateCommand": "bash -lc 'cd /home/node && (npm ci --ignore-scripts --no-audit --no-fund || npm install --ignore-scripts --no-audit --no-fund) && npx update-browserslist-db@latest || true && npm run build'",
+  "postCreateCommand": "bash -lc 'cd /home/node && chmod +x ./scripts/setup.sh && ./scripts/setup.sh'",
   // Nach jedem Start: Node- und npm-Version ausgeben
   "postStartCommand": "bash -lc 'cd /home/node && node -v && npm -v'",
   // Port-Weiterleitung (z. B. lokale App auf 8081)
