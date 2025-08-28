@@ -12,7 +12,7 @@ These instructions tell Copilot how to best assist when working in this repo.
 - Bundler: webpack 5. Keep config minimal; rely on existing loaders/plugins.
 - Styles: SCSS processed via sass-loader (themes under `themes/`).
 - Web workers: loaded via `worker-loader`. Don’t convert workers to other patterns.
-- Node version: 16.x (see `Dockerfile`). Avoid suggesting upgrades unless explicitly requested.
+- Node version: 20.x (see `Dockerfile`). Avoid suggesting upgrades unless explicitly requested.
 - Dependencies are pinned/explicit. Prefer adding none; if necessary, pick lightweight, well-maintained libs.
 
 ## How to build, run, and test

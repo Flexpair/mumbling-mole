@@ -18,6 +18,16 @@ pnpm-debug.log*
 *.seed
 *.pid.lock
 .node_repl_history
+# Error/output artifacts from local scripts
+*.err
+*.out
+
+# Build stats artifacts
+stats.json
+webpack-stats.json
+
+# Vendored sources fetched by script (do not commit embedded repo)
+vendor/netlify-identity-widget/
 
 # ============================================================
 # Coverage & Testing
@@ -48,6 +58,9 @@ jspm_packages/
 .devcontainer/*Marker
 .cache/
 .dotnet/
+# Ignore all VS Code remote cache/state
+.vscode-remote/
+.vscode-remote/**
 
 # ============================================================
 # IDE & System
@@ -59,6 +72,17 @@ jspm_packages/
 Thumbs.db
 *.swp
 *.swo
+# Common editor/backup files
+*~
+*.bak
+*.backup
+*.orig
+*.rej
+.babelrc.backup
+.babelrc.backup2
+# Shell history (local dev only)
+.bash_history
+# Keep some explicit lines below for historical context; superseded by the glob above
 .vscode-remote/extensionsCache
 .vscode-remote/bin/360a4e4fd251bfce169a4ddf857c7d25d1ad40da
 .vscode-remote/data/machineid
@@ -161,26 +185,6 @@ Thumbs.db
 .vscode-remote/extensions/github.copilot-chat-0.30.3/package.nls.tr.json
 .vscode-remote/extensions/github.copilot-chat-0.30.3/package.nls.zh-cn.json
 .vscode-remote/extensions/github.copilot-chat-0.30.3/package.nls.zh-tw.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/readme.md
-.vscode-remote/extensions/github.copilot-chat-0.30.3/telemetry.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/ThirdPartyNotices.txt
-.vscode-remote/extensions/github.copilot-chat-0.30.3/assets/copilot.png
-.vscode-remote/extensions/github.copilot-chat-0.30.3/assets/copilot.woff
-.vscode-remote/extensions/github.copilot-chat-0.30.3/assets/debug-icon.svg
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.cs.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.de.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.es.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.fr.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.it.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.ja.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.ko.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.pl.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.pt-br.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.qps-ploc.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.ru.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.tr.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.zh-cn.json
-.vscode-remote/extensions/github.copilot-chat-0.30.3/l10n/bundle.l10n.zh-tw.json
 .vscode-remote/extensions/github.vscode-pull-request-github-0.116.1/.vsixmanifest
 .vscode-remote/extensions/github.vscode-pull-request-github-0.116.1/changelog.md
 .vscode-remote/extensions/github.vscode-pull-request-github-0.116.1/LICENSE.txt

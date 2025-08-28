@@ -8,7 +8,17 @@ WEBROOT="/home/node/dist"
 # Sonderfall: alter HTTP-Smoke-Test → nur statische Dateien auf :8081 ausliefern
 if [[ "${SKIP_TUNNEL:-}" = "1" ]]; then
   echo "[entrypoint] SKIP_TUNNEL=1 → serve static files on ${HOST}:${PORT} from ${WEBROOT}"
-  exec python3 -m http.server "${PORT}" --bind "${HOST}" --directory "${WEBROOT}"
+  if [[ ! -d "${WEBROOT}" ]]; then
+    echo "[entrypoint] WARN: WEBROOT ${WEBROOT} does not exist; creating empty dir"
+    mkdir -p "${WEBROOT}"
+  fi
+  if [[ ! -f "${WEBROOT}/index.html" ]]; then
+    echo "[entrypoint] WARN: ${WEBROOT}/index.html not found; directory listing will be served"
+  else
+    echo "[entrypoint] INFO: index.html present ($(stat -c%s "${WEBROOT}/index.html" 2>/dev/null || echo '?') bytes)"
+  fi
+  cd "${WEBROOT}"
+  exec python3 -m http.server "${PORT}" --bind "${HOST}"
 fi
 
 # Normalfall: WebSocket-Tunnel + Static Web via websockify

@@ -22,7 +22,7 @@
     "SKIP_PREPARE": "1"
   },
   // Nach Container-Erstellung: Dependencies installieren
-  "postCreateCommand": "bash -lc 'cd /home/node && if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'",
+  "postCreateCommand": "bash -lc 'cd /home/node && chmod +x ./scripts/setup.sh && ./scripts/setup.sh'",
   // Nach jedem Start: Node- und npm-Version ausgeben
   "postStartCommand": "bash -lc 'cd /home/node && node -v && npm -v'",
   // Port-Weiterleitung (z. B. lokale App auf 8081)
