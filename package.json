@@ -11,7 +11,9 @@
     "vendor:identity": "node scripts/fetch-netlify-identity.cjs",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then npm run vendor:identity && rm -rf dist && mkdir -p dist && npm run build; fi",
     "test:e2e": "node scripts/e2e-check.cjs",
-    "test": "npm run test:e2e"
+  "test:console:install": "npx playwright install chromium",
+  "test:console": "node scripts/console-allowlist.cjs",
+  "test": "npm run test:e2e"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "license": "ISC",
@@ -24,6 +26,7 @@
     "node": ">=20"
   },
   "devDependencies": {
+  "playwright": "1.47.2",
     "@babel/core": "7.18.5",
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@babel/plugin-transform-class-properties": "^7.27.1",
