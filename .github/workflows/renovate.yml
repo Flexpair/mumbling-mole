@@ -28,7 +28,6 @@ jobs:
         env:
           RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOG_LEVEL: info
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
         with:
           configurationFile: renovate.json5
-          # If you use a default branch other than main, set it explicitly
-          renovateFork: false
