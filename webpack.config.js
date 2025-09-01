@@ -93,8 +93,8 @@ module.exports = {
         use: [{ loader: "file-loader", options: { esModule: false } }],
       },
       { test: /worker\.js$/, use: { loader: "worker-loader" } },
-  // Inline fs.readFileSync(...) in third-party libs (mumble-client / mumble-streams)
-  { enforce: "post", test: /mumble-(client|streams)\/.*\.js$/, use: ["transform-loader?brfs"] },
+      // Inline fs.readFileSync(...) in third-party libs (mumble-client / mumble-streams)
+      { enforce: "post", test: /mumble-(client|streams)\/.*\.js$/, use: ["transform-loader?brfs"] },
     ],
   },
   target: "web",

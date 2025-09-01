@@ -6,10 +6,10 @@ concurrency:
 
 on:
   push:
-    branches: ["lite"]
+    branches: ["**"]
     tags: ["*"]
   pull_request:
-    branches: ["lite"]
+    branches: ["**"]
 
 env:
   TEST_TAG: jafudi/mumbling-mole:test
