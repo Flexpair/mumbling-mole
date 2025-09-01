@@ -29,6 +29,8 @@ const ALLOW = [
   /net::ERR/i,
   /blocked by client/i,
   /identity[- ]?proxy/i,
+  /AudioContext was not allowed to start/i,
+  /\[netlify-identity\] widget not loaded yet; queuing call/i,
 ];
 
 function isAllowed(msg) {
@@ -72,7 +74,7 @@ async function main() {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    const logs = [];
+  const logs = [];
     page.on('console', (msg) => {
       const text = msg.text();
       logs.push({ type: msg.type(), text });
@@ -83,6 +85,14 @@ async function main() {
     page.on('requestfailed', (req) => {
       const f = req.failure();
       logs.push({ type: 'requestfailed', text: `${req.method()} ${req.url()} :: ${f && f.errorText}` });
+    });
+    page.on('response', async (res) => {
+      try {
+        const status = res.status();
+        if (status >= 400) {
+          logs.push({ type: 'http', text: `${status} ${res.url()}` });
+        }
+      } catch {}
     });
 
     await page.goto(`http://${HOST}:${PORT}/`, { waitUntil: 'load', timeout: 15000 });

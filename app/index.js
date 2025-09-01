@@ -22,7 +22,7 @@ import {
 
 function GuacamoleFrame() {
   var self = this;
-  self.guacSource = ko.observable("/guacamole/");
+  self.guacSource = ko.observable("about:blank");
   self.visible = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
   self.hide = self.visible.bind(self.visible, false);

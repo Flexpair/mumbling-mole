@@ -116,6 +116,12 @@ module.exports = {
           to: path.join(__dirname, "dist/favicons"),
           globOptions: { ignore: ["**/manifest.json"] },
         },
+        // Also provide a root-level /favicon.ico for browsers that request it implicitly
+        {
+          from: path.join(__dirname, "app/favicons/favicon.ico"),
+          to: path.join(__dirname, "dist/favicon.ico"),
+          noErrorOnMissing: true,
+        },
         // Copy and sanitize manifest.json by replacing custom #require('./file') placeholders
         // with plain file names so the JSON stays valid when served statically.
         {
