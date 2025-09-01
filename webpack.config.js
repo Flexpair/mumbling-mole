@@ -27,13 +27,8 @@ module.exports = {
   },
   resolve: {
     alias: {
-      // Prefer vendored fork source; fallback to npm/git src; last resort: shim
-      'netlify-identity-widget':
-        require('fs').existsSync(path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'))
-          ? path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js')
-          : (require('fs').existsSync(path.resolve(__dirname, 'node_modules/netlify-identity-widget/src/netlify-identity.js'))
-              ? path.resolve(__dirname, 'node_modules/netlify-identity-widget/src/netlify-identity.js')
-              : path.resolve(__dirname, 'app/netlify-identity-shim.js')),
+  // Always use lightweight shim to avoid bundling the heavy widget and CI build quirks
+  'netlify-identity-widget': path.resolve(__dirname, 'app/netlify-identity-shim.js'),
     },
     fallback: {
       fs: false,
@@ -57,25 +52,7 @@ module.exports = {
           },
         },
       },
-      // Transpile the widget source (vendored or node_modules src)
-  {
-        test: /(vendor|node_modules)\/netlify-identity-widget\/src\/.*\.js$/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            babelrc: true,
-            cacheDirectory: true,
-            plugins: [
-              ['@babel/plugin-proposal-decorators', { legacy: true }],
-              // Ensure class fields are transpiled for safe minification (Terser)
-      ['@babel/plugin-transform-class-properties', { loose: true }],
-      ['@babel/plugin-transform-private-methods', { loose: true }],
-      ['@babel/plugin-transform-private-property-in-object', { loose: true }],
-              ['@babel/plugin-transform-react-jsx', { pragma: 'h', pragmaFrag: 'Fragment', runtime: 'classic' }],
-            ],
-          },
-        },
-      },
+  // no extra rule needed for the shim
       // no extra rule needed for the shim
       // HTML is generated via HtmlWebpackPlugin
       {

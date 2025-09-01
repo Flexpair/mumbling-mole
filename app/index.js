@@ -223,7 +223,11 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    this.netlifyIdentity = require("netlify-identity-widget");
+    // Normalize possible ESM default export from netlify-identity-widget
+    {
+      const mod = require("netlify-identity-widget");
+      this.netlifyIdentity = (mod && mod.default) ? mod.default : mod;
+    }
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.guacamoleFrame = new GuacamoleFrame();
@@ -748,33 +752,47 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 window.mumbleUi = ui;
 
 function initializeUI() {
-  ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/identity-proxy",  // <— geändert wegen CORS-Problem
-    locale: "en",
-  });
+  // If the widget isn’t available or lacks init (e.g., in tests), skip setup without throwing
+  if (ui && ui.netlifyIdentity && typeof ui.netlifyIdentity.init === 'function') {
+    ui.netlifyIdentity.init({
+      APIUrl: "https://welcome.flexpair.com/identity-proxy", // changed due to CORS issue
+      locale: "en",
+    });
+  } else {
+    // no-op: identity widget not available in this environment
+  }
 
-  var user = ui.netlifyIdentity.currentUser();
+  var user = (ui.netlifyIdentity && typeof ui.netlifyIdentity.currentUser === 'function')
+    ? ui.netlifyIdentity.currentUser()
+    : null;
 
-  ui.netlifyIdentity.on("login", (user) => {
-    console.log("login", user);
-    ui.connectDialog.username(
-      user.user_metadata.full_name.replace(/[\s]+/g, "_")
-    );
-    ui.netlifyIdentity.close();
-  });
+  if (ui.netlifyIdentity && typeof ui.netlifyIdentity.on === 'function') {
+    ui.netlifyIdentity.on("login", (user) => {
+      console.log("login", user);
+      ui.connectDialog.username(
+        user.user_metadata.full_name.replace(/[\s]+/g, "_")
+      );
+      if (typeof ui.netlifyIdentity.close === 'function') ui.netlifyIdentity.close();
+    });
+  }
 
-  ui.netlifyIdentity.on("close", () => {
-    if (!ui.connectDialog.username()) {
-      ui.netlifyIdentity.open("login"); // open the modal to the login tab
+  if (ui.netlifyIdentity && typeof ui.netlifyIdentity.on === 'function') {
+    ui.netlifyIdentity.on("close", () => {
+      if (!ui.connectDialog.username()) {
+        if (typeof ui.netlifyIdentity.open === 'function') ui.netlifyIdentity.open("login"); // open the modal to the login tab
+      }
+    });
+  }
+
+  if (user == null) {
+  if (ui.netlifyIdentity && typeof ui.netlifyIdentity.open === 'function') {
+      ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
     }
-  });
-
-  if (user == null)
-    ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
-  else
+  } else {
     ui.connectDialog.username(
       user.user_metadata.full_name.replace(/[\s]+/g, "_")
     );
+  }
 
   var queryParams = url.parse(document.location.href, true).query;
   queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
