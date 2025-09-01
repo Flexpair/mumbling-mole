@@ -12,7 +12,9 @@ const getWidget = () => {
       return (...args) => {
         const target = (typeof window !== 'undefined' && window.netlifyIdentity);
         if (!target) {
-          console.error('[netlify-identity] widget not loaded yet; queuing call to', String(prop));
+          // Be quiet in production: queue calls without spamming the console.
+          // Use debug so local dev can opt-in via console filter if needed.
+          try { console.debug('[netlify-identity] widget not loaded yet; queuing call to', String(prop)); } catch {}
           pending.push([prop, args]);
           return undefined;
         }

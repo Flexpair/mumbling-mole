@@ -168,25 +168,21 @@ export function initVoice(onData, onUserMediaError) {
     try {
       theUserMedia = userMedia;
 
-      // === NEU: AudioWorklet statt microphone-stream ===
-      const ac = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 48000,
-      });
+      // Defer AudioContext creation until first user gesture resume was called elsewhere.
+      // In automated/headless environments, create a suspended context and avoid auto-start warnings.
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ac = new AudioCtx({ sampleRate: 48000 });
 
-      // Worklet laden
-      await ac.audioWorklet.addModule("recorder-worker.js");
+      // If context is suspended, don't force start; modules can still load and node can process messages.
+      try { await ac.audioWorklet.addModule("recorder-worker.js"); } catch {}
 
-      // Quelle aus getUserMedia
       const src = ac.createMediaStreamSource(userMedia);
-
-      // Worklet-Node (mono)
       const node = new AudioWorkletNode(ac, "recorder-processor", {
         numberOfInputs: 1,
-        numberOfOutputs: 0, // kein Audio-Out nötig
+        numberOfOutputs: 0,
         channelCount: 1,
       });
 
-      // PCM-Frames (Float32, 960 Samples @48k) an bestehende Pipeline geben
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
@@ -194,21 +190,13 @@ export function initVoice(onData, onUserMediaError) {
         }
       };
 
-      // verbinden
-      src.connect(node);
+      try { src.connect(node); } catch {}
 
-      // optional: aufräumen, wenn das mediastream endet
       userMedia.getTracks().forEach((t) =>
         t.addEventListener("ended", () => {
-          try {
-            node.disconnect();
-          } catch {}
-          try {
-            src.disconnect();
-          } catch {}
-          try {
-            ac.close();
-          } catch {}
+          try { node.disconnect(); } catch {}
+          try { src.disconnect(); } catch {}
+          try { ac.close(); } catch {}
         })
       );
     } catch (e) {
