@@ -15,6 +15,7 @@ const { spawn } = require('child_process');
 const http = require('http');
 const waitPort = require('wait-port');
 const fs = require('fs');
+const path = require('path');
 
 const PORT = Number(process.env.SMOKE_HTTP_PORT || process.env.PORT || 8081);
 const HOST = '127.0.0.1';
@@ -47,7 +48,7 @@ async function main() {
 
   // Start static server via entrypoint
   const entry = spawn('bash', ['-lc', 'SKIP_TUNNEL=1 ./docker-entrypoint.sh'], {
-    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' },
+    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', WEBROOT: path.resolve('dist') },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let entryLogs = '';
