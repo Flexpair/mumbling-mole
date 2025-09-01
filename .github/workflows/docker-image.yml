@@ -25,6 +25,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Run source-based tests (build + console allowlist) before building/pushing the image
+      - name: Setup Node 20 (tests)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dev deps
+        run: npm ci --omit=optional || npm i --omit=optional
+
+      - name: Install Playwright Chromium
+        run: npm run test:console:install
+
+      - name: Build (for console test)
+        run: npm run build
+
+      - name: Console allowlist
+        run: npm run test:console
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -90,13 +109,7 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Node 20 (for E2E script)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dev deps for E2E
-        run: npm ci --omit=optional || npm i --omit=optional
+  # Node + deps already set up above for E2E script
 
       - name: Run container for E2E
         env:
