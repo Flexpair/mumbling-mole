@@ -1,3 +1,32 @@
+# This GitHub Actions workflow builds a Docker image from the repository source code
+# and pushes it to DockerHub registry for distribution and deployment.
+#
+# Triggers:
+# - Automatically runs when code is pushed to main/master branch
+# - Can be manually triggered via workflow_dispatch
+#
+# What it does:
+# - Checks out the repository source code
+# - Sets up Node.js environment and builds the application
+# - Runs console allowlist tests to validate browser output
+# - Performs HTML smoke test to verify static content serving
+# - Executes E2E WebSocket tunnel test with echo roundtrip
+# - Sets up Docker Buildx for advanced build features
+# - Authenticates with DockerHub using stored secrets
+# - Builds the Docker image using the Dockerfile in the repo root
+# - Tags the image with appropriate version/latest tags
+# - Pushes the built image to DockerHub registry
+#
+# What it does NOT test:
+# - Does not run unit tests or integration tests
+# - Does not perform security scanning of the image
+# - Does not validate the application functionality
+# - Does not test deployment to any environment
+#
+# Prerequisites:
+# - DOCKERHUB_USERNAME secret must be configured in repository settings
+# - DOCKERHUB_TOKEN secret must be configured in repository settings
+# - Valid Dockerfile must exist in repository root
 name: Build and push to DockerHub
 
 concurrency:
