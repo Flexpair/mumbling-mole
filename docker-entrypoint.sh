@@ -3,7 +3,8 @@ set -euo pipefail
 
 PORT="${PORT:-${SMOKE_HTTP_PORT:-8081}}"
 HOST="${HOST:-0.0.0.0}"
-WEBROOT="/home/node/dist"
+# Allow overriding web root (useful outside the container); default to container path
+WEBROOT="${WEBROOT:-/home/node/dist}"
 
 # Sonderfall: alter HTTP-Smoke-Test → nur statische Dateien auf :8081 ausliefern
 if [[ "${SKIP_TUNNEL:-}" = "1" ]]; then

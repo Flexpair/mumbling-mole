@@ -64,6 +64,28 @@ WORKDIR /home/node
 FROM base AS dev
 
 USER root
+# Install minimal Chromium runtime deps for Playwright (dev only)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0t64 \
+        libatk-bridge2.0-0t64 \
+        libcups2t64 \
+        libdrm2 \
+        libxcb1 \
+        libxkbcommon0 \
+        libatspi2.0-0t64 \
+        libx11-6 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libcairo2 \
+        libpango-1.0-0 \
+        libasound2t64 \
+    && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /home/node/.npm && chown -R node:node /home/node
 USER node
 

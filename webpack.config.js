@@ -27,13 +27,8 @@ module.exports = {
   },
   resolve: {
     alias: {
-      // Prefer vendored fork source; fallback to npm/git src; last resort: shim
-      'netlify-identity-widget':
-        require('fs').existsSync(path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'))
-          ? path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js')
-          : (require('fs').existsSync(path.resolve(__dirname, 'node_modules/netlify-identity-widget/src/netlify-identity.js'))
-              ? path.resolve(__dirname, 'node_modules/netlify-identity-widget/src/netlify-identity.js')
-              : path.resolve(__dirname, 'app/netlify-identity-shim.js')),
+  // Always use lightweight shim to avoid bundling the heavy widget and CI build quirks
+  'netlify-identity-widget': path.resolve(__dirname, 'app/netlify-identity-shim.js'),
     },
     fallback: {
       fs: false,
@@ -57,25 +52,7 @@ module.exports = {
           },
         },
       },
-      // Transpile the widget source (vendored or node_modules src)
-  {
-        test: /(vendor|node_modules)\/netlify-identity-widget\/src\/.*\.js$/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            babelrc: true,
-            cacheDirectory: true,
-            plugins: [
-              ['@babel/plugin-proposal-decorators', { legacy: true }],
-              // Ensure class fields are transpiled for safe minification (Terser)
-      ['@babel/plugin-transform-class-properties', { loose: true }],
-      ['@babel/plugin-transform-private-methods', { loose: true }],
-      ['@babel/plugin-transform-private-property-in-object', { loose: true }],
-              ['@babel/plugin-transform-react-jsx', { pragma: 'h', pragmaFrag: 'Fragment', runtime: 'classic' }],
-            ],
-          },
-        },
-      },
+  // no extra rule needed for the shim
       // no extra rule needed for the shim
       // HTML is generated via HtmlWebpackPlugin
       {
@@ -86,29 +63,15 @@ module.exports = {
         test: /\.scss$/,
         use: [MiniCssExtractPlugin.loader, { loader: "css-loader" }, { loader: "sass-loader" }],
       },
-      {
-        type: "javascript/auto",
-        test: /manifest\.json$|\.xml$/,
-        use: [
-          { loader: "file-loader", options: { esModule: false } },
-          { loader: "extract-loader" },
-          {
-            loader: "regexp-replace-loader",
-            options: {
-              match: { pattern: "#require\\('([^']*)'\\)", flags: "g" },
-              replaceWith: '"+require("$1")+"',
-            },
-          },
-          "raw-loader",
-        ],
-      },
+  // Note: manifest.json is copied and transformed via CopyWebpackPlugin below,
+  // so we don't rely on this loader-chain anymore.
       {
         test: /\.(svg|png|ico)$/,
         use: [{ loader: "file-loader", options: { esModule: false } }],
       },
       { test: /worker\.js$/, use: { loader: "worker-loader" } },
-      // Temporarily disabled: transform-loader with brfs can hang under webpack 5
-      // { enforce: "post", test: /mumble-streams\/lib\/data.js/, use: ["transform-loader?brfs"] },
+      // Inline fs.readFileSync(...) in third-party libs (mumble-client / mumble-streams)
+      { enforce: "post", test: /mumble-(client|streams)\/.*\.js$/, use: ["transform-loader?brfs"] },
     ],
   },
   target: "web",
@@ -124,7 +87,30 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        { from: path.join(__dirname, "app/favicons"), to: path.join(__dirname, "dist/favicons") },
+        // Copy all favicons except the manifest; handle manifest with transform below
+        {
+          from: path.join(__dirname, "app/favicons"),
+          to: path.join(__dirname, "dist/favicons"),
+          globOptions: { ignore: ["**/manifest.json"] },
+        },
+        // Also provide a root-level /favicon.ico for browsers that request it implicitly
+        {
+          from: path.join(__dirname, "app/favicons/favicon.ico"),
+          to: path.join(__dirname, "dist/favicon.ico"),
+          noErrorOnMissing: true,
+        },
+        // Copy and sanitize manifest.json by replacing custom #require('./file') placeholders
+        // with plain file names so the JSON stays valid when served statically.
+        {
+          from: path.join(__dirname, "app/favicons/manifest.json"),
+          to: path.join(__dirname, "dist/favicons/manifest.json"),
+          transform(content) {
+            const input = content.toString();
+            // Replace occurrences like: "src": "#require('./favicon192px.png')" -> "src": "favicon192px.png"
+            const output = input.replace(/#require\('\.\/(.*?)'\)/g, '$1');
+            return Buffer.from(output);
+          },
+        },
         { from: path.join(theme, "svg"), to: path.join(__dirname, "dist/svg") },
         { from: path.join(theme, "img"), to: path.join(__dirname, "dist/img") },
       ],

@@ -103,8 +103,8 @@ export function translate(key, languageChosen = _languageDefault) {
  * @author svartoyg
  */
 function translatePiece(selector, kind, parameters, key) {
-  let element = document.querySelector(selector);
-  if (element !== null) {
+  const element = document.querySelector(selector);
+  if (element) {
     const translation = translate(key);
     switch (kind) {
       default:
@@ -117,10 +117,6 @@ function translatePiece(selector, kind, parameters, key) {
         element.setAttribute(parameters.name || "value", translation);
         break;
     }
-  } else {
-    console.warn(
-      `translation selector "${selector}" for "${key}" did not match any element`
-    );
   }
 }
 

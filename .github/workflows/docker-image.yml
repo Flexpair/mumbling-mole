@@ -1,3 +1,32 @@
+# This GitHub Actions workflow builds a Docker image from the repository source code
+# and pushes it to DockerHub registry for distribution and deployment.
+#
+# Triggers:
+# - Automatically runs when code is pushed to main/master branch
+# - Can be manually triggered via workflow_dispatch
+#
+# What it does:
+# - Checks out the repository source code
+# - Sets up Node.js environment and builds the application
+# - Runs console allowlist tests to validate browser output
+# - Performs HTML smoke test to verify static content serving
+# - Executes E2E WebSocket tunnel test with echo roundtrip
+# - Sets up Docker Buildx for advanced build features
+# - Authenticates with DockerHub using stored secrets
+# - Builds the Docker image using the Dockerfile in the repo root
+# - Tags the image with appropriate version/latest tags
+# - Pushes the built image to DockerHub registry
+#
+# What it does NOT test:
+# - Does not run unit tests or integration tests
+# - Does not perform security scanning of the image
+# - Does not validate the application functionality
+# - Does not test deployment to any environment
+#
+# Prerequisites:
+# - DOCKERHUB_USERNAME secret must be configured in repository settings
+# - DOCKERHUB_TOKEN secret must be configured in repository settings
+# - Valid Dockerfile must exist in repository root
 name: Build and push to DockerHub
 
 concurrency:
@@ -6,10 +35,10 @@ concurrency:
 
 on:
   push:
-    branches: ["lite"]
+    branches: ["**"]
     tags: ["*"]
   pull_request:
-    branches: ["lite"]
+    branches: ["**"]
 
 env:
   TEST_TAG: jafudi/mumbling-mole:test
@@ -24,6 +53,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Run source-based tests (build + console allowlist) before building/pushing the image
+      - name: Setup Node 20 (tests)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dev deps
+        run: npm ci --omit=optional || npm i --omit=optional
+
+      - name: Install Playwright Chromium
+        run: npm run test:console:install
+
+      - name: Build (for console test)
+        run: npm run build
+
+      - name: Console allowlist
+        run: npm run test:console
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -90,13 +138,7 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Node 20 (for E2E script)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dev deps for E2E
-        run: npm ci --omit=optional || npm i --omit=optional
+  # Node + deps already set up above for E2E script
 
       - name: Run container for E2E
         env:

@@ -226,3 +226,8 @@ Thumbs.db
 .gitignore
 .vscode-remote/data/User/History/-5b1ddd3d/entries.json
 .vscode-remote/data/User/History/-5b1ddd3d/DPiN
+.pki/nssdb/cert9.db
+.pki/nssdb/key4.db
+.pki/nssdb/pkcs11.txt
+.gitconfig
+.gitconfig
