@@ -81,7 +81,8 @@ async function main() {
       logs.push({ type: msg.type(), text });
     });
     page.on('pageerror', (err) => {
-      logs.push({ type: 'pageerror', text: err && err.message ? err.message : String(err) });
+      const text = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);
+      logs.push({ type: 'pageerror', text });
     });
     page.on('requestfailed', (req) => {
       const f = req.failure();
