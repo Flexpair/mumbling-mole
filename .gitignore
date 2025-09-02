@@ -26,8 +26,8 @@ pnpm-debug.log*
 stats.json
 webpack-stats.json
 
-# Vendored sources fetched by script (do not commit embedded repo)
-vendor/netlify-identity-widget/
+# (No longer used) vendored sources were removed; keep folder if present
+# vendor/netlify-identity-widget/
 
 # ============================================================
 # Coverage & Testing

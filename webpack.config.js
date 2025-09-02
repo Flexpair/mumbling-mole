@@ -111,6 +111,12 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
+        // Copy the locally fetched Netlify Identity UMD bundle
+        {
+          from: path.join(__dirname, 'app/netlify-identity-widget.js'),
+          to: path.join(__dirname, 'dist/netlify-identity-widget.js'),
+          noErrorOnMissing: false,
+        },
         // Copy all favicons except the manifest; handle manifest with transform below
         {
           from: path.join(__dirname, "app/favicons"),

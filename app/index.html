@@ -28,6 +28,8 @@
     <script src="config.js"></script>
     <script src="config.local.js"></script>
   <link rel="stylesheet" href="theme.css" />
+  <!-- Load local Netlify Identity UMD bundle before our app (no CDN, no race) -->
+  <script src="netlify-identity-widget.js"></script>
   </head>
 
   <body>

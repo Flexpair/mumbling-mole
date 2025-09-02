@@ -223,11 +223,8 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    // Normalize possible ESM default export from bundled vendored widget
-    {
-      const mod = require("../vendor/netlify-identity-widget/src/netlify-identity.js");
-      this.netlifyIdentity = (mod && mod.default) ? mod.default : mod;
-    }
+  // Provided globally by local UMD bundle loaded in index.html
+  this.netlifyIdentity = (typeof window !== 'undefined') ? window.netlifyIdentity : undefined;
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.guacamoleFrame = new GuacamoleFrame();
