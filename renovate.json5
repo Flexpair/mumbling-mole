@@ -3,7 +3,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
 
   // Base preset: sensible defaults (groups, schedules, etc.)
-  "extends": [ "config:base" ],
+  "extends": [ "config:recommended" ],
 
   // Set timezone for scheduling rules
   "timezone": "Europe/Berlin",
@@ -70,20 +70,21 @@
     },
     {
       // Group tooling deps (linters, bundlers, TS types, etc.)
-      "matchPackagePatterns": [
-        "^eslint",
-        "^prettier",
-        "^@types/",
-        "^vitest",
-        "^jest",
-        "^webpack",
-        "^vite",
-        "^rollup",
-        "^babel"
-      ],
+      // Use matchPackageNames with regex strings as per current Renovate schema.
       "groupName": "tooling (linters, bundlers, types)",
       "matchUpdateTypes": [ "minor", "patch" ],
-      "automerge": true
+      "automerge": true,
+      "matchPackageNames": [
+        "/^eslint/",
+        "/^prettier/",
+        "/^@types\\//",
+        "/^vitest/",
+        "/^jest/",
+        "/^webpack/",
+        "/^vite/",
+        "/^rollup/",
+        "/^babel/"
+      ]
     },
     {
       // App runtime deps → auto-merge patch only
