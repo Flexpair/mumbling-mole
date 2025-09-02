@@ -67,7 +67,8 @@ export async function initialize(languageDefault, languageFallback = "en") {
     try {
       data = await retrieveData(language);
     } catch (exception) {
-      console.warn(exception.toString());
+  // Silently ignore localization load errors to avoid noisy console output
+  // and potential undefined toString() access when exception is not an Error.
     }
     _data[language] = data;
   }

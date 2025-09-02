@@ -27,8 +27,10 @@ module.exports = {
   },
   resolve: {
     alias: {
-  // Always use lightweight shim to avoid bundling the heavy widget and CI build quirks
-  'netlify-identity-widget': path.resolve(__dirname, 'app/netlify-identity-shim.js'),
+      // Use vendored fork by default; allow forcing shim via IDENTITY_WIDGET=shim (for tests)
+      'netlify-identity-widget': (process.env.IDENTITY_WIDGET === 'shim')
+        ? path.resolve(__dirname, 'app/netlify-identity-shim.js')
+        : path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'),
     },
     fallback: {
       fs: false,
@@ -39,6 +41,14 @@ module.exports = {
   },
   module: {
     rules: [
+      // Ensure the vendored identity widget can import CSS as a raw string
+      // for injection into the iframe (widget expects .toString() on it)
+      {
+        test: /vendor\/netlify-identity-widget\/src\/components\/modal\.css$/,
+        use: [
+          { loader: 'raw-loader' },
+        ],
+      },
       {
         test: /\.js$/,
         exclude: /node_modules/,
@@ -49,6 +59,24 @@ module.exports = {
             cacheDirectory: true,
             presets: [["@babel/preset-env", { loose: true, modules: false, targets: { browsers: ["> 1%", "last 2 versions", "not ie <= 11"] } }]],
             plugins: [["@babel/plugin-transform-runtime", { loose: true, regenerator: true }]],
+          },
+        },
+      },
+      // Transpile vendored identity widget source
+      {
+        test: /vendor\/netlify-identity-widget\/src\/.*\.js$/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            babelrc: false,
+            cacheDirectory: true,
+            presets: [["@babel/preset-env", { loose: true, modules: false, targets: { browsers: ["> 1%", "last 2 versions", "not ie <= 11"] } }]],
+            plugins: [
+              ["@babel/plugin-proposal-decorators", { legacy: true }],
+              ["@babel/plugin-proposal-class-properties", { loose: true }],
+              ["@babel/plugin-transform-runtime", { loose: true, regenerator: true }],
+              ["@babel/plugin-transform-react-jsx", { pragma: "h" }],
+            ],
           },
         },
       },
