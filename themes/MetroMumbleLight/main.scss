@@ -38,6 +38,21 @@ body {
   height: 100%;
 }
 
+/* Brand logo */
+.brand {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  z-index: 10; /* above content, below dialogs (20) */
+  pointer-events: none; /* don't block clicks */
+  opacity: 0.9;
+}
+.brand img {
+  display: block;
+  height: 24px;
+  width: auto;
+}
+
 .guacamole,
 .guacamole-placeholder {
   display: block;
