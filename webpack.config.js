@@ -27,10 +27,9 @@ module.exports = {
   },
   resolve: {
     alias: {
-      // Use vendored fork by default; allow forcing shim via IDENTITY_WIDGET=shim (for tests)
-      'netlify-identity-widget': (process.env.IDENTITY_WIDGET === 'shim')
-        ? path.resolve(__dirname, 'app/netlify-identity-shim.js')
-        : path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'),
+  // Always use lightweight shim and load official CDN script in index.html.
+  // This matches the previous, stable behavior (e.g., tag 3.4.7 / 601b425).
+  'netlify-identity-widget': path.resolve(__dirname, 'app/netlify-identity-shim.js'),
     },
     fallback: {
       fs: false,
