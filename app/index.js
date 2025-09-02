@@ -223,9 +223,9 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    // Normalize possible ESM default export from netlify-identity-widget
+    // Normalize possible ESM default export from bundled vendored widget
     {
-      const mod = require("netlify-identity-widget");
+      const mod = require("../vendor/netlify-identity-widget/src/netlify-identity.js");
       this.netlifyIdentity = (mod && mod.default) ? mod.default : mod;
     }
     this.connectDialog = new ConnectDialog();

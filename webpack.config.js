@@ -27,8 +27,6 @@ module.exports = {
   },
   resolve: {
     alias: {
-  // Bundle the vendored Netlify Identity Widget to avoid CDN/timing issues
-  'netlify-identity-widget': path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'),
     },
     fallback: {
       fs: false,
