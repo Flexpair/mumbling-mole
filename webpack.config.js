@@ -27,9 +27,8 @@ module.exports = {
   },
   resolve: {
     alias: {
-  // Always use lightweight shim and load official CDN script in index.html.
-  // This matches the previous, stable behavior (e.g., tag 3.4.7 / 601b425).
-  'netlify-identity-widget': path.resolve(__dirname, 'app/netlify-identity-shim.js'),
+  // Bundle the vendored Netlify Identity Widget to avoid CDN/timing issues
+  'netlify-identity-widget': path.resolve(__dirname, 'vendor/netlify-identity-widget/src/netlify-identity.js'),
     },
     fallback: {
       fs: false,
