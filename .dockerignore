@@ -13,6 +13,5 @@ pnpm-debug.log*
 coverage
 .tmp
 dist
-**/*.local.*
 .env
 .env.*

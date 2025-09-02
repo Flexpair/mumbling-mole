@@ -126,6 +126,13 @@ module.exports = {
           to: path.join(__dirname, "dist/favicon.ico"),
           noErrorOnMissing: true,
         },
+        // Copy optional local config overrides if present. This mirrors the npm build script
+        // and guarantees availability in dist/ when building inside containers/CI.
+        {
+          from: path.join(__dirname, "app/config.local.js"),
+          to: path.join(__dirname, "dist/config.local.js"),
+          noErrorOnMissing: true,
+        },
         // Copy and sanitize manifest.json by replacing custom #require('./file') placeholders
         // with plain file names so the JSON stays valid when served statically.
         {
