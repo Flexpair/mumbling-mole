@@ -9,9 +9,10 @@
     "test:audio-context": "node scripts/test-audio-context.cjs",
     "test:e2e": "node scripts/e2e-check.cjs",
     "test:console": "node scripts/test-console-errors.cjs",
-  "test:bundle": "node scripts/test-bundle-exports.cjs",
-  "test:fast": "npm run test:unit && npm run test:audio-context",
-  "test": "npm run test:unit && npm run test:audio-context && ( [ -n \"$SKIP_E2E\" ] || npm run test:e2e )"
+    "test:bundle": "node scripts/test-bundle-exports.cjs",
+    "test:bundle:static": "node scripts/test-bundle-exports-static.cjs",
+    "test:fast": "npm run test:unit && npm run test:audio-context",
+    "test": "npm run test:unit && npm run test:audio-context && ( [ -n \"$SKIP_E2E\" ] || npm run test:e2e )"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "license": "ISC",
