@@ -73,6 +73,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Detect "exports is not defined" in built bundle
+        run: npm run test:bundle
+
       - name: HTML smoke test (content-length on :${{ env.SMOKE_HTTP_PORT }})
         env:
           SMOKE_HTTP_PORT: ${{ env.SMOKE_HTTP_PORT }}
