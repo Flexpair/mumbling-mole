@@ -33,10 +33,11 @@ jobs:
       - name: Install dev deps for E2E
         run: npm ci --omit=optional || npm i --omit=optional
 
-      - name: Run full test suite early (fail-fast before Docker build)
+      - name: Run fast test suite early (unit + audio-context)
         env:
           SKIP_PREPARE: 1
-        run: npm test
+          SKIP_E2E: 1
+        run: npm run test:fast
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
