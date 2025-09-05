@@ -26,47 +26,61 @@ const vm = require('vm');
     }
     const code = fs.readFileSync(indexFile,'utf8');
 
-    // Quick lexical guard: if no raw "exports" token (not part of a string) present we skip heavy VM exec
-    if (!/\bexports\b/.test(code)) {
-      console.log('[bundle-static] PASS: no literal "exports" token in bundle');
-      process.exit(0);
-    }
+    // Minimal DOM / Web APIs stubs so the bundle can execute far enough to surface an exports error
+    const noop = () => {};
+    const fakeEl = () => ({
+      getContext: noop,
+      style: {},
+      appendChild: noop,
+      removeChild: noop,
+      setAttribute: noop,
+      addEventListener: noop,
+      getElementsByTagName: () => [],
+      querySelector: () => null,
+    });
 
-    // Create a sandbox with minimal browser-like globals (prevent CJS globals)
     const sandbox = {
       window: {},
-      document: { createElement(){return { getContext(){}, style:{} };}, body:{ appendChild(){}, removeChild(){} }, querySelector(){ return null; } },
+      document: {
+        createElement: fakeEl,
+        body: { appendChild: noop, removeChild: noop },
+        querySelector: () => null,
+        getElementById: () => fakeEl(),
+      },
       navigator: { language:'en-US', mediaDevices:{ enumerateDevices: async()=>[] } },
+      AudioContext: function(){},
+      webkitAudioContext: function(){},
+      Blob: function() {},
+      URL: { createObjectURL: () => 'blob://mock' },
       console,
       setTimeout, clearTimeout,
-      // Intentionally DO NOT define exports / module / require
+      // Intentionally DO NOT define exports/module/require to catch incorrect assumptions
     };
+    sandbox.window = sandbox; // window===global simulation
     vm.createContext(sandbox);
 
-    let threwExportsRef = false;
+    let exportedError = null;
     try {
-      // Execute only a limited slice first to catch early top-level references quickly
-      const slice = code.slice(0, 20000); // first 20k chars
-      vm.runInContext(slice, sandbox, { timeout: 3000 });
+      vm.runInContext(code, sandbox, { timeout: 8000, displayErrors: false });
     } catch (e) {
-      if (/exports is not defined/.test(String(e))) threwExportsRef = true; else {
-        // Ignore other errors (could be due to window/document deeper usage); try a narrower regex approach
+      if (/exports is not defined/.test(String(e))) exportedError = e; else {
+        // Non-exports errors are ignored; we only fail fast for the target symptom.
       }
     }
 
-    if (!threwExportsRef) {
-      // Fallback regex heuristic: look for pattern where webpack would normally wrap a module but isn't
-      const suspicious = /(^|[^\.])exports\s*=/m.test(code) && !/var exports =/m.test(code);
-      if (suspicious) {
-        console.error('[bundle-static] FAIL heuristic: suspicious top-level exports assignment');
-        process.exit(1);
-      }
-      console.log('[bundle-static] PASS: no early runtime ReferenceError for exports');
-      process.exit(0);
-    } else {
-      console.error('[bundle-static] FAIL: runtime ReferenceError("exports is not defined") detected (early slice).');
+    if (exportedError) {
+      console.error('[bundle-static] FAIL: runtime ReferenceError("exports is not defined") detected.');
       process.exit(1);
     }
+
+    // Secondary lexical heuristic (helpful if future refactors short‑circuit before throwing)
+    if (/\bexports\b/.test(code) && /(^|[^\.])exports\s*=\s*/m.test(code) && !/var exports\s*=/.test(code)) {
+      console.error('[bundle-static] FAIL heuristic: suspicious top-level exports assignment');
+      process.exit(1);
+    }
+
+    console.log('[bundle-static] PASS: no ReferenceError for exports during full bundle execution');
+    process.exit(0);
   } catch (e) {
     console.error('[bundle-static] Unexpected failure:', e && e.message ? e.message : e);
     process.exit(2);
