@@ -11,6 +11,10 @@
  * 4. Navigate to index page, wait for network idle
  * 5. Optionally poke basic runtime (call a KO observable render tick)
  * 6. Report any collected errors (excluding known benign warnings if required) and exit non-zero if any
+ *
+ * Environment variables:
+ *   ALLOW_BROWSER_SKIP=1  -> Do not fail if browser binary is missing (temporary opt-out)
+ *   ALLOW_BROWSER_SKIP=0  -> Enforce failure (default)
  */
 
 const { spawn } = require('child_process');
@@ -50,27 +54,36 @@ function runCmd(cmd, args, opts={}) {
 }
 
 async function run() {
-  await ensureBuild();
-  const port = await findFreePort();
-  const webroot = path.join(__dirname, '..', 'dist');
+  // Parse args
+  const argUrl = process.argv.find(a => a.startsWith('--url='));
+  const targetUrl = argUrl ? argUrl.slice('--url='.length) : null;
 
-  console.log('[console-test] Serving dist on :' + port);
-  const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { cwd: webroot, stdio: 'ignore' });
-
+  let server = null;
   let serverExited = false;
-  server.on('exit', () => { serverExited = true; });
+  let finalUrl = targetUrl;
 
-  // Wait until server responds
-  await new Promise((resolve, reject) => {
-    const start = Date.now();
-    (function poll() {
-      const req = http.get({ host: '127.0.0.1', port, path: '/' }, (res) => { res.resume(); resolve(); });
-      req.on('error', (e) => {
-        if (Date.now() - start > 8000) return reject(e);
-        setTimeout(poll, 250);
-      });
-    })();
-  });
+  if (!targetUrl) {
+    await ensureBuild();
+    const port = await findFreePort();
+    const webroot = path.join(__dirname, '..', 'dist');
+    console.log('[console-test] Serving dist on :' + port);
+    server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { cwd: webroot, stdio: 'ignore' });
+    server.on('exit', () => { serverExited = true; });
+    // Wait until server responds
+    await new Promise((resolve, reject) => {
+      const start = Date.now();
+      (function poll() {
+        const req = http.get({ host: '127.0.0.1', port, path: '/' }, (res) => { res.resume(); resolve(); });
+        req.on('error', (e) => {
+          if (Date.now() - start > 8000) return reject(e);
+          setTimeout(poll, 250);
+        });
+      })();
+    });
+    finalUrl = `http://127.0.0.1:${port}/index.html`;
+  } else {
+    console.log('[console-test] External URL provided: ' + finalUrl);
+  }
 
   const { chromium } = require('playwright');
   let browser;
@@ -79,16 +92,16 @@ async function run() {
   } catch (e) {
     const msg = String(e && e.message || e);
     if (/Executable doesn't exist|error while loading shared libraries|cannot open shared object file/i.test(msg)) {
-      const force = process.env.CI_FORCE_BROWSER === '1';
-      const note = '[console-test] ' + (force ? 'FAIL (missing headless browser)' : 'SKIP') + ': Headless browser unavailable (' + msg.split('\n')[0] + ')';
-      if (force) {
-        console.error(note);
-        server.kill('SIGTERM');
-        process.exit(1);
-      } else {
+      const allow = process.env.ALLOW_BROWSER_SKIP === '1';
+      const note = '[console-test] ' + (allow ? 'SKIP' : 'FAIL') + ': Headless browser unavailable (' + msg.split('\n')[0] + '). ' + (allow ? 'Set ALLOW_BROWSER_SKIP=0 to enforce.' : 'Set ALLOW_BROWSER_SKIP=1 to allow skip temporarily.');
+      if (allow) {
         console.warn(note);
-        server.kill('SIGTERM');
-        return; // skip gracefully
+        if (server) server.kill('SIGTERM');
+        return;
+      } else {
+        console.error(note);
+        if (server) server.kill('SIGTERM');
+        process.exit(1);
       }
     }
     throw e; // rethrow unexpected errors
@@ -106,7 +119,7 @@ async function run() {
   // Timeout safety
   const navTimeout = 15000;
   try {
-    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'networkidle2', timeout: navTimeout });
+    await page.goto(finalUrl, { waitUntil: 'networkidle2', timeout: navTimeout });
   } catch (e) {
     errors.push('[navigation] ' + e.message);
   }
@@ -121,8 +134,8 @@ async function run() {
   }
 
   await browser.close();
-  server.kill('SIGTERM');
-  if (serverExited) {
+  if (server) server.kill('SIGTERM');
+  if (server && serverExited) {
     console.warn('[console-test] Static server exited early');
   }
 
