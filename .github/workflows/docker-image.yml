@@ -98,6 +98,9 @@ jobs:
       - name: Install dev deps for E2E
         run: npm ci --omit=optional || npm i --omit=optional
 
+      - name: Run audio-context contract test (post-build)
+        run: npm run test:audio-context
+
       - name: Run container for E2E
         env:
           E2E_WS_PORT: ${{ env.E2E_WS_PORT }}

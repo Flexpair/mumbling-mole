@@ -5,8 +5,9 @@
   "scripts": {
     "build": "npm install node-polyfill-webpack-plugin && webpack && ([ -f dist/config.local.js ] || cp app/config.local.js dist/) && cp app/recorder-worker.js dist/",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
+  "test:audio-context": "node scripts/test-audio-context.cjs",
     "test:e2e": "node scripts/e2e-check.cjs",
-    "test": "npm run test:e2e"
+  "test": "npm run test:audio-context && npm run test:e2e"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "license": "ISC",
@@ -20,7 +21,6 @@
     "@babel/plugin-transform-runtime": "7.18.5",
     "@babel/preset-env": "7.18.2",
     "@babel/runtime": "7.18.3",
-    "audio-context": "1.0.3",
     "babel-loader": "8.2.5",
     "brfs": "2.0.2",
     "bytebuffer": "5.0.1",
