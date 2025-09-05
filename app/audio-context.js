@@ -90,4 +90,7 @@ function createContext(optionsOrSampleRate) {
   return cache[cacheKey] || null;
 }
 
-module.exports = createContext;
+// Avoid assigning module.exports directly to stay compatible when bundled as ESM.
+// Provide both a default export shape and a named reference for interop.
+exports.default = createContext; // ESM default compat (webpack/tree-shaking)
+exports.createAudioContext = createContext; // optional named alias

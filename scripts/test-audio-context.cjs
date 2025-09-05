@@ -37,7 +37,9 @@ function loadLibWithWindow(win) {
   const helperPath = path.join(__dirname, '..', 'app', 'audio-context.js');
   delete require.cache[helperPath];
   global.window = win;
-  return require(helperPath);
+  const mod = require(helperPath);
+  // Support both CommonJS function export and {default: fn}
+  return typeof mod === 'function' ? mod : mod.default;
 }
 
 (async function run() {
