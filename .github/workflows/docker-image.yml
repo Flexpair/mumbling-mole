@@ -39,6 +39,12 @@ jobs:
           SKIP_E2E: 1
         run: npm run test:fast
 
+      - name: Static bundle exports detection (pre build)
+        env:
+          SKIP_PREPARE: 1
+          SKIP_E2E: 1
+        run: npm run test:bundle:static
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
