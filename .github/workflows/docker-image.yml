@@ -102,7 +102,25 @@ jobs:
         run: npm run test:audio-context
 
       - name: Browser console error test (headless)
-        run: npm run test:console
+        env:
+          SMOKE_HTTP_PORT: ${{ env.SMOKE_HTTP_PORT }}
+        run: |
+          set -euo pipefail
+          cleanup() { docker rm -f mm-console >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          docker run -d --rm \
+            -p ${SMOKE_HTTP_PORT}:8081 \
+            -e SKIP_TUNNEL=1 \
+            --name mm-console \
+            ${{ env.TEST_TAG }}
+
+          for i in {1..30}; do
+            if curl -sf "http://127.0.0.1:${SMOKE_HTTP_PORT}" >/dev/null; then break; fi
+            sleep 1
+          done
+
+          npm run test:console -- --url="http://127.0.0.1:${SMOKE_HTTP_PORT}"
 
       - name: Run container for E2E
         env:
