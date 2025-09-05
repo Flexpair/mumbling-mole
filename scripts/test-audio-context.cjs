@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lightweight test for the 'audio-context' library usage/contract.
+// Lightweight test for the audio context helper usage/contract.
 // We mock window.AudioContext and window.OfflineAudioContext and assert:
 // - Options are passed to the constructor (latencyHint, sampleRate)
 // - Singleton behavior (same instance returned for same/effective sampleRate)
@@ -33,9 +33,11 @@ class FakeOfflineAudioContext {
 
 function loadLibWithWindow(win) {
   // Reset cached module state for a clean load
-  delete require.cache[require.resolve('audio-context')];
+  const path = require('path');
+  const helperPath = path.join(__dirname, '..', 'app', 'audio-context.js');
+  delete require.cache[helperPath];
   global.window = win;
-  return require('audio-context');
+  return require(helperPath);
 }
 
 (async function run() {
