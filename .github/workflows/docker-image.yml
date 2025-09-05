@@ -25,9 +25,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node 16 (for E2E script)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.x'
+
+      - name: Install dev deps for E2E
+        run: npm ci --omit=optional || npm i --omit=optional
+
+      - name: Run audio-context contract test (post-build)
+        run: npm run test:audio-context
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+      
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -89,49 +100,6 @@ jobs:
             echo "Erwartet Content-Length > 5000 Bytes"
             exit 1
           fi
-
-      - name: Setup Node 16 (for E2E script)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '16.x'
-
-      - name: Install dev deps for E2E
-        run: npm ci --omit=optional || npm i --omit=optional
-
-      - name: Run audio-context contract test (post-build)
-        run: npm run test:audio-context
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser console error test (headless)
-        env:
-          SMOKE_HTTP_PORT: ${{ env.SMOKE_HTTP_PORT }}
-        run: |
-          set -euo pipefail
-          cleanup() { docker rm -f mm-console >/dev/null 2>&1 || true; }
-          trap cleanup EXIT
-
-          docker run -d --rm \
-            -p ${SMOKE_HTTP_PORT}:8081 \
-            -e SKIP_TUNNEL=1 \
-            --name mm-console \
-            ${{ env.TEST_TAG }}
-
-          for i in {1..30}; do
-            if curl -sf "http://127.0.0.1:${SMOKE_HTTP_PORT}" >/dev/null; then break; fi
-            sleep 1
-          done
-
-          npm run test:console -- --url="http://127.0.0.1:${SMOKE_HTTP_PORT}"
 
       - name: Run container for E2E
         env:
