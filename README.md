@@ -1,6 +1,6 @@
 # Lite version of Mumble web app for all browsers
 
-mumble-web is an HTML5 [Mumble] client that runs directly in your browser. This variant is supposed to be used in conjunction with some remote desktop piece of software. Therefore it dispenses entirely of the channel view and ongoing voice acticity detection. Instead, we focus on saving UI space and performance.
+mumble-web is an HTML5 [Mumble] client that runs directly in your browser. This variant is supposed to be used in conjunction with some remote desktop piece of software. Therefore it dispenses entirely of the channel view and ongoing voice activity detection. Instead, we focus on saving UI space and performance.
 
 ## Improvements
 
@@ -26,7 +26,7 @@ cd mumble-web
 npm install
 ```
 
-Note that npm **must not** be ran as the root user (even in a container) because it will try to do special things which cause the build to fail, use a non-root user account instead.
+Note that npm **must not** be run as the root user (even in a container) because it will try to do special things which cause the build to fail; use a non-root user account instead.
 
 The npm version is prebuilt and ready to use whereas the git version allows you
 to e.g. customize the theme before building it.
