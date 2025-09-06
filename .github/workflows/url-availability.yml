@@ -1,0 +1,26 @@
+name: URL Availability Check
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  check-url:
+    name: Prüfe öffentlich erreichbare URL
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: HTTP 200 Erwartung prüfen
+        run: |
+          set -euo pipefail
+          URL="https://public-playground.flexpair.app/"
+          echo "Prüfe Erreichbarkeit von $URL"
+          # Mehrfach versuchen (Netzwerk-Flakes abfedern)
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 --retry 4 --retry-delay 3 --retry-all-errors "$URL" || true)
+          if [ "$status" != "200" ]; then
+            echo "FEHLER: Erwartet wurde HTTP 200, erhalten: $status" >&2
+            exit 1
+          fi
+          echo "Erfolg: $URL liefert HTTP 200"
