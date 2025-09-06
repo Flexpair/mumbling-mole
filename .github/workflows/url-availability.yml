@@ -18,6 +18,15 @@ jobs:
           STAGING_URL: https://mutual-krill.flexpair.app/
           STRIP_SUBSTRINGS: ''
           IGNORE_ORDER: 'true'
+          # Fallback-Zusatzwartezeit (ms) nach stabilem Zustand (klein halten)
+          WAIT_AFTER_LOAD_MS: '250'
+          # Optionaler CSS-Selector (sichtbares Haupt-UI Element)
+          WAIT_FOR_SELECTOR: '#container'
+          # Maximale Wartezeit bis Preloader vollständig verschwunden ist
+          PRELOADER_TIMEOUT_MS: '12000'
+          # Pixel-Toleranzen für visuellen Vergleich
+          MAX_DIFF_PIXELS: '50'
+          MAX_DIFF_PERCENT: '0.1'
         run: |
           set -euo pipefail
           echo "Installiere Puppeteer & Diff Bibliothek"
@@ -44,7 +53,29 @@ jobs:
           const VIEWPORT_WIDTH = parseInt(process.env.VIEWPORT_WIDTH||'1280',10);
           const VIEWPORT_HEIGHT = parseInt(process.env.VIEWPORT_HEIGHT||'900',10);
           const MAX_DIFF_PIXELS = parseInt(process.env.MAX_DIFF_PIXELS||'50',10);
-            const MAX_DIFF_PERCENT = parseFloat(process.env.MAX_DIFF_PERCENT||'0.1');
+          const MAX_DIFF_PERCENT = parseFloat(process.env.MAX_DIFF_PERCENT||'0.1');
+          const WAIT_AFTER_LOAD_MS = parseInt(process.env.WAIT_AFTER_LOAD_MS||'250',10);
+          const WAIT_FOR_SELECTOR = process.env.WAIT_FOR_SELECTOR || '';
+          const PRELOADER_TIMEOUT_MS = parseInt(process.env.PRELOADER_TIMEOUT_MS||'12000',10);
+
+          async function waitForPreloaderGone(page) {
+            console.log('Warte auf Verschwinden des Preloaders …');
+            try {
+              await page.waitForFunction(() => {
+                const p = document.querySelector('.preloader');
+                if (!p) return true; // entfernt
+                const rect = p.getBoundingClientRect();
+                // vollständig aus dem Viewport (nach oben geschoben) oder unsichtbar
+                const style = window.getComputedStyle(p);
+                const offscreen = rect.bottom <= 0;
+                const hidden = style.visibility === 'hidden' || style.display === 'none' || parseFloat(style.opacity||'1') === 0;
+                return offscreen || hidden;
+              }, { timeout: PRELOADER_TIMEOUT_MS, polling: 100 });
+              console.log('Preloader verschwunden.');
+            } catch(e) {
+              console.warn('Preloader Timeout – fahre dennoch fort (mögliche visuelle Flakes).');
+            }
+          }
           async function collect(url) {
             const browser = await puppeteer.launch({headless: 'new', args:['--no-sandbox','--disable-setuid-sandbox']});
             const page = await browser.newPage();
@@ -59,7 +90,18 @@ jobs:
               }
             });
             await page.goto(url, {waitUntil:'networkidle2'});
-            await new Promise(r => setTimeout(r, 1500));
+            // Optional auf zentrales UI-Element warten (sichtbar)
+            if (WAIT_FOR_SELECTOR) {
+              try { await page.waitForSelector(WAIT_FOR_SELECTOR, {timeout: 8000, visible: true}); } catch(e) { console.warn('Selector nicht gefunden oder nicht sichtbar:', WAIT_FOR_SELECTOR); }
+            }
+            // Spezifisch auf das vollständige Entfernen / Offscreen-Schieben des Preloaders warten
+            await waitForPreloaderGone(page);
+            // Kleines Fallback-Delay für letzte Reflows (Fonts etc.)
+            await new Promise(r => setTimeout(r, WAIT_AFTER_LOAD_MS));
+            // Animationen & Transitions deaktivieren für deterministischen Screenshot
+            await page.addStyleTag({content: '* { animation: none !important; transition: none !important; }'});
+            // Kurze Frame-Warte um Reflow nach Style-Injektion zu erlauben
+            await page.evaluate(() => new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r))));
             const screenshot = await page.screenshot({fullPage:false});
             await browser.close();
             return {msgs, screenshot};
