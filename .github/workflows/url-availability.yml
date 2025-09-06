@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           echo "Installiere Puppeteer & Diff Bibliothek"
           npm --yes init >/dev/null 2>&1 || true
-          npm install --no-audit --no-fund puppeteer@latest jsdiff@5 >/dev/null
+          npm install --no-audit --no-fund puppeteer@latest diff@5 >/dev/null
           node - <<'EOF'
           const puppeteer = require('puppeteer');
           const {diffLines} = require('diff');
@@ -112,15 +112,4 @@ jobs:
             }
             process.exit(1);
           })().catch(e => { console.error('Fehler beim Vergleich:', e); process.exit(1); });
-          EOF
-            console.log(`Keine neuen relevanten Console-/Script-Fehler. (${ignoredMessages.length} bekannte/ignorierte Meldungen)`);
-            if (ignoredMessages.length) {
-              const preview = ignoredMessages.slice(0, 8);
-              console.log('Beispiele ignorierter Meldungen:');
-              console.log(preview.join('\n'));
-              if (ignoredMessages.length > preview.length) {
-                console.log(`... (+${ignoredMessages.length - preview.length} weitere ignoriert)`);
-              }
-            }
-          })().catch(e => { console.error('Prüfung abgebrochen:', e); process.exit(1); });
           EOF
