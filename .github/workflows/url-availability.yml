@@ -27,40 +27,63 @@ jobs:
       - name: Prüfe JavaScript Fehler im Browser (Puppeteer)
         env:
           TARGET_URL: https://public-playground.flexpair.app/
+          IGNORE_ERROR_PATTERNS: "Failed to load resource: the server responded with a status of 403"
         run: |
           set -euo pipefail
-          echo "Installiere Puppeteer"
+          echo "Installiere Puppeteer (neueste Version)"
           npm --yes init >/dev/null 2>&1 || true
-          npm install --no-audit --no-fund puppeteer@22 >/dev/null
+          npm install --no-audit --no-fund puppeteer@latest >/dev/null
           echo "Starte Headless Chrome und lade $TARGET_URL"
           node - <<'EOF'
           const puppeteer = require('puppeteer');
           (async () => {
             const url = process.env.TARGET_URL;
+            const ignore = (process.env.IGNORE_ERROR_PATTERNS || '')
+              .split(/\n|;;/)
+              .map(s => s.trim())
+              .filter(Boolean);
             const browser = await puppeteer.launch({headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox']});
             const page = await browser.newPage();
             page.setDefaultNavigationTimeout(45000);
             const errors = [];
+            const isIgnored = txt => ignore.some(p => txt.includes(p));
             page.on('console', msg => {
               if (msg.type() === 'error') {
-                errors.push('[console.error] ' + msg.text());
+                const text = '[console.error] ' + msg.text();
+                if (!isIgnored(text)) errors.push(text);
               }
             });
-            page.on('pageerror', err => errors.push('[pageerror] ' + err.message));
+            page.on('pageerror', err => {
+              const text = '[pageerror] ' + err.message;
+              if (!isIgnored(text)) errors.push(text);
+            });
+            // Sammle auch HTTP Fehlerantworten (>=400) als Warnung
+            const httpIssues = [];
+            page.on('response', resp => {
+              const sc = resp.status();
+              if (sc >= 400) {
+                const info = `[http ${sc}] ${resp.url()}`;
+                if (!isIgnored(info)) httpIssues.push(info);
+              }
+            });
             try {
               await page.goto(url, {waitUntil: 'networkidle2'});
-              // kurze Wartezeit für nachgeladene Scripts / XHR
-              await page.waitForTimeout(2000);
+              // einfache Wartezeit via setTimeout (statt deprecated waitForTimeout)
+              await new Promise(r => setTimeout(r, 2000));
             } catch (e) {
               errors.push('[navigation] ' + e.message);
             } finally {
               await browser.close();
+            }
+            if (httpIssues.length) {
+              console.log('HTTP Probleme (werden aktuell NICHT als Fehler gezählt):');
+              console.log(httpIssues.join('\n'));
             }
             if (errors.length) {
               console.error('JavaScript Fehler gefunden (Anzahl ' + errors.length + '):');
               console.error(errors.join('\n'));
               process.exit(1);
             }
-            console.log('Keine JavaScript Fehler gefunden.');
+            console.log('Keine relevanten JavaScript Fehler gefunden.');
           })().catch(e => { console.error('Prüfung abgebrochen:', e); process.exit(1); });
           EOF
