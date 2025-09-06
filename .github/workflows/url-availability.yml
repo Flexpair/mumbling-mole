@@ -24,3 +24,43 @@ jobs:
             exit 1
           fi
           echo "Erfolg: $URL liefert HTTP 200"
+      - name: Prüfe JavaScript Fehler im Browser (Puppeteer)
+        env:
+          TARGET_URL: https://public-playground.flexpair.app/
+        run: |
+          set -euo pipefail
+          echo "Installiere Puppeteer"
+          npm --yes init >/dev/null 2>&1 || true
+          npm install --no-audit --no-fund puppeteer@22 >/dev/null
+          echo "Starte Headless Chrome und lade $TARGET_URL"
+          node - <<'EOF'
+          const puppeteer = require('puppeteer');
+          (async () => {
+            const url = process.env.TARGET_URL;
+            const browser = await puppeteer.launch({headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox']});
+            const page = await browser.newPage();
+            page.setDefaultNavigationTimeout(45000);
+            const errors = [];
+            page.on('console', msg => {
+              if (msg.type() === 'error') {
+                errors.push('[console.error] ' + msg.text());
+              }
+            });
+            page.on('pageerror', err => errors.push('[pageerror] ' + err.message));
+            try {
+              await page.goto(url, {waitUntil: 'networkidle2'});
+              // kurze Wartezeit für nachgeladene Scripts / XHR
+              await page.waitForTimeout(2000);
+            } catch (e) {
+              errors.push('[navigation] ' + e.message);
+            } finally {
+              await browser.close();
+            }
+            if (errors.length) {
+              console.error('JavaScript Fehler gefunden (Anzahl ' + errors.length + '):');
+              console.error(errors.join('\n'));
+              process.exit(1);
+            }
+            console.log('Keine JavaScript Fehler gefunden.');
+          })().catch(e => { console.error('Prüfung abgebrochen:', e); process.exit(1); });
+          EOF
