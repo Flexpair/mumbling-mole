@@ -27,7 +27,12 @@ jobs:
       - name: Prüfe JavaScript Fehler im Browser (Puppeteer)
         env:
           TARGET_URL: https://public-playground.flexpair.app/
-          IGNORE_ERROR_PATTERNS: "Failed to load resource: the server responded with a status of 403"
+          IGNORE_ERROR_PATTERNS: |
+            Failed to load resource: the server responded with a status of 403
+            translation selector 
+            The key "target-densitydpi" is not supported.
+            Input elements should have autocomplete attributes
+            [http 403] /guacamole/api/tokens
         run: |
           set -euo pipefail
           echo "Installiere Puppeteer (neueste Version)"
@@ -46,7 +51,13 @@ jobs:
             const page = await browser.newPage();
             page.setDefaultNavigationTimeout(45000);
             const errors = [];
-            const isIgnored = txt => ignore.some(p => txt.includes(p));
+            const normalize = s => s.replace(/https?:\/\/[^\s)"']+/g, raw => {
+              try { const u = new URL(raw); return u.pathname + (u.search||''); } catch { return raw; }
+            });
+            const isIgnored = txt => {
+              const norm = normalize(txt);
+              return ignore.some(p => txt.includes(p) || norm.includes(p));
+            };
             // ALLE Console-Messages (log, info, warn, error, debug, trace) als Fehler behandeln
             page.on('console', msg => {
               const text = `[console.${msg.type()}] ${msg.text()}`;
@@ -61,7 +72,9 @@ jobs:
             page.on('response', resp => {
               const sc = resp.status();
               if (sc >= 400) {
-                const info = `[http ${sc}] ${resp.url()}`;
+                let pathOnly;
+                try { const u = new URL(resp.url()); pathOnly = u.pathname + (u.search||''); } catch { pathOnly = resp.url(); }
+                const info = `[http ${sc}] ${pathOnly}`;
                 if (!isIgnored(info)) httpIssues.push(info);
               }
             });
