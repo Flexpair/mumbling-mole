@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           echo "Installiere Puppeteer & Diff Bibliothek"
           npm --yes init >/dev/null 2>&1 || true
-          npm install --no-audit --no-fund puppeteer@latest diff@5 >/dev/null
+          npm install --no-audit --no-fund puppeteer@latest diff@5 pixelmatch@5 pngjs@7 >/dev/null
           node - <<'EOF'
           const puppeteer = require('puppeteer');
           const {diffLines} = require('diff');
@@ -39,9 +39,16 @@ jobs:
             .replace(/\s+/g,' ') // Whitespace normalisieren
             .trim();
 
+          const pixelmatch = require('pixelmatch');
+          const {PNG} = require('pngjs');
+          const VIEWPORT_WIDTH = parseInt(process.env.VIEWPORT_WIDTH||'1280',10);
+          const VIEWPORT_HEIGHT = parseInt(process.env.VIEWPORT_HEIGHT||'900',10);
+          const MAX_DIFF_PIXELS = parseInt(process.env.MAX_DIFF_PIXELS||'50',10);
+            const MAX_DIFF_PERCENT = parseFloat(process.env.MAX_DIFF_PERCENT||'0.1');
           async function collect(url) {
             const browser = await puppeteer.launch({headless: 'new', args:['--no-sandbox','--disable-setuid-sandbox']});
             const page = await browser.newPage();
+            await page.setViewport({width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, deviceScaleFactor: 1});
             page.setDefaultNavigationTimeout(60000);
             const msgs = [];
             page.on('console', msg => { try { msgs.push(`[${msg.type()}] ${msg.text()}`); } catch {} });
@@ -53,8 +60,9 @@ jobs:
             });
             await page.goto(url, {waitUntil:'networkidle2'});
             await new Promise(r => setTimeout(r, 1500));
+            const screenshot = await page.screenshot({fullPage:false});
             await browser.close();
-            return msgs;
+            return {msgs, screenshot};
           }
 
           (async () => {
@@ -69,8 +77,8 @@ jobs:
               return t;
             });
 
-            const prod = transform(prodRaw);
-            const stage = transform(stageRaw);
+            const prod = transform(prodRaw.msgs);
+            const stage = transform(stageRaw.msgs);
 
             console.log(`PROD: ${prod.length} Meldungen`);
             console.log(`STAGE: ${stage.length} Meldungen`);
@@ -85,31 +93,61 @@ jobs:
             const prodJoined = prodList.join('\n');
             const stageJoined = stageList.join('\n');
 
+            let consoleFailed = false;
             if (prodJoined === stageJoined) {
-              console.log('Regression OK: Konsolenmeldungen identisch' + (IGNORE_ORDER ? ' (Reihenfolge ignoriert).' : '.'));
-              return;
+              console.log('Console Regression OK: Meldungen identisch' + (IGNORE_ORDER ? ' (Reihenfolge ignoriert).' : '.'));
+            } else {
+              console.error('Console Regression FEHLER: Unterschiede gefunden.');
+              const diffs = diffLines(prodJoined, stageJoined);
+              let added=0, removed=0; const linesOut=[];
+              for (const part of diffs) {
+                if (part.added) added += part.count || 0; else if (part.removed) removed += part.count || 0;
+                const prefix = part.added ? '+' : part.removed ? '-' : ' ';
+                const block = part.value.split(/\n/).filter(Boolean).slice(0,60);
+                for (const l of block) { if (linesOut.length < 160) linesOut.push(prefix + ' ' + l); }
+                if (linesOut.length>=160) break;
+              }
+              console.error(`Zusammenfassung Diff: hinzugefügt=${added} entfernt=${removed}`);
+              console.error('--- Console Diff (gekürzt) ---');
+              console.error(linesOut.join('\n'));
+              if (!IGNORE_ORDER) {
+                const setEqual = prod.slice().sort().join('\n') === stage.slice().sort().join('\n');
+                if (setEqual) console.error('Hinweis: Nur Reihenfolge unterscheidet sich. IGNORE_ORDER=true setzen falls akzeptabel.');
+              }
+              consoleFailed = true;
             }
 
-            console.error('Regression FEHLER: Unterschiede in den Konsolenmeldungen gefunden.');
-            const diffs = diffLines(prodJoined, stageJoined);
-            let added=0, removed=0;
-            for (const part of diffs) {
-              if (part.added) added += part.count || 0; else if (part.removed) removed += part.count || 0;
+            // Visueller Vergleich
+            console.log('Starte visuellen Vergleich…');
+            const prodImg = PNG.sync.read(prodRaw.screenshot);
+            const stageImg = PNG.sync.read(stageRaw.screenshot);
+            if (prodImg.width !== stageImg.width || prodImg.height !== stageImg.height) {
+              console.error(`Unterschiedliche Dimensionen: PROD ${prodImg.width}x${prodImg.height} vs STAGE ${stageImg.width}x${stageImg.height}`);
             }
-            console.error(`Zusammenfassung Diff: hinzugefügt=${added} entfernt=${removed}`);
-            const linesOut = [];
-            for (const part of diffs) {
-              const prefix = part.added ? '+' : part.removed ? '-' : ' ';
-              const block = part.value.split(/\n/).filter(Boolean).slice(0,60);
-              for (const l of block) { if (linesOut.length < 200) linesOut.push(prefix + ' ' + l); }
-              if (linesOut.length >= 200) break;
+            const w = Math.min(prodImg.width, stageImg.width);
+            const h = Math.min(prodImg.height, stageImg.height);
+            const diffPng = new PNG({width:w, height:h});
+            const diffPixels = pixelmatch(prodImg.data, stageImg.data, diffPng.data, w, h, {threshold:0.1, includeAA:true});
+            const total = w * h;
+            const diffPercent = (diffPixels/total)*100;
+            const fs = require('fs');
+            fs.writeFileSync('prod.png', PNG.sync.write(prodImg));
+            fs.writeFileSync('stage.png', PNG.sync.write(stageImg));
+            fs.writeFileSync('diff.png', PNG.sync.write(diffPng));
+            fs.writeFileSync('visual-result.txt', `diffPixels=${diffPixels}\narea=${total}\ndiffPercent=${diffPercent.toFixed(4)}\n`);
+            let visualFailed = false;
+            if (diffPixels > MAX_DIFF_PIXELS && diffPercent > MAX_DIFF_PERCENT) {
+              console.error(`Visuelle Regression FEHLER: ${diffPixels} Pixel (${diffPercent.toFixed(4)}%) > Limit (${MAX_DIFF_PIXELS} / ${MAX_DIFF_PERCENT}%).`);
+              visualFailed = true;
+            } else {
+              console.log(`Visueller Vergleich OK: ${diffPixels} Pixel Unterschied (${diffPercent.toFixed(4)}%).`);
             }
-            console.error('--- Diff (gekürzt) ---');
-            console.error(linesOut.join('\n'));
-            if (!IGNORE_ORDER) {
-              const setEqual = prod.slice().sort().join('\n') === stage.slice().sort().join('\n');
-              if (setEqual) console.error('Hinweis: Nur Reihenfolge unterscheidet sich. IGNORE_ORDER=true setzen falls akzeptabel.');
+
+            if (consoleFailed || visualFailed) {
+              console.error(`Gesamtstatus: FEHLER (Console=${consoleFailed}, Visual=${visualFailed})`);
+              process.exit(1);
             }
-            process.exit(1);
+            console.log('Gesamtstatus: OK (Console & Visual)');
+            return;
           })().catch(e => { console.error('Fehler beim Vergleich:', e); process.exit(1); });
           EOF
