@@ -137,3 +137,16 @@ jobs:
             return;
           })().catch(e => { console.error('Fehler beim Vergleich:', e); process.exit(1); });
           EOF
+
+      - name: Lade Screenshots & Diff als Artefakt hoch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-screenshots
+          path: |
+            prod.png
+            stage.png
+            diff.png
+            visual-result.txt
+          if-no-files-found: warn
+          retention-days: 7
