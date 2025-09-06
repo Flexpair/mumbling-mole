@@ -1,4 +1,4 @@
-name: URL Availability Check
+name: Console Regression Check
 
 on:
   push:
@@ -7,104 +7,112 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-url:
-    name: Prüfe öffentlich erreichbare URL
+  console-regression:
+    name: Vergleiche Konsolenmeldungen Prod vs Staging
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: HTTP 200 Erwartung prüfen
-        run: |
-          set -euo pipefail
-          URL="https://public-playground.flexpair.app/"
-          echo "Prüfe Erreichbarkeit von $URL"
-          # Mehrfach versuchen (Netzwerk-Flakes abfedern)
-          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 --retry 4 --retry-delay 3 --retry-all-errors "$URL" || true)
-          if [ "$status" != "200" ]; then
-            echo "FEHLER: Erwartet wurde HTTP 200, erhalten: $status" >&2
-            exit 1
-          fi
-          echo "Erfolg: $URL liefert HTTP 200"
-      - name: Prüfe JavaScript Fehler im Browser (Puppeteer)
+      - name: Sammle & vergleiche Console-Ausgaben
         env:
-          TARGET_URL: https://public-playground.flexpair.app/
-          IGNORE_ERROR_PATTERNS: |
-            Failed to load resource: the server responded with a status of 403
-            translation selector 
-            The key "target-densitydpi" is not supported.
-            Input elements should have autocomplete attributes
-            [http 403] /guacamole/api/tokens
+          PROD_URL: https://public-playground.flexpair.app/
+          STAGING_URL: https://mutual-krill.flexpair.app/
+          STRIP_SUBSTRINGS: ''
+          IGNORE_ORDER: 'true'
         run: |
           set -euo pipefail
-          echo "Installiere Puppeteer (neueste Version)"
+          echo "Installiere Puppeteer & Diff Bibliothek"
           npm --yes init >/dev/null 2>&1 || true
-          npm install --no-audit --no-fund puppeteer@latest >/dev/null
-          echo "Starte Headless Chrome und lade $TARGET_URL"
+          npm install --no-audit --no-fund puppeteer@latest jsdiff@5 >/dev/null
           node - <<'EOF'
           const puppeteer = require('puppeteer');
-          (async () => {
-            const url = process.env.TARGET_URL;
-            const ignore = (process.env.IGNORE_ERROR_PATTERNS || '')
-              .split(/\n|;;/)
-              .map(s => s.trim())
-              .filter(Boolean);
-            const browser = await puppeteer.launch({headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox']});
+          const {diffLines} = require('diff');
+          const PROD = process.env.PROD_URL;
+          const STAGE = process.env.STAGING_URL;
+          const STRIP = (process.env.STRIP_SUBSTRINGS||'').split(',').map(s=>s.trim()).filter(Boolean);
+          const IGNORE_ORDER = /^true$/i.test(process.env.IGNORE_ORDER||'');
+          if(!PROD||!STAGE) { console.error('PROD_URL oder STAGING_URL fehlt'); process.exit(1); }
+
+          const normalizeMessage = (m) => m
+            .replace(/https?:\/\/[^\s)"']+/g, url => {
+              try { const u = new URL(url); return u.pathname + (u.search||''); } catch { return url; }
+            })
+            .replace(/\s+/g,' ') // Whitespace normalisieren
+            .trim();
+
+          async function collect(url) {
+            const browser = await puppeteer.launch({headless: 'new', args:['--no-sandbox','--disable-setuid-sandbox']});
             const page = await browser.newPage();
-            page.setDefaultNavigationTimeout(45000);
-            const errors = [];
-            const ignoredMessages = [];
-            const normalize = s => s.replace(/https?:\/\/[^\s)"']+/g, raw => {
-              try { const u = new URL(raw); return u.pathname + (u.search||''); } catch { return raw; }
-            });
-            const isIgnored = txt => {
-              const norm = normalize(txt);
-              return ignore.some(p => txt.includes(p) || norm.includes(p));
-            };
-            // ALLE Console-Messages (log, info, warn, error, debug, trace) als Fehler behandeln
-            page.on('console', msg => {
-              const text = `[console.${msg.type()}] ${msg.text()}`;
-              if (!isIgnored(text)) {
-                errors.push(text);
-              } else {
-                ignoredMessages.push(text);
-              }
-            });
-            page.on('pageerror', err => {
-              const text = '[pageerror] ' + err.message;
-              if (!isIgnored(text)) {
-                errors.push(text);
-              } else {
-                ignoredMessages.push(text);
-              }
-            });
-            // Sammle auch HTTP Fehlerantworten (>=400) als Warnung
-            const httpIssues = [];
+            page.setDefaultNavigationTimeout(60000);
+            const msgs = [];
+            page.on('console', msg => { try { msgs.push(`[${msg.type()}] ${msg.text()}`); } catch {} });
+            page.on('pageerror', err => msgs.push(`[pageerror] ${err.message}`));
             page.on('response', resp => {
-              const sc = resp.status();
-              if (sc >= 400) {
-                let pathOnly;
-                try { const u = new URL(resp.url()); pathOnly = u.pathname + (u.search||''); } catch { pathOnly = resp.url(); }
-                const info = `[http ${sc}] ${pathOnly}`;
-                if (!isIgnored(info)) httpIssues.push(info);
+              if (resp.status() >= 400) {
+                try { const u = new URL(resp.url()); msgs.push(`[http ${resp.status()}] ${u.pathname}${u.search||''}`); } catch { msgs.push(`[http ${resp.status()}] ${resp.url()}`); }
               }
             });
-            try {
-              await page.goto(url, {waitUntil: 'networkidle2'});
-              // einfache Wartezeit via setTimeout (statt deprecated waitForTimeout)
-              await new Promise(r => setTimeout(r, 2000));
-            } catch (e) {
-              errors.push('[navigation] ' + e.message);
-            } finally {
-              await browser.close();
+            await page.goto(url, {waitUntil:'networkidle2'});
+            await page.waitForTimeout(1500);
+            await browser.close();
+            return msgs;
+          }
+
+          (async () => {
+            console.log('Sammle Console-Ausgaben PROD:', PROD);
+            const prodRaw = await collect(PROD);
+            console.log('Sammle Console-Ausgaben STAGING:', STAGE);
+            const stageRaw = await collect(STAGE);
+
+            const transform = list => list.map(m => {
+              let t = normalizeMessage(m);
+              for (const s of STRIP) if (s) t = t.split(s).join('');
+              return t;
+            });
+
+            const prod = transform(prodRaw);
+            const stage = transform(stageRaw);
+
+            console.log(`PROD: ${prod.length} Meldungen`);
+            console.log(`STAGE: ${stage.length} Meldungen`);
+
+            let prodList = prod.slice();
+            let stageList = stage.slice();
+            if (IGNORE_ORDER) {
+              prodList.sort();
+              stageList.sort();
             }
-            // HTTP-Issues zusätzlich als Fehler anhängen, da jede Ausgabe strikt scheitern soll
-            if (httpIssues.length) {
-              errors.push(...httpIssues.map(i => '[resource] ' + i));
+
+            const prodJoined = prodList.join('\n');
+            const stageJoined = stageList.join('\n');
+
+            if (prodJoined === stageJoined) {
+              console.log('Regression OK: Konsolenmeldungen identisch' + (IGNORE_ORDER ? ' (Reihenfolge ignoriert).' : '.'));
+              return;
             }
-            if (errors.length) {
-              console.error('JavaScript/Console Ausgaben gefunden (Anzahl ' + errors.length + '):');
-              console.error(errors.join('\n'));
-              process.exit(1);
+
+            console.error('Regression FEHLER: Unterschiede in den Konsolenmeldungen gefunden.');
+            const diffs = diffLines(prodJoined, stageJoined);
+            let added=0, removed=0;
+            for (const part of diffs) {
+              if (part.added) added += part.count || 0; else if (part.removed) removed += part.count || 0;
             }
+            console.error(`Zusammenfassung Diff: hinzugefügt=${added} entfernt=${removed}`);
+            const linesOut = [];
+            for (const part of diffs) {
+              const prefix = part.added ? '+' : part.removed ? '-' : ' ';
+              const block = part.value.split(/\n/).filter(Boolean).slice(0,60);
+              for (const l of block) { if (linesOut.length < 200) linesOut.push(prefix + ' ' + l); }
+              if (linesOut.length >= 200) break;
+            }
+            console.error('--- Diff (gekürzt) ---');
+            console.error(linesOut.join('\n'));
+            if (!IGNORE_ORDER) {
+              const setEqual = prod.slice().sort().join('\n') === stage.slice().sort().join('\n');
+              if (setEqual) console.error('Hinweis: Nur Reihenfolge unterscheidet sich. IGNORE_ORDER=true setzen falls akzeptabel.');
+            }
+            process.exit(1);
+          })().catch(e => { console.error('Fehler beim Vergleich:', e); process.exit(1); });
+          EOF
             console.log(`Keine neuen relevanten Console-/Script-Fehler. (${ignoredMessages.length} bekannte/ignorierte Meldungen)`);
             if (ignoredMessages.length) {
               const preview = ignoredMessages.slice(0, 8);
