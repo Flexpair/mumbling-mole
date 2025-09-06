@@ -51,6 +51,7 @@ jobs:
             const page = await browser.newPage();
             page.setDefaultNavigationTimeout(45000);
             const errors = [];
+            const ignoredMessages = [];
             const normalize = s => s.replace(/https?:\/\/[^\s)"']+/g, raw => {
               try { const u = new URL(raw); return u.pathname + (u.search||''); } catch { return raw; }
             });
@@ -61,11 +62,19 @@ jobs:
             // ALLE Console-Messages (log, info, warn, error, debug, trace) als Fehler behandeln
             page.on('console', msg => {
               const text = `[console.${msg.type()}] ${msg.text()}`;
-              if (!isIgnored(text)) errors.push(text);
+              if (!isIgnored(text)) {
+                errors.push(text);
+              } else {
+                ignoredMessages.push(text);
+              }
             });
             page.on('pageerror', err => {
               const text = '[pageerror] ' + err.message;
-              if (!isIgnored(text)) errors.push(text);
+              if (!isIgnored(text)) {
+                errors.push(text);
+              } else {
+                ignoredMessages.push(text);
+              }
             });
             // Sammle auch HTTP Fehlerantworten (>=400) als Warnung
             const httpIssues = [];
@@ -96,6 +105,14 @@ jobs:
               console.error(errors.join('\n'));
               process.exit(1);
             }
-            console.log('Keine Console-Ausgaben oder Fehler produziert.');
+            console.log(`Keine neuen relevanten Console-/Script-Fehler. (${ignoredMessages.length} bekannte/ignorierte Meldungen)`);
+            if (ignoredMessages.length) {
+              const preview = ignoredMessages.slice(0, 8);
+              console.log('Beispiele ignorierter Meldungen:');
+              console.log(preview.join('\n'));
+              if (ignoredMessages.length > preview.length) {
+                console.log(`... (+${ignoredMessages.length - preview.length} weitere ignoriert)`);
+              }
+            }
           })().catch(e => { console.error('Prüfung abgebrochen:', e); process.exit(1); });
           EOF
