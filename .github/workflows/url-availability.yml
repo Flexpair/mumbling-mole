@@ -47,11 +47,10 @@ jobs:
             page.setDefaultNavigationTimeout(45000);
             const errors = [];
             const isIgnored = txt => ignore.some(p => txt.includes(p));
+            // ALLE Console-Messages (log, info, warn, error, debug, trace) als Fehler behandeln
             page.on('console', msg => {
-              if (msg.type() === 'error') {
-                const text = '[console.error] ' + msg.text();
-                if (!isIgnored(text)) errors.push(text);
-              }
+              const text = `[console.${msg.type()}] ${msg.text()}`;
+              if (!isIgnored(text)) errors.push(text);
             });
             page.on('pageerror', err => {
               const text = '[pageerror] ' + err.message;
@@ -75,15 +74,15 @@ jobs:
             } finally {
               await browser.close();
             }
+            // HTTP-Issues zusätzlich als Fehler anhängen, da jede Ausgabe strikt scheitern soll
             if (httpIssues.length) {
-              console.log('HTTP Probleme (werden aktuell NICHT als Fehler gezählt):');
-              console.log(httpIssues.join('\n'));
+              errors.push(...httpIssues.map(i => '[resource] ' + i));
             }
             if (errors.length) {
-              console.error('JavaScript Fehler gefunden (Anzahl ' + errors.length + '):');
+              console.error('JavaScript/Console Ausgaben gefunden (Anzahl ' + errors.length + '):');
               console.error(errors.join('\n'));
               process.exit(1);
             }
-            console.log('Keine relevanten JavaScript Fehler gefunden.');
+            console.log('Keine Console-Ausgaben oder Fehler produziert.');
           })().catch(e => { console.error('Prüfung abgebrochen:', e); process.exit(1); });
           EOF
