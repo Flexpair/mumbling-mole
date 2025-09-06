@@ -52,7 +52,7 @@ jobs:
               }
             });
             await page.goto(url, {waitUntil:'networkidle2'});
-            await page.waitForTimeout(1500);
+            await new Promise(r => setTimeout(r, 1500));
             await browser.close();
             return msgs;
           }
