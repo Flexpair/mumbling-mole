@@ -18,6 +18,8 @@ jobs:
           STAGING_URL: https://mutual-krill.flexpair.app/
           STRIP_SUBSTRINGS: ''
           IGNORE_ORDER: 'true'
+          # Nachrichten mit diesen Pfad-Präfixen (Komma-separiert) werden komplett ignoriert (z.B. Backend-/Proxy Noise)
+          IGNORE_PATH_PREFIXES: '/guacamole'
           # Fallback-Zusatzwartezeit (ms) nach stabilem Zustand (klein halten)
           WAIT_AFTER_LOAD_MS: '250'
           # Optionaler CSS-Selector (sichtbares Haupt-UI Element)
@@ -122,13 +124,29 @@ jobs:
             const prod = transform(prodRaw.msgs);
             const stage = transform(stageRaw.msgs);
 
-            console.log(`PROD: ${prod.length} Meldungen`);
-            console.log(`STAGE: ${stage.length} Meldungen`);
+              // Pfad-basierte Ignorier-Regeln (z.B. /guacamole API-Fehler ausblenden)
+              const PATH_PREFIXES = (process.env.IGNORE_PATH_PREFIXES||'').split(',').map(s=>s.trim()).filter(Boolean);
+              const isPathIgnored = (m) => PATH_PREFIXES.some(p => {
+                if (!p) return false;
+                // Fälle: "] /guacamole" oder "] /guacamole" (mit Space) oder eingebetteter absoluter URL
+                return m.includes(`] ${p}`) || m.includes(`]${p}`) || m.includes(` ${p}`);
+              });
+              const prodBefore = prod.length, stageBefore = stage.length;
+              const prodFiltered = prod.filter(m => !isPathIgnored(m));
+              const stageFiltered = stage.filter(m => !isPathIgnored(m));
+              const prodIgnored = prodBefore - prodFiltered.length;
+              const stageIgnored = stageBefore - stageFiltered.length;
+              if (PATH_PREFIXES.length) {
+                console.log(`Ignoriere Pfad-Präfixe: ${PATH_PREFIXES.join(', ')} | PROD ignoriert: ${prodIgnored} | STAGE ignoriert: ${stageIgnored}`);
+              }
+
+            console.log(`PROD: ${prodFiltered.length} Meldungen (nach Ignore)`);
+            console.log(`STAGE: ${stageFiltered.length} Meldungen (nach Ignore)`);
 
             // Relevante Meldungen (Warnungen/Errors inkl. pageerror & HTTP >=400) sammeln
             const relevantFilter = m => /^(\[(error|warning|pageerror|http ))/i.test(m);
-            const prodRelevant = prod.filter(relevantFilter);
-            const stageRelevant = stage.filter(relevantFilter);
+            const prodRelevant = prodFiltered.filter(relevantFilter);
+            const stageRelevant = stageFiltered.filter(relevantFilter);
             const prodSet = new Set(prodRelevant);
             const extraStage = stageRelevant.filter(m => !prodSet.has(m));
             console.log(`PROD relevante Warn/Error: ${prodRelevant.length}`);
