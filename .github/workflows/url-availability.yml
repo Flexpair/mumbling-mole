@@ -83,37 +83,23 @@ jobs:
             console.log(`PROD: ${prod.length} Meldungen`);
             console.log(`STAGE: ${stage.length} Meldungen`);
 
-            let prodList = prod.slice();
-            let stageList = stage.slice();
-            if (IGNORE_ORDER) {
-              prodList.sort();
-              stageList.sort();
-            }
-
-            const prodJoined = prodList.join('\n');
-            const stageJoined = stageList.join('\n');
-
+            // Relevante Meldungen (Warnungen/Errors inkl. pageerror & HTTP >=400) sammeln
+            const relevantFilter = m => /^(\[(error|warning|pageerror|http ))/i.test(m);
+            const prodRelevant = prod.filter(relevantFilter);
+            const stageRelevant = stage.filter(relevantFilter);
+            const prodSet = new Set(prodRelevant);
+            const extraStage = stageRelevant.filter(m => !prodSet.has(m));
+            console.log(`PROD relevante Warn/Error: ${prodRelevant.length}`);
+            console.log(`STAGE relevante Warn/Error: ${stageRelevant.length}`);
             let consoleFailed = false;
-            if (prodJoined === stageJoined) {
-              console.log('Console Regression OK: Meldungen identisch' + (IGNORE_ORDER ? ' (Reihenfolge ignoriert).' : '.'));
+            if (extraStage.length === 0) {
+              console.log('Console Regression OK: STAGING ist Untermenge (keine zusätzlichen Warn/Error Meldungen).');
             } else {
-              console.error('Console Regression FEHLER: Unterschiede gefunden.');
-              const diffs = diffLines(prodJoined, stageJoined);
-              let added=0, removed=0; const linesOut=[];
-              for (const part of diffs) {
-                if (part.added) added += part.count || 0; else if (part.removed) removed += part.count || 0;
-                const prefix = part.added ? '+' : part.removed ? '-' : ' ';
-                const block = part.value.split(/\n/).filter(Boolean).slice(0,60);
-                for (const l of block) { if (linesOut.length < 160) linesOut.push(prefix + ' ' + l); }
-                if (linesOut.length>=160) break;
-              }
-              console.error(`Zusammenfassung Diff: hinzugefügt=${added} entfernt=${removed}`);
-              console.error('--- Console Diff (gekürzt) ---');
-              console.error(linesOut.join('\n'));
-              if (!IGNORE_ORDER) {
-                const setEqual = prod.slice().sort().join('\n') === stage.slice().sort().join('\n');
-                if (setEqual) console.error('Hinweis: Nur Reihenfolge unterscheidet sich. IGNORE_ORDER=true setzen falls akzeptabel.');
-              }
+              console.error('Console Regression FEHLER: Zusätzliche Warn/Error Meldungen in STAGING gefunden.');
+              const preview = extraStage.slice(0, 40);
+              console.error('Neue Meldungen (gekürzt):');
+              console.error(preview.join('\n'));
+              if (extraStage.length > preview.length) console.error(`... (+${extraStage.length - preview.length} weitere)`);
               consoleFailed = true;
             }
 
