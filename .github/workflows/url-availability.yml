@@ -20,6 +20,8 @@ jobs:
           IGNORE_ORDER: 'true'
           # Nachrichten mit diesen Pfad-Präfixen (Komma-separiert) werden komplett ignoriert (z.B. Backend-/Proxy Noise)
           IGNORE_PATH_PREFIXES: '/guacamole'
+          # Ignoriere generische "Failed to load resource" Console-Fehler, falls sie zu ignorierten Pfad-Präfixen gehören
+          IGNORE_FAILED_RESOURCE_ERRORS: 'true'
           # Fallback-Zusatzwartezeit (ms) nach stabilem Zustand (klein halten)
           WAIT_AFTER_LOAD_MS: '250'
           # Optionaler CSS-Selector (sichtbares Haupt-UI Element)
@@ -132,12 +134,43 @@ jobs:
                 return m.includes(`] ${p}`) || m.includes(`]${p}`) || m.includes(` ${p}`);
               });
               const prodBefore = prod.length, stageBefore = stage.length;
-              const prodFiltered = prod.filter(m => !isPathIgnored(m));
-              const stageFiltered = stage.filter(m => !isPathIgnored(m));
+              // Vor dem Entfernen sammeln wir HTTP Pfade mit Präfix (für spätere Korrelation)
+              const httpPathRegex = /^\[http (\d{3})\] (\S+)/;
+              function collectHttpPaths(list) {
+                const paths = new Set();
+                for (const m of list) {
+                  const mt = m.match(httpPathRegex);
+                  if (mt) {
+                    const path = mt[2];
+                    if (PATH_PREFIXES.some(p=> path.startsWith(p))) paths.add(path);
+                  }
+                }
+                return paths;
+              }
+              const prodHttpPaths = collectHttpPaths(prod);
+              const stageHttpPaths = collectHttpPaths(stage);
+
+              const IGNORE_FAILED_RESOURCE_ERRORS = /^true$/i.test(process.env.IGNORE_FAILED_RESOURCE_ERRORS||'');
+              const failedResRegex = /^\[error\] Failed to load resource:/;
+
+              function shouldIgnoreFailedResource(msg, httpPaths) {
+                if (!IGNORE_FAILED_RESOURCE_ERRORS) return false;
+                if (!failedResRegex.test(msg)) return false;
+                // Ignoriere wenn wir mindestens einen HTTP Fehler mit ignoriertem Präfix haben (implizite Zuordnung)
+                return httpPaths.size > 0; // heuristisch
+              }
+
+              const prodFiltered = prod.filter(m => !isPathIgnored(m) && !shouldIgnoreFailedResource(m, prodHttpPaths));
+              const stageFiltered = stage.filter(m => !isPathIgnored(m) && !shouldIgnoreFailedResource(m, stageHttpPaths));
               const prodIgnored = prodBefore - prodFiltered.length;
               const stageIgnored = stageBefore - stageFiltered.length;
               if (PATH_PREFIXES.length) {
                 console.log(`Ignoriere Pfad-Präfixe: ${PATH_PREFIXES.join(', ')} | PROD ignoriert: ${prodIgnored} | STAGE ignoriert: ${stageIgnored}`);
+              }
+              if (IGNORE_FAILED_RESOURCE_ERRORS) {
+                const frIgnoredProd = prodBefore - prodFiltered.length - prodIgnored;
+                const frIgnoredStage = stageBefore - stageFiltered.length - stageIgnored;
+                console.log(`Ignoriere generische Failed-Resource-Errors (Heuristik). PROD zusätzlich ignoriert: ${frIgnoredProd} | STAGE zusätzlich ignoriert: ${frIgnoredStage}`);
               }
 
             console.log(`PROD: ${prodFiltered.length} Meldungen (nach Ignore)`);
