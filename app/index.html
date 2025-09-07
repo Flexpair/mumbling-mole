@@ -47,9 +47,15 @@
         onmouseover="document.getElementById('guacframe').focus();"
         data-bind="visible: visible()"
       >
+        <!-- ko if: loading -->
+        <div class="guac-loading">Loading remote desktop…</div>
+        <!-- /ko -->
+        <!-- ko if: error -->
+        <div class="guac-error" data-bind="text: error"></div>
+        <!-- /ko -->
         <iframe
           id="guacframe"
-          data-bind="attr: { src: guacSource() || 'about:blank' }"
+          data-bind="attr: { src: guacSource() || 'about:blank' }, event: { load: onLoad }"
           title="Guacamole Remote Desktop"
           loading="lazy"
           allow="clipboard-read; clipboard-write"
