@@ -22,13 +22,56 @@ import {
 
 function GuacamoleFrame() {
   var self = this;
-  // Start with empty source to avoid the browser immediately requesting /guacamole/
-  // This defers loading Guacamole until we explicitly set the URL after a successful
-  // Mumble connection & role check, preventing early 404s / MIME errors.
-  self.guacSource = ko.observable("");
+  // Start with null source to avoid the browser immediately requesting /guacamole/.
+  // The iframe src is only assigned after a successful Mumble connect + role gating.
+  // (HTML binding uses fallback about:blank when null/empty.)
+  self.guacSource = ko.observable(null);
   self.visible = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
   self.hide = self.visible.bind(self.visible, false);
+  self.loading = ko.observable(false);
+  self.error = ko.observable(null);
+
+  self.start = function (guacUser, password) {
+    self.loading(true);
+    self.error(null);
+    // Sanitize previously bad localStorage entries that break Guacamole's JSON.parse
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (/guac|token|auth/i.test(k)) {
+          const val = localStorage.getItem(k);
+          if (val === "undefined" || val === "null") {
+            localStorage.removeItem(k);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Guac] localStorage sanitization failed", e);
+    }
+    const src =
+      "/guacamole/#/?username=" +
+      guacUser +
+      "&password=" +
+      encodeURIComponent(password || "");
+    console.log("[Guac] setting iframe src", src);
+    self.guacSource(src);
+  };
+
+  self.onLoad = function () {
+    self.loading(false);
+    console.log("[Guac] iframe load event", self.guacSource());
+    try {
+      const frame = document.getElementById("guacframe");
+      const doc = frame && frame.contentDocument;
+      if (doc) {
+        console.log("[Guac] iframe title:", doc.title);
+      }
+    } catch (e) {
+      console.warn("[Guac] cannot inspect iframe content", e);
+    }
+  };
 }
 
 function ConnectDialog() {
@@ -341,10 +384,8 @@ class GlobalBindings {
                   guac_login = "watcher";
                 }
                 if (guac_login) {
-                  this.guacamoleFrame.guacSource(
-                    "/guacamole/#/?username=" +
-                    guac_login +
-                    "&password=" +
+                  this.guacamoleFrame.start(
+                    guac_login,
                     this.connectDialog.password()
                   );
                   this.guacamoleFrame.show();
