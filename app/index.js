@@ -22,7 +22,10 @@ import {
 
 function GuacamoleFrame() {
   var self = this;
-  self.guacSource = ko.observable("/guacamole/");
+  // Start with empty source to avoid the browser immediately requesting /guacamole/
+  // This defers loading Guacamole until we explicitly set the URL after a successful
+  // Mumble connection & role check, preventing early 404s / MIME errors.
+  self.guacSource = ko.observable("");
   self.visible = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
   self.hide = self.visible.bind(self.visible, false);

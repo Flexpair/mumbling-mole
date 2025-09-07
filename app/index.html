@@ -49,8 +49,9 @@
       >
         <iframe
           id="guacframe"
-          data-bind="attr: { src: guacSource() }"
+          data-bind="attr: { src: guacSource() || 'about:blank' }"
           title="Guacamole Remote Desktop"
+          loading="lazy"
           allow="clipboard-read; clipboard-write"
         ></iframe>
       </div>
@@ -205,6 +206,8 @@
           </table>
           <div class="dialog-footer">
             <input class="dialog-submit" type="submit" value="Retry" />
+            <!-- Added cancel button so localization selector .dialog-close matches -->
+            <input class="dialog-close" type="button" value="Cancel" data-bind="click: hide" />
           </div>
         </form>
       </div>
