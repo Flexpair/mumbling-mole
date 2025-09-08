@@ -30,7 +30,15 @@ services:
     restart: always
 
   mumble:
-    image: jafudi/mumbling-mole:${MUMBLING_MOLE_VERSION:-latest}
+    build:
+      context: ..              # Projektwurzel, enthält dein Dockerfile
+      dockerfile: Dockerfile   # relativ zum context
+      target: dev              # entspricht deinem Multi-Stage-Target
+    user: node
+    init: true                 # ersetzt --init
+    working_dir: /home/node
+    volumes:
+      - ..:/home/node:cached   # entspricht workspaceMount + consistency=cached
     networks:
       guacamole_net:
         ipv4_address: 172.18.0.6
@@ -40,6 +48,7 @@ services:
     environment:
       - MUMBLE_SERVER=murmur:${MURMUR_PORT:-64738}
       - GUACPWD=${MURMUR_PASSWORD-}
+      - SKIP_PREPARE: "1"
 
   nginx:
     container_name: nginx_container
