@@ -48,7 +48,7 @@ services:
     environment:
       - MUMBLE_SERVER=murmur:${MURMUR_PORT:-64738}
       - GUACPWD=${MURMUR_PASSWORD-}
-      - SKIP_PREPARE: "1"
+      - SKIP_PREPARE=1
 
   nginx:
     container_name: nginx_container
