@@ -269,7 +269,27 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    this.netlifyIdentity = require("netlify-identity-widget");
+    // Netlify Identity widget export shape may differ (CommonJS vs ESM) after dependency updates.
+    // Wrap require to handle both: if library moved to ESM default export, use that.
+    try {
+      const _ni = require("netlify-identity-widget");
+      this.netlifyIdentity = _ni && (_ni.default || _ni);
+      if (!this.netlifyIdentity || typeof this.netlifyIdentity.init !== "function") {
+        if (window.DEBUG_IDENTITY) console.error("[Identity] init function missing on export", _ni);
+      } else if (window.DEBUG_IDENTITY) {
+        console.log("[Identity] widget ready");
+      }
+    } catch (e) {
+      if (window.DEBUG_IDENTITY) console.error("[Identity] load failure", e);
+      this.netlifyIdentity = {
+        init: () => window.DEBUG_IDENTITY && console.warn("[Identity] init noop"),
+        open: () => window.DEBUG_IDENTITY && console.warn("[Identity] open noop"),
+        on: () => {},
+        currentUser: () => null,
+        logout: () => {},
+        close: () => {},
+      };
+    }
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.guacamoleFrame = new GuacamoleFrame();
@@ -793,7 +813,7 @@ window.mumbleUi = ui;
 
 function initializeUI() {
   ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/identity-proxy",  // <— geändert wegen CORS-Problem
+    APIUrl: "https://welcome.flexpair.com/identity-proxy", // <— geändert wegen CORS-Problem
     locale: "en",
   });
 
@@ -813,12 +833,12 @@ function initializeUI() {
     }
   });
 
-  if (user == null)
+  if (user == null) {
     ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
-  else
-    ui.connectDialog.username(
-      user.user_metadata.full_name.replace(/[\s]+/g, "_")
-    );
+  } else {
+    const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+    ui.connectDialog.username(sanitized);
+  }
 
   var queryParams = url.parse(document.location.href, true).query;
   queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
