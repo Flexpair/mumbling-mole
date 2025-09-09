@@ -13,8 +13,12 @@ npm audit fix --force   # ⚠️ VORSICHT: Breaking Changes möglich!
 
 Nach der einmaligen Einrichtung führe diese 3 Schritte **in genau dieser Reihenfolge** aus:
 
-### 1️⃣ App builden
+### 1️⃣ App builden (wenn nötig)
 ```bash
+# Prüfen ob Build existiert:
+ls dist/index.js  # Existiert? → Kein Build nötig
+                  # Fehlt? → Build machen:
+
 npm run build        # Standard (schnell, ohne Audit)
 # oder
 npm run build:audit  # Mit Security-Check (langsam)
