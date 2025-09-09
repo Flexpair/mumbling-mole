@@ -1,12 +1,23 @@
-# 🚀 Development Quick Start
+# 🚀 Development Quick Sta## 🔒 Security Checks
 
-## Täglicher Workflow (Dev Container)
+```bash
+npm run security     # Vulnerabilities anzeigen
+npm audit fix        # Sichere Fixes (meist OK)
+npm audit fix --force   # ⚠️ VORSICHT: Breaking Changes möglich!
+```
+
+### ⚠️ **Wichtig:**
+- **Vor `--force`:** Backup mit Git oder manuell erstellen
+- **Nach Fixes:** `npm run build` testen
+- **Falls kaputt:** `git restore package*.json && npm install`äglicher Workflow (Dev Container)
 
 Nach der einmaligen Einrichtung führe diese 3 Schritte **in genau dieser Reihenfolge** aus:
 
 ### 1️⃣ App builden
 ```bash
-npm run build
+npm run build        # Standard (schnell, ohne Audit)
+# oder
+npm run build:audit  # Mit Security-Check (langsam)
 ```
 
 ### 2️⃣ Webserver starten  
@@ -22,7 +33,18 @@ https://local.flexpair.app
 
 ---
 
-## 🔧 Einmalige Einrichtung
+## � Security Checks
+
+Regelmäßig (nicht täglich) ausführen:
+
+```bash
+npm run security:check    # Vulnerabilities anzeigen
+npm run security:fix      # Automatische Fixes
+```
+
+---
+
+## �🔧 Einmalige Einrichtung
 
 Nur beim ersten Mal:
 
