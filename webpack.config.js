@@ -54,8 +54,30 @@ module.exports = {
           {
             loader: "html-loader",
             options: {
-              attrs: ["img:src", "link:href"],
-              root: theme,
+              esModule: false,
+              sources: {
+                list: [
+                  {
+                    tag: "img",
+                    attribute: "src",
+                    type: "src",
+                  },
+                  {
+                    tag: "link",
+                    attribute: "href",
+                    type: "src",
+                  },
+                ]
+              },
+              preprocessor: (content, loaderContext) => {
+                // Transform absolute paths to theme-relative paths
+                let result = content;
+                result = result.replace(/src="\/svg\//g, `src="${theme}/svg/`);
+                result = result.replace(/src="\/img\//g, `src="${theme}/img/`);
+                result = result.replace(/href="\/svg\//g, `href="${theme}/svg/`);
+                result = result.replace(/href="\/img\//g, `href="${theme}/img/`);
+                return result;
+              },
             },
           },
         ],
@@ -74,6 +96,9 @@ module.exports = {
           },
           {
             loader: "css-loader",
+            options: {
+              esModule: false,
+            },
           },
         ],
       },
@@ -92,6 +117,9 @@ module.exports = {
           },
           {
             loader: "css-loader",
+            options: {
+              esModule: false,
+            },
           },
           {
             loader: "sass-loader",
@@ -121,7 +149,12 @@ module.exports = {
               replaceWith: '"+require("$1")+"',
             },
           },
-          "raw-loader",
+          {
+            loader: "raw-loader",
+            options: {
+              esModule: false,
+            },
+          },
         ],
       },
       {
