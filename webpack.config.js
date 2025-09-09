@@ -55,6 +55,12 @@ module.exports = {
             loader: "html-loader",
             options: {
               esModule: false,
+              // IMPORTANT: Keep Knockout virtual element comments (<!-- ko ... -->) intact.
+              // html-loader (in production mode) minifies HTML and strips comments by default,
+              // which breaks containerless bindings like <!-- ko with: guacamoleFrame --> ... <!-- /ko -->
+              // leading to runtime errors such as "visible is not defined" because the binding
+              // context is lost. Disabling minimization here preserves those comments.
+              minimize: false,
               sources: {
                 list: [
                   {
