@@ -11,6 +11,14 @@ module.exports = {
     theme: "./app/theme.js",
   },
   devtool: false,
+  stats: {
+    preset: 'minimal',
+    assets: true,
+    chunks: false,
+    modules: false,
+    timings: true,
+    builtAt: true
+  },
   output: {
     path: path.join(__dirname, "dist"),
     chunkFilename: "[chunkhash].js",
@@ -142,5 +150,17 @@ module.exports = {
   optimization: {
     minimize: true,
   },
-  plugins: [new NodePolyfillPlugin()],
+  plugins: [
+    new NodePolyfillPlugin(),
+    new (require('webpack')).ProgressPlugin({
+      activeModules: true,
+      entries: true,
+      modules: true,
+      modulesCount: 5000,
+      profile: false,
+      dependencies: true,
+      dependenciesCount: 10000,
+      percentBy: null
+    })
+  ],
 };

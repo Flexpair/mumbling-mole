@@ -1,38 +1,15 @@
 {
-  "name": "App Dev (Multi-stage target=dev)",
-  // Wir bauen mit unserem Multi-Stage-Dockerfile, Target = dev
-  "build": {
-    "context": "..",
-    "dockerfile": "../Dockerfile",
-    "target": "dev"
-  },
-  // Container läuft standardmäßig als 'node'
-  "remoteUser": "node",
-  // Wichtige Ordnerzuordnung:
-  // - VS Code sieht /home/node als Workspace
-  // - Dein lokales Repo wird genau dort gebind-mounted
+  "name": "App Dev (Compose, target=dev)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "mumble",
   "workspaceFolder": "/home/node",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/node,type=bind,consistency=cached",
+  "remoteUser": "node",
   "overrideCommand": true,
-  "runArgs": [
-    "--init"
-  ],
-  // Beispiel für zusätzliche Umgebungsvariablen (falls nötig)
-  "containerEnv": {
-    "SKIP_PREPARE": "1"
-  },
-  // Nach Container-Erstellung: Dependencies installieren
-  "postCreateCommand": "bash -lc 'cd /home/node && if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'",
-  // Nach jedem Start: Node- und npm-Version ausgeben
-  "postStartCommand": "bash -lc 'cd /home/node && node -v && npm -v'",
-  // Port-Weiterleitung (z. B. lokale App auf 8081)
-  "forwardPorts": [
-    8081
-  ],
+
+  "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🚀 Initial build...\" && ./smart-build.sh'",
+  "postStartCommand": "bash -lc 'cd /home/node && echo \"🔧 Starting dev server via postStartCommand...\" && ./start-dev-server.sh && echo \"✅ postStartCommand completed\"'",
+
   "portsAttributes": {
-    "8081": {
-      "label": "App",
-      "onAutoForward": "notify"
-    }
+    "8081": { "label": "App", "onAutoForward": "notify" }
   }
 }

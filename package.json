@@ -3,7 +3,9 @@
   "version": "0.5.1",
   "description": "An HTML5 Mumble client.",
   "scripts": {
-    "build": "npm install node-polyfill-webpack-plugin && webpack && ([ -f dist/config.local.js ] || cp app/config.local.js dist/) && cp app/recorder-worker.js dist/",
+    "build": "./smart-build.sh",
+    "build:force": "./smart-build.sh --force",
+    "security": "npm audit",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test:e2e": "node scripts/e2e-check.cjs",
     "test": "npm run test:e2e"
