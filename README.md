@@ -2,6 +2,19 @@
 
 mumble-web is an HTML5 [Mumble] client that runs directly in your browser. This variant is supposed to be used in conjunction with some remote desktop piece of software. Therefore it dispenses entirely of the channel view and ongoing voice activity detection. Instead, we focus on saving UI space and performance.
 
+## Development Workflow (Dev Container)
+
+Für lokales Development siehe: **[DEV-WORKFLOW.md](DEV-WORKFLOW.md)**
+
+**Quick Start:**
+1. `npm run build`
+2. `./docker-entrypoint.sh` 
+3. Browser: `https://local.flexpair.app`
+
+*Einmalige Einrichtung: `./setup-local-dev.sh` ausführen und Anweisungen befolgen.*
+
+---
+
 ## Improvements
 
 - Reduntanize the `libsamplerate.js` package weighing about 5 MB by making use of the native resampler contained in all modern browsers anyway
