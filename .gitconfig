@@ -2,4 +2,4 @@
 	name = Jens Fielenbach
 	email = mail@flexpair.com
 [credential]
-	helper = "!f() { /home/node/.vscode-server/bin/360a4e4fd251bfce169a4ddf857c7d25d1ad40da/node /tmp/vscode-remote-containers-a2d21550-452e-445b-96f1-0044570d38d8.js git-credential-helper $*; }; f"
+	helper = "!f() { /home/node/.vscode-server/bin/6f17636121051a53c88d3e605c491d22af2ba755/node /tmp/vscode-remote-containers-1a48a50d-592b-40ff-b124-f40c3021331e.js git-credential-helper $*; }; f"

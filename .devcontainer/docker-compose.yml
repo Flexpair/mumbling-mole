@@ -54,6 +54,8 @@ services:
     container_name: nginx_container
     restart: always
     image: nginx
+    environment:
+      - SSL_DOMAIN=${SSL_DOMAIN:-localhost}
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
