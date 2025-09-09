@@ -5,10 +5,11 @@
   "scripts": {
     "build": "./smart-build.sh",
     "build:force": "./smart-build.sh --force",
-    "security": "npm audit",
+    "audit:ci": "node scripts/audit-ci.cjs",
+    "audit:baseline": "node scripts/audit-ci.cjs --write-baseline",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test:e2e": "node scripts/e2e-check.cjs",
-    "test": "npm run test:e2e"
+    "test": "npm run test:e2e && npm run audit:ci"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "license": "ISC",
