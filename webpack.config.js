@@ -54,8 +54,38 @@ module.exports = {
           {
             loader: "html-loader",
             options: {
-              attrs: ["img:src", "link:href"],
-              root: theme,
+              esModule: false,
+              // IMPORTANT: Keep Knockout virtual element comments (<!-- ko ... -->) intact.
+              // We still want general minification, just not comment stripping.
+              // html-loader passes this object to html-minifier-terser.
+              // Setting removeComments:false preserves KO containerless bindings while
+              // allowing whitespace/attribute/collapsing optimizations.
+              minimize: {
+                removeComments: false,
+              },
+              sources: {
+                list: [
+                  {
+                    tag: "img",
+                    attribute: "src",
+                    type: "src",
+                  },
+                  {
+                    tag: "link",
+                    attribute: "href",
+                    type: "src",
+                  },
+                ]
+              },
+              preprocessor: (content, loaderContext) => {
+                // Transform absolute paths to theme-relative paths
+                let result = content;
+                result = result.replace(/src="\/svg\//g, `src="${theme}/svg/`);
+                result = result.replace(/src="\/img\//g, `src="${theme}/img/`);
+                result = result.replace(/href="\/svg\//g, `href="${theme}/svg/`);
+                result = result.replace(/href="\/img\//g, `href="${theme}/img/`);
+                return result;
+              },
             },
           },
         ],
@@ -74,6 +104,9 @@ module.exports = {
           },
           {
             loader: "css-loader",
+            options: {
+              esModule: false,
+            },
           },
         ],
       },
@@ -92,6 +125,9 @@ module.exports = {
           },
           {
             loader: "css-loader",
+            options: {
+              esModule: false,
+            },
           },
           {
             loader: "sass-loader",
@@ -121,7 +157,12 @@ module.exports = {
               replaceWith: '"+require("$1")+"',
             },
           },
-          "raw-loader",
+          {
+            loader: "raw-loader",
+            options: {
+              esModule: false,
+            },
+          },
         ],
       },
       {
