@@ -83,7 +83,7 @@ USER node
 WORKDIR /home/node
 
 RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
-RUN npm run build
+RUN npm run build:force
 
 EXPOSE 8081 8082
 RUN chmod +x ./docker-entrypoint.sh

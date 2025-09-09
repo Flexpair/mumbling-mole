@@ -6,8 +6,8 @@
   "remoteUser": "node",
   "overrideCommand": true,
 
-  "postCreateCommand": "bash -lc 'cd /home/node && if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'",
-  "postStartCommand": "bash -lc 'cd /home/node && node -v && npm -v'",
+  "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🚀 Initial build...\" && ./smart-build.sh'",
+  "postStartCommand": "bash -lc 'cd /home/node && ./docker-entrypoint.sh &'",
 
   "portsAttributes": {
     "8081": { "label": "App", "onAutoForward": "notify" }
