@@ -28,7 +28,7 @@
     "brfs": "2.0.2",
     "bytebuffer": "5.0.1",
     "css-loader": "^7.1.2",
-    "dompurify": "^3.2.6",
+    "dompurify": "^3.2.7",
     "drop-stream": "1.0.0",
     "extract-loader": "^4.0.3",
     "file-loader": "6.2.0",
