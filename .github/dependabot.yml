@@ -19,7 +19,7 @@ updates:
       - dependencies
       - ci
   - package-ecosystem: devcontainers
-    directory: "/.devcontainer"
+    directory: "/"
     schedule:
       interval: daily
       timezone: "Europe/Berlin"
