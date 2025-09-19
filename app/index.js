@@ -1,3 +1,4 @@
+import "./debug-script-processor";
 import "subworkers";
 import url from "url";
 import MumbleClient from "mumble-client";
