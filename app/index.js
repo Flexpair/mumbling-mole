@@ -273,36 +273,15 @@ class GlobalBindings {
     // Use netlify-identity-widget from global scope (loaded via script tag)
     if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
       this.netlifyIdentity = window.netlifyIdentity;
-      if (window.DEBUG_IDENTITY) {
-        console.log("[Identity] global widget loaded successfully", window.netlifyIdentity);
-      }
     } else {
-      if (window.DEBUG_IDENTITY) {
-        console.error("[Identity] Global widget not found. Check if script tag loaded correctly.");
-        console.log("[Identity] Available on window:", Object.keys(window).filter(k => k.includes('netlify')));
-      }
-      
-      // Create dummy implementation with detailed logging
+      // Fallback implementation if widget fails to load
       this.netlifyIdentity = {
-        init: (config) => {
-          if (window.DEBUG_IDENTITY) console.warn("[Identity] init noop called with config:", config);
-        },
-        open: (mode) => {
-          if (window.DEBUG_IDENTITY) console.warn("[Identity] open noop called with mode:", mode);
-        },
-        on: (event, callback) => {
-          if (window.DEBUG_IDENTITY) console.warn("[Identity] event listener noop:", event);
-        },
-        currentUser: () => {
-          if (window.DEBUG_IDENTITY) console.warn("[Identity] currentUser noop - returning null");
-          return null;
-        },
-        logout: () => {
-          if (window.DEBUG_IDENTITY) console.warn("[Identity] logout noop");
-        },
-        close: () => {
-          if (window.DEBUG_IDENTITY) console.warn("[Identity] close noop");
-        },
+        init: () => {},
+        open: () => {},
+        on: () => {},
+        currentUser: () => null,
+        logout: () => {},
+        close: () => {},
       };
     }
     this.connectDialog = new ConnectDialog();
@@ -833,7 +812,7 @@ if (ui.netlifyIdentity) {
 
 function initializeUI() {
   ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/identity-proxy", // <— geändert wegen CORS-Problem
+    APIUrl: "https://welcome.flexpair.com/identity-proxy",
     locale: "en",
   });
 
