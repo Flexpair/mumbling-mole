@@ -134,23 +134,30 @@ jobs:
             echo "[smoke][fail] No <html> or <!DOCTYPE html> tag found"; exit 1
           fi
 
-          # Stable asset markers: core config/theme scripts must be referenced
-          required_assets=(
-            'config.js'
-            'theme.js'
-          )
-          for asset in "${required_assets[@]}"; do
-            if grep -Fq "$asset" /tmp/body; then
-              echo "[smoke] asset marker ok: $asset"
-            else
-              echo "[smoke][fail] Missing asset reference: $asset"; exit 1
+          # If the served index.html is unexpectedly tiny (< 500 bytes) dump it for diagnostics
+          if [ "$bytes" -lt 500 ]; then
+            echo "[smoke][diag] index.html content (truncated to 400 bytes):"
+            head -c 400 /tmp/body | sed 's/^/[body] /'
+          fi
+
+          # Direct asset fetch tests (avoid depending on inline <script> tags in minimized HTML)
+          asset_checks=(config.js theme.js)
+          for asset in "${asset_checks[@]}"; do
+            echo "[smoke] Fetching asset: $asset"
+            curl -sS -D "/tmp/hdr-$asset" -o "/tmp/$asset" "http://127.0.0.1:${SMOKE_HTTP_PORT}/$asset" || { echo "[smoke][fail] curl error for $asset"; exit 1; }
+            astatus=$(awk 'NR==1{print $2}' "/tmp/hdr-$asset")
+            if [ "${astatus}" != "200" ]; then
+              echo "[smoke][fail] HTTP $astatus for $asset"; exit 1
+            fi
+            asize=$(wc -c </tmp/$asset | awk '{print $1}')
+            echo "[smoke] $asset size: $asize bytes"
+            if [ "$asize" -lt 50 ]; then
+              echo "[smoke][fail] $asset unexpectedly small (<50 bytes)"; exit 1
             fi
           done
 
-          # Optional informational markers
-          if grep -Fq 'netlify-identity-widget.js' /tmp/body; then
-            echo "[smoke] (info) netlify identity present"
-          fi
+          # Optional informational marker
+          grep -Fq 'netlify-identity-widget.js' /tmp/body && echo "[smoke] (info) netlify identity present"
 
           echo "[smoke][ok] Static HTML served correctly with expected markers"
 
