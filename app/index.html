@@ -28,9 +28,11 @@
     <script src="config.js"></script>
     <script src="config.local.js"></script>
     <script src="theme.js"></script>
-  </head>
-
-  <body>
+  <script>
+    window.DEBUG_IDENTITY = true;
+  </script>
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>  <body>
     <div class="preloader" data-bind="css: { loaded: true }">
       <div class="lds-ripple" data-bind="css: { loaded: true }">
         <div></div>

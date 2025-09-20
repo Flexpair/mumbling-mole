@@ -270,25 +270,39 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
-    // Netlify Identity widget export shape may differ (CommonJS vs ESM) after dependency updates.
-    // Wrap require to handle both: if library moved to ESM default export, use that.
-    try {
-      const _ni = require("netlify-identity-widget");
-      this.netlifyIdentity = _ni && (_ni.default || _ni);
-      if (!this.netlifyIdentity || typeof this.netlifyIdentity.init !== "function") {
-        if (window.DEBUG_IDENTITY) console.error("[Identity] init function missing on export", _ni);
-      } else if (window.DEBUG_IDENTITY) {
-        console.log("[Identity] widget ready");
+    // Use netlify-identity-widget from global scope (loaded via script tag)
+    if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
+      this.netlifyIdentity = window.netlifyIdentity;
+      if (window.DEBUG_IDENTITY) {
+        console.log("[Identity] global widget loaded successfully", window.netlifyIdentity);
       }
-    } catch (e) {
-      if (window.DEBUG_IDENTITY) console.error("[Identity] load failure", e);
+    } else {
+      if (window.DEBUG_IDENTITY) {
+        console.error("[Identity] Global widget not found. Check if script tag loaded correctly.");
+        console.log("[Identity] Available on window:", Object.keys(window).filter(k => k.includes('netlify')));
+      }
+      
+      // Create dummy implementation with detailed logging
       this.netlifyIdentity = {
-        init: () => window.DEBUG_IDENTITY && console.warn("[Identity] init noop"),
-        open: () => window.DEBUG_IDENTITY && console.warn("[Identity] open noop"),
-        on: () => {},
-        currentUser: () => null,
-        logout: () => {},
-        close: () => {},
+        init: (config) => {
+          if (window.DEBUG_IDENTITY) console.warn("[Identity] init noop called with config:", config);
+        },
+        open: (mode) => {
+          if (window.DEBUG_IDENTITY) console.warn("[Identity] open noop called with mode:", mode);
+        },
+        on: (event, callback) => {
+          if (window.DEBUG_IDENTITY) console.warn("[Identity] event listener noop:", event);
+        },
+        currentUser: () => {
+          if (window.DEBUG_IDENTITY) console.warn("[Identity] currentUser noop - returning null");
+          return null;
+        },
+        logout: () => {
+          if (window.DEBUG_IDENTITY) console.warn("[Identity] logout noop");
+        },
+        close: () => {
+          if (window.DEBUG_IDENTITY) console.warn("[Identity] close noop");
+        },
       };
     }
     this.connectDialog = new ConnectDialog();
@@ -811,6 +825,11 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 
 // Used only for debugging
 window.mumbleUi = ui;
+
+// Make netlify identity available globally
+if (ui.netlifyIdentity) {
+  window.netlifyIdentity = ui.netlifyIdentity;
+}
 
 function initializeUI() {
   ui.netlifyIdentity.init({

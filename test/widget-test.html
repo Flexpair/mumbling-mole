@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Netlify Identity Widget Test</title>
+    <script>
+        window.DEBUG_IDENTITY = true;
+    </script>
+</head>
+<body>
+    <h1>Identity Widget Test</h1>
+    <div id="widget-container"></div>
+    <button id="open-login">Login</button>
+    <button id="open-signup">Signup</button>
+    
+    <script src="../app/index.js">
+    <script>
+        console.log('Testing netlify identity widget...');
+        
+        // Test if UI object exists
+        if (typeof ui !== 'undefined') {
+            console.log('UI object found:', ui);
+            
+            // Test if netlifyIdentity exists
+            if (ui.netlifyIdentity) {
+                console.log('netlifyIdentity found:', ui.netlifyIdentity);
+                
+                // Test initialization
+                try {
+                    ui.netlifyIdentity.init({
+                        APIUrl: "https://welcome.flexpair.com/identity-proxy",
+                        logo: false,
+                        namePlaceholder: "Full Name"
+                    });
+                    console.log('netlifyIdentity.init() called successfully');
+                    
+                    // Add event listeners to buttons
+                    document.getElementById('open-login').addEventListener('click', () => {
+                        console.log('Opening login modal...');
+                        ui.netlifyIdentity.open('login');
+                    });
+                    
+                    document.getElementById('open-signup').addEventListener('click', () => {
+                        console.log('Opening signup modal...');
+                        ui.netlifyIdentity.open('signup');
+                    });
+                    
+                } catch (error) {
+                    console.error('Error initializing netlifyIdentity:', error);
+                }
+            } else {
+                console.error('netlifyIdentity not found in ui object');
+            }
+        } else {
+            console.error('ui object not found');
+        }
+    </script>
+</body>
+</html>
