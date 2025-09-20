@@ -71,7 +71,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: HTML smoke test (content-length on :${{ env.SMOKE_HTTP_PORT }})
+      - name: HTML smoke test (:${{ env.SMOKE_HTTP_PORT }})
         env:
           SMOKE_HTTP_PORT: ${{ env.SMOKE_HTTP_PORT }}
         run: |
@@ -79,28 +79,56 @@ jobs:
           cleanup() { docker rm -f mm-http >/dev/null 2>&1 || true; }
           trap cleanup EXIT
 
+          echo "[smoke] Starting container for static HTML check on port ${SMOKE_HTTP_PORT}"
           docker run -d --rm \
             -p ${SMOKE_HTTP_PORT}:8081 \
             -e SKIP_TUNNEL=1 \
             --name mm-http \
             ${{ env.TEST_TAG }}
 
+          # Wait (max ~30s) for HTTP 200 on root
           for i in {1..30}; do
-            if curl -sfI "http://127.0.0.1:${SMOKE_HTTP_PORT}" >/tmp/headers; then break; fi
+            status=$(curl -sk -o /dev/null -w '%{http_code}' "http://127.0.0.1:${SMOKE_HTTP_PORT}" || true)
+            if [ "$status" = "200" ]; then
+              break
+            fi
             sleep 1
           done
 
-          if ! [ -s /tmp/headers ]; then
-            echo "Kein HTTP-Header von :${SMOKE_HTTP_PORT} erhalten"
+          if [ "${status:-}" != "200" ]; then
+            echo "[smoke][fail] Did not receive HTTP 200 from :${SMOKE_HTTP_PORT} (last status='${status}')"
+            echo "---- docker logs (mm-http) ----"; docker logs mm-http || true
             exit 1
           fi
 
-          bytes=$(awk '/^Content-Length:/ {print $2+0}' /tmp/headers | tail -n1)
-          echo "Content-Length: ${bytes:-0}"
-          if [ "${bytes:-0}" -le 5000 ]; then
-            echo "Erwartet Content-Length > 5000 Bytes"
-            exit 1
+          # Fetch headers + body
+          curl -sv "http://127.0.0.1:${SMOKE_HTTP_PORT}" -o /tmp/body > /tmp/headers 2>&1 || {
+            echo "[smoke][fail] curl fetch failed"; exit 1; }
+
+          # Basic header assertions
+          if ! grep -qi '^content-type: .*text/html' /tmp/headers; then
+            echo "[smoke][fail] Expected Content-Type: text/html"; exit 1
           fi
+
+          bytes=$(wc -c </tmp/body | awk '{print $1}')
+          echo "[smoke] Body size: ${bytes} bytes"
+          if [ "${bytes}" -lt 200 ]; then
+            echo "[smoke][fail] HTML body unexpectedly small (<200 bytes)"; exit 1
+          fi
+
+            # Look for stable markers in built index.html
+          required_markers=(
+            '<!DOCTYPE html>'
+            'Join audio conference'
+            'netlify-identity-widget.js'
+          )
+          for marker in "${required_markers[@]}"; do
+            if ! grep -Fq "$marker" /tmp/body; then
+              echo "[smoke][fail] Missing marker: $marker"; exit 1
+            fi
+          done
+
+          echo "[smoke][ok] Static HTML served correctly with expected markers"
 
 
       - name: Run container for E2E
