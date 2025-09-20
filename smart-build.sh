@@ -1,64 +1,92 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Smart Build - baut nur wenn nötig
+log() { printf '%s %s\n' "[smart-build]" "$*"; }
+fail() { printf '%s %s\n' "[smart-build][FAIL]" "$*" >&2; exit 1; }
 
-# Check für --force Parameter
 FORCE_BUILD=false
-if [ "$1" = "--force" ]; then
+if [[ ${1:-} == "--force" ]]; then
     FORCE_BUILD=true
-    echo "🔥 Force build requested - rebuilding everything..."
+    log "Force build requested"
 fi
 
-echo "🔍 Checking if build is needed..."
+ensure_vendor() {
+    # Build vendors/mumble-client if lib missing (sustainable approach)
+    if [[ ! -s vendors/mumble-client/lib/client.js ]]; then
+        log "Vendor mumble-client lib missing → building (babel)"
+        pushd vendors/mumble-client >/dev/null
+            npm install --no-audit --no-fund
+            npx babel src --out-dir lib
+        popd >/dev/null
+    fi
+}
 
-# Bei Force Build: dist löschen und neu bauen
-if [ "$FORCE_BUILD" = true ]; then
-    echo "🗑️ Removing dist directory..."
+validate_artifacts() {
+    local missing=()
+    for f in dist/index.html dist/index.js dist/config.js dist/theme.js; do
+        [[ -s $f ]] || missing+=("$f")
+    done
+    if (( ${#missing[@]} )); then
+        ls -l dist || true
+        fail "Missing or empty build artifacts: ${missing[*]}"
+    fi
+    local sz
+    sz=$(wc -c < dist/index.html || echo 0)
+    if (( sz < 1024 )); then
+        head -c 200 dist/index.html | sed 's/^/[snippet] /'
+        fail "index.html too small (${sz} bytes)"
+    fi
+    log "Artifacts OK (index.html ${sz} bytes)"
+}
+
+do_build() {
+    ensure_vendor
+    # Polyfill plugin is already a devDependency (installed via npm ci); avoid dynamic installs for determinism
+    log "Running webpack"
+    npx webpack --progress
+    [[ -f dist/config.local.js ]] || cp app/config.local.js dist/
+    cp app/recorder-worker.js dist/
+    touch dist/.build-marker
+    validate_artifacts
+}
+
+log "Build decision phase"
+if $FORCE_BUILD; then
+    log "Force rebuild: cleaning dist"
     rm -rf dist
     mkdir -p dist
-    echo "🚀 Starting force build... (this takes ~90 seconds)"
-    npm install node-polyfill-webpack-plugin && npx webpack --progress && ([ -f dist/config.local.js ] || cp app/config.local.js dist/) && cp app/recorder-worker.js dist/
-    # Marker-Datei erstellen
-    touch dist/.build-marker
-    exit $?
+    do_build
+    exit 0
 fi
 
-# Prüfe ob dist existiert
-if [ ! -f "dist/index.js" ]; then
-    echo "📦 No build found. Running build..."
-    npm install node-polyfill-webpack-plugin && npx webpack --progress && ([ -f dist/config.local.js ] || cp app/config.local.js dist/) && cp app/recorder-worker.js dist/
-    # Marker-Datei erstellen
-    touch dist/.build-marker
-    exit $?
+if [[ ! -f dist/index.js ]]; then
+    log "No existing build → building"
+    do_build
+    exit 0
 fi
 
-# Prüfe ob wichtige Source-Dateien neuer sind als der Build
-SOURCE_CHANGED=false
-
-echo "📅 Checking timestamps..."
-
-# Check ob überhaupt ein Build existiert
-if [ ! -f "dist/.build-marker" ]; then
-    echo "📦 No build marker found. Initial build needed..."
-    SOURCE_CHANGED=true
-else
-    # Nur Source-Dateien checken (nicht Config-Dateien)
-    SOURCE_FILES="app/*.js app/*.html"
-    for file in $SOURCE_FILES; do
-        if [ -f "$file" ] && [ "$file" -nt "dist/.build-marker" ]; then
-            echo "🔄 Source file $file changed. Rebuilding..."
-            SOURCE_CHANGED=true
-            break
-        fi
-    done
+if [[ ! -f dist/.build-marker ]]; then
+    log "No build marker → rebuilding"
+    do_build
+    exit 0
 fi
 
-if [ "$SOURCE_CHANGED" = true ]; then
-    echo "🚀 Starting build... (this takes ~90 seconds)"
-    npm install node-polyfill-webpack-plugin && npx webpack --progress && ([ -f dist/config.local.js ] || cp app/config.local.js dist/) && cp app/recorder-worker.js dist/
-    # Marker-Datei erstellen um endless rebuild zu vermeiden
-    touch dist/.build-marker
-    exit $?
+log "Checking source timestamps"
+NEED=false
+for f in app/*.js app/*.html; do
+    if [[ -f $f && $f -nt dist/.build-marker ]]; then
+        log "Change detected: $f"
+        NEED=true
+        break
+    fi
+done
+
+if $NEED; then
+    log "Sources changed → rebuilding"
+    do_build
+    exit 0
 fi
 
-echo "✅ Build is up to date. Skipping..."
+log "Existing build fresh; validating artifacts"
+validate_artifacts
+log "Up to date (no rebuild)"

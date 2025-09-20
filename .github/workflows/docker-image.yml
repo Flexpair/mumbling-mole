@@ -107,11 +107,6 @@ jobs:
 
           echo "[smoke] Response headers:"; sed 's/^/[H] /' /tmp/headers
 
-          echo "[smoke][diag] In-container dist listing (first 25 entries):"
-          docker exec mm-http /bin/bash -lc 'ls -l /home/node/dist | head -n 25' || true
-          echo "[smoke][diag] In-container index.html size (if exists):"
-          docker exec mm-http /bin/bash -lc 'wc -c /home/node/dist/index.html 2>/dev/null || echo "(missing)"' || true
-
           # Basic header assertions (allow charset parameter, case-insensitive)
           if ! grep -Ei '^Content-Type: *text/html(;|$)' /tmp/headers; then
             # Fallback: if body clearly contains HTML structure, warn instead of hard fail
@@ -128,11 +123,10 @@ jobs:
             echo "[smoke][fail] HTML body unexpectedly small (<200 bytes)"; exit 1
           fi
 
-            # Look for stable markers in built index.html
-          # Resilient marker strategy:
-          # 1. At least one structural tag (<html or <!DOCTYPE html>)
-          # 2. A known UI phrase (Join audio conference) to ensure we didn't ship a placeholder
-          # 3. Non-empty body already asserted above
+          # Look for structural HTML marker in built index.html
+          # Strategy:
+          # 1. Ensure structural tag (<html or <!DOCTYPE html>) exists
+          # 2. Body already asserted non-empty & minimum size above
           if grep -Fqi '<!DOCTYPE html>' /tmp/body || grep -Fqi '<html' /tmp/body; then
             echo "[smoke] HTML structure marker ok"
           else
@@ -160,9 +154,6 @@ jobs:
               echo "[smoke][fail] $asset unexpectedly small (<50 bytes)"; exit 1
             fi
           done
-
-          # Optional informational marker
-          grep -Fq 'netlify-identity-widget.js' /tmp/body && echo "[smoke] (info) netlify identity present"
 
           echo "[smoke][ok] Static HTML served correctly with expected markers"
 

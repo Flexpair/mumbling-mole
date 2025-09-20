@@ -84,19 +84,7 @@ USER node
 WORKDIR /home/node
 
 RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
-RUN npm run build:force
-
-# ---- TEMPORARY DIAGNOSTICS (can be removed later) ----
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-RUN echo '[diag] dist listing:' && ls -l dist | head -n 40 && \
-        echo '[diag] artifact sizes:' && \
-        for f in dist/index.html dist/index.js dist/config.js dist/theme.js; do \
-            if [[ -f "$f" ]]; then wc -c "$f"; else echo "MISSING $f"; fi; \
-        done && \
-        echo '[diag] first 200 bytes of index.html:' && head -c 200 dist/index.html || true
-
-# reset shell back to sh for future layers (optional)
-SHELL ["/bin/sh", "-c"]
+RUN npm run build:force # smart-build.sh ensures vendor build & artifact validation
 
 EXPOSE 8081 8082
 RUN chmod +x ./docker-entrypoint.sh
