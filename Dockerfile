@@ -17,6 +17,7 @@ RUN apt-get install -y --no-install-recommends \
     git \
     tini \
     bash \
+    jq \
     python3.11 \
     python3.11-venv \
     xz-utils && \

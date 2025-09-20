@@ -2,7 +2,7 @@ import webpack from "webpack";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import postCSSImport from "postcss-import";
 import postCSSNested from "postcss-nested";
-import postCSSNext from "postcss-cssnext";
+import postCSSPresetEnv from "postcss-preset-env";
 import path from "path";
 
 const ENV = process.env.NODE_ENV || "development";
@@ -52,7 +52,7 @@ module.exports = {
             loader: `postcss-loader`,
             options: {
               sourceMap: CSS_MAPS,
-              plugins: () => [postCSSImport(), postCSSNested(), postCSSNext()]
+              plugins: () => [postCSSImport(), postCSSNested(), postCSSPresetEnv()]
             }
           }
         ]

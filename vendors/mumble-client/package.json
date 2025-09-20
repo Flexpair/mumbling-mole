@@ -29,7 +29,7 @@
     "@babel/preset-env": "7.18.2",
     "@babel/register": "7.17.7",
     "chai": "4.3.6",
-    "mocha": "10.0.0",
+    "mocha": "^10.8.2",
     "mocha-standard": "1.0.0",
     "standard": "16.0.4"
   },
@@ -41,6 +41,8 @@
     "remove-value": "^1.0.0",
     "rtimer": "^0.1.0",
     "stats-incremental": "^1.2.1",
-    "through2": "^4.0.2"
+    "through2": "^4.0.2",
+    "websocket-stream": "^5.3.0",
+    "ws": "^8.18.3"
   }
 }
