@@ -107,6 +107,11 @@ jobs:
 
           echo "[smoke] Response headers:"; sed 's/^/[H] /' /tmp/headers
 
+          echo "[smoke][diag] In-container dist listing (first 25 entries):"
+          docker exec mm-http /bin/bash -lc 'ls -l /home/node/dist | head -n 25' || true
+          echo "[smoke][diag] In-container index.html size (if exists):"
+          docker exec mm-http /bin/bash -lc 'wc -c /home/node/dist/index.html 2>/dev/null || echo "(missing)"' || true
+
           # Basic header assertions (allow charset parameter, case-insensitive)
           if ! grep -Ei '^Content-Type: *text/html(;|$)' /tmp/headers; then
             # Fallback: if body clearly contains HTML structure, warn instead of hard fail
