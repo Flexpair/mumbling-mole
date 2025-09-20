@@ -134,17 +134,22 @@ jobs:
             echo "[smoke][fail] No <html> or <!DOCTYPE html> tag found"; exit 1
           fi
 
-          if grep -Fq 'Join audio conference' /tmp/body; then
-            echo "[smoke] UI phrase present"
-          else
-            echo "[smoke][fail] Missing UI phrase 'Join audio conference'"; exit 1
-          fi
+          # Stable asset markers: core config/theme scripts must be referenced
+          required_assets=(
+            'config.js'
+            'theme.js'
+          )
+          for asset in "${required_assets[@]}"; do
+            if grep -Fq "$asset" /tmp/body; then
+              echo "[smoke] asset marker ok: $asset"
+            else
+              echo "[smoke][fail] Missing asset reference: $asset"; exit 1
+            fi
+          done
 
-          # Optional marker (do not fail if missing): netlify identity widget
+          # Optional informational markers
           if grep -Fq 'netlify-identity-widget.js' /tmp/body; then
-            echo "[smoke] Netlify identity script reference detected"
-          else
-            echo "[smoke] (info) Netlify identity script not found; continuing"
+            echo "[smoke] (info) netlify identity present"
           fi
 
           echo "[smoke][ok] Static HTML served correctly with expected markers"
