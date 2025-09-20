@@ -36,7 +36,7 @@
     "keyboardjs": "2.7.0",
     "knockout": "3.5.1",
     "libopus.js": "0.0.1",
-    "mumble-client": "Flexpair/mumble-client#master",
+    "mumble-client": "file:./vendors/mumble-client",
     "netlify-identity-widget": "file:./vendors/netlify-identity-widget",
     "node-polyfill-webpack-plugin": "^1.1.4",
     "postcss": "^8.5.6",

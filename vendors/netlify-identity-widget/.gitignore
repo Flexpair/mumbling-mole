@@ -1,0 +1,8 @@
+/npm-debug.log
+/build
+.DS_Store
+/coverage
+/.idea
+/.vscode
+node_modules
+dist
