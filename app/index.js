@@ -1,4 +1,7 @@
-import "subworkers";
+import "./debug-script-processor"; // (Debug helper retained)
+
+// Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
+// Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
@@ -809,12 +812,17 @@ if (ui.netlifyIdentity) {
 }
 
 function initializeUI() {
-  ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/identity-proxy",
-    locale: "en",
-  });
-
-  var user = ui.netlifyIdentity.currentUser();
+  // Guard identity init so offline/local dev without the proxy does not break UI
+  let user = null;
+  try {
+    ui.netlifyIdentity.init({
+      APIUrl: "https://welcome.flexpair.com/identity-proxy",
+      locale: "en",
+    });
+    user = ui.netlifyIdentity.currentUser();
+  } catch (e) {
+    console.warn('[identity] initialization failed; continuing without identity integration', e);
+  }
 
   ui.netlifyIdentity.on("login", (user) => {
     console.log("login", user);
@@ -898,3 +906,5 @@ async function main() {
 }
 
 window.onload = main;
+
+// (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)

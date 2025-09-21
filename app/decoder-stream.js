@@ -1,12 +1,13 @@
-import "subworkers";
 import { Transform } from "stream";
 import createPool from "reuse-pool";
 import toArrayBuffer from "to-arraybuffer";
-import DecodeWorker from "./decode-worker";
 
-const pool = createPool(function () {
-  return new DecodeWorker();
-});
+// Native Worker factory function (Webpack 5 compatible)
+function createDecodeWorker() {
+  return new Worker(new URL('./decode-worker.js', import.meta.url), { type: 'classic' });
+}
+
+const pool = createPool(createDecodeWorker);
 // Prepare first worker
 pool.recycle(pool.get());
 

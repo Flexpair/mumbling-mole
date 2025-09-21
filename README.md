@@ -96,6 +96,37 @@ Mumbling Mole consists of static files and a WebSocket tunnel.
 | `npm test`            | Runs E2E smoke tests and a security audit.                 |
 | `npm run test:e2e`    | Runs only the local E2E tunnel smoke test.                 |
 | `npm run audit:ci`    | Audits dependencies against the `audit-baseline.json`.     |
+| `npm run build:vendor:mumble-client` | Rebuilds the vendored `mumble-client` from `src` to `lib`. |
+
+### CSS / SCSS Build Pipeline
+
+Styles are now built using `mini-css-extract-plugin` (previously `file-loader` + `extract-loader`).
+The file `app/theme.js` now only imports the SCSS files; the plugin extracts
+versioned CSS artifacts (`theme.[contenthash].css`). The previous dynamic `<link>` insertion
+has been removed. The script `smart-build.sh` still expects a non-empty `theme.js`,
+so `theme.js` includes a small `console.debug` side effect to prevent the bundled JS
+from being completely optimized away as empty.
+
+### Vendored Dependencies & Polyfills
+
+Some critical libraries are vendored in `vendors/` (e.g. `mumble-client`). If you modify
+`vendors/mumble-client/src/**`, run:
+
+```bash
+npm run build:vendor:mumble-client
+```
+
+This regenerates `vendors/mumble-client/lib/`, which is what the application actually
+imports at runtime. The repository uses **Webpack 5** with:
+
+- `node-polyfill-webpack-plugin` for broad Node core shims.
+- `ProvidePlugin` (injects `process` & `Buffer`).
+- `DefinePlugin` setting `process.browser = true` for vendored code which branches on it.
+
+Because of these plugins, manual runtime assignments like `window.process = ...` are not
+required. If you introduce new Node core usages (e.g. `crypto`, `path`), add them either
+via explicit imports or extend `resolve.fallback` similarly to the existing entries in
+`webpack.config.js`.
 
 ### Theming
 

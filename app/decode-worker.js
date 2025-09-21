@@ -1,4 +1,3 @@
-import "subworkers";
 import { Decoder as OpusDecoder } from "libopus.js";
 
 const MUMBLE_SAMPLE_RATE = 48000;

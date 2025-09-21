@@ -25,10 +25,16 @@
     <meta name="application-name" content="Mumble" />
     <meta name="theme-color" content="#ffffff" />
 
+    <!-- HtmlWebpackPlugin: static stylesheet reference (MiniCssExtractPlugin emits theme.css) -->
+    <link rel="stylesheet" href="theme.css" />
+
+    <!-- Script order preserved manually (inject:false) -->
     <script src="config.js"></script>
     <script src="config.local.js"></script>
-    <script src="theme.js"></script>
+  <script src="theme.js"></script>
+  <!-- Load identity widget before index.js so window.netlifyIdentity exists early -->
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <!-- Removed duplicate index.js include (already loaded in <head>) -->
 </head>  <body>
     <div class="preloader" data-bind="css: { loaded: true }">
       <div class="lds-ripple" data-bind="css: { loaded: true }">
@@ -36,10 +42,11 @@
         <div></div>
       </div>
     </div>
-    <div id="container" style="display: none" data-bind="visible: true">
+  <!-- NOTE: Removed previous inline style="display:none" so the base UI remains visible even if Knockout bindings fail -->
+  <div id="container" data-bind="visible: true">
       <!-- ko with: guacamoleFrame -->
       <div class="guacamole-placeholder" data-bind="visible: !visible()">
-        <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
+  <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
       </div>
       <div
         class="guacamole"
@@ -370,7 +377,7 @@
           data-bind="visible: !selfMute(),
             click: function () { requestMute(thisUser()) }"
           rel="mute"
-          src="/svg/audio-input-microphone.svg"
+          src="svg/audio-input-microphone.svg"
         />
         <img
           class="tb-unmute tb-active"
@@ -378,7 +385,7 @@
           data-bind="visible: selfMute,
             click: function () { requestUnmute(thisUser()) }"
           rel="unmute"
-          src="/svg/audio-input-microphone-muted.svg"
+          src="svg/audio-input-microphone-muted.svg"
         />
         <img
           class="tb-deaf"
@@ -386,7 +393,7 @@
           data-bind="visible: !selfDeaf(),
             click: function () { requestDeaf(thisUser()) }"
           rel="deaf"
-          src="/svg/audio-output.svg"
+          src="svg/audio-output.svg"
         />
         <img
           class="tb-undeaf tb-active"
@@ -394,7 +401,7 @@
           data-bind="visible: selfDeaf,
             click: function () { requestUndeaf(thisUser()) }"
           rel="undeaf"
-          src="/svg/audio-output-deafened.svg"
+          src="svg/audio-output-deafened.svg"
         />
         <input
           id="message-box"
@@ -407,13 +414,13 @@
           style="text-decoration: none"
           ><img
             alt="Send mail (attachment) to shared desktop"
-            src="/svg/mail-attachment.svg"
+            src="svg/mail-attachment.svg"
         /></a>
         <img
           class="tb-information"
           alt="Show information about connection quality"
           rel="information"
-          src="/svg/mumble.svg"
+          src="svg/mumble.svg"
           data-bind="click: connectionInfo.show"
         />
         <img
@@ -421,28 +428,47 @@
           alt="Open audio settings dialog"
           data-bind="click: openSettings"
           rel="settings"
-          src="/svg/config_basic.svg"
+          src="svg/config_basic.svg"
         />
         <img
           class="tb-sourcecode"
           alt="Navigate to source code on Github"
           data-bind="click: openSourceCode"
           rel="Source Code"
-          src="/svg/source-code.svg"
+          src="svg/source-code.svg"
         />
         <a
           href="mailto:mail@flexpair.com?subject=Open%20support%20request"
           style="text-decoration: none"
-          ><img alt="Open a support request" src="/svg/system-help.svg"
+          ><img alt="Open a support request" src="svg/system-help.svg"
         /></a>
         <img
           class="tb-logout"
           alt="Log user out"
           data-bind="click: logoutUser"
-          src="/svg/logout.svg"
+          src="svg/logout.svg"
       />
       </form>
     </div>
   </body>
+  <!-- Minimal preloader removal: runs on window load; prior debug banners & watchdog removed for production cleanliness -->
+  <script>
+    (function() {
+      try {
+        var pre = document.querySelector('.preloader');
+        if (!pre) return;
+        function finalize() {
+          if (!pre) return;
+          pre.classList.add('loaded');
+          setTimeout(function(){
+            if (pre && pre.parentNode) pre.parentNode.removeChild(pre);
+            pre = null;
+          }, 400);
+        }
+        if (document.readyState === 'complete') finalize();
+        else window.addEventListener('load', finalize, { once: true });
+      } catch (_) {}
+    })();
+  </script>
   <script src="index.js"></script>
 </html>
