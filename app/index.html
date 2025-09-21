@@ -36,7 +36,8 @@
         <div></div>
       </div>
     </div>
-    <div id="container" style="display: none" data-bind="visible: true">
+  <!-- NOTE: Removed previous inline style="display:none" so the base UI remains visible even if Knockout bindings fail -->
+  <div id="container" data-bind="visible: true">
       <!-- ko with: guacamoleFrame -->
       <div class="guacamole-placeholder" data-bind="visible: !visible()">
         <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
@@ -444,5 +445,24 @@
       </form>
     </div>
   </body>
+  <!-- Minimal preloader removal: runs on window load; prior debug banners & watchdog removed for production cleanliness -->
+  <script>
+    (function() {
+      try {
+        var pre = document.querySelector('.preloader');
+        if (!pre) return;
+        function finalize() {
+          if (!pre) return;
+          pre.classList.add('loaded');
+          setTimeout(function(){
+            if (pre && pre.parentNode) pre.parentNode.removeChild(pre);
+            pre = null;
+          }, 400);
+        }
+        if (document.readyState === 'complete') finalize();
+        else window.addEventListener('load', finalize, { once: true });
+      } catch (_) {}
+    })();
+  </script>
   <script src="index.js"></script>
 </html>

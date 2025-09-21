@@ -1,5 +1,12 @@
-import "./debug-script-processor";
-import "subworkers";
+import "./debug-script-processor"; // (Existing debug import retained; safe in production build size context)
+import "subworkers"; // Initializes worker-related side effects early
+// Minimal polyfill attachment (ProvidePlugin supplies these too; kept as defensive fallback without noisy logging)
+import { Buffer as PolyfillBuffer } from 'buffer';
+import processPolyfill from 'process/browser';
+if (typeof window !== 'undefined') {
+  if (!window.Buffer) window.Buffer = PolyfillBuffer;
+  if (!window.process) window.process = processPolyfill;
+}
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
@@ -900,3 +907,5 @@ async function main() {
 }
 
 window.onload = main;
+
+// (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)

@@ -1,4 +1,7 @@
 const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+const webpack = require('webpack');
+// Added Node polyfills + ProvidePlugin/DefinePlugin to fix runtime 'process is not defined'
+// after upgrading dependencies; keeps vendored mumble-client utils working.
 
 var theme = "../themes/MetroMumbleLight";
 var path = require("path");
@@ -191,9 +194,26 @@ module.exports = {
   optimization: {
     minimize: true,
   },
+  resolve: {
+    // Explicit fallbacks ensure consistent behavior regardless of node-polyfill-webpack-plugin
+    // internal alias changes across major versions.
+    fallback: {
+      buffer: require.resolve('buffer/'),
+      stream: require.resolve('stream-browserify'),
+      util: require.resolve('util/'),
+      process: require.resolve('process/browser'),
+    }
+  },
   plugins: [
-    new NodePolyfillPlugin(),
-    new (require('webpack')).ProgressPlugin({
+    new NodePolyfillPlugin(), // Base polyfills (minus globals we explicitly control)
+    new webpack.ProvidePlugin({
+      Buffer: ['buffer', 'Buffer'],
+      process: ['process/browser']
+    }),
+    new webpack.DefinePlugin({
+      'process.browser': 'true'
+    }),
+    new webpack.ProgressPlugin({
       activeModules: true,
       entries: true,
       modules: true,
