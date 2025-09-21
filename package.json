@@ -12,7 +12,6 @@
     "test": "npm run test:e2e && npm run audit:ci"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
-  "license": "ISC",
   "repository": "Flexpair/mumbling-mole",
   "homepage": "https://github.com/jafudi/flexpair",
   "engines": {
