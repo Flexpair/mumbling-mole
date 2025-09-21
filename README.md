@@ -1,17 +1,17 @@
-# Lite version of Mumble web app for all browsers
+# Mumbling Mole - Lite Mumble Web Client
 
-mumble-web is an HTML5 [Mumble] client that runs directly in your browser. This variant is supposed to be used in conjunction with some remote desktop piece of software. Therefore it dispenses entirely of the channel view and ongoing voice activity detection. Instead, we focus on saving UI space and performance.
+Mumbling Mole is a lightweight HTML5 [Mumble] client that runs directly in your browser. This variant is designed to be used in conjunction with remote desktop software. It dispenses entirely with the channel view and ongoing voice activity detection, focusing instead on saving UI space and performance.
 
 ## Development Workflow (Dev Container)
 
-Für lokales Development siehe: **[DEV-WORKFLOW.md](DEV-WORKFLOW.md)**
+For local development see: **[Dev Container Setup](.devcontainer/setup-local-dev.sh)**
 
 **Quick Start:**
 1. `npm run build`
 2. `./docker-entrypoint.sh` 
 3. Browser: `https://local.flexpair.app`
 
-*Einmalige Einrichtung: `./setup-local-dev.sh` ausführen und Anweisungen befolgen.*
+*One-time setup: Run `.devcontainer/setup-local-dev.sh` and follow instructions.*
 
 ---
 
@@ -34,13 +34,11 @@ Für lokales Development siehe: **[DEV-WORKFLOW.md](DEV-WORKFLOW.md)**
 - npm (comes with Node.js)
 
 ### Download
-
-mumble-web can either be installed directly from npm with `npm install -g mumble-web`
-or from git:
+From git:
 
 ```
-git clone https://github.com/johni0702/mumble-web
-cd mumble-web
+git clone https://github.com/Flexpair/mumbling-mole
+cd mumbling-mole
 npm install
 ```
 
@@ -96,7 +94,7 @@ another webserver running. Replace `<mumbleserver>` with the URI of your mumble 
 websockify --ssl-target 64737 <mumbleserver>:64738
 ```
 
-Here are two web server configuration files (one for [NGINX](https://www.nginx.com/) and one for [Caddy server](https://caddyserver.com/)) which will serve the mumble-web interface at `https://voice.example.com` and allow the websocket to connect at `wss://voice.example.com/demo` (similar to the demo server). Replace `<websockify>` with the URI to the machine where `websockify` is running. If `websockify` is running on the same machine as your web server, use `localhost`.
+Here are two web server configuration files (one for [NGINX](https://www.nginx.com/) and one for [Caddy server](https://caddyserver.com/)) which will serve the mumbling-mole interface at `https://voice.example.com` and allow the websocket to connect at `wss://voice.example.com/mumble` (replace with your actual domain). Replace `<websockify>` with the URI to the machine where `websockify` is running. If `websockify` is running on the same machine as your web server, use `localhost`.
 
 - NGINX configuration file
 
@@ -110,7 +108,7 @@ server {
         location / {
                 root /path/to/dist;
         }
-        location /demo {
+        location /mumble {
                 proxy_pass http://<websockify>:64737;
                 proxy_http_version 1.1;
                 proxy_set_header Upgrade $http_upgrade;
@@ -134,13 +132,13 @@ http://voice.example.com {
 https://voice.example.com {
   tls "/etc/letsencrypt/live/voice.example.com/fullchain.pem" "/etc/letsencrypt/live/voice.example.com/privkey.pem"
   root /path/to/dist
-  proxy /demo http://<websockify>:64737 {
+  proxy /mumble http://<websockify>:64737 {
     websocket
   }
 }
 ```
 
-Make sure that your Mumble server is running. You may now open `https://voice.example.com` in a web browser. You will be prompted for server details: choose either `address: voice.example.com/demo` with `port: 443` or `address: voice.example.com` with `port: 443/demo`. You may prefill these values by appending `?address=voice.example.com/demo&port=443`. Choose a username, and click `Connect`: you should now be able to talk and use the chat.
+Make sure that your Mumble server is running. You may now open `https://voice.example.com` in a web browser. You will be prompted for server details: choose either `address: voice.example.com/mumble` with `port: 443` or `address: voice.example.com` with `port: 443/mumble`. You may prefill these values by appending `?address=voice.example.com/mumble&port=443`. Choose a username, and click `Connect`: you should now be able to talk and use the chat.
 
 ## End-to-end smoke test
 
@@ -163,19 +161,19 @@ In containerized CI, start the container separately (the entrypoint runs in the 
 node scripts/e2e-check.cjs --mode=container
 ```
 
-Here is an example of systemd service, put it in `/etc/systemd/system/mumble-web.service` and adapt it to your needs:
+Here is an example of systemd service, put it in `/etc/systemd/system/mumbling-mole.service` and adapt it to your needs:
 
 ```
 [Unit]
-Description=Mumble web interface
-Documentation=https://github.com/johni0702/mumble-web
+Description=Mumbling Mole web interface
+Documentation=https://github.com/Flexpair/mumbling-mole
 Requires=network.target mumble-server.service
 After=network.target mumble-server.service
 
 [Service]
 Type=simple
 User=www-data
-ExecStart=/usr/bin/websockify --web=/usr/lib/node_modules/mumble-web/dist --ssl-target localhost:64737 localhost:64738
+ExecStart=/usr/bin/websockify --web=/usr/lib/node_modules/mumbling-mole/dist --ssl-target localhost:64737 localhost:64738
 
 [Install]
 WantedBy=multi-user.target
@@ -185,8 +183,8 @@ Then
 
 ```
 systemctl daemon-reload
-systemctl start mumble-web
-systemctl enable mumble-web
+systemctl start mumbling-mole
+systemctl enable mumbling-mole
 ```
 
 ## Configuration
@@ -196,13 +194,9 @@ You can overwrite those by editing the `config.local.js` file within your `dist`
 
 ## Themes
 
-The default theme of mumble-web tries to mimic the excellent [MetroMumble]Light theme.
-mumble-web also includes a dark version, named MetroMumbleDark, which is heavily inspired by [MetroMumble]'s dark version.
+The default theme of mumbling-mole is based on the excellent [MetroMumble]Light theme.
 
-To select a theme other than the default one, append a `theme=dark` query parameter (where `dark` is the name of the theme) when accessing the mumble-web page.
-E.g. [this](https://voice.johni0702.de/?address=voice.johni0702.de&port=443/demo&theme=dark)is the live demo linked above but using the dark theme (`dark` is an alias for `MetroMumbleDark`).
-
-Custom themes can be created by deriving them from the MetroMumbleLight/Dark themes just like the MetroMumbleDark theme is derived from the MetroMumbleLight theme.
+Custom themes can be created by deriving them from the MetroMumbleLight theme.
 
 ## License
 
