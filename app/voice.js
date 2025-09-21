@@ -97,8 +97,6 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
   }
 }
 
-var theUserMedia = null;
-
 const audioInputSelect = document.querySelector("select#audioSource");
 const selectors = [audioInputSelect];
 
@@ -166,8 +164,6 @@ export function initVoice(onData, onUserMediaError) {
     }
 
     try {
-      theUserMedia = userMedia;
-
       // === NEU: AudioWorklet statt microphone-stream ===
       const ac = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: 48000,
