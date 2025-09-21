@@ -100,12 +100,12 @@ Mumbling Mole consists of static files and a WebSocket tunnel.
 
 ### CSS / SCSS Build Pipeline
 
-Styles werden jetzt mit `mini-css-extract-plugin` gebaut (vorher `file-loader` + `extract-loader`).
-Die Datei `app/theme.js` importiert nur noch die SCSS-Dateien; das Plugin extrahiert
-versionierte CSS Artefakte (`theme.[contenthash].css`). Der frühere dynamische `<link>`-Insert
-ist entfallen. Das Skript `smart-build.sh` erwartet weiterhin ein nicht-leeres `theme.js`,
-daher enthält `theme.js` einen kleinen `console.debug` Side-Effect, damit das gebündelte JS
-nicht völlig leer weg-optimiert wird.
+Styles are now built using `mini-css-extract-plugin` (previously `file-loader` + `extract-loader`).
+The file `app/theme.js` now only imports the SCSS files; the plugin extracts
+versioned CSS artifacts (`theme.[contenthash].css`). The previous dynamic `<link>` insertion
+has been removed. The script `smart-build.sh` still expects a non-empty `theme.js`,
+so `theme.js` includes a small `console.debug` side effect to prevent the bundled JS
+from being completely optimized away as empty.
 
 ### Vendored Dependencies & Polyfills
 
