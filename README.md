@@ -48,6 +48,19 @@ To force a clean rebuild, run `npm run build:force`.
 
 The `docker-entrypoint.sh` script starts a local web server and, optionally, the WebSocket tunnel.
 
+For development, you can also use the simplified `dev-server.sh` script:
+
+```bash
+# Start the dev server
+./dev-server.sh start
+
+# Stop the dev server  
+./dev-server.sh stop
+
+# Check status
+./dev-server.sh status
+```
+
 **With a WebSocket tunnel (requires a Mumble server):**
 
 ```bash

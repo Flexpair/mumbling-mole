@@ -155,16 +155,6 @@ module.exports = {
         { from: 'themes/MetroMumbleLight/svg', to: 'svg' },
         { from: 'themes/MetroMumbleLight/img', to: 'img' }
       ]
-    }),
-    new webpack.ProgressPlugin({
-      activeModules: true,
-      entries: true,
-      modules: true,
-      modulesCount: 5000,
-      profile: false,
-      dependencies: true,
-      dependenciesCount: 10000,
-      percentBy: null
     })
   ],
 };
