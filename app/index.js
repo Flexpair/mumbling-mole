@@ -1,5 +1,3 @@
-import "./debug-script-processor"; // (Debug helper retained)
-
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "url";
@@ -188,7 +186,6 @@ class SettingsDialog {
   }
 
   end() {
-    testVoiceHandler = null;
   }
 
   recordPttKey() {
@@ -355,9 +352,6 @@ class GlobalBindings {
         if (this.audioContext.sampleRate == 48000) {
           initVoice(
             (data) => {
-              if (testVoiceHandler) {
-                testVoiceHandler.write(data);
-              }
               if (!ui.client) {
                 if (voiceHandler) {
                   voiceHandler.end();
@@ -895,7 +889,6 @@ function userToState() {
 }
 
 var voiceHandler;
-var testVoiceHandler;
 
 async function main() {
   document.title = window.location.hostname;
