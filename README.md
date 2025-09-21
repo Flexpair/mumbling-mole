@@ -37,7 +37,6 @@ This project began as a fork of the original `mumble-web` client, but has since 
 12. [Testing & QA](#12-testing--qa)
 13. [Security Notes](#13-security-notes)
 14. [Contributing](#14-contributing)
-15. [License](#15-license)
 
 ---
 
@@ -226,14 +225,6 @@ We welcome contributions! Please follow these steps:
 4.  Submit a pull request with a concise description of your changes.
 
 Please keep pull requests focused on a single feature or bug fix.
-
----
-
-## 15. License
-
-This project is licensed under the **ISC License**. See the [LICENSE](LICENSE) file for details.
-
-The original upstream portions were previously distributed under a different license. All new contributions are licensed under ISC.
 
 ---
 
