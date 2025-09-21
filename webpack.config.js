@@ -6,7 +6,7 @@ var path = require("path");
 module.exports = {
   mode: "production",
   entry: {
-    index: ["./app/index.js", "./app/index.html"],
+    index: ["./app/console-overlay.js", "./app/index.js", "./app/index.html"],
     config: "./app/config.js",
     theme: "./app/theme.js",
   },

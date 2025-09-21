@@ -11,7 +11,6 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     const state = {
       root: null,
       body: null,
-      toggle: null,
       isVisible: false,
     };
 
@@ -125,15 +124,15 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     }
 
     function updateVisibility() {
-      if (!state.root || !state.toggle) {
+      if (!state.root) {
         return;
       }
       if (state.isVisible) {
         state.root.classList.add("console-overlay--visible");
-        state.toggle.classList.add("console-overlay__toggle--hidden");
+        state.root.setAttribute("aria-hidden", "false");
       } else {
         state.root.classList.remove("console-overlay--visible");
-        state.toggle.classList.remove("console-overlay__toggle--hidden");
+        state.root.setAttribute("aria-hidden", "true");
       }
     }
 
@@ -153,7 +152,16 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     }
 
     function createOverlayDom() {
-      if (!document.body || state.root) {
+      if (state.root) {
+        return;
+      }
+
+      if (!document.body) {
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(createOverlayDom);
+        } else {
+          setTimeout(createOverlayDom, 0);
+        }
         return;
       }
 
@@ -162,6 +170,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
       overlay.className = "console-overlay";
       overlay.setAttribute("role", "log");
       overlay.setAttribute("aria-live", "polite");
+      overlay.setAttribute("aria-hidden", state.isVisible ? "false" : "true");
 
       const header = document.createElement("div");
       header.className = "console-overlay__header";
@@ -173,7 +182,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
 
       const hint = document.createElement("span");
       hint.className = "console-overlay__hint";
-      hint.textContent = "Ctrl+Shift+L";
+      hint.textContent = "Toggle: Ctrl+Shift+L";
       header.appendChild(hint);
 
       const controls = document.createElement("div");
@@ -205,21 +214,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
       overlay.appendChild(header);
       overlay.appendChild(body);
 
-      const toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.className = "console-overlay__toggle";
-      toggle.title = "Show console overlay (Ctrl+Shift+L)";
-      toggle.textContent = "Console";
-      toggle.addEventListener("click", () => {
-        showOverlay();
-      });
-
       document.body.appendChild(overlay);
-      document.body.appendChild(toggle);
 
       state.root = overlay;
       state.body = body;
-      state.toggle = toggle;
 
       updateVisibility();
       entries.forEach((entry) => {
@@ -227,10 +225,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
       });
     }
 
+    createOverlayDom();
+
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", createOverlayDom);
-    } else {
-      createOverlayDom();
     }
 
     window.addEventListener("keydown", (event) => {

@@ -223,13 +223,13 @@ select {
   max-height: 40vh;
   display: none;
   flex-direction: column;
-  background: rgba(17, 17, 17, 0.95);
-  color: #f5f5f5;
+  background: rgba(120, 12, 25, 0.94);
+  color: #ffecec;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
   line-height: 1.4;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -4px 16px rgba(120, 12, 25, 0.45);
+  border-top: 1px solid rgba(255, 204, 204, 0.5);
   z-index: 10000;
 }
 
@@ -242,8 +242,8 @@ select {
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(168, 24, 43, 0.92);
+  border-bottom: 1px solid rgba(255, 188, 188, 0.6);
 }
 
 .console-overlay__title {
@@ -254,7 +254,7 @@ select {
 
 .console-overlay__hint {
   margin-left: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 235, 235, 0.7);
   font-size: 11px;
 }
 
@@ -266,9 +266,9 @@ select {
 .console-overlay__button {
   padding: 3px 8px;
   border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(32, 32, 32, 0.85);
-  color: #f5f5f5;
+  border: 1px solid rgba(255, 204, 204, 0.7);
+  background: rgba(255, 142, 142, 0.18);
+  color: #fff8f8;
   font-size: 11px;
   cursor: pointer;
   transition: background 0.2s ease-in-out, border-color 0.2s ease-in-out;
@@ -276,12 +276,12 @@ select {
 
 .console-overlay__button:hover,
 .console-overlay__button:focus {
-  border-color: rgba(255, 255, 255, 0.45);
-  background: rgba(48, 48, 48, 0.95);
+  border-color: rgba(255, 214, 214, 0.9);
+  background: rgba(255, 173, 173, 0.28);
 }
 
 .console-overlay__body {
-  padding: 8px 10px;
+  padding: 10px 12px;
   flex: 1 1 auto;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -290,7 +290,11 @@ select {
 .console-overlay__entry {
   display: flex;
   gap: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 220, 220, 0.08);
+  border-left: 3px solid rgba(255, 210, 210, 0.6);
+  border-radius: 4px;
 }
 
 .console-overlay__entry:last-child {
@@ -299,13 +303,13 @@ select {
 
 .console-overlay__time {
   flex: 0 0 auto;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 232, 232, 0.65);
 }
 
 .console-overlay__text {
   margin: 0;
   flex: 1 1 auto;
-  color: #f5f5f5;
+  color: #fff1f1;
   font-family: inherit;
   font-size: inherit;
   background: none;
@@ -315,49 +319,21 @@ select {
 }
 
 .console-overlay__entry--info .console-overlay__text {
-  color: #73d2de;
+  color: #ffe3f0;
 }
 
 .console-overlay__entry--warn .console-overlay__text {
-  color: #ffd166;
+  color: #ffe1c6;
 }
 
 .console-overlay__entry--error .console-overlay__text {
-  color: #ff6b6b;
+  color: #ffb3b3;
 }
 
 .console-overlay__entry--table .console-overlay__text {
-  color: #80cbc4;
+  color: #ffe3f0;
 }
 
 .console-overlay__entry--debug .console-overlay__text {
-  color: #adb5bd;
-}
-
-.console-overlay__toggle {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(17, 17, 17, 0.85);
-  color: #f5f5f5;
-  font-size: 12px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  opacity: 0.75;
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
-  z-index: 10001;
-}
-
-.console-overlay__toggle:hover,
-.console-overlay__toggle:focus {
-  opacity: 1;
-  transform: translateY(-1px);
-}
-
-.console-overlay__toggle--hidden {
-  display: none;
+  color: #ffd9d9;
 }
