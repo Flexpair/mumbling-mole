@@ -28,6 +28,11 @@ Für lokales Development siehe: **[DEV-WORKFLOW.md](DEV-WORKFLOW.md)**
 
 ## Installing
 
+### Requirements
+
+- Node.js 22.x (LTS) or later
+- npm (comes with Node.js)
+
 ### Download
 
 mumble-web can either be installed directly from npm with `npm install -g mumble-web`

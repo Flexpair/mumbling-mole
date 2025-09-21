@@ -29,9 +29,9 @@ ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --no-cache-dir websockify==0.12.0
 
 # ---------------------------------------------------------------------
-# Node.js 16 Installation (robust, feste Symlinks)
+# Node.js 22 Installation (robust, feste Symlinks)
 # ---------------------------------------------------------------------
-ENV NODE_VERSION=16.20.2
+ENV NODE_VERSION=22.19.0
 
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \

@@ -15,6 +15,9 @@
   "license": "ISC",
   "repository": "Flexpair/mumbling-mole",
   "homepage": "https://github.com/jafudi/flexpair",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "files": [
     "dist"
   ],
