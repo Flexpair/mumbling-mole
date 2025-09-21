@@ -2,7 +2,6 @@ import { Transform, PassThrough } from "stream";
 import mumbleConnect from "./mumble-websocket.js";
 import toArrayBuffer from "to-arraybuffer";
 import chunker from "stream-chunker";
-import "subworkers";
 
 let nextClientId = 1;
 let nextVoiceId = 1;

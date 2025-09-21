@@ -1,4 +1,3 @@
-import "subworkers";
 import { Transform } from "stream";
 import createPool from "reuse-pool";
 import EncodeWorker from "./encode-worker";

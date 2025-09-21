@@ -4,7 +4,17 @@ import EventEmitter from "events";
 import { Writable, PassThrough } from "stream";
 import toArrayBuffer from "to-arraybuffer";
 import ByteBuffer from "bytebuffer";
-import Worker from "./worker";
+// Import the compiled worker bundle. Rename to avoid confusing the global Worker constructor.
+// Native Webpack 5 worker syntax (avoids worker-loader wrapper issues)
+// We keep a small factory so tests / future mocking can override if needed.
+function createWorker() {
+  try {
+    return new Worker(new URL('./worker.js', import.meta.url), { type: 'classic' });
+  } catch (e) {
+    console.error('[worker] failed to construct with native URL syntax', e);
+    throw e;
+  }
+}
 
 /**
  * Creates proxy MumbleClients to a real ones running on a web worker.
@@ -12,7 +22,20 @@ import Worker from "./worker";
  */
 class WorkerBasedMumbleConnector {
   constructor() {
-    this._worker = new Worker();
+  // Create the underlying worker (now single strategy; subworkers removed)
+  try {
+    const globalWorker = typeof Worker !== 'undefined' ? Worker : undefined;
+    if (globalWorker) {
+      const sig = (() => { try { return Function.prototype.toString.call(globalWorker); } catch { return 'uninspectable'; } })();
+      console.debug('[worker] global Worker signature snippet:', sig.slice(0, 80).replace(/\n/g, ' '), '...');
+    } else {
+      console.warn('[worker] global Worker constructor missing in this environment');
+    }
+    this._worker = createWorker();
+  } catch (e) {
+    console.error('[worker] constructor-level failure creating worker', e);
+    throw e;
+  }
     this._worker.addEventListener("message", this._onMessage.bind(this));
     this._reqId = 1;
     this._requests = {};

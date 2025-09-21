@@ -1,12 +1,7 @@
-import "./debug-script-processor"; // (Existing debug import retained; safe in production build size context)
-import "subworkers"; // Initializes worker-related side effects early
-// Minimal polyfill attachment (ProvidePlugin supplies these too; kept as defensive fallback without noisy logging)
-import { Buffer as PolyfillBuffer } from 'buffer';
-import processPolyfill from 'process/browser';
-if (typeof window !== 'undefined') {
-  if (!window.Buffer) window.Buffer = PolyfillBuffer;
-  if (!window.process) window.process = processPolyfill;
-}
+import "./debug-script-processor"; // (Debug helper retained)
+
+// Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
+// Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
@@ -818,12 +813,17 @@ if (ui.netlifyIdentity) {
 }
 
 function initializeUI() {
-  ui.netlifyIdentity.init({
-    APIUrl: "https://welcome.flexpair.com/identity-proxy",
-    locale: "en",
-  });
-
-  var user = ui.netlifyIdentity.currentUser();
+  // Guard identity init so offline/local dev without the proxy does not break UI
+  let user = null;
+  try {
+    ui.netlifyIdentity.init({
+      APIUrl: "https://welcome.flexpair.com/identity-proxy",
+      locale: "en",
+    });
+    user = ui.netlifyIdentity.currentUser();
+  } catch (e) {
+    console.warn('[identity] initialization failed; continuing without identity integration', e);
+  }
 
   ui.netlifyIdentity.on("login", (user) => {
     console.log("login", user);

@@ -1,5 +1,8 @@
 const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
 const webpack = require('webpack');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 // Added Node polyfills + ProvidePlugin/DefinePlugin to fix runtime 'process is not defined'
 // after upgrading dependencies; keeps vendored mumble-client utils working.
 
@@ -9,7 +12,7 @@ var path = require("path");
 module.exports = {
   mode: "production",
   entry: {
-    index: ["./app/index.js", "./app/index.html"],
+    index: ["./app/index.js"], // HTML now handled by HtmlWebpackPlugin template
     config: "./app/config.js",
     theme: "./app/theme.js",
   },
@@ -41,101 +44,21 @@ module.exports = {
           },
         },
       },
-      {
-        test: /\.html$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              name: "[name].[ext]",
-              esModule: false,
-            },
-          },
-          {
-            loader: "extract-loader",
-          },
-          {
-            loader: "html-loader",
-            options: {
-              esModule: false,
-              // IMPORTANT: Keep Knockout virtual element comments (<!-- ko ... -->) intact.
-              // We still want general minification, just not comment stripping.
-              // html-loader passes this object to html-minifier-terser.
-              // Setting removeComments:false preserves KO containerless bindings while
-              // allowing whitespace/attribute/collapsing optimizations.
-              minimize: {
-                removeComments: false,
-              },
-              sources: {
-                list: [
-                  {
-                    tag: "img",
-                    attribute: "src",
-                    type: "src",
-                  },
-                  {
-                    tag: "link",
-                    attribute: "href",
-                    type: "src",
-                  },
-                ]
-              },
-              preprocessor: (content, loaderContext) => {
-                // Transform absolute paths to theme-relative paths
-                let result = content;
-                result = result.replace(/src="\/svg\//g, `src="${theme}/svg/`);
-                result = result.replace(/src="\/img\//g, `src="${theme}/img/`);
-                result = result.replace(/href="\/svg\//g, `href="${theme}/svg/`);
-                result = result.replace(/href="\/img\//g, `href="${theme}/img/`);
-                return result;
-              },
-            },
-          },
-        ],
-      },
+      // HTML now processed via HtmlWebpackPlugin (see plugins section)
       {
         test: /\.css$/,
         use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
-            loader: "extract-loader",
-          },
-          {
-            loader: "css-loader",
-            options: {
-              esModule: false,
-            },
-          },
-        ],
+          MiniCssExtractPlugin.loader,
+          { loader: 'css-loader', options: { esModule: false } }
+        ]
       },
       {
         test: /\.scss$/,
         use: [
-          {
-            loader: "file-loader",
-            options: {
-              name: "[hash].css",
-              esModule: false,
-            },
-          },
-          {
-            loader: "extract-loader",
-          },
-          {
-            loader: "css-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
-            loader: "sass-loader",
-          },
-        ],
+          MiniCssExtractPlugin.loader,
+          { loader: 'css-loader', options: { esModule: false } },
+          { loader: 'sass-loader' }
+        ]
       },
       {
         type: "javascript/auto",
@@ -180,8 +103,10 @@ module.exports = {
         ],
       },
       {
+        // Worker files are referenced via new Worker(new URL('./worker.js', import.meta.url))
+        // so no special loader is required (Webpack 5 supports this natively).
         test: /worker\.js$/,
-        use: { loader: "worker-loader" },
+        type: 'javascript/auto',
       },
       {
         enforce: "post",
@@ -212,6 +137,29 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.browser': 'true'
+    }),
+    new MiniCssExtractPlugin({
+      // Use stable filenames; cache busting handled by overall build process currently
+      filename: '[name].css',
+      chunkFilename: '[id].css'
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'index.html',
+      template: path.join(__dirname, 'app/index.html'),
+      inject: false, // we control tags manually to preserve KO comments and ordering
+      minify: {
+        removeComments: false
+      },
+      templateParameters: (compilation, assets, assetTags, options) => {
+        return { assets };
+      }
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: 'app/favicons', to: 'favicons' },
+        { from: 'themes/MetroMumbleLight/svg', to: 'svg' },
+        { from: 'themes/MetroMumbleLight/img', to: 'img' }
+      ]
     }),
     new webpack.ProgressPlugin({
       activeModules: true,
