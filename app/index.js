@@ -1,4 +1,3 @@
-import "./debug-script-processor";
 import "subworkers";
 import url from "url";
 import MumbleClient from "mumble-client";
@@ -6,7 +5,6 @@ import WorkerBasedMumbleConnector from "./worker-client";
 import BufferQueueNode from "web-audio-buffer-queue";
 import getAudioContext from "audio-context";
 import ko from "knockout";
-import _dompurify from "dompurify";
 import keyboardjs from "keyboardjs";
 
 import {

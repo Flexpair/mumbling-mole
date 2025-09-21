@@ -1,8 +1,6 @@
 {
   "connectdialog": {
     "title": "Join audio conference",
-    "address": "Address",
-    "port": "Port",
     "username": "Username",
     "password": "Password",
     "microphone": "Microphone",
@@ -45,5 +43,12 @@
   "chat": {
     "channel_message_placeholder": "Type message to everyone here...",
     "user_message_placeholder": "Type message to user '%1' here..."
+  },
+  "logentry": {
+    "mic_init_error": "Microphone initialization error",
+    "connecting": "Connecting to audio server",
+    "connected": "Connected to audio server",
+    "connection_error": "Connection error",
+    "unknown_voice_mode": "Unknown voice mode"
   }
 }
