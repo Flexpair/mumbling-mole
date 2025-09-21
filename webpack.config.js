@@ -192,7 +192,9 @@ module.exports = {
     minimize: true,
   },
   plugins: [
-    new NodePolyfillPlugin(),
+    new NodePolyfillPlugin({
+      additionalAliases: ["process"]
+    }),
     new (require('webpack')).ProgressPlugin({
       activeModules: true,
       entries: true,
