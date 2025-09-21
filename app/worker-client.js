@@ -3,7 +3,6 @@ import Promise from "promise";
 import EventEmitter from "events";
 import { Writable, PassThrough } from "stream";
 import toArrayBuffer from "to-arraybuffer";
-import ByteBuffer from "bytebuffer";
 // Import the compiled worker bundle. Rename to avoid confusing the global Worker constructor.
 // Native Webpack 5 worker syntax (avoids worker-loader wrapper issues)
 // We keep a small factory so tests / future mocking can override if needed.

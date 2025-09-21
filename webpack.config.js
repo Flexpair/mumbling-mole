@@ -6,7 +6,6 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 // Added Node polyfills + ProvidePlugin/DefinePlugin to fix runtime 'process is not defined'
 // after upgrading dependencies; keeps vendored mumble-client utils working.
 
-var theme = "../themes/MetroMumbleLight";
 var path = require("path");
 
 module.exports = {
