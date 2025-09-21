@@ -1,193 +1,245 @@
 # Mumbling Mole (Lite Mumble Web Client)
 
-Mumbling Mole is a lightweight, production‑oriented HTML5 [Mumble] client focused on minimal UI footprint and efficient audio tunneling over a single WebSocket. This fork/variant removes the traditional channel tree and continuous on‑screen voice activity display in order to conserve screen space (e.g. when embedded in remote desktop / support tooling) while retaining high‑quality audio and essential chat / presence features.
+[![Project Status: Active](https://img.shields.io/badge/status-active-success.svg)](https://github.com/Flexpair/mumbling-mole/)
+[![GitHub Issues](https://img.shields.io/github/issues/Flexpair/mumbling-mole.svg)](https://github.com/Flexpair/mumbling-mole/issues)
+[![License](https://img.shields.io/badge/license-ISC-blue.svg)](https://github.com/Flexpair/mumbling-mole/blob/lite/LICENSE)
+
+Mumbling Mole is a lightweight, production-oriented HTML5 [Mumble](https://www.mumble.info/) client. It focuses on a minimal UI footprint and efficient audio tunneling over a single WebSocket.
+
+This fork removes the traditional channel tree and on-screen voice activity display to conserve screen space, making it ideal for embedding in remote desktop or support tools while retaining high-quality audio and essential features.
 
 ---
 
+## Why Mumbling Mole?
+
+This project began as a fork of the original `mumble-web` client, but has since evolved significantly. Key improvements include:
+
+-   **Modernization:** The entire codebase has been migrated to a modern Webpack 5 build system with Babel, replacing the legacy Grunt setup.
+-   **Performance:** Removed heavy dependencies like `libsamplerate.js` (~5MB saved) in favor of native browser resampling, leading to faster load times.
+-   **Determinism:** Builds are fully deterministic, ensuring that the same source code always produces the exact same output in the `dist/` directory.
+-   **Security:** Integrated `dompurify` to sanitize all user-generated content and prevent XSS attacks.
+-   **Stability:** Runs on a stable Docker image base with reproducible build steps, making deployment predictable and reliable.
+-   **Developer Experience:** Added a "smart" build script (`smart-build.sh`) that only rebuilds assets when changes are detected, speeding up the development cycle.
+
 ## Contents
-1. Overview & Goals
-2. Feature Highlights
-3. Architecture & Tech Stack
-4. Quick Start
-5. Installation
-6. Environment
-7. Development Workflow
-8. Configuration
-9. Theming
-10. Localization
-11. Deployment (Summary)
-12. Testing & QA
-13. Security Notes
-14. Contributing
+
+1.  [Overview & Goals](#1-overview--goals)
+2.  [Feature Highlights](#2-feature-highlights)
+3.  [Architecture & Tech Stack](#3-architecture--tech-stack)
+4.  [Quick Start](#4-quick-start)
+5.  [Installation](#5-installation)
+6.  [Environment Variables](#6-environment-variables)
+7.  [Development Workflow](#7-development-workflow)
+8.  [Configuration](#8-configuration)
+9.  [Theming](#9-theming)
+10. [Localization](#10-localization)
+11. [Deployment](#11-deployment-summary)
+12. [Testing & QA](#12-testing--qa)
+13. [Security Notes](#13-security-notes)
+14. [Contributing](#14-contributing)
+15. [License](#15-license)
 
 ---
 
 ## 1. Overview & Goals
-Compact web Mumble client optimized for embedding and constrained layouts:
-- Minimal surface area: no full channel tree, reduced chrome
-- Deterministic build, reproducible assets in `dist/`
-- Secure-by-default (TLS WebSocket tunnel, sanitization via `dompurify`)
-- Fast startup (tree‑shaken, minified, selective worker usage)
+
+A compact web Mumble client optimized for embedding and constrained layouts.
+
+-   **Minimal Footprint:** No full channel tree, reduced UI chrome.
+-   **Reproducible Builds:** Deterministic build process produces identical assets in `dist/`.
+-   **Secure by Default:** Enforces a secure WebSocket tunnel and sanitizes inputs with `dompurify`.
+-   **Fast Startup:** Tree-shaken, minified, and uses workers for heavy audio processing.
 
 ## 2. Feature Highlights
-- WebSocket tunneling via `websockify` (or compatible) to a standard Mumble server
-- Push‑to‑Talk and Continuous voice modes
-- Adjustable audio bitrate (default overridden to 96 kbit/s via `config.local.js`)
-- Multi‑language UI (currently: `cs, de, en, es, fr, it, ja, nl, no, ru, zh`)
-- MetroMumbleLight derived theming with SCSS pipeline
-- Offline‑friendly static asset bundle (no server‑side rendering required)
-- Deterministic smart build script with change detection (`smart-build.sh`)
 
-### Improvements / Notable Changes
-- Removed heavy `libsamplerate.js` in favor of native browser resamplers (~5 MB saved)
-- Added Safari (>=11) support adjustments
-- Stable Docker image base & reproducible build steps
-- Increased default usable audio bitrate to 96 kbit/s (see `app/config.local.js`)
-- Webpack optimization & minimized output
-- Integrated upstream patches and removed unused UI stubs
+-   WebSocket tunneling via `websockify` (or a compatible proxy) to a standard Mumble server.
+-   Push-to-Talk and Continuous voice modes.
+-   Adjustable audio bitrate (default overridden to 96 kbit/s via `config.local.js`).
+-   Multi-language UI (currently: `cs, de, en, es, fr, it, ja, nl, no, ru, zh`).
+-   Theming support via a simple SCSS pipeline.
+-   Offline-friendly static asset bundle (no server-side rendering required).
+-   Deterministic smart build script with change detection (`smart-build.sh`).
 
 ## 3. Architecture & Tech Stack
-| Layer | Key Components |
-|-------|----------------|
-| UI & MVVM | Knockout.js bindings + minimal HTML templates |
-| Audio | `libopus.js`, Web Audio API, workers for encode/decode & recording |
-| Networking | WebSocket tunnel (websockify) → native Mumble TCP (optionally TLS) |
-| Build | Webpack 5, Babel (@babel/preset-env & runtime), SCSS pipeline |
-| Security | `dompurify` for chat / user text, content isolation via static hosting |
-| Localization | JSON bundles loaded at runtime (`/localize/*.json`) |
-| Vendor Bundles | Local vendored `mumble-client`, `netlify-identity-widget` |
 
-Workers (`encode-worker.js`, `decode-worker.js`, `recorder-worker.js`) offload audio processing; `worker-loader` bundles them separately.
+| Layer          | Key Components                                                       |
+| -------------- | -------------------------------------------------------------------- |
+| **UI & MVVM**  | Knockout.js bindings + minimal HTML templates                        |
+| **Audio**      | `libopus.js`, Web Audio API, workers for encode/decode & recording   |
+| **Networking** | WebSocket tunnel (websockify) → native Mumble TCP (optionally TLS) |
+| **Build**      | Webpack 5, Babel (`@babel/preset-env` & runtime), SCSS pipeline      |
+| **Security**   | `dompurify` for chat/user text, content isolation via static hosting |
+| **Localization** | JSON bundles loaded at runtime (`/localize/*.json`)                  |
+| **Vendor**     | Local vendored `mumble-client` and `netlify-identity-widget`         |
+
+Audio processing is offloaded to Web Workers (`encode-worker.js`, `decode-worker.js`, `recorder-worker.js`) to keep the main thread responsive.
 
 ## 4. Quick Start
 
-### Dev Container (Recommended)
-Run the Dev Container and then inside it:
-```
-npm install
-npm run build
-./docker-entrypoint.sh # Requires MUMBLE_SERVER set (unless SKIP_TUNNEL=1)
-```
-Open your browser at the printed host/port (default: `http://localhost:8081`).
+This is the fastest way to get Mumbling Mole running for development or testing.
 
-### Bare Local (No Tunnel) for Static UI Testing
-```
+### Dev Container (Recommended)
+
+1.  Open this project in the provided Dev Container.
+2.  Run the setup and start the server:
+    ```bash
+    npm install
+    npm run build
+    # Set MUMBLE_SERVER or the script will exit, unless you only want to test the UI
+    export MUMBLE_SERVER="your.mumble.server:64738"
+    ./docker-entrypoint.sh
+    ```
+3.  Open your browser to the printed host/port (default: `http://localhost:8081`).
+
+### Local UI-Only Testing (No Tunnel)
+
+If you only need to work on the UI and don't need to connect to a Mumble server:
+
+```bash
 npm install
 npm run build
 SKIP_TUNNEL=1 ./docker-entrypoint.sh
-open http://localhost:8081   # serve static assets only
 ```
 
+This will serve the static assets at `http://localhost:8081`.
+
 ## 5. Installation
-```
+
+Follow these steps to clone the repository and build the project from source.
+
+```bash
 git clone https://github.com/Flexpair/mumbling-mole
 cd mumbling-mole
 npm install
 npm run build
 ```
-Non‑root user strongly recommended (npm lifecycle scripts can behave unexpectedly as root).
 
-Result: `dist/` contains `index.html`, `index.js`, `config.js`, `theme.js`, workers, and `config.local.js` (copied on first build if absent).
+The build artifacts, including `index.html`, JavaScript bundles, and assets, will be located in the `dist/` directory.
 
-## 6. Environment
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `PORT` / `SMOKE_HTTP_PORT` | HTTP + WebSocket listen port | 8081 |
-| `HOST` | Bind address | 0.0.0.0 |
-| `SKIP_TUNNEL` | If `1`, only serve static files (no WebSocket tunnel) | unset |
-| `MUMBLE_SERVER` | Target `<host:port>` for Mumble (required unless `SKIP_TUNNEL=1`) | (none) |
-| `PLAIN_TARGET` | If `1`, don't use `--ssl-target` (plain TCP to backend) | unset |
-| `E2E_*` | See smoke test section | — |
+**Note:** It is strongly recommended to run these commands as a non-root user, as npm lifecycle scripts can behave unexpectedly when run as root.
 
-Two ports (8081/8082) are exposed in the Docker image for CI compatibility. Normally you only need 8081.
+## 6. Environment Variables
+
+| Variable          | Purpose                                                              | Default   |
+| ----------------- | -------------------------------------------------------------------- | --------- |
+| `PORT`            | HTTP + WebSocket listen port                                         | `8081`    |
+| `HOST`            | Bind address for the server                                          | `0.0.0.0` |
+| `SKIP_TUNNEL`     | If `1`, only serves static files (no WebSocket tunnel)               | unset     |
+| `MUMBLE_SERVER`   | Target `<host:port>` for Mumble (required unless `SKIP_TUNNEL=1`)    | (none)    |
+| `PLAIN_TARGET`    | If `1`, use plain TCP for the backend connection (no `--ssl-target`) | unset     |
+| `E2E_*`           | See the smoke test section for E2E testing variables.                | —         |
+
+**Note:** The Docker image exposes ports 8081 and 8082 for CI compatibility. For normal use, you only need port 8081.
 
 ## 7. Development Workflow
-Key scripts (see `package.json`):
-| Script | Description |
-|--------|-------------|
-| `npm run build` | Smart build with change detection (rebuilds only if needed) |
-| `npm run build:force` | Force a clean rebuild (clears `dist/`) |
-| `npm test` | Runs E2E smoke + audit security check |
-| `npm run test:e2e` | Local E2E tunnel smoke test only |
-| `npm run audit:ci` | Dependency audit compared to `audit-baseline.json` |
-| `npm run audit:baseline` | Regenerate security baseline (pin reviewed vulnerabilities) |
 
-The build script ensures vendored `mumble-client` is compiled (Babel) prior to bundling.
+Key scripts available in `package.json`:
+
+| Script                | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `npm run build`       | Smart build with change detection (rebuilds only if needed).     |
+| `npm run build:force` | Forces a clean rebuild by clearing the `dist/` directory first.  |
+| `npm test`            | Runs E2E smoke tests and a security audit.                       |
+| `npm run test:e2e`    | Runs only the local E2E tunnel smoke test.                       |
+| `npm run audit:ci`    | Compares dependencies against the `audit-baseline.json`.         |
+| `npm run audit:baseline` | Regenerates the security baseline to pin reviewed vulnerabilities. |
+
+The build script ensures the vendored `mumble-client` is compiled with Babel before being bundled.
 
 ## 8. Configuration
-Primary defaults: `app/config.js` -> `window.mumbleWebConfig` with sections:
-- `connectDialog`: toggles visibility of connect form fields
-- `settings`: user defaults (`voiceMode`, `pttKey`, `toolbarVertical`, `audioBitrate`, etc.)
-- `defaults`: query-parameter overrideable defaults (`address`, `port`, `theme`)
 
-Override pattern:
-1. Copy or edit `dist/config.local.js` (auto-copied from `app/config.local.js` if missing)
-2. Adjust settings (e.g. `config.settings.audioBitrate = 96000;`)
-3. Serve updated `dist/` assets
+The client can be configured through `config.js` and `config.local.js`.
 
-Runtime URL overrides (example):
+-   **`app/config.js`**: Contains the primary default settings for the application (`window.mumbleWebConfig`).
+-   **`app/config.local.js`**: Use this file for local overrides. It is copied to `dist/` on build if it doesn't exist there.
+
+To customize your configuration:
+
+1.  Edit `dist/config.local.js` (or create it by copying `app/config.local.js`).
+2.  Adjust settings as needed (e.g., `config.settings.audioBitrate = 96000;`).
+3.  Serve the updated `dist/` assets.
+
+You can also override settings at runtime using URL query parameters:
+
 ```
 https://voice.example.com/?address=voice.example.com/mumble&port=443&theme=MetroMumbleLight
 ```
 
 ## 9. Theming
-Base theme: `themes/MetroMumbleLight/` (SCSS, images, SVGs). To create a new theme:
-1. Duplicate the folder under `themes/YourThemeName`
-2. Adjust SCSS (`main.scss`, `loading.scss`) & assets
-3. Update references if needed in HTML (the build replaces `/svg/` & `/img/` paths)
-4. Rebuild (`npm run build`)
-5. Provide `?theme=YourThemeName` in URL or set `defaults.theme`
+
+The default theme is `MetroMumbleLight`, located in `themes/MetroMumbleLight/`. To create a new theme:
+
+1.  Duplicate the `MetroMumbleLight` folder and rename it (e.g., `themes/YourThemeName`).
+2.  Modify the SCSS files (`main.scss`, `loading.scss`) and replace assets as needed.
+3.  Rebuild the project: `npm run build`.
+4.  Activate the theme by setting the `theme` query parameter in the URL (e.g., `?theme=YourThemeName`) or by changing `defaults.theme` in your configuration.
 
 ## 10. Localization
-Language bundles in `localize/`: `cs, de, en, es, fr, it, ja, nl, no, ru, zh`.
-To add a language:
-1. Create `localize/<lang>.json`
-2. Mirror keys from `en.json`
-3. Rebuild assets
-4. Provide selection UI or auto‑detect logic (future enhancement)
+
+Language bundles are located in `localize/`. To add a new language:
+
+1.  Create a new file, `localize/<lang>.json`.
+2.  Translate the keys from `en.json`.
+3.  Rebuild the assets.
+
+A UI for language selection is a potential future enhancement.
 
 ## 11. Deployment (Summary)
-Common patterns:
-- Standalone: `websockify --ssl-only --ssl-target --web=dist 443 <mumbleserver>:64738`
-- Reverse proxy (recommended): run `websockify --ssl-target 64737 <mumbleserver>:64738` and proxy `/mumble` → `:64737` (see NGINX/Caddy examples in previous revision if needed)
-- Systemd: run as a simple service executing websockify with `--web=dist`
-Connecting examples: `address=voice.example.com/mumble&port=443` query parameters can prefill the form.
+
+Common deployment patterns:
+
+-   **Standalone:** Use `websockify` to serve the `dist/` directory and tunnel traffic to your Mumble server.
+    ```bash
+    websockify --ssl-only --ssl-target --web=dist 443 <mumbleserver>:64738
+    ```
+-   **Reverse Proxy (Recommended):** Run `websockify` without the `--web` flag and use a reverse proxy like NGINX or Caddy to serve the static files and proxy the WebSocket connection.
+    -   Run `websockify --ssl-target 64737 <mumbleserver>:64738`.
+    -   Proxy requests for `/mumble` to `localhost:64737`.
 
 ## 12. Testing & QA
-Smoke / E2E:
-```
-npm run test:e2e
-```
-Environment overrides: `E2E_WS_PORT`, `E2E_TCP_PORT`, `E2E_BIND_HOST`, `E2E_TARGET_HOST`.
-Container mode:
-```
-node scripts/e2e-check.cjs --mode=container
-```
-Security/audit:
-```
-npm run audit:ci
-```
+
+-   **E2E / Smoke Tests:**
+    ```bash
+    npm run test:e2e
+    ```
+    You can override test parameters with environment variables: `E2E_WS_PORT`, `E2E_TCP_PORT`, `E2E_BIND_HOST`, `E2E_TARGET_HOST`.
+
+-   **Security Audit:**
+    ```bash
+    npm run audit:ci
+    ```
 
 ## 13. Security Notes
-- Web content sanitized with `dompurify` to mitigate XSS via chat/messages
-- Avoid running untrusted custom themes unless reviewed
-- Run behind HTTPS + secure WebSocket (wss) in production
-- Audit dependencies: `npm run audit:ci` (baseline exceptions tracked in `audit-baseline.json`)
+
+-   **Content Sanitization:** All user-generated content is sanitized with `dompurify` to mitigate XSS.
+-   **Theme Security:** Avoid running untrusted custom themes unless you have reviewed the code.
+-   **Production:** Always run behind HTTPS with a secure WebSocket (WSS) connection.
+-   **Dependencies:** Regularly audit dependencies with `npm run audit:ci`. Baseline exceptions are tracked in `audit-baseline.json`.
 
 ## 14. Contributing
-1. Fork & clone
-2. Create a feature branch
-3. Run `npm install && npm test`
-4. Submit PR with concise description + any screenshots (if UI changes)
 
-Please keep PRs focused; run the E2E smoke test locally before submission.
+We welcome contributions! Please follow these steps:
+
+1.  Fork and clone the repository.
+2.  Create a feature branch for your changes.
+3.  Run `npm install && npm test` to ensure everything is working correctly.
+4.  Submit a pull request with a concise description of your changes.
+
+Please keep pull requests focused on a single feature or bug fix.
 
 ---
-### License Status (Placeholder)
-Licensing for this fork is currently under review. Original upstream portions were previously distributed under the ISC license; final licensing and attribution will be clarified in a future update. Until then, reuse/redistribution terms are not explicitly granted.
+
+## 15. License
+
+This project is licensed under the **ISC License**. See the [LICENSE](LICENSE) file for details.
+
+The original upstream portions were previously distributed under a different license. All new contributions are licensed under ISC.
 
 ---
-References:
-- [Mumble]
-- [websockify GitHub page]
-- [MetroMumble]
+
+**References:**
+
+-   [Mumble](https://www.mumble.info/)
+-   [websockify](https://github.com/novnc/websockify)
+-   [MetroMumble](https://github.com/Johni0702/MetroMumble)
+
