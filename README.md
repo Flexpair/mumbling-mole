@@ -2,7 +2,6 @@
 
 [![Project Status: Active](https://img.shields.io/badge/status-active-success.svg)](https://github.com/Flexpair/mumbling-mole/)
 [![GitHub Issues](https://img.shields.io/github/issues/Flexpair/mumbling-mole.svg)](https://github.com/Flexpair/mumbling-mole/issues)
-[![License](https://img.shields.io/badge/license-ISC-blue.svg)](https://github.com/Flexpair/mumbling-mole/blob/lite/LICENSE)
 
 Mumbling Mole is a lightweight, production-oriented HTML5 [Mumble](https://www.mumble.info/) client. It focuses on a minimal UI footprint and efficient audio tunneling over a single WebSocket.
 
