@@ -1,10 +1,12 @@
 import { Transform } from "stream";
 import createPool from "reuse-pool";
-import EncodeWorker from "./encode-worker";
 
-const pool = createPool(function () {
-  return new EncodeWorker();
-});
+// Native Worker factory function (Webpack 5 compatible)
+function createEncodeWorker() {
+  return new Worker(new URL('./encode-worker.js', import.meta.url), { type: 'classic' });
+}
+
+const pool = createPool(createEncodeWorker);
 // Prepare first worker
 pool.recycle(pool.get());
 
