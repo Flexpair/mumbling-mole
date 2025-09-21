@@ -1,4 +1,3 @@
-import "subworkers";
 import { Encoder as OpusEncoder, libopus } from "libopus.js";
 import toArrayBuffer from "to-arraybuffer";
 
