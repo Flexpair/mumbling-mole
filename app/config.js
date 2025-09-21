@@ -17,7 +17,6 @@ window.mumbleWebConfig = {
   settings: {
     voiceMode: "cont", // one of 'cont' (Continuous), 'ptt' (Push-to-Talk)
     pttKey: "ctrl + shift",
-    toolbarVertical: false,
     userCountInChannelName: false,
     audioBitrate: 40000, // bits per second
     samplesPerPacket: 960,
