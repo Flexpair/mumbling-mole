@@ -1,3 +1,4 @@
+import "./console-overlay";
 import "./debug-script-processor";
 import "subworkers";
 import url from "url";
