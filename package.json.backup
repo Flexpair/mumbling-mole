@@ -60,7 +60,7 @@
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "6.0.1",
     "websocket-stream": "^5.5.2",
-
+    "worker-loader": "3.0.8",
     "ws": "^8.18.3"
   },
   "overrides": {
