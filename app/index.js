@@ -241,7 +241,6 @@ class Settings {
     const load = (key) => window.localStorage.getItem("mumble." + key);
     this.voiceMode = load("voiceMode") || defaults.voiceMode;
     this.pttKey = load("pttKey") || defaults.pttKey;
-    this.toolbarVertical = load("toolbarVertical") || defaults.toolbarVertical;
     this.userCountInChannelName = ko.observable(
       load("userCountInChannelName") || defaults.userCountInChannelName
     );
@@ -255,7 +254,6 @@ class Settings {
       window.localStorage.setItem("mumble." + key, val);
     save("voiceMode", this.voiceMode);
     save("pttKey", this.pttKey);
-    save("toolbarVertical", this.toolbarVertical);
     save("userCountInChannelName", this.userCountInChannelName());
     save("audioBitrate", this.audioBitrate);
     save("samplesPerPacket", this.samplesPerPacket);
@@ -292,7 +290,6 @@ class GlobalBindings {
     this.thisUser = ko.observable();
     this.root = ko.observable();
     this.messageBox = ko.observable("");
-    this.toolbarHorizontal = ko.observable(!this.settings.toolbarVertical);
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
