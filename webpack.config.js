@@ -130,7 +130,8 @@ module.exports = {
     }
   },
   plugins: [
-    new NodePolyfillPlugin(), // Base polyfills (minus globals we explicitly control)
+    // Polyfills: keep explicit Provide/Define for stable globals; include any additionalAliases from lite if needed
+    new NodePolyfillPlugin({ additionalAliases: ["process"] }),
     new webpack.ProvidePlugin({
       Buffer: ['buffer', 'Buffer'],
       process: ['process/browser']
@@ -139,20 +140,15 @@ module.exports = {
       'process.browser': 'true'
     }),
     new MiniCssExtractPlugin({
-      // Use stable filenames; cache busting handled by overall build process currently
       filename: '[name].css',
       chunkFilename: '[id].css'
     }),
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: path.join(__dirname, 'app/index.html'),
-      inject: false, // we control tags manually to preserve KO comments and ordering
-      minify: {
-        removeComments: false
-      },
-      templateParameters: (compilation, assets, assetTags, options) => {
-        return { assets };
-      }
+      inject: false,
+      minify: { removeComments: false },
+      templateParameters: (compilation, assets) => ({ assets })
     }),
     new CopyWebpackPlugin({
       patterns: [
