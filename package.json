@@ -10,7 +10,8 @@
     "audit:baseline": "node scripts/audit-ci.cjs --write-baseline",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test:e2e": "node scripts/e2e-check.cjs",
-    "test": "npm run test:e2e && npm run audit:ci"
+    "test": "npm run test:e2e && npm run audit:ci",
+    "check:deps": "npx depcheck --config .depcheckrc"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "repository": "Flexpair/mumbling-mole",
@@ -29,13 +30,12 @@
     "audio-context": "1.0.3",
     "babel-loader": "10.0.0",
     "brfs": "2.0.2",
-    "bytebuffer": "5.0.1",
     "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^7.1.2",
+    "depcheck": "^1.4.7",
     "drop-stream": "1.0.0",
     "extract-loader": "^4.0.3",
     "file-loader": "6.2.0",
-
     "html-webpack-plugin": "5.6.4",
     "keyboardjs": "2.7.0",
     "knockout": "3.5.1",
@@ -44,7 +44,6 @@
     "mumble-client": "file:vendors/mumble-client",
     "netlify-identity-widget": "file:vendors/netlify-identity-widget",
     "node-polyfill-webpack-plugin": "4.1.0",
-    "postcss": "^8.5.6",
     "promise": "8.3.0",
     "raw-loader": "4.0.2",
     "regexp-replace-loader": "1.0.1",
@@ -57,10 +56,8 @@
     "wait-port": "^1.1.0",
     "web-audio-buffer-queue": "1.1.0",
     "webpack": "^5.101.3",
-    "webpack-bundle-analyzer": "^4.10.2",
-    "webpack-cli": "6.0.1",
+    "webpack-cli": "^6.0.1",
     "websocket-stream": "^5.5.2",
-
     "ws": "^8.18.3"
   },
   "overrides": {

@@ -37,6 +37,9 @@ jobs:
       - name: Security audit gate
         run: npm run audit:ci
 
+      - name: Dependency check gate
+        run: npm run check:deps
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

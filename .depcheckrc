@@ -1,0 +1,14 @@
+{
+  "ignores": [
+    "@babel/plugin-transform-runtime",
+    "@babel/runtime",
+    "brfs", 
+    "webpack-cli",
+    "netlify-identity-widget",
+    "depcheck"
+  ],
+  "specials": [
+    "babel",
+    "webpack"
+  ]
+}
