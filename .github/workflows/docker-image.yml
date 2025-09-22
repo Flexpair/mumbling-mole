@@ -25,10 +25,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node 16
+      - name: Setup Node 22
         uses: actions/setup-node@v5
         with:
-          node-version: '16.x'
+          node-version: '22.x'
           cache: 'npm'
 
       - name: Install dependencies for audit
