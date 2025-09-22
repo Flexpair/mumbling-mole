@@ -40,7 +40,7 @@
     "keyboardjs": "2.7.0",
     "knockout": "3.5.1",
     "libopus.js": "0.0.1",
-    "mini-css-extract-plugin": "2.7.6",
+    "mini-css-extract-plugin": "2.9.4",
     "mumble-client": "file:vendors/mumble-client",
     "netlify-identity-widget": "file:vendors/netlify-identity-widget",
     "node-polyfill-webpack-plugin": "4.1.0",
