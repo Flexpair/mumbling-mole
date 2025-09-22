@@ -1,0 +1,19 @@
+# Depcheck configuration for Mumbling Mole
+# Uses special parsers for better webpack and babel detection
+
+specials:
+  - babel      # Detects babel presets and plugins
+  - webpack    # Detects webpack loaders and plugins
+
+ignores:
+  # Development tools
+  - "depcheck"                          # Depcheck itself
+
+  # Complex dependency patterns that are hard to detect statically:
+  - "@babel/plugin-transform-runtime"   # Used in webpack babel-loader inline config
+  - "@babel/runtime"                    # Runtime for babel transform plugin
+  - "brfs"                              # Used with transform-loader?brfs syntax
+  - "bytebuffer"                        # Used by vendored mumble-client
+  - "netlify-identity-widget"           # Loaded via script tag in HTML
+  - "postcss"                           # Required internally by css-loader
+  - "webpack-cli"                       # Required for webpack CLI execution
