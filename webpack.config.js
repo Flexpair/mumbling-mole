@@ -16,6 +16,17 @@ module.exports = {
     theme: "./app/theme.js",
   },
   devtool: false,
+  resolve: {
+    alias: {
+      // Eliminate duplicate bn.js dependencies by forcing a single version
+      'bn.js': require.resolve('bn.js'),
+      // Also optimize other common duplicates
+      'buffer': require.resolve('buffer'),
+      'events': require.resolve('events'),
+      'util': require.resolve('util'),
+      'stream': require.resolve('stream-browserify'),
+    }
+  },
   stats: {
     preset: 'minimal',
     assets: true,
@@ -117,6 +128,45 @@ module.exports = {
   target: "web",
   optimization: {
     minimize: true,
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        // Large libraries get their own chunks
+        opus: {
+          test: /[\\/]node_modules[\\/]libopus\.js/,
+          name: 'opus',
+          chunks: 'all',
+          priority: 30,
+        },
+        protobuf: {
+          test: /[\\/]node_modules[\\/]protobufjs[\\/]|[\\/]vendors[\\/]mumble-client[\\/]node_modules[\\/]protobufjs/,
+          name: 'protobuf',
+          chunks: 'all',
+          priority: 25,
+        },
+        crypto: {
+          test: /[\\/]node_modules[\\/](crypto-browserify|create-ecdh|diffie-hellman|public-encrypt|elliptic|asn1\.js|bn\.js)/,
+          name: 'crypto',
+          chunks: 'all',
+          priority: 20,
+        },
+        streams: {
+          test: /[\\/]node_modules[\\/](stream-browserify|readable-stream|through2|mumble-streams)/,
+          name: 'streams',  
+          chunks: 'all',
+          priority: 15,
+        },
+        vendors: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10,
+        },
+      },
+    },
+    // Enable tree shaking for better dead code elimination  
+    usedExports: true,
+    sideEffects: false,
   },
   resolve: {
     // Explicit fallbacks ensure consistent behavior regardless of node-polyfill-webpack-plugin

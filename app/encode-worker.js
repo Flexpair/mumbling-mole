@@ -1,11 +1,22 @@
-import { Encoder as OpusEncoder, libopus } from "libopus.js";
 import toArrayBuffer from "to-arraybuffer";
 
 const MUMBLE_SAMPLE_RATE = 48000;
 
+let OpusEncoder, libopus;
+let opusInitialized = false;
+
+async function initOpus() {
+  if (!opusInitialized) {
+    const opusModule = await import("libopus.js");
+    OpusEncoder = opusModule.Encoder;
+    libopus = opusModule.libopus;
+    opusInitialized = true;
+  }
+}
+
 var opusEncoder;
 var bitrate;
-self.addEventListener("message", (e) => {
+self.addEventListener("message", async (e) => {
   const data = e.data;
   if (data.action === "reset") {
     if (opusEncoder) {
@@ -15,13 +26,16 @@ self.addEventListener("message", (e) => {
     bitrate = null;
     self.postMessage({ reset: true });
   } else if (data.action === "encodeOpus") {
-    if (!opusEncoder) {
-      opusEncoder = new OpusEncoder({
-        unsafe: true, // for performance and setting sample rate
-        channels: data.numberOfChannels,
-        rate: MUMBLE_SAMPLE_RATE,
-      });
-    }
+    try {
+      await initOpus(); // Lazy load opus only when needed
+      
+      if (!opusEncoder) {
+        opusEncoder = new OpusEncoder({
+          unsafe: true, // for performance and setting sample rate
+          channels: data.numberOfChannels,
+          rate: MUMBLE_SAMPLE_RATE,
+        });
+      }
     if (data.bitrate !== bitrate) {
       bitrate = data.bitrate;
       // Directly accessing libopus like this requires unsafe:true above!
@@ -51,6 +65,13 @@ self.addEventListener("message", (e) => {
       },
       [buffer]
     );
+    } catch (error) {
+      self.postMessage({
+        error: `Opus encoding failed: ${error.message}`,
+        target: data.target,
+        position: data.position,
+      });
+    }
   }
 });
 
