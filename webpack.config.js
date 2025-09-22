@@ -202,7 +202,8 @@ module.exports = {
       patterns: [
         { from: 'app/favicons', to: 'favicons' },
         { from: 'themes/MetroMumbleLight/svg', to: 'svg' },
-        { from: 'themes/MetroMumbleLight/img', to: 'img' }
+        { from: 'themes/MetroMumbleLight/img', to: 'img' },
+        { from: 'vendors/netlify-identity-widget/releases/v1/netlify-identity-widget.js', to: 'netlify-identity-widget.js' }
       ]
     }),
     new webpack.ProgressPlugin({

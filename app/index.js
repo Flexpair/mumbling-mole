@@ -267,19 +267,9 @@ class GlobalBindings {
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
     // Use netlify-identity-widget from global scope (loaded via script tag)
-    if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
-      this.netlifyIdentity = window.netlifyIdentity;
-    } else {
-      // Fallback implementation if widget fails to load
-      this.netlifyIdentity = {
-        init: () => {},
-        open: () => {},
-        on: () => {},
-        currentUser: () => null,
-        logout: () => {},
-        close: () => {},
-      };
-    }
+    // Wait for widget to be available with timeout
+    this.netlifyIdentity = null;
+    this.initializeNetlifyIdentity();
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.guacamoleFrame = new GuacamoleFrame();
@@ -791,6 +781,61 @@ class GlobalBindings {
       window.open(homepage, "_blank").focus();
     };
   }
+
+  initializeNetlifyIdentity() {
+    console.log('[identity] Checking for Netlify Identity Widget...');
+    
+    // Check if already available
+    if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
+      console.log('[identity] Netlify Identity Widget found immediately:', window.netlifyIdentity);
+      this.netlifyIdentity = window.netlifyIdentity;
+      // Trigger UI initialization after widget is loaded
+      setTimeout(() => {
+        if (typeof initializeUI === 'function') {
+          initializeUI();
+        }
+      }, 100);
+      return;
+    }
+    
+    // Wait for widget to load with timeout
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds total
+    
+    const checkWidget = () => {
+      attempts++;
+      console.log(`[identity] Checking for widget (attempt ${attempts}/${maxAttempts})...`);
+      
+      if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
+        console.log('[identity] Netlify Identity Widget found after waiting:', window.netlifyIdentity);
+        this.netlifyIdentity = window.netlifyIdentity;
+        // Trigger UI initialization after widget is loaded
+        setTimeout(() => {
+          if (typeof initializeUI === 'function') {
+            initializeUI();
+          }
+        }, 100);
+        return;
+      }
+      
+      if (attempts < maxAttempts) {
+        setTimeout(checkWidget, 100);
+      } else {
+        console.warn('[identity] Netlify Identity Widget not found after timeout, using fallback');
+        this.netlifyIdentity = {
+          init: () => {},
+          open: () => {},
+          on: () => {},
+          currentUser: () => null,
+          logout: () => {},
+          close: () => {},
+        };
+      }
+    };
+    
+    // Start checking
+    setTimeout(checkWidget, 100);
+  }
 }
 var ui = new GlobalBindings(window.mumbleWebConfig);
 
@@ -805,12 +850,22 @@ if (ui.netlifyIdentity) {
 function initializeUI() {
   // Guard identity init so offline/local dev without the proxy does not break UI
   let user = null;
+  
+  console.log('[identity] initializeUI called, widget type:', typeof ui.netlifyIdentity);
+  console.log('[identity] Widget object:', ui.netlifyIdentity);
+  
   try {
-    ui.netlifyIdentity.init({
-      APIUrl: "https://welcome.flexpair.com/identity-proxy",
-      locale: "en",
-    });
-    user = ui.netlifyIdentity.currentUser();
+    if (ui.netlifyIdentity && typeof ui.netlifyIdentity.init === 'function') {
+      console.log('[identity] Initializing real Netlify widget...');
+      ui.netlifyIdentity.init({
+        APIUrl: "https://welcome.flexpair.com/identity-proxy",
+        locale: "en",
+      });
+      user = ui.netlifyIdentity.currentUser();
+      console.log('[identity] Current user after init:', user);
+    } else {
+      console.warn('[identity] Using fallback widget - real widget not available');
+    }
   } catch (e) {
     console.warn('[identity] initialization failed; continuing without identity integration', e);
   }
@@ -829,12 +884,36 @@ function initializeUI() {
     }
   });
 
-  if (user == null) {
-    ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
-  } else {
-    const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
-    ui.connectDialog.username(sanitized);
-  }
+  // Always open the widget - force open regardless of user status
+  console.log('[identity] Force opening widget...');
+  
+  // Try to open widget immediately and with multiple retries
+  const forceOpenWidget = () => {
+    console.log('[identity] Attempting to force open widget...');
+    if (ui.netlifyIdentity && typeof ui.netlifyIdentity.open === 'function') {
+      console.log('[identity] Widget available, opening signup...');
+      ui.netlifyIdentity.open("signup");
+    } else {
+      console.log('[identity] Widget not available yet, retrying...');
+      setTimeout(forceOpenWidget, 500);
+    }
+  };
+  
+  // Start immediately
+  forceOpenWidget();
+  
+  // Also use the original logic as backup
+  setTimeout(() => {
+    if (user == null) {
+      console.log('[identity] Backup: No user found, opening signup modal');
+      ui.netlifyIdentity.open("signup");
+    } else {
+      console.log('[identity] Backup: User found, but opening login for demo:', user);
+      ui.netlifyIdentity.open("login"); // Open login even if user exists for testing
+      const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+      ui.connectDialog.username(sanitized);
+    }
+  }, 2000); // Even longer delay as final backup
 
   var queryParams = url.parse(document.location.href, true).query;
   queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
@@ -891,7 +970,7 @@ async function main() {
   document.title = window.location.hostname;
   await localizationInitialize(navigator.language);
   translateEverything();
-  initializeUI();
+  // initializeUI() wird jetzt von der Widget-Initialisierung aufgerufen
   enumMicrophones();
 }
 
