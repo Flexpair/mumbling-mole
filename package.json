@@ -11,7 +11,8 @@
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
     "test:e2e": "node scripts/e2e-check.cjs",
     "test": "npm run test:e2e && npm run audit:ci",
-    "check:deps": "npx depcheck --config .depcheckrc"
+    "check:deps": "npx depcheck --config .depcheckrc",
+    "analyze": "npx webpack --config webpack.analyze.config.js --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "repository": "Flexpair/mumbling-mole",
@@ -56,6 +57,7 @@
     "wait-port": "^1.1.0",
     "web-audio-buffer-queue": "1.1.0",
     "webpack": "^5.101.3",
+    "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^6.0.1",
     "websocket-stream": "^5.5.2",
     "ws": "^8.18.3"
