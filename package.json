@@ -36,7 +36,7 @@
     "extract-loader": "^4.0.3",
     "file-loader": "6.2.0",
 
-    "html-webpack-plugin": "5.6.0",
+    "html-webpack-plugin": "5.6.4",
     "keyboardjs": "2.7.0",
     "knockout": "3.5.1",
     "libopus.js": "0.0.1",
