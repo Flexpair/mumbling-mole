@@ -1,5 +1,9 @@
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
+
+// Initialize global error handling first - before any other imports
+import "./error-handler";
+
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
@@ -803,51 +807,105 @@ if (ui.netlifyIdentity) {
 }
 
 function initializeUI() {
-  // Guard identity init so offline/local dev without the proxy does not break UI
-  let user = null;
   try {
-    ui.netlifyIdentity.init({
-      APIUrl: "https://welcome.flexpair.com/identity-proxy",
-      locale: "en",
-    });
-    user = ui.netlifyIdentity.currentUser();
-  } catch (e) {
-    console.warn('[identity] initialization failed; continuing without identity integration', e);
-  }
-
-  ui.netlifyIdentity.on("login", (user) => {
-    console.log("login", user);
-    ui.connectDialog.username(
-      user.user_metadata.full_name.replace(/[\s]+/g, "_")
-    );
-    ui.netlifyIdentity.close();
-  });
-
-  ui.netlifyIdentity.on("close", () => {
-    if (!ui.connectDialog.username()) {
-      ui.netlifyIdentity.open("login"); // open the modal to the login tab
+    // Guard identity init so offline/local dev without the proxy does not break UI
+    let user = null;
+    try {
+      ui.netlifyIdentity.init({
+        APIUrl: "https://welcome.flexpair.com/identity-proxy",
+        locale: "en",
+      });
+      user = ui.netlifyIdentity.currentUser();
+    } catch (e) {
+      console.warn('[identity] initialization failed; continuing without identity integration', e);
+      
+      // Report identity initialization error
+      if (window.errorHandler) {
+        window.errorHandler.reportCustomError('identity-error', 
+          'Netlify Identity initialization failed', 
+          { error: e, severity: 'low' }
+        );
+      }
     }
-  });
 
-  if (user == null) {
-    ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
-  } else {
-    const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
-    ui.connectDialog.username(sanitized);
-  }
+    ui.netlifyIdentity.on("login", (user) => {
+      try {
+        console.log("login", user);
+        ui.connectDialog.username(
+          user.user_metadata.full_name.replace(/[\s]+/g, "_")
+        );
+        ui.netlifyIdentity.close();
+      } catch (error) {
+        console.error('Error during login process:', error);
+        if (window.errorHandler) {
+          window.errorHandler.reportCustomError('login-error', 
+            'Error processing user login', 
+            { error: error }
+          );
+        }
+      }
+    });
 
-  var queryParams = url.parse(document.location.href, true).query;
-  queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
-  if (queryParams.address) {
-    ui.connectDialog.address(queryParams.address);
+    ui.netlifyIdentity.on("close", () => {
+      try {
+        if (!ui.connectDialog.username()) {
+          ui.netlifyIdentity.open("login"); // open the modal to the login tab
+        }
+      } catch (error) {
+        console.error('Error handling identity close:', error);
+        if (window.errorHandler) {
+          window.errorHandler.reportCustomError('identity-close-error', 
+            'Error handling identity modal close', 
+            { error: error }
+          );
+        }
+      }
+    });
+
+    if (user == null) {
+      ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
+    } else {
+      const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+      ui.connectDialog.username(sanitized);
+    }
+
+    var queryParams = url.parse(document.location.href, true).query;
+    queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
+    if (queryParams.address) {
+      ui.connectDialog.address(queryParams.address);
+    }
+    if (queryParams.port) {
+      ui.connectDialog.port(queryParams.port);
+    }
+    if (queryParams.password) {
+      ui.connectDialog.password(queryParams.password);
+    }
+    ko.applyBindings(ui);
+    
+    console.log('UI initialization completed successfully');
+  } catch (error) {
+    console.error('Error during UI initialization:', error);
+    
+    if (window.errorHandler) {
+      window.errorHandler.reportCustomError('ui-initialization-error', 
+        'Failed to initialize user interface', 
+        { error: error }
+      );
+    }
+    
+    // Try to show a minimal UI even if initialization failed
+    try {
+      document.body.innerHTML = `
+        <div style="padding: 20px; text-align: center;">
+          <h1>UI Initialization Error</h1>
+          <p>The user interface failed to load properly.</p>
+          <button onclick="location.reload()">Refresh Page</button>
+        </div>
+      `;
+    } catch (fallbackError) {
+      console.error('Failed to show fallback UI:', fallbackError);
+    }
   }
-  if (queryParams.port) {
-    ui.connectDialog.port(queryParams.port);
-  }
-  if (queryParams.password) {
-    ui.connectDialog.password(queryParams.password);
-  }
-  ko.applyBindings(ui);
 }
 
 function log() {
@@ -888,13 +946,167 @@ function userToState() {
 var voiceHandler;
 
 async function main() {
-  document.title = window.location.hostname;
-  await localizationInitialize(navigator.language);
-  translateEverything();
-  initializeUI();
-  enumMicrophones();
+  try {
+    console.log('Starting Mumbling Mole initialization...');
+    
+    document.title = window.location.hostname;
+    await localizationInitialize(navigator.language);
+    translateEverything();
+    initializeUI();
+    enumMicrophones();
+    
+    console.log('Mumbling Mole initialization completed successfully');
+  } catch (error) {
+    console.error('Failed to initialize Mumbling Mole:', error);
+    
+    // Report the initialization error
+    if (window.errorHandler) {
+      window.errorHandler.reportCustomError('initialization-error', 
+        `Failed to initialize application: ${error.message}`, 
+        { error: error, stack: error.stack }
+      );
+    }
+    
+    // Show fallback UI
+    showInitializationErrorUI(error);
+  }
+}
+
+function showInitializationErrorUI(error) {
+  try {
+    const container = document.getElementById('container') || document.body;
+    container.innerHTML = `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        font-family: system-ui, -apple-system, sans-serif;
+        text-align: center;
+        background: #f5f5f5;
+      ">
+        <div style="
+          background: white;
+          border-radius: 8px;
+          padding: 40px;
+          box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+          max-width: 500px;
+        ">
+          <h1 style="color: #d32f2f; margin-bottom: 20px;">
+            Failed to Initialize Mumbling Mole
+          </h1>
+          <p style="color: #666; margin-bottom: 30px; line-height: 1.5;">
+            The application encountered an error during startup. This might be due to:
+          </p>
+          <ul style="color: #666; text-align: left; margin-bottom: 30px; line-height: 1.6;">
+            <li>Browser compatibility issues</li>
+            <li>Network connectivity problems</li>
+            <li>Missing required resources</li>
+          </ul>
+          <div style="margin-bottom: 30px;">
+            <button onclick="location.reload()" style="
+              background: #1976d2;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 16px;
+              margin-right: 10px;
+            ">
+              Refresh Page
+            </button>
+            <button onclick="toggleErrorDetails()" style="
+              background: #757575;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 16px;
+            ">
+              Show Details
+            </button>
+          </div>
+          <div id="error-details" style="
+            display: none;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+            color: #333;
+            max-height: 200px;
+            overflow-y: auto;
+          ">
+            <strong>Error:</strong> ${error.message}<br>
+            <strong>Stack:</strong><br>
+            <pre style="white-space: pre-wrap; margin: 5px 0;">${error.stack || 'No stack trace available'}</pre>
+          </div>
+        </div>
+      </div>
+      <script>
+        function toggleErrorDetails() {
+          const details = document.getElementById('error-details');
+          const button = event.target;
+          if (details.style.display === 'none') {
+            details.style.display = 'block';
+            button.textContent = 'Hide Details';
+          } else {
+            details.style.display = 'none';
+            button.textContent = 'Show Details';
+          }
+        }
+      </script>
+    `;
+  } catch (fallbackError) {
+    // If even the error UI fails, show minimal fallback
+    document.body.innerHTML = `
+      <div style="padding: 20px; text-align: center;">
+        <h1>Application Error</h1>
+        <p>Failed to initialize Mumbling Mole. Please refresh the page.</p>
+        <button onclick="location.reload()">Refresh</button>
+      </div>
+    `;
+    console.error('Failed to show error UI:', fallbackError);
+  }
 }
 
 window.onload = main;
+
+// Global cleanup function for emergency situations
+window.cleanup = function() {
+  console.log('Performing global cleanup...');
+  
+  try {
+    // Clean up voice handler
+    if (voiceHandler && typeof voiceHandler.destroy === 'function') {
+      voiceHandler.destroy();
+      voiceHandler = null;
+    }
+    
+    // Clean up voice resources if the module is available
+    if (window.voice && typeof window.voice.cleanup === 'function') {
+      window.voice.cleanup();
+    }
+    
+    // Clean up any WebSocket connections
+    if (window.client && typeof window.client.disconnect === 'function') {
+      window.client.disconnect();
+    }
+    
+    // Clean up audio contexts
+    if (window.audioContext && window.audioContext.state !== 'closed') {
+      window.audioContext.close();
+    }
+    
+    console.log('Global cleanup completed');
+  } catch (error) {
+    console.error('Error during global cleanup:', error);
+  }
+};
 
 // (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)
