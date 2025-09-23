@@ -29,7 +29,21 @@ class AudioStatusUI {
       transition: all 0.3s ease;
       cursor: pointer;
       display: none;
+      user-select: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      opacity: 0;
     `;
+    
+    // Add hover effect
+    this.statusElement.addEventListener('mouseenter', () => {
+      this.statusElement.style.transform = 'translateY(-1px)';
+      this.statusElement.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+    });
+    
+    this.statusElement.addEventListener('mouseleave', () => {
+      this.statusElement.style.transform = 'translateY(0)';
+      this.statusElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    });
     
     this.statusElement.addEventListener('click', () => {
       this.handleStatusClick();

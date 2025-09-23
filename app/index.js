@@ -296,24 +296,7 @@ class GlobalBindings {
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
     
-    // Use managed AudioContext with autoplay policy handling
-    this.audioContext = null;
-    this.initializeAudioContext();
-
-    this.selfMute.subscribe((mute) => {
-      if (voiceHandler) {
-        voiceHandler.setMute(mute);
-      }
-    });
-
-    this.select = (element) => {
-      this.selected(element);
-    };
-
-    this.openSettings = () => {
-      this.settingsDialog(new SettingsDialog(this.settings));
-    };
-
+    // Define initializeAudioContext method before using it
     this.initializeAudioContext = async () => {
       try {
         console.log('Initializing managed AudioContext...');
@@ -347,6 +330,24 @@ class GlobalBindings {
           // AudioContext will remain null, audio features will be disabled
         }
       }
+    };
+    
+    // Use managed AudioContext with autoplay policy handling
+    this.audioContext = null;
+    this.initializeAudioContext();
+
+    this.selfMute.subscribe((mute) => {
+      if (voiceHandler) {
+        voiceHandler.setMute(mute);
+      }
+    });
+
+    this.select = (element) => {
+      this.selected(element);
+    };
+
+    this.openSettings = () => {
+      this.settingsDialog(new SettingsDialog(this.settings));
     };
 
     this.logoutUser = () => {
