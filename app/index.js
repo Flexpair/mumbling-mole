@@ -901,6 +901,7 @@ function initializeUI() {
     ui.netlifyIdentity.init({
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
       locale: "en",
+      logo: false,
     });
     user = ui.netlifyIdentity.currentUser();
   } catch (e) {
