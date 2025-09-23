@@ -12,6 +12,7 @@
     "test:e2e": "node scripts/e2e-check.cjs",
     "test": "npm run test:e2e && npm run audit:ci",
     "check:deps": "npx depcheck --config .depcheckrc",
+    "check:vendor-deps": "node scripts/check-vendor-deps.js",
     "analyze": "npx webpack --config webpack.analyze.config.js --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
