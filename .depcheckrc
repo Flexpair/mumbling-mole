@@ -6,7 +6,18 @@
     "webpack-cli",
     "webpack-bundle-analyzer",
     "netlify-identity-widget",
-    "depcheck"
+    "depcheck",
+    "@babel/core",
+    "@babel/preset-env",
+    "babel-loader",
+    "css-loader",
+    "extract-loader",
+    "file-loader",
+    "raw-loader",
+    "regexp-replace-loader",
+    "sass",
+    "sass-loader",
+    "transform-loader"
   ],
   "specials": [
     "babel",
