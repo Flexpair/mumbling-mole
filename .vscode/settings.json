@@ -1,0 +1,26 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "javascript.format.enable": false,
+  "typescript.format.enable": false,
+  "eslint.validate": [
+    "javascript"
+  ],
+  "files.associations": {
+    "*.js": "javascript"
+  },
+  "search.exclude": {
+    "dist/**": true,
+    "node_modules/**": true,
+    "vendors/**/node_modules/**": true,
+    "vendors/**/lib/**": true
+  },
+  "files.exclude": {
+    "dist/**": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  }
+}

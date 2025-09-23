@@ -2,6 +2,7 @@
   "name": "mumbling-mole",
   "version": "0.5.1",
   "description": "An HTML5 Mumble client.",
+  "type": "module",
   "scripts": {
     "build": "./smart-build.sh",
     "build:force": "./smart-build.sh --force",
@@ -12,13 +13,18 @@
     "test:e2e": "node scripts/e2e-check.cjs",
     "test": "npm run test:e2e && npm run audit:ci",
     "check:deps": "npx depcheck --config .depcheckrc",
+    "lint": "eslint app/ --ext .js",
+    "lint:fix": "eslint app/ --ext .js --fix",
+    "build:dev": "webpack --config webpack.dev.config.js",
+    "format": "prettier --write \"app/**/*.js\" \"scripts/**/*.{js,cjs}\" \"*.js\"",
+    "format:check": "prettier --check \"app/**/*.js\" \"scripts/**/*.{js,cjs}\" \"*.js\"",
     "analyze": "npx webpack --config webpack.analyze.config.js --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "repository": "Flexpair/mumbling-mole",
   "homepage": "https://github.com/jafudi/flexpair",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=18.17.0"
   },
   "files": [
     "dist"
@@ -35,6 +41,7 @@
     "css-loader": "^7.1.2",
     "depcheck": "^1.4.7",
     "drop-stream": "1.0.0",
+    "eslint": "^9.36.0",
     "extract-loader": "^4.0.3",
     "file-loader": "6.2.0",
     "html-webpack-plugin": "5.6.4",
@@ -45,6 +52,7 @@
     "mumble-client": "file:vendors/mumble-client",
     "netlify-identity-widget": "file:vendors/netlify-identity-widget",
     "node-polyfill-webpack-plugin": "4.1.0",
+    "prettier": "^3.6.2",
     "promise": "8.3.0",
     "raw-loader": "4.0.2",
     "regexp-replace-loader": "1.0.1",
@@ -59,10 +67,13 @@
     "webpack": "^5.101.3",
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^6.0.1",
-    "websocket-stream": "^5.5.2",
+    "webpack-merge": "^6.0.1",
     "ws": "^8.18.3"
   },
   "overrides": {
     "ws": "^8.18.3"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.36.0"
   }
 }

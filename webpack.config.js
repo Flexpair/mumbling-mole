@@ -26,9 +26,10 @@ module.exports = {
   },
   output: {
     path: path.join(__dirname, "dist"),
-    chunkFilename: "[chunkhash].js",
-    filename: "[name].js",
+    chunkFilename: "[name].[contenthash:8].js",
+    filename: "[name].[contenthash:8].js",
     publicPath: "",
+    clean: true,
   },
   module: {
     rules: [
@@ -64,12 +65,6 @@ module.exports = {
         test: /manifest\.json$|\.xml$/,
         use: [
           {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
             loader: "extract-loader",
           },
           {
@@ -92,14 +87,7 @@ module.exports = {
       },
       {
         test: /\.(svg|png|ico)$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-        ],
+        type: 'asset/resource',
       },
       {
         // Worker files are referenced via new Worker(new URL('./worker.js', import.meta.url))
@@ -117,6 +105,22 @@ module.exports = {
   target: "web",
   optimization: {
     minimize: true,
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+        common: {
+          name: 'common',
+          minChunks: 2,
+          chunks: 'all',
+          enforce: true,
+        },
+      },
+    },
   },
   resolve: {
     // Explicit fallbacks ensure consistent behavior regardless of node-polyfill-webpack-plugin
@@ -138,8 +142,8 @@ module.exports = {
       'process.browser': 'true'
     }),
     new MiniCssExtractPlugin({
-      filename: '[name].css',
-      chunkFilename: '[id].css'
+      filename: '[name].[contenthash:8].css',
+      chunkFilename: '[name].[contenthash:8].css'
     }),
     new HtmlWebpackPlugin({
       filename: 'index.html',

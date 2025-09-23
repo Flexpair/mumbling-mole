@@ -43,7 +43,8 @@ jspm_packages/
 # ============================================================
 # VS Code / Devcontainers
 # ============================================================
-.vscode/
+.vscode/launch.json
+.vscode/tasks.json
 .vscode-server/
 .vscode-remote/
 .devcontainer/*Marker
