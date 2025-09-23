@@ -38,6 +38,7 @@ coverage/
 # Node.js Dependencies
 # ============================================================
 node_modules/
+vendors/*/node_modules/
 jspm_packages/
 # npm cache (lokal, nicht committen)
 .npm/
