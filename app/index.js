@@ -6,7 +6,6 @@ import WorkerBasedMumbleConnector from "./worker-client";
 import BufferQueueNode from "web-audio-buffer-queue";
 import getAudioContext from "audio-context";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
-import { initializeAudioStatusUI } from "./audio-status-ui";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 
@@ -268,6 +267,10 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
+    
+    // Add microphone permission state observable
+    this.micPermissionDenied = ko.observable(false);
+    
     // Use netlify-identity-widget from global scope (loaded via script tag)
     if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
       this.netlifyIdentity = window.netlifyIdentity;
@@ -295,6 +298,25 @@ class GlobalBindings {
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
+    
+    // Add method to retry microphone permission
+    this.retryMicrophonePermission = () => {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            this.micPermissionDenied(false);
+            stream.getTracks().forEach(track => track.stop());
+            // Reinitialize voice if needed
+            if (this.client && !voiceHandler) {
+              this._updateVoiceHandler();
+            }
+          })
+          .catch(err => {
+            console.error('Microphone permission denied on retry:', err);
+            alert('Microphone access is required for voice communication. Please check your browser settings.');
+          });
+      }
+    };
     
     // Define initializeAudioContext method before using it
     this.initializeAudioContext = async () => {
@@ -969,13 +991,7 @@ async function main() {
   initializeUI();
   enumMicrophones();
   
-  // Initialize audio status UI to help users with autoplay policies
-  initializeAudioStatusUI();
-  
   console.log('Mumbling Mole initialization completed successfully');
 }
 
 window.onload = main;
-
-// (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)
-// (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)
