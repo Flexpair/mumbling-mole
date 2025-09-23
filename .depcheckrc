@@ -4,6 +4,7 @@
     "@babel/runtime",
     "brfs", 
     "webpack-cli",
+    "webpack-bundle-analyzer",
     "netlify-identity-widget",
     "depcheck"
   ],
