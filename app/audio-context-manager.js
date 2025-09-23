@@ -61,6 +61,12 @@ class AudioContextManager {
       await this.createAudioContext(options);
     }
 
+    // If the cached context was closed elsewhere, recreate it
+    if (this.audioContext && this.audioContext.state === 'closed') {
+      console.warn('AudioContext was closed; recreating...');
+      await this.createAudioContext(options);
+    }
+
     // Always try to resume if suspended (and user has interacted)
     if (this.audioContext.state === 'suspended' && this.userInteractionDetected) {
       await this.resumeAudioContext();
@@ -144,6 +150,12 @@ class AudioContextManager {
               console.error('Error in onResume callback:', error);
             }
           });
+        } else if (this.audioContext.state === 'closed') {
+          // Clear reference so future calls will recreate a fresh instance
+          console.warn('AudioContext transitioned to closed; clearing cached reference');
+          this.audioContext = null;
+          this.isInitialized = false;
+          this.resumeAttempts = 0;
         }
       });
     }

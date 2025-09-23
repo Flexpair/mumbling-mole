@@ -210,8 +210,10 @@ export function initVoice(onData, onUserMediaError) {
           try {
             src.disconnect();
           } catch {}
+          // Don't close the shared/global AudioContext here. Suspending saves power without
+          // invalidating the shared instance held by the AudioContextManager.
           try {
-            ac.close();
+            audioContextManager.suspendAudioContext();
           } catch {}
         })
       );
