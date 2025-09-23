@@ -252,9 +252,9 @@ mumbling-mole/
 - WebSocket-only connections (no direct TCP from browser)
 - Content Security Policy enforced
 
-## 📄 License
+## 📄 Upstream License
 
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
+The unmodified parts of this fork are distributed under the ISC License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
