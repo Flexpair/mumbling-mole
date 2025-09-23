@@ -1,164 +1,269 @@
-# Mumbling Mole (Lite Mumble Web Client)
+# 🎤 Mumbling Mole
 
-[![Project Status: Active](https://img.shields.io/badge/status-active-success.svg)](https://github.com/Flexpair/mumbling-mole/)
-[![GitHub Issues](https://img.shields.io/github/issues/Flexpair/mumbling-mole.svg)](https://github.com/Flexpair/mumbling-mole/issues)
+> A modern, browser-first Mumble voice chat client with no native dependencies
 
-Mumbling Mole is a lightweight, production-oriented HTML5 [Mumble](https://www.mumble.info/) client designed for minimal UI footprint and efficient audio tunneling over a single WebSocket. The name is a pun on Mumble and [Apache Guacamole](https://guacamole.apache.org/), as it is optimized for embedding into remote desktop and support tools where screen space is limited.
+[![Node.js Version](https://img.shields.io/badge/node-%E2%89%A522.0.0-brightgreen)](https://nodejs.org/)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
-This project is a heavily modernized fork of the original `mumble-web`, rebuilt with a focus on performance, security, and a deterministic build process. It removes the traditional channel tree and on-screen voice activity display to create a client that is simple, fast, and ideal for integration.
+Mumbling Mole brings Mumble voice communication to any modern web browser without requiring native client installation. Built on the upstream `mumble-web` project, it features a reproducible build pipeline, vendor isolation, and tooling optimized for Flexpair deployments.
 
-## Key Features
+## ✨ Features
 
--   **Minimalist UI:** Designed for embedding, with no channel tree to maximize screen real estate.
--   **WebSocket Tunneling:** Tunnels Mumble's TCP traffic over a standard WebSocket, compatible with `websockify` and reverse proxies.
--   **Modern Build System:** Uses Webpack 5 and Babel for deterministic, tree-shaken, and minified builds.
--   **Performant Audio:** Offloads Opus encoding/decoding to Web Workers and uses native browser resampling, saving ~5MB over legacy solutions.
--   **Secure by Default:** Sanitizes all user-generated content with `dompurify` to prevent XSS attacks.
--   **Voice Modes:** Supports both Push-to-Talk (PTT) and Continuous transmission.
--   **Theming & Localization:** Easily skinnable with SCSS and supports multiple languages.
+- 🎙️ **Browser-native audio capture** – Uses Web Audio API with Opus encoding
+- 🔌 **WebSocket tunneling** – TCP voice streams over WebSocket connections (no WebRTC required)
+- 🎨 **Themeable interface** – MetroMumble-inspired Light/Dark themes
+- 👷 **Web Worker architecture** – Offloads audio processing from main thread
+- 🌍 **Multi-language support** – Full localization system
+- 📦 **Smart build system** – Incremental builds with vendor dependency management
+- 🐳 **Docker-ready** – Containerized development and production environments
 
-## Getting Started
+## 📋 Prerequisites
 
-### Prerequisites
+- **Node.js** ≥ 22.0.0 (matches devcontainer and `package.json` engine requirement)
+- **npm** ≥ 10.0.0
+- **Git** for cloning the repository
+- **Docker** (optional, for containerized development)
+- A reachable **Mumble server** endpoint (`host:port`)
 
--   [Node.js](https://nodejs.org/) (LTS version recommended)
--   [Git](https://git-scm.com/)
+## 🚀 Quick Start
 
-### 1. Installation
-
-Clone the repository and install the dependencies:
+### 1. Clone and Install
 
 ```bash
-git clone https://github.com/Flexpair/mumbling-mole
+git clone https://github.com/Flexpair/mumbling-mole.git
 cd mumbling-mole
 npm install
 ```
 
-### 2. Build
+> **Note:** The `prepare` script automatically runs `smart-build.sh` during installation to generate the `dist/` directory.
 
-Build the static assets for the `dist/` directory. The smart build script detects changes and only rebuilds when necessary.
+### 2. Start Development Server
 
 ```bash
-npm run build
+# Set your Mumble server address and start the dev server
+MUMBLE_SERVER=voice.example.com:64738 ./start-dev-server.sh
 ```
 
-To force a clean rebuild, run `npm run build:force`.
+This will:
+- Build the application assets
+- Start a WebSocket tunnel via `websockify`
+- Serve the UI at `http://local.flexpair.app`
+- Display connection logs
 
-### 3. Running the Server
-
-The `docker-entrypoint.sh` script starts a local web server and, optionally, the WebSocket tunnel.
-
-**With a WebSocket tunnel (requires a Mumble server):**
+### 3. Stop the Server
 
 ```bash
-# Replace with your Mumble server's address and port
-export MUMBLE_SERVER="your.mumble.server:64738"
-./docker-entrypoint.sh
+./stop-dev-server.sh
 ```
 
-**Without a tunnel (for UI development only):**
+## 🏗️ Architecture
 
-```bash
-SKIP_TUNNEL=1 ./docker-entrypoint.sh
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Browser Window                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────────────────────┐  ┌──────────────────────┐ │
+│  │     Main Thread (UI)         │  │    Web Worker        │ │
+│  │                              │  │                      │ │
+│  │  • Knockout.js MVVM          │◄─┤  • mumble-client     │ │
+│  │  • GlobalBindings state      │  │  • Audio resampling  │ │
+│  │  • Localization              │  │  • Opus encoding     │ │
+│  │  • Theme management          │  │  • Event dispatch    │ │
+│  └──────────┬──────────────────┘  └──────────┬───────────┘ │
+│             │                                 │             │
+│  ┌──────────▼──────────────────────────────────┐           │
+│  │         AudioContext + AudioWorklet          │           │
+│  │     (48kHz mono PCM, 960 samples/packet)    │           │
+│  └───────────────────────────────────────────────┘          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │   WebSocket API   │
+                    └──────────────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │    websockify     │
+                    └──────────────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │   Mumble Server   │
+                    │    (TCP:64738)    │
+                    └──────────────────┘
 ```
 
-Once running, the client is available at `http://localhost:8081`.
+## 🔧 Configuration
 
-## Deployment
+### Runtime Configuration
 
-Mumbling Mole consists of static files and a WebSocket tunnel.
+Default settings are in `app/config.js`. The build creates a mutable `dist/config.local.js` that you can modify without affecting source control:
 
--   **Standalone:** Use `websockify` to serve the `dist/` directory and tunnel traffic.
-    ```bash
-    websockify --ssl-only --ssl-target --web=dist 443 <mumbleserver>:64738
-    ```
--   **Reverse Proxy (Recommended):** Serve the `dist/` directory with a standard web server (like NGINX or Caddy) and use its proxying capabilities to route WebSocket traffic.
-    -   Run `websockify` as a standalone tunnel: `websockify --ssl-target 64737 <mumbleserver>:64738`.
-    -   Configure your reverse proxy to forward requests from `/mumble` to `localhost:64737`.
+```javascript
+// dist/config.local.js (example)
+window.mumbleWebConfig = {
+  defaults: {
+    address: 'voice.example.com',
+    port: '443',
+    username: '',
+    password: ''
+  }
+}
+```
 
-## Configuration
+> **Important:** Remember to back up `dist/config.local.js` before clean rebuilds.
 
--   **Primary Config:** `app/config.js` contains the default application settings.
--   **Local Overrides:** Create or edit `app/config.local.js` to override defaults. This file is copied to `dist/` on build and is not tracked by Git.
--   **URL Parameters:** You can also override settings at runtime with URL query parameters:
-    ```
-    https://voice.example.com/?address=voice.example.com/mumble&port=443
-    ```
+### Environment Variables
 
-## Development
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MUMBLE_SERVER` | Target Mumble server (`host:port`) | Required for tunnel |
+| `PORT` | HTTP server port | `80` |
+| `SKIP_TUNNEL` | Disable WebSocket tunnel (static only) | `false` |
+| `SKIP_PREPARE` | Skip build during `npm install` | `false` |
 
-### Build Scripts
+## 🎨 Theming
 
-| Script                | Description                                                |
-| --------------------- | ---------------------------------------------------------- |
-| `npm run build`       | Smart build with change detection.                         |
-| `npm run build:force` | Forces a clean rebuild of the `dist/` directory.           |
-| `npm test`            | Runs E2E smoke tests and a security audit.                 |
-| `npm run test:e2e`    | Runs only the local E2E tunnel smoke test.                 |
-| `npm run audit:ci`    | Audits dependencies against the `audit-baseline.json`.     |
-| `npm run build:vendor:mumble-client` | Rebuilds the vendored `mumble-client` from `src` to `lib`. |
+Select themes via URL parameter: `?theme=ThemeName`
 
-### CSS / SCSS Build Pipeline
+Available themes:
+- `MetroMumbleLight` (default)
+- `MetroMumbleDark`
 
-Styles are now built using `mini-css-extract-plugin` (previously `file-loader` + `extract-loader`).
-The file `app/theme.js` now only imports the SCSS files; the plugin extracts
-versioned CSS artifacts (`theme.[contenthash].css`). The previous dynamic `<link>` insertion
-has been removed. The script `smart-build.sh` still expects a non-empty `theme.js`,
-so `theme.js` includes a small `console.debug` side effect to prevent the bundled JS
-from being completely optimized away as empty.
+Create custom themes by extending existing ones in `themes/` directory.
 
-### Vendored Dependencies & Polyfills
+## 📜 NPM Scripts
 
-Some critical libraries are vendored in `vendors/` (e.g. `mumble-client`). If you modify
-`vendors/mumble-client/src/**`, run:
+### Building
 
+| Command | Description |
+|---------|-------------|
+| `npm run build` | Incremental build (checks timestamps) |
+| `npm run build:force` | Clean rebuild of all artifacts |
+| `npm run build:vendor:mumble-client` | Rebuild vendored mumble-client |
+
+### Development
+
+| Command | Description |
+|---------|-------------|
+| `npm run analyze` | Generate bundle analysis report |
+| `npm run check:deps` | Find unused dependencies |
+| `npm run test` | Run all tests (E2E + security audit) |
+| `npm run test:e2e` | Run WebSocket smoke test only |
+
+### Maintenance
+
+| Command | Description |
+|---------|-------------|
+| `npm run audit:baseline` | Update security audit baseline |
+| `npm audit` | Check for vulnerabilities |
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Build fails with "vendors/mumble-client/lib not found"
 ```bash
+# Force rebuild vendored dependencies
 npm run build:vendor:mumble-client
+npm run build:force
 ```
 
-This regenerates `vendors/mumble-client/lib/`, which is what the application actually
-imports at runtime. The repository uses **Webpack 5** with:
+#### Audio not working / No microphone access
+- Check browser permissions for microphone access
+- Verify AudioContext is not suspended (check console)
+- Ensure HTTPS or localhost connection (required for getUserMedia)
 
-- `node-polyfill-webpack-plugin` for broad Node core shims.
-- `ProvidePlugin` (injects `process` & `Buffer`).
-- `DefinePlugin` setting `process.browser = true` for vendored code which branches on it.
+#### WebSocket connection fails
+```bash
+# Check if tunnel is running
+ps aux | grep websockify
 
-Because of these plugins, manual runtime assignments like `window.process = ...` are not
-required. If you introduce new Node core usages (e.g. `crypto`, `path`), add them either
-via explicit imports or extend `resolve.fallback` similarly to the existing entries in
-`webpack.config.js`.
+# Verify logs
+tail -f /tmp/entrypoint.log
 
-### Theming
+# Test without tunnel (static only)
+SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh
+```
 
-1.  Duplicate `themes/MetroMumbleLight` to `themes/YourThemeName`.
-2.  Modify the SCSS files and assets.
-3.  Rebuild with `npm run build`.
-4.  Activate with the `?theme=YourThemeName` URL parameter.
+#### Worker communication errors
+- Check browser console for serialization errors
+- Ensure both worker files are in sync (`app/worker.js` and `app/worker-client.js`)
 
-### Localization
+### Debug Mode
 
-1.  Add `localize/<lang>.json` by translating the keys from `en.json`.
-2.  Rebuild the assets.
+Enable verbose logging:
+```javascript
+// In browser console
+localStorage.setItem('debug', 'true');
+location.reload();
+```
 
-## Security
+## 🤝 Contributing
 
--   **Content Sanitization:** All user-generated content is sanitized with `dompurify` to mitigate XSS.
--   **Production:** Always deploy behind HTTPS with a secure WebSocket (WSS) connection.
--   **Dependencies:** Regularly audit dependencies with `npm run audit:ci`.
+We welcome contributions! Please follow these guidelines:
 
-## Contributing
+1. **Fork and clone** the repository
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes** following the coding conventions
+4. **Test thoroughly**: `npm run test`
+5. **Commit with descriptive messages**: `git commit -m 'Add amazing feature'`
+6. **Push to your fork**: `git push origin feature/amazing-feature`
+7. **Open a Pull Request`
 
-Contributions are welcome!
+### Coding Conventions
 
-1.  Fork and clone the repository.
-2.  Create a feature branch.
-3.  Run `npm install && npm test` to verify changes.
-4.  Submit a pull request with a clear description.
+- Use ES6+ JavaScript features
+- Maintain Worker/UI protocol compatibility
+- Add localization strings to all locale files
+- Update both README.md and CLAUDE.md for architectural changes
+- Keep generated files (`dist/**`, `config.local.js`) out of commits
+
+## 📁 Project Structure
+
+```
+mumbling-mole/
+├── app/                    # Application source
+│   ├── index.js           # UI entry point
+│   ├── worker.js          # Web Worker
+│   └── voice.js           # Audio processing
+├── vendors/               # Vendored packages
+│   └── mumble-client/     # Forked client library
+├── themes/                # UI themes
+├── localize/              # Translation files
+├── scripts/               # Build & test utilities
+├── dist/                  # Build output (generated)
+└── *.sh                   # Shell scripts
+```
+
+## 📚 Documentation
+
+- [Architecture Details](CLAUDE.md) – In-depth technical documentation
+- [Copilot Instructions](.github/copilot-instructions.md) – AI assistant context
+- [Webpack Config](webpack.config.js) – Build configuration
+
+## 🔐 Security
+
+- Regular dependency audits via `npm audit`
+- Accepted vulnerabilities tracked in `audit-ci.json`
+- WebSocket-only connections (no direct TCP from browser)
+- Content Security Policy enforced
+
+## 📄 License
+
+This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built on [mumble-web](https://github.com/johni0702/mumble-web) project
+- Theme inspired by [MetroMumble](https://github.com/xPoke/MetroMumble)
+- Audio processing powered by [libsamplerate.js](https://github.com/aolsenjazz/libsamplerate-js)
 
 ---
 
-**References:**
-
--   [Mumble](https://www.mumble.info/)
--   [websockify](https://github.com/novnc/websockify)
--   [MetroMumble](https://github.com/Johni0702/MetroMumble)
+<p align="center">
+  Made with ❤️ for the Flexpair community
+</p>

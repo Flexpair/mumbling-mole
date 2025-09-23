@@ -1,78 +1,39 @@
-# Mumbling Mole - AI Coding Agent Instructions
+# Copilot Instructions · mumbling-mole
 
-This document provides essential guidance for AI coding agents working on the Mumbling Mole codebase.
+## Quick context
+- Browser-first Mumble client: Knockout.js UI orchestrates audio + Guacamole remote desktop, while Web Workers host the real `mumble-client` sessions.
+- Bundle is produced by `smart-build.sh` + Webpack 5 into `dist/`; generated artifacts (`dist/**`, `config.local.js`) are never committed.
 
-## 1. Big Picture Architecture
+## Architecture & data flow
+- `app/index.js` bootstraps `GlobalBindings`, drives auth, Guacamole iframe gating, and proxies UI events to `WorkerBasedMumbleConnector` (`app/worker-client.js`).
+- `app/worker.js` runs inside a Web Worker, creates Mumble connections, resamples outbound audio, and emits events serialized by ID—keep `_dispatchEvent` handlers in sync on both sides.
+- Audio capture path: `audio-context-manager` manages a single `AudioContext` → `voice.js` selects continuous/PTT handlers → `recorder-worker.js` AudioWorklet streams 48 kHz mono frames of 960 samples to the worker for Opus encoding.
+- Knockout templates in `app/index.html` assume observable-backed state; add UI fields via `GlobalBindings` so localization (`translateEverything`) keeps them current.
 
-Mumbling Mole is a minimalist, web-based Mumble client designed for embedding. It's a single-page application that communicates with a Mumble server over a single WebSocket.
+## Build & dependency workflow
+- `npm run build` / `npm run build:force` call `smart-build.sh`, which rebuilds `vendors/mumble-client` with Babel when `lib/` is stale and validates `dist/index.html` size before exiting.
+- Incremental builds hinge on `dist/.build-marker`; touching files under `app/` forces recompilation. Set `SKIP_PREPARE=1` before `npm install` to skip the prepare build.
+- Vendored packages under `vendors/` are `file:` dependencies—after edits run `npm run build:vendor:mumble-client` (or a full build) so `lib/` stays in sync with `src/`.
 
--   **Frontend Core (`app/`):** The main application logic resides in the `app/` directory.
-    -   `app/index.js`: The main entry point. It initializes the Mumble client, UI components, and voice handling.
-    -   The UI is built with the **Knockout.js** framework for data binding. Look for `ko.observable` and `data-bind` attributes in the HTML.
--   **WebSocket Communication (`app/mumble-websocket.js`):** The client does not have a traditional backend. It connects directly to a Mumble server by tunneling the Mumble protocol over a WebSocket. `app/mumble-websocket.js` and the `websocket-stream` library manage this connection.
--   **Audio Processing (`app/voice.js`, `app/encode-worker.js`):**
-    -   Audio input and voice activation (Push-to-Talk, Continuous) are managed in `app/voice.js`.
-    -   To maintain performance, Opus audio encoding is offloaded to a Web Worker defined in `app/encode-worker.js`.
-    -   The Web Worker pattern is also used for decoding (`app/decode-worker.js`) and recording (`app/recorder-worker.js`).
-    -   Audio streams use Node.js-style streams via the `stream` API for consistent data flow patterns.
-    -   The core Mumble protocol logic is handled by the `mumble-client` library, which is a vendored dependency located in `vendors/mumble-client`.
--   **Build System:** The project uses **Webpack 5** and **Babel** for building, transpiling, and bundling assets. The configuration is in `webpack.config.js`.
+## Local dev & runtime
+- `MUMBLE_SERVER=host:port ./start-dev-server.sh` launches `docker-entrypoint.sh`, compiles assets, opens the websockify tunnel, and serves at `http://local.flexpair.app`; stop with `./stop-dev-server.sh`.
+- For static-only smoke tests run `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh`; follow runtime logs in `/tmp/entrypoint.log`.
+- Runtime config defaults come from `app/config.js`; modify the generated `dist/config.local.js` (copied on build) instead of editing source, and rebuild to propagate changes.
 
-## 2. Developer Workflows
+## Testing & quality gates
+- `npm run test` executes `scripts/e2e-check.cjs` (WebSocket roundtrip using `docker-entrypoint.sh`) and `scripts/audit-ci.cjs` (security audit); keep both green before merging.
+- `npm run analyze` writes `dist/bundle-report.html`; `npm run check:deps` surfaces unused deps, and `npm run audit:baseline` refreshes accepted vulnerabilities.
 
--   **Installation:** `npm install`
--   **Building:**
-    -   Run `npm run build`. This uses `smart-build.sh`, a script that intelligently rebuilds only what's necessary based on file timestamps.
-    -   To force a complete, clean rebuild, use `npm run build:force`.
-    -   The build process automatically handles vendored dependencies: if `vendors/mumble-client/lib/` is missing, it runs `npx babel src --out-dir lib`.
--   **Running the Development Server:** The `docker-entrypoint.sh` script is the primary way to run the local server.
-    -   **With a WebSocket tunnel (for full functionality):**
-        ```bash
-        export MUMBLE_SERVER="your.mumble.server:64738"
-        ./docker-entrypoint.sh
-        ```
-    -   **For UI development only (no Mumble connection):**
-        ```bash
-        SKIP_TUNNEL=1 ./docker-entrypoint.sh
-        ```
-    -   The client will be available at `http://localhost:8081`.
--   **Testing:**
-    -   `npm test`: Runs the full suite, which includes an E2E smoke test and a security audit.
-    -   `npm run test:e2e`: Runs only the end-to-end smoke test defined in `scripts/e2e-check.cjs`.
-    -   The E2E test creates a TCP echo server and tests WebSocket tunneling through `websockify` to verify the core infrastructure.
-    -   `npm run audit:ci`: Audits dependencies against the baseline in `audit-baseline.json`.
+## Implementation conventions & gotchas
+- `GlobalBindings` persists settings in `localStorage`; when adding UI state, expose a Knockout observable so templates and localization stay reactive.
+- Audio settings (`samplesPerPacket`, bitrate) live in `Settings`; if packet size changes, adjust `setupOutboundVoice` in `voice.js` and the worker resampler to match.
+- AudioContext creation is centralized through `ensureAudioContext` with autoplay fallbacks—avoid instantiating `AudioContext` elsewhere.
+- Worker/UI protocol exchanges numeric IDs, not object references—extend both sides together and respect the serialization helpers.
+- Localization keys reside in `localize/*.json`; add new strings to every locale to prevent runtime warnings.
 
-## 3. Project-Specific Conventions
-
--   **Configuration System:** The application uses a layered configuration model. When adding or changing configuration, consider all three sources:
-    1.  **`app/config.js`:** Contains the default values. This file is tracked by Git.
-    2.  **`app/config.local.js`:** Used for local overrides. This file is **not** tracked by Git. This is the preferred place for developers to make changes.
-    3.  **URL Query Parameters:** Settings can be overridden at runtime via URL parameters (e.g., `?username=test`).
--   **Theming (`themes/`):**
-    -   Theming is managed with SCSS files in the `themes/` directory.
-    -   The active theme is loaded in `app/theme.js`. To change the theme, you must modify this file. The default theme is `MetroMumbleLight`.
--   **Vendored Dependencies (`vendors/`):**
-    -   Critical dependencies like `mumble-client` are "vendored" (stored directly in the `vendors/` directory) instead of being pulled from npm during every install.
-    -   Note that `vendors/mumble-client` has its own build step. The `smart-build.sh` script will automatically run `npx babel` on `vendors/mumble-client/src` if the `lib` directory is missing.
-    -   This approach provides build determinism and avoids external dependency failures during CI/CD.
--   **Web Workers Pattern:**
-    -   Audio processing (encode/decode) runs in separate Web Workers to avoid blocking the main UI thread.
-    -   Workers are loaded using `worker-loader` in the Webpack config.
-    -   Communication with workers follows a message-passing pattern: `postMessage()` for input, `addEventListener('message')` for responses.
-
-## 4. Key Files & Directories
-
--   `app/`: The core frontend application source code.
--   `app/index.js`: Main application entry point.
--   `app/config.js` & `app/config.local.js`: Application configuration.
--   `app/voice.js`: Voice handling logic (PTT, etc.).
--   `app/mumble-websocket.js`: WebSocket connection logic.
--   `app/*-worker.js`: Web Workers for audio processing (encode, decode, recorder).
--   `themes/`: SCSS-based theme files.
--   `localize/`: Translation files in JSON format.
--   `scripts/`: Node.js scripts for CI/CD tasks like testing and auditing.
--   `vendors/`: Vendored dependencies with their own build processes.
--   `smart-build.sh`: The main build script.
--   `docker-entrypoint.sh`: The script for running the development server and WebSocket tunnel.
--   `webpack.config.js`: Webpack build configuration.
--   `README.md`: Contains detailed setup and deployment instructions.
+## Key references
+- UI + bindings: `app/index.js`, `app/index.html`, `app/localize.js`
+- Worker bridge: `app/worker.js`, `app/worker-client.js`
+- Audio stack: `app/voice.js`, `app/audio-context-manager.js`, `app/recorder-worker.js`
+- Build/runtime scripts: `smart-build.sh`, `start-dev-server.sh`, `docker-entrypoint.sh`
+- Vendored client: `vendors/mumble-client/` (`src/` for code, `lib/` generated)
