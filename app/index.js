@@ -467,14 +467,13 @@ class GlobalBindings {
             console.warn('AudioContext resume failed, continuing anyway:', error);
           }
 
-          this.connector
-            .connect(`wss://${host}:${port}`, {
-              username: username,
-              password: password,
-              tokens: tokens,
-            })
-            .done(
-              (client) => {
+          try {
+            const client = await this.connector
+              .connect(`wss://${host}:${port}`, {
+                username: username,
+                password: password,
+                tokens: tokens,
+              });
                 var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
                 let guac_login = false;
                 if (user_roles.includes("admin")) {
@@ -539,17 +538,15 @@ class GlobalBindings {
                 } else if (this.selfMute()) {
                   this.client.setSelfMute(true);
                 }
-              },
-              (err) => {
-                if (err.$type && err.$type.name === "Reject") {
-                  this.connectErrorDialog.type(err.type);
-                  this.connectErrorDialog.reason(err.reason);
-                  this.connectErrorDialog.show();
-                } else {
-                  log(translate("logentry.connection_error"), err);
-                }
-              }
-            );
+          } catch (err) {
+            if (err.$type && err.$type.name === "Reject") {
+              this.connectErrorDialog.type(err.type);
+              this.connectErrorDialog.reason(err.reason);
+              this.connectErrorDialog.show();
+            } else {
+              log(translate("logentry.connection_error"), err);
+            }
+          }
         } else {
           alert(
             "Please set the sample rate of your audio devices to 48 kHz on system level in order to proceed."

@@ -234,7 +234,7 @@ function onMessage(data) {
         setupClient(id, client);
         return id;
       })
-      .done(
+      .then(
         (id) => {
           resolve(reqId, id);
         },
