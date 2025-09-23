@@ -449,6 +449,22 @@
           src="svg/logout.svg"
       />
       </form>
+      <!-- Microphone permission overlay - DISABLED for seamless experience
+      <div class="mic-permission-overlay" data-bind="visible: false">
+        <!-- ...overlay content...
+      </div>
+      -->
+
+      <!-- Microphone permission retry overlay (bottom-left, only shown when denied) -->
+      <div class="mic-permission-retry" data-bind="visible: micPermissionDenied">
+        <div class="mic-permission-content">
+          <span class="mic-icon">🎤</span>
+          <span>Microphone access denied</span>
+          <button data-bind="click: retryMicrophonePermission" class="mic-permission-button">
+            Allow Microphone
+          </button>
+        </div>
+      </div>
     </div>
   </body>
   <!-- Minimal preloader removal: runs on window load; prior debug banners & watchdog removed for production cleanliness -->
@@ -471,4 +487,5 @@
     })();
   </script>
   <script src="index.js"></script>
+</html>
 </html>

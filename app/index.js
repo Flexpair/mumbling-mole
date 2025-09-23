@@ -5,6 +5,7 @@ import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
 import BufferQueueNode from "web-audio-buffer-queue";
 import getAudioContext from "audio-context";
+import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 
@@ -266,6 +267,10 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
+    
+    // Add microphone permission state observable
+    this.micPermissionDenied = ko.observable(false);
+    
     // Use netlify-identity-widget from global scope (loaded via script tag)
     if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
       this.netlifyIdentity = window.netlifyIdentity;
@@ -293,7 +298,65 @@ class GlobalBindings {
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
-    this.audioContext = getAudioContext({ latencyHint: "interactive" });
+    
+    // Add method to retry microphone permission
+    this.retryMicrophonePermission = () => {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            this.micPermissionDenied(false);
+            stream.getTracks().forEach(track => track.stop());
+            // Reinitialize voice if needed
+            if (this.client && !voiceHandler) {
+              this._updateVoiceHandler();
+            }
+          })
+          .catch(err => {
+            console.error('Microphone permission denied on retry:', err);
+            alert('Microphone access is required for voice communication. Please check your browser settings.');
+          });
+      }
+    };
+    
+    // Define initializeAudioContext method before using it
+    this.initializeAudioContext = async () => {
+      try {
+        console.log('Initializing managed AudioContext...');
+        this.audioContext = await ensureAudioContext({ 
+          latencyHint: "interactive" 
+        });
+        
+        console.log('AudioContext initialized:', {
+          state: this.audioContext.state,
+          sampleRate: this.audioContext.sampleRate
+        });
+
+        // Set up event handlers for audio context state changes
+        audioContextManager.onSuspend(() => {
+          console.log('AudioContext suspended - audio features may be limited');
+        });
+
+        audioContextManager.onResume(() => {
+          console.log('AudioContext resumed - audio features restored');
+        });
+
+      } catch (error) {
+        console.error('Failed to initialize AudioContext:', error);
+        
+        // Fallback to legacy approach if managed approach fails
+        try {
+          this.audioContext = getAudioContext({ latencyHint: "interactive" });
+          console.log('Fallback to legacy AudioContext successful');
+        } catch (fallbackError) {
+          console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
+          // AudioContext will remain null, audio features will be disabled
+        }
+      }
+    };
+    
+    // Use managed AudioContext with autoplay policy handling
+    this.audioContext = null;
+    this.initializeAudioContext();
 
     this.selfMute.subscribe((mute) => {
       if (voiceHandler) {
@@ -332,7 +395,7 @@ class GlobalBindings {
       this.settingsDialog(null);
     };
 
-    this.connect = (
+    this.connect = async (
       host,
       port,
       username,
@@ -346,7 +409,29 @@ class GlobalBindings {
         if (!user_roles.includes("watch")) user_roles.push("watch");
         if (!user_roles.includes("listen")) user_roles.push("listen");
         this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
-        if (this.audioContext.sampleRate == 48000) {
+        
+        // Request microphone permission and show overlay only if denied
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+              // Hide overlay if it was shown
+              this.micPermissionDenied(false);
+              // Stop the stream immediately as we just needed the permission
+              stream.getTracks().forEach(track => track.stop());
+            })
+            .catch(err => {
+              console.warn('Microphone permission denied, showing retry option:', err);
+              // Show the overlay at bottom-left to allow retry
+              this.micPermissionDenied(true);
+            });
+        }
+        
+        // Ensure AudioContext is ready and has proper sample rate
+        if (!this.audioContext) {
+          await this.initializeAudioContext();
+        }
+        
+        if (this.audioContext && this.audioContext.sampleRate == 48000) {
           initVoice(
             (data) => {
               if (!ui.client) {
@@ -370,16 +455,25 @@ class GlobalBindings {
 
           log(translate("logentry.connecting"), host);
 
-          this.audioContext.resume();
+          // Ensure AudioContext is ready before connecting
+          try {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+              await this.audioContext.resume();
+              console.log('AudioContext resumed for connection');
+            } else if (!this.audioContext) {
+              await this.initializeAudioContext();
+            }
+          } catch (error) {
+            console.warn('AudioContext resume failed, continuing anyway:', error);
+          }
 
-          this.connector
-            .connect(`wss://${host}:${port}`, {
-              username: username,
-              password: password,
-              tokens: tokens,
-            })
-            .done(
-              (client) => {
+          try {
+            const client = await this.connector
+              .connect(`wss://${host}:${port}`, {
+                username: username,
+                password: password,
+                tokens: tokens,
+              });
                 var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
                 let guac_login = false;
                 if (user_roles.includes("admin")) {
@@ -444,17 +538,15 @@ class GlobalBindings {
                 } else if (this.selfMute()) {
                   this.client.setSelfMute(true);
                 }
-              },
-              (err) => {
-                if (err.$type && err.$type.name === "Reject") {
-                  this.connectErrorDialog.type(err.type);
-                  this.connectErrorDialog.reason(err.reason);
-                  this.connectErrorDialog.show();
-                } else {
-                  log(translate("logentry.connection_error"), err);
-                }
-              }
-            );
+          } catch (err) {
+            if (err.$type && err.$type.name === "Reject") {
+              this.connectErrorDialog.type(err.type);
+              this.connectErrorDialog.reason(err.reason);
+              this.connectErrorDialog.show();
+            } else {
+              log(translate("logentry.connection_error"), err);
+            }
+          }
         } else {
           alert(
             "Please set the sample rate of your audio devices to 48 kHz on system level in order to proceed."
@@ -888,13 +980,15 @@ function userToState() {
 var voiceHandler;
 
 async function main() {
+  console.log('Starting Mumbling Mole initialization...');
+  
   document.title = window.location.hostname;
   await localizationInitialize(navigator.language);
   translateEverything();
   initializeUI();
   enumMicrophones();
+  
+  console.log('Mumbling Mole initialization completed successfully');
 }
 
 window.onload = main;
-
-// (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)

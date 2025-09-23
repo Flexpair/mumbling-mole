@@ -83,10 +83,9 @@ class WorkerBasedMumbleConnector {
     };
   }
 
-  connect(host, args) {
-    return this._query({}, "_connect", { host: host, args: args }).then((id) =>
-      this._client(id)
-    );
+  async connect(host, args) {
+    const id = await this._query({}, "_connect", { host: host, args: args });
+    return this._client(id);
   }
 
   _client(id) {

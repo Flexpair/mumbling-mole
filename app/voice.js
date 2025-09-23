@@ -2,6 +2,7 @@ import { Writable } from "stream";
 import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
+import audioContextManager, { getAudioContext, ensureAudioContext } from "./audio-context-manager";
 
 class VoiceHandler extends Writable {
   constructor(client, settings) {
@@ -164,9 +165,16 @@ export function initVoice(onData, onUserMediaError) {
     }
 
     try {
-      // === NEU: AudioWorklet statt microphone-stream ===
-      const ac = new (window.AudioContext || window.webkitAudioContext)({
+      // Use managed AudioContext with autoplay policy handling
+      console.log('Initializing voice with managed AudioContext...');
+      const ac = await ensureAudioContext({
         sampleRate: 48000,
+        latencyHint: 'interactive'
+      });
+
+      console.log('AudioContext ready for voice:', {
+        state: ac.state,
+        sampleRate: ac.sampleRate
       });
 
       // Worklet laden
@@ -202,8 +210,10 @@ export function initVoice(onData, onUserMediaError) {
           try {
             src.disconnect();
           } catch {}
+          // Don't close the shared/global AudioContext here. Suspending saves power without
+          // invalidating the shared instance held by the AudioContextManager.
           try {
-            ac.close();
+            audioContextManager.suspendAudioContext();
           } catch {}
         })
       );
