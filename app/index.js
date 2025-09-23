@@ -388,6 +388,22 @@ class GlobalBindings {
         if (!user_roles.includes("listen")) user_roles.push("listen");
         this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
         
+        // Request microphone permission and show overlay only if denied
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+              // Hide overlay if it was shown
+              this.micPermissionDenied(false);
+              // Stop the stream immediately as we just needed the permission
+              stream.getTracks().forEach(track => track.stop());
+            })
+            .catch(err => {
+              console.warn('Microphone permission denied, showing retry option:', err);
+              // Show the overlay at bottom-left to allow retry
+              this.micPermissionDenied(true);
+            });
+        }
+        
         // Ensure AudioContext is ready and has proper sample rate
         if (!this.audioContext) {
           await this.initializeAudioContext();
@@ -961,4 +977,5 @@ async function main() {
 
 window.onload = main;
 
+// (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)
 // (Previously: boot watchdog + diagnostic banner removed after resolving initialization race & polyfill issues)
