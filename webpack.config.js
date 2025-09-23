@@ -117,6 +117,16 @@ module.exports = {
   target: "web",
   optimization: {
     minimize: true,
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+      },
+    },
   },
   resolve: {
     // Explicit fallbacks ensure consistent behavior regardless of node-polyfill-webpack-plugin
