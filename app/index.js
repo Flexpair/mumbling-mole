@@ -5,6 +5,8 @@ import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
 import BufferQueueNode from "web-audio-buffer-queue";
 import getAudioContext from "audio-context";
+import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
+import { initializeAudioStatusUI } from "./audio-status-ui";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 
@@ -293,7 +295,10 @@ class GlobalBindings {
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
-    this.audioContext = getAudioContext({ latencyHint: "interactive" });
+    
+    // Use managed AudioContext with autoplay policy handling
+    this.audioContext = null;
+    this.initializeAudioContext();
 
     this.selfMute.subscribe((mute) => {
       if (voiceHandler) {
@@ -307,6 +312,41 @@ class GlobalBindings {
 
     this.openSettings = () => {
       this.settingsDialog(new SettingsDialog(this.settings));
+    };
+
+    this.initializeAudioContext = async () => {
+      try {
+        console.log('Initializing managed AudioContext...');
+        this.audioContext = await ensureAudioContext({ 
+          latencyHint: "interactive" 
+        });
+        
+        console.log('AudioContext initialized:', {
+          state: this.audioContext.state,
+          sampleRate: this.audioContext.sampleRate
+        });
+
+        // Set up event handlers for audio context state changes
+        audioContextManager.onSuspend(() => {
+          console.log('AudioContext suspended - audio features may be limited');
+        });
+
+        audioContextManager.onResume(() => {
+          console.log('AudioContext resumed - audio features restored');
+        });
+
+      } catch (error) {
+        console.error('Failed to initialize AudioContext:', error);
+        
+        // Fallback to legacy approach if managed approach fails
+        try {
+          this.audioContext = getAudioContext({ latencyHint: "interactive" });
+          console.log('Fallback to legacy AudioContext successful');
+        } catch (fallbackError) {
+          console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
+          // AudioContext will remain null, audio features will be disabled
+        }
+      }
     };
 
     this.logoutUser = () => {
@@ -332,7 +372,7 @@ class GlobalBindings {
       this.settingsDialog(null);
     };
 
-    this.connect = (
+    this.connect = async (
       host,
       port,
       username,
@@ -346,7 +386,13 @@ class GlobalBindings {
         if (!user_roles.includes("watch")) user_roles.push("watch");
         if (!user_roles.includes("listen")) user_roles.push("listen");
         this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
-        if (this.audioContext.sampleRate == 48000) {
+        
+        // Ensure AudioContext is ready and has proper sample rate
+        if (!this.audioContext) {
+          await this.initializeAudioContext();
+        }
+        
+        if (this.audioContext && this.audioContext.sampleRate == 48000) {
           initVoice(
             (data) => {
               if (!ui.client) {
@@ -370,7 +416,17 @@ class GlobalBindings {
 
           log(translate("logentry.connecting"), host);
 
-          this.audioContext.resume();
+          // Ensure AudioContext is ready before connecting
+          try {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+              await this.audioContext.resume();
+              console.log('AudioContext resumed for connection');
+            } else if (!this.audioContext) {
+              await this.initializeAudioContext();
+            }
+          } catch (error) {
+            console.warn('AudioContext resume failed, continuing anyway:', error);
+          }
 
           this.connector
             .connect(`wss://${host}:${port}`, {
@@ -888,11 +944,18 @@ function userToState() {
 var voiceHandler;
 
 async function main() {
+  console.log('Starting Mumbling Mole initialization...');
+  
   document.title = window.location.hostname;
   await localizationInitialize(navigator.language);
   translateEverything();
   initializeUI();
   enumMicrophones();
+  
+  // Initialize audio status UI to help users with autoplay policies
+  initializeAudioStatusUI();
+  
+  console.log('Mumbling Mole initialization completed successfully');
 }
 
 window.onload = main;
