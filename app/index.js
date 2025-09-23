@@ -121,8 +121,11 @@ class ConnectionInfo {
     this.codec = ko.observable();
 
     this.show = () => {
-      this.update();
-      this.visible(true);
+      // Only show the dialog if we have a client connection
+      if (this._ui.client) {
+        this.update();
+        this.visible(true);
+      }
     };
     this.hide = () => this.visible(false);
   }
