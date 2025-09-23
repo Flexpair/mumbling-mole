@@ -169,9 +169,8 @@ export function initVoice(onData, onUserMediaError) {
         sampleRate: 48000,
       });
 
-      // Worklet lazy laden
-      const recorderWorkerUrl = await import('./recorder-worker.js').then(() => "recorder-worker.js");
-      await ac.audioWorklet.addModule(recorderWorkerUrl);
+      // Worklet laden
+      await ac.audioWorklet.addModule("recorder-worker.js");
 
       // Quelle aus getUserMedia
       const src = ac.createMediaStreamSource(userMedia);

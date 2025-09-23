@@ -31,12 +31,10 @@
     <!-- Script order preserved manually (inject:false) -->
     <script src="config.js"></script>
     <script src="config.local.js"></script>
-  
-    <!-- Load Netlify Identity Widget BEFORE our app scripts -->
-    <script type="text/javascript" src="netlify-identity-widget.js"></script>
-    
   <script src="theme.js"></script>
-  <script src="index.js"></script>
+  <!-- Load identity widget before index.js so window.netlifyIdentity exists early -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <!-- Removed duplicate index.js include (already loaded in <head>) -->
 </head>  <body>
     <div class="preloader" data-bind="css: { loaded: true }">
       <div class="lds-ripple" data-bind="css: { loaded: true }">
@@ -44,8 +42,8 @@
         <div></div>
       </div>
     </div>
-  <!-- NOTE: Container with fallback visibility when JavaScript fails -->
-  <div id="container" data-bind="visible: true" style="display: block;">
+  <!-- NOTE: Removed previous inline style="display:none" so the base UI remains visible even if Knockout bindings fail -->
+  <div id="container" data-bind="visible: true">
       <!-- ko with: guacamoleFrame -->
       <div class="guacamole-placeholder" data-bind="visible: !visible()">
   <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
@@ -473,38 +471,4 @@
     })();
   </script>
   <script src="index.js"></script>
-  
-  <!-- Auto-click script -->
-  <script>
-    // Hide dialogs immediately when page starts loading
-    document.body.classList.add('netlify-widget-open');
-    console.log('[widget] Hiding dialogs immediately on page load');
-    
-    // Automatically open netlify widget when page loads
-    window.addEventListener('load', function() {
-      console.log('[auto-click] Page loaded, waiting for widget...');
-      
-      function removeWidgetOpenClass() {
-        document.body.classList.remove('netlify-widget-open');
-        console.log('[widget] Removed netlify-widget-open class from body');
-      }
-      
-      setTimeout(function() {
-        console.log('[auto-click] Attempting to auto-open widget...');
-        if (window.netlifyIdentity && window.netlifyIdentity.open) {
-          console.log('[auto-click] Widget found, opening...');
-          
-          // Add event listeners to manage dialog visibility
-          if (window.netlifyIdentity.on) {
-            window.netlifyIdentity.on('close', removeWidgetOpenClass);
-          }
-          
-          window.netlifyIdentity.open('signup');
-        } else {
-          console.log('[auto-click] Widget not found, showing dialogs again');
-          removeWidgetOpenClass();
-        }
-      }, 1000); // Reduced delay
-    });
-  </script>
 </html>

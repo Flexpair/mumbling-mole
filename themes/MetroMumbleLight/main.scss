@@ -36,7 +36,6 @@ body {
 }
 #container {
   height: 100%;
-  position: relative; /* Establish stacking context */
 }
 
 .guacamole,
@@ -47,8 +46,6 @@ body {
   margin-bottom: 2px;
   width: 100%;
   height: calc(99% - 38px);
-  position: relative; /* Establish proper stacking */
-  z-index: 1;
 }
 
 .guacamole-placeholder {
@@ -68,7 +65,6 @@ body {
   bottom: 40px;
   font-weight: bold;
   padding: 2px;
-  z-index: 2; /* Above guacamole content but below dialogs */
 }
 
 iframe {
@@ -167,23 +163,7 @@ form {
   color: $dialog-color;
   border: 1px $dialog-border-color solid;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.25);
-  z-index: 100; /* High z-index to always be on top */
-}
-
-/* Netlify Identity Widget - Force it to be above everything */
-.netlify-identity-widget {
-  z-index: 999999 !important;
-}
-.netlify-identity-modal {
-  z-index: 999999 !important;
-}
-.netlify-identity-modal-backdrop {
-  z-index: 999998 !important;
-}
-
-/* Hide Mumble dialogs when Netlify widget is open */
-body.netlify-widget-open .dialog {
-  display: none !important;
+  z-index: 20;
 }
 .settings-dialog table {
   width: 100%;
