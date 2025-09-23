@@ -1,42 +1,39 @@
 # Copilot Instructions · mumbling-mole
 
 ## Quick context
-- Browser-first Mumble client that wraps the vendored `mumble-client` library, compiled via Webpack into `dist/`.
-- UI lives in `app/index.js` with Knockout viewmodels; audio capture/processing is isolated in workers to keep the UI thread lightweight.
+- Browser-first Mumble client: Knockout.js UI orchestrates audio + Guacamole remote desktop, while Web Workers host the real `mumble-client` sessions.
+- Bundle is produced by `smart-build.sh` + Webpack 5 into `dist/`; generated artifacts (`dist/**`, `config.local.js`) are never committed.
 
-## Architecture map
-- `app/index.js` orchestrates auth, server connect, Guacamole iframe, and voice UX; it talks to a background worker through `WorkerBasedMumbleConnector` (`app/worker-client.js`).
-- `app/worker.js` runs inside a Web Worker, holds real `mumble-client` instances, proxies events back to the UI, and performs PCM resampling before handing audio to the main thread.
-- Audio setup flows through `app/audio-context-manager.js` and `app/voice.js`: managed `AudioContext` + `AudioWorkletNode` (`recorder-worker.js`) capture mic frames that are forwarded to `createVoiceStream` on the worker client.
-- Configuration defaults live in `app/config.js`; mutations happen in the generated `dist/config.local.js`. Never edit the built file in source control—`smart-build.sh` overwrites it.
-- Themes are in `themes/MetroMumbleLight`; the build copies SVG/PNG assets and SCSS into `dist/` while query param `?theme=` selects variants at runtime.
+## Architecture & data flow
+- `app/index.js` bootstraps `GlobalBindings`, drives auth, Guacamole iframe gating, and proxies UI events to `WorkerBasedMumbleConnector` (`app/worker-client.js`).
+- `app/worker.js` runs inside a Web Worker, creates Mumble connections, resamples outbound audio, and emits events serialized by ID—keep `_dispatchEvent` handlers in sync on both sides.
+- Audio capture path: `audio-context-manager` manages a single `AudioContext` → `voice.js` selects continuous/PTT handlers → `recorder-worker.js` AudioWorklet streams 48 kHz mono frames of 960 samples to the worker for Opus encoding.
+- Knockout templates in `app/index.html` assume observable-backed state; add UI fields via `GlobalBindings` so localization (`translateEverything`) keeps them current.
 
-## Build & bundling workflow
-- `npm run build`/`npm run build:force` funnel through `smart-build.sh`. The script auto-builds `vendors/mumble-client` with Babel if `lib/` is missing, runs Webpack 5 with HtmlWebpackPlugin, then sanity-checks `dist/index.html` size.
-- Incremental builds rely on `dist/.build-marker`; touching any file under `app/*.js` or `app/*.html` forces a rebuild. Skip the entire build by exporting `SKIP_PREPARE=1` before `npm install`.
-- Webpack config (`webpack.config.js`) expects Worker imports via `new Worker(new URL('./worker.js', import.meta.url))`, polyfills `Buffer`/`process`, and pipes styles through `MiniCssExtractPlugin` + Sass.
+## Build & dependency workflow
+- `npm run build` / `npm run build:force` call `smart-build.sh`, which rebuilds `vendors/mumble-client` with Babel when `lib/` is stale and validates `dist/index.html` size before exiting.
+- Incremental builds hinge on `dist/.build-marker`; touching files under `app/` forces recompilation. Set `SKIP_PREPARE=1` before `npm install` to skip the prepare build.
+- Vendored packages under `vendors/` are `file:` dependencies—after edits run `npm run build:vendor:mumble-client` (or a full build) so `lib/` stays in sync with `src/`.
 
 ## Local dev & runtime
-- The dev loop uses `./start-dev-server.sh`: set `MUMBLE_SERVER=host:port` to enable the websockify tunnel; logs stream to `/tmp/entrypoint.log`. For static-only testing, run `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh`.
-- Docker image (`Dockerfile`) installs Node 22.19, Python 3.11, and websockify; prod stage runs `npm run build:force` during image build.
-- `app/config.local.js` is copied into `dist/`. To change presets locally, edit the generated file then rerun the build so `start-dev-server.sh` serves the updated bundle.
+- `MUMBLE_SERVER=host:port ./start-dev-server.sh` launches `docker-entrypoint.sh`, compiles assets, opens the websockify tunnel, and serves at `http://local.flexpair.app`; stop with `./stop-dev-server.sh`.
+- For static-only smoke tests run `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh`; follow runtime logs in `/tmp/entrypoint.log`.
+- Runtime config defaults come from `app/config.js`; modify the generated `dist/config.local.js` (copied on build) instead of editing source, and rebuild to propagate changes.
 
-## Tests & quality gates
-- `npm run test` executes the WebSocket smoke test (`scripts/e2e-check.cjs`) and the audit gate (`scripts/audit-ci.cjs`). The e2e script starts `docker-entrypoint.sh` with an echo-server, verifies a roundtrip on port `8081`, and cleans up.
-- `npm run audit:baseline` refreshes `audit-baseline.json` after consciously accepting/patching vulnerabilities.
-- `npm run check:deps` wraps `depcheck --config .depcheckrc`; a non-zero exit usually means stale dependencies in `package.json`.
+## Testing & quality gates
+- `npm run test` executes `scripts/e2e-check.cjs` (WebSocket roundtrip using `docker-entrypoint.sh`) and `scripts/audit-ci.cjs` (security audit); keep both green before merging.
+- `npm run analyze` writes `dist/bundle-report.html`; `npm run check:deps` surfaces unused deps, and `npm run audit:baseline` refreshes accepted vulnerabilities.
 
-## Conventions & gotchas
-- Knockout bindings expect observables defined in `GlobalBindings` (`app/index.js`). When adding state, wire it through observables so localization (`app/localize.js`) and templates respond automatically.
-- The worker protocol serialises IDs instead of objects. When extending events, update `app/worker.js` *and* the matching `_dispatchEvent` handlers in `WorkerBasedMumbleClient` or you will break the UI proxies.
-- Audio capture assumes 48 kHz mono PCM chunks of 960 samples. Changing `samplesPerPacket` needs matching updates in the worker resampler (`setupOutboundVoice`).
-- Vendored packages under `vendors/` are shipped via `file:` dependencies. If you touch their sources, rerun `npm run build:vendor:mumble-client` or let `smart-build.sh` trigger Babel to refresh `lib/`.
-- Localization strings are in `localize/*.json` keyed by the same identifiers used in `app/localize.js`. Always add new string keys across all locales to avoid runtime warnings.
+## Implementation conventions & gotchas
+- `GlobalBindings` persists settings in `localStorage`; when adding UI state, expose a Knockout observable so templates and localization stay reactive.
+- Audio settings (`samplesPerPacket`, bitrate) live in `Settings`; if packet size changes, adjust `setupOutboundVoice` in `voice.js` and the worker resampler to match.
+- AudioContext creation is centralized through `ensureAudioContext` with autoplay fallbacks—avoid instantiating `AudioContext` elsewhere.
+- Worker/UI protocol exchanges numeric IDs, not object references—extend both sides together and respect the serialization helpers.
+- Localization keys reside in `localize/*.json`; add new strings to every locale to prevent runtime warnings.
 
 ## Key references
-- UI entry: `app/index.html`, `app/index.js`
-- Worker bridge: `app/worker-client.js`, `app/worker.js`
-- Audio pipeline: `app/voice.js`, `app/audio-context-manager.js`, `app/recorder-worker.js`
-- Build scripts: `smart-build.sh`, `webpack.config.js`
-- Runtime scripts: `start-dev-server.sh`, `docker-entrypoint.sh`
-- Tests: `scripts/e2e-check.cjs`, `scripts/audit-ci.cjs`
+- UI + bindings: `app/index.js`, `app/index.html`, `app/localize.js`
+- Worker bridge: `app/worker.js`, `app/worker-client.js`
+- Audio stack: `app/voice.js`, `app/audio-context-manager.js`, `app/recorder-worker.js`
+- Build/runtime scripts: `smart-build.sh`, `start-dev-server.sh`, `docker-entrypoint.sh`
+- Vendored client: `vendors/mumble-client/` (`src/` for code, `lib/` generated)
