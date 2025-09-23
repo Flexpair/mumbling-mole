@@ -306,8 +306,8 @@ export function canPlayAudio() {
   return audioContextManager.canPlayAudio();
 }
 
-export async function ensureAudioContext() {
-  const context = await audioContextManager.getAudioContext();
+export async function ensureAudioContext(options = {}) {
+  const context = await audioContextManager.getAudioContext(options);
   if (context.state === 'suspended') {
     await audioContextManager.resumeAudioContext();
   }
