@@ -151,6 +151,7 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run analyze` | Generate bundle analysis report |
 | `npm run check:deps` | Find unused dependencies |
 | `npm run test` | Run all tests (E2E + security audit) |
+| `npm run test:playwright` | Run Playwright end-to-end suite across configured browsers |
 | `npm run test:e2e` | Run WebSocket smoke test only |
 
 ### Maintenance
