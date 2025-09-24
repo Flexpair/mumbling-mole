@@ -8,6 +8,7 @@
     "microphone": "Micrófono",
     "headphones": "Utilice \uD83C\uDFA7. Gracias.",
     "connect": "Conectar",
+    "connect_without_audio": "Usar sin audio",
     "error": {
       "title": "No se pudo conectar",
       "reason": {

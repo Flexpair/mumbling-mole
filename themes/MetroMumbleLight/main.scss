@@ -128,6 +128,10 @@ form {
 .dialog-submit {
   float: right;
 }
+.dialog-submit-secondary {
+  float: right;
+  margin-right: 5px;
+}
 .dialog-close,
 .dialog-submit {
   width: 45%;
@@ -138,6 +142,19 @@ form {
   color: $dialog-button-color;
   padding: 1px;
   cursor: pointer;
+}
+.dialog-submit-secondary {
+  width: 30%;
+  font-size: 13px;
+  border: 1px $dialog-button-border-color solid;
+  border-radius: 3px;
+  background-color: $lightgray;
+  color: $dialog-button-color;
+  padding: 1px;
+  cursor: pointer;
+}
+.dialog-close {
+  width: 25%;
 }
 .connect-dialog table {
   width: 100%;

@@ -8,6 +8,7 @@
     "microphone": "Microfono",
     "headphones": "Si prega di utilizzare \uD83C\uDFA7. Grazie.",
     "connect": "Collegare",
+    "connect_without_audio": "Use without audio",
     "error": {
       "title": "Connessione fallita",
       "reason": {

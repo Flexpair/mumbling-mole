@@ -9,6 +9,7 @@
     "headphones": "Bitte benutze \uD83C\uDFA7. Danke sehr.",
     "cancel": "Abbrechen",
     "connect": "Verbinden",
+    "connect_without_audio": "Ohne Audio verwenden",
     "error": {
       "title": "Verbindung nicht möglich",
       "reason": {

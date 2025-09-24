@@ -8,6 +8,7 @@
     "microphone": "Microphone",
     "headphones": "Veuillez utiliser des \uD83C\uDFA7. Merci.",
     "connect": "Relier",
+    "connect_without_audio": "Utiliser sans audio",
     "error": {
       "title": "Échec de connexion",
       "reason": {

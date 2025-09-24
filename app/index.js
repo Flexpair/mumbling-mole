@@ -88,6 +88,10 @@ function ConnectDialog() {
     self.hide();
     ui.connect(self.address(), self.port(), self.username(), self.password());
   };
+  self.connectWithoutAudio = function () {
+    self.hide();
+    ui.connectWithoutAudio(self.address(), self.port(), self.username(), self.password());
+  };
 }
 
 function ConnectErrorDialog(connectDialog) {
@@ -590,6 +594,114 @@ class GlobalBindings {
           alert(
             "Please set the sample rate of your audio devices to 48 kHz on system level in order to proceed."
           );
+        }
+      } else {
+        alert(
+          "You do not have permission to connect to the server. Please contact the administrator."
+        );
+      }
+    };
+
+    this.connectWithoutAudio = async (
+      host,
+      port,
+      username,
+      password,
+      tokens = [],
+      channelName = ""
+    ) => {
+      var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+      if (Array.isArray(user_roles)) {
+        // Add "watch" and "listen" roles if they are not already present
+        if (!user_roles.includes("watch")) user_roles.push("watch");
+        if (!user_roles.includes("listen")) user_roles.push("listen");
+        if (this.netlifyIdentity.currentUser()?.app_metadata) {
+          this.netlifyIdentity.currentUser().app_metadata.roles = user_roles;
+        }
+        
+        // Skip audio initialization entirely when connecting without audio
+        
+        this.resetClient();
+
+        this.remoteHost(host);
+        this.remotePort(port);
+
+        log(translate("logentry.connecting"), host);
+
+        try {
+          const client = await this.connector
+            .connect(`wss://${host}:${port}`, {
+              username: username,
+              password: password,
+              tokens: tokens,
+            });
+            var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+            let guac_login = false;
+            if (user_roles.includes("admin")) {
+              guac_login = "admin";
+            } else if (user_roles.includes("edit")) {
+              guac_login = "editor";
+            } else if (user_roles.includes("watch")) {
+              guac_login = "watcher";
+            }
+            if (guac_login) {
+              this.guacamoleFrame.start(
+                guac_login,
+                this.connectDialog.password()
+              );
+              this.guacamoleFrame.show();
+            } else {
+              alert("For visual access please ask your administrator.");
+            }
+            log(translate("logentry.connected"));
+
+            this.client = client;
+            // Prepare for connection errors
+            client.on("error", (err) => {
+              log(translate("logentry.connection_error"), err);
+              this.resetClient();
+            });
+
+            // Register all channels, recursively
+            if (channelName.indexOf("/") != 0) {
+              channelName = "/" + channelName;
+            }
+            const registerChannel = (channel, channelPath) => {
+              this._newChannel(channel);
+              if (channelPath === channelName) {
+                client.self.setChannel(channel);
+              }
+              channel.children.forEach((ch) =>
+                registerChannel(ch, channelPath + "/" + ch.name)
+              );
+            };
+            registerChannel(client.root, "");
+
+            // Register all users
+            client.users.forEach((user) => this._newUser(user));
+
+            // Register future channels
+            client.on("newChannel", (channel) => this._newChannel(channel));
+            // Register future users
+            client.on("newUser", (user) => this._newUser(user));
+
+            // Set own user and root channel
+            this.thisUser(client.self.__ui);
+            this.root(client.root.__ui);
+            // Update linked channels
+            this._updateLinks();
+
+            // Skip audio processing entirely for no-audio connection
+            // Tell server our mute/deaf state - set to deaf since we have no audio
+            this.client.setSelfDeaf(true);
+        } catch (err) {
+          if (err.$type && err.$type.name === "Reject") {
+            this.connectErrorDialog.type(err.type);
+            this.connectErrorDialog.reason(err.reason);
+            this.connectErrorDialog.show();
+          } else {
+            log(translate("logentry.connection_error"), err);
+          }
         }
       } else {
         alert(

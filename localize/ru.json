@@ -8,6 +8,7 @@
     "microphone": "Микрофон",
     "headphones": "Пожалуйста, используйте наушники. Спасибо.",
     "connect": "Подключить",
+    "connect_without_audio": "Use without audio",
     "error": {
       "title": "Не удалось подключиться",
       "reason": {

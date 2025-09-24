@@ -8,6 +8,7 @@
     "microphone": "麦克风",
     "headphones": "请使用耳机。谢谢你。",
     "connect": "连接",
+    "connect_without_audio": "Use without audio",
     "error": {
       "title": "连接失败",
       "reason": {

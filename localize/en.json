@@ -6,6 +6,7 @@
     "microphone": "Microphone",
     "headphones": "Please use \uD83C\uDFA7. Thank you.",
     "connect": "Connect",
+    "connect_without_audio": "Use without audio",
     "error": {
       "title": "Failed to connect",
       "reason": {
