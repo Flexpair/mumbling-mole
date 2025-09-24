@@ -28,6 +28,10 @@ coverage/
 .grunt/
 .eslintcache
 *.tsbuildinfo
+# Playwright test results
+test-results/
+playwright-report/
+playwright/.cache/
 
 # ============================================================
 # Node.js Dependencies
