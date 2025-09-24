@@ -9,9 +9,9 @@
     "audit:ci": "node scripts/audit-ci.cjs",
     "audit:baseline": "node scripts/audit-ci.cjs --write-baseline",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then rm -rf dist && mkdir -p dist && npm run build; fi",
-  "test:e2e": "node scripts/e2e-check.cjs",
-  "test:playwright": "npx playwright test",
-  "test": "npm run test:e2e && npm run audit:ci",
+    "test:e2e": "node scripts/e2e-check.cjs",
+    "test:playwright": "npx playwright test",
+    "test": "npm run test:e2e && npm run audit:ci",
     "check:deps": "npx depcheck --config .depcheckrc",
     "analyze": "npx webpack --config webpack.analyze.config.js --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
   },
