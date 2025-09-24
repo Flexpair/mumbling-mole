@@ -2,10 +2,10 @@
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "url";
 import MumbleClient from "mumble-client";
-import WorkerBasedMumbleConnector from "./worker-client";
+import WorkerBasedMumbleConnector from "./worker-client.js";
 import BufferQueueNode from "web-audio-buffer-queue";
 import getAudioContext from "audio-context";
-import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
+import audioContextManager, { ensureAudioContext } from "./audio-context-manager.js";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 
@@ -14,12 +14,12 @@ import {
   PushToTalkVoiceHandler,
   initVoice,
   enumMicrophones,
-} from "./voice";
+} from "./voice.js";
 import {
   initialize as localizationInitialize,
   translateEverything,
   translate,
-} from "./localize";
+} from "./localize.js";
 
 function GuacamoleFrame() {
   var self = this;
@@ -121,66 +121,39 @@ class ConnectionInfo {
     this.codec = ko.observable();
 
     this.show = () => {
-      // Prevent opening connection info if another modal is already open
-      if (this._ui.currentOpenModal() !== null) {
-        return;
-      }
       this.update();
       this.visible(true);
-      this._ui.currentOpenModal('connectionInfo');
     };
-    this.hide = () => {
-      this.visible(false);
-      // Clear the modal state when connection info dialog is closed
-      if (this._ui.currentOpenModal() === 'connectionInfo') {
-        this._ui.currentOpenModal(null);
-      }
-    };
+    this.hide = () => this.visible(false);
   }
 
   update() {
     let client = this._ui.client;
 
-    if (client) {
-      this.serverVersion(client.serverVersion);
+    this.serverVersion(client.serverVersion);
 
-      let dataStats = client.dataStats;
-      if (dataStats) {
-        this.latencyMs(dataStats.mean);
-        this.latencyDeviation(Math.sqrt(dataStats.variance));
-      }
-    } else {
-      // Handle case when not connected to server
-      this.serverVersion(null);
-      this.latencyMs(NaN);
-      this.latencyDeviation(NaN);
+    let dataStats = client.dataStats;
+    if (dataStats) {
+      this.latencyMs(dataStats.mean);
+      this.latencyDeviation(Math.sqrt(dataStats.variance));
     }
     this.remoteHost(this._ui.remoteHost());
     this.remotePort(this._ui.remotePort());
 
     let spp = this._ui.settings.samplesPerPacket;
-    if (client) {
-      let maxBitrate = client.getMaxBitrate(spp, false);
-      let maxBandwidth = client.maxBandwidth;
-      let actualBitrate = client.getActualBitrate(spp, false);
-      let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
-        actualBitrate,
-        spp,
-        false
-      );
-      this.maxBitrate(maxBitrate);
-      this.currentBitrate(actualBitrate);
-      this.maxBandwidth(maxBandwidth);
-      this.currentBandwidth(actualBandwidth);
-      this.codec("Opus"); // only one supported for sending
-    } else {
-      // Handle case when not connected to server
-      this.maxBitrate(NaN);
-      this.currentBitrate(NaN);
-      this.maxBandwidth(NaN);
-      this.currentBandwidth(NaN);
-      this.codec("Unknown");
-    }
+    let maxBitrate = client.getMaxBitrate(spp, false);
+    let maxBandwidth = client.maxBandwidth;
+    let actualBitrate = client.getActualBitrate(spp, false);
+    let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
+      actualBitrate,
+      spp,
+      false
+    );
+    this.maxBitrate(maxBitrate);
+    this.currentBitrate(actualBitrate);
+    this.maxBandwidth(maxBandwidth);
+    this.currentBandwidth(actualBandwidth);
+    this.codec("Opus"); // only one supported for sending
   }
 }
 
@@ -317,9 +290,6 @@ class GlobalBindings {
     this.guacamoleFrame = new GuacamoleFrame();
     this.connectionInfo = new ConnectionInfo(this);
     this.settingsDialog = ko.observable();
-    
-    // Modal management - track currently open modal to prevent multiple modals
-    this.currentOpenModal = ko.observable(null);
     this.remoteHost = ko.observable();
     this.remotePort = ko.observable();
     this.thisUser = ko.observable();
@@ -399,12 +369,7 @@ class GlobalBindings {
     };
 
     this.openSettings = () => {
-      // Prevent opening settings if another modal is already open
-      if (this.currentOpenModal() !== null) {
-        return;
-      }
       this.settingsDialog(new SettingsDialog(this.settings));
-      this.currentOpenModal('settings');
     };
 
     this.logoutUser = () => {
@@ -428,10 +393,6 @@ class GlobalBindings {
         this.settingsDialog().end();
       }
       this.settingsDialog(null);
-      // Clear the modal state when settings dialog is closed
-      if (this.currentOpenModal() === 'settings') {
-        this.currentOpenModal(null);
-      }
     };
 
     this.connect = async (

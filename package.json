@@ -12,7 +12,8 @@
     "test:e2e": "node scripts/e2e-check.cjs",
     "test": "npm run test:e2e && npm run audit:ci",
     "check:deps": "npx depcheck --config .depcheckrc",
-    "analyze": "npx webpack --config webpack.analyze.config.js --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
+    "build:dev": "webpack --config webpack.dev.config.cjs",
+    "analyze": "npx webpack --config webpack.analyze.config.cjs --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "repository": "Flexpair/mumbling-mole",
@@ -49,7 +50,7 @@
     "raw-loader": "4.0.2",
     "regexp-replace-loader": "1.0.1",
     "reuse-pool": "1.0.2",
-    "sass": "1.93.2",
+    "sass": "1.93.1",
     "sass-loader": "16.0.5",
     "stream-chunker": "1.2.8",
     "to-arraybuffer": "1.0.1",
@@ -59,6 +60,7 @@
     "webpack": "^5.101.3",
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^6.0.1",
+    "webpack-merge": "^6.0.1",
     "websocket-stream": "^5.5.2",
     "ws": "^8.18.3"
   },

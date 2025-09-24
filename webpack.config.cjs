@@ -64,12 +64,6 @@ module.exports = {
         test: /manifest\.json$|\.xml$/,
         use: [
           {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
             loader: "extract-loader",
           },
           {
@@ -92,14 +86,7 @@ module.exports = {
       },
       {
         test: /\.(svg|png|ico)$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-        ],
+        type: 'asset/resource',
       },
       {
         // Worker files are referenced via new Worker(new URL('./worker.js', import.meta.url))
@@ -117,6 +104,22 @@ module.exports = {
   target: "web",
   optimization: {
     minimize: true,
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+        common: {
+          name: 'common',
+          minChunks: 2,
+          chunks: 'all',
+          enforce: true,
+        },
+      },
+    },
   },
   resolve: {
     // Explicit fallbacks ensure consistent behavior regardless of node-polyfill-webpack-plugin

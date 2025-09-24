@@ -1,7 +1,7 @@
 const path = require("path");
 
 // Create webpack config with detailed stats for bundle analysis
-const config = require("./webpack.config.js");
+const config = require("./webpack.config.cjs");
 
 // Override stats for bundle analysis
 config.stats = {

@@ -4,7 +4,6 @@
 dist/
 build/
 lib-cov/
-analyze-stats.json
 
 # ============================================================
 # Logs & Runtime
@@ -33,7 +32,6 @@ coverage/
 # Node.js Dependencies
 # ============================================================
 node_modules/
-vendors/*/node_modules/
 jspm_packages/
 # npm cache (lokal, nicht committen)
 .npm/
@@ -45,7 +43,8 @@ jspm_packages/
 # ============================================================
 # VS Code / Devcontainers
 # ============================================================
-.vscode/
+.vscode/launch.json
+.vscode/tasks.json
 .vscode-server/
 .vscode-remote/
 .devcontainer/*Marker
@@ -64,3 +63,4 @@ Thumbs.db
 *.swo
 .bash_history
 .docker
+

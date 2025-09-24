@@ -3,6 +3,7 @@
 > A modern, browser-first Mumble voice chat client with no native dependencies
 
 [![Node.js Version](https://img.shields.io/badge/node-%E2%89%A522.0.0-brightgreen)](https://nodejs.org/)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
 Mumbling Mole brings Mumble voice communication to any modern web browser without requiring native client installation. Built on the upstream `mumble-web` project, it features a reproducible build pipeline, vendor isolation, and tooling optimized for Flexpair deployments.
 
@@ -242,7 +243,7 @@ mumbling-mole/
 
 - [Architecture Details](CLAUDE.md) – In-depth technical documentation
 - [Copilot Instructions](.github/copilot-instructions.md) – AI assistant context
-- [Webpack Config](webpack.config.js) – Build configuration
+- [Webpack Config](webpack.config.cjs) – Build configuration
 
 ## 🔐 Security
 
@@ -253,9 +254,7 @@ mumbling-mole/
 
 ## 📄 License
 
-The upstream mumble-web project is licensed under the ISC License - see [upstream/LICENSE](upstream/LICENSE) for details.
-
-The licensing for modifications in this fork is pending.
+This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
