@@ -50,18 +50,18 @@
   "audio": {
     "sample_rate": {
       "warning": {
-        "title": "Audio hardware mismatch",
-        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
-        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
-        "accept": "Join without audio",
-        "cancel": "Cancel",
-        "close": "Close",
-        "unknown_rate": "unknown",
-        "hints_title": "How to switch your device to 48 kHz",
+        "title": "Audio-Hardware stimmt nicht überein",
+        "body": "Die Abtastrate deines Audiogeräts (%1 Hz) entspricht nicht den erforderlichen 48000 Hz. Du kannst trotzdem ohne Audio beitreten, aber Mikrofon und Lautsprecher bleiben stumm.",
+        "info": "Audio ist deaktiviert, weil die Abtastrate deines Audiogeräts (%1 Hz) nicht den erforderlichen 48000 Hz entspricht.",
+        "accept": "Ohne Audio beitreten",
+        "cancel": "Abbrechen",
+        "close": "Schließen",
+        "unknown_rate": "unbekannt",
+        "hints_title": "So stellst du dein Gerät auf 48 kHz um",
         "hints": {
-          "item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
-          "item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
-          "item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
+          "item1": "Windows: Rechtsklick auf das Lautsprechersymbol → Toneinstellungen → Weitere Soundeinstellungen → Gerät auswählen → Erweitert → Standardformat auf 48.000 Hz setzen.",
+          "item2": "macOS: Programme › Dienstprogramme › Audio-MIDI-Setup öffnen → Gerät auswählen → Format auf 48.000 Hz stellen.",
+          "item3": "Linux: PulseAudio-Lautstärkeregelung (pavucontrol) oder Systemeinstellungen öffnen, ein 48-kHz-Profil wählen und anschließend neu verbinden."
         }
       }
     }

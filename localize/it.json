@@ -49,18 +49,18 @@
   "audio": {
     "sample_rate": {
       "warning": {
-        "title": "Audio hardware mismatch",
-        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
-        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
-        "accept": "Join without audio",
-        "cancel": "Cancel",
-        "close": "Close",
-        "unknown_rate": "unknown",
-        "hints_title": "How to switch your device to 48 kHz",
+        "title": "Incompatibilità dell'hardware audio",
+        "body": "La frequenza di campionamento del tuo dispositivo audio (%1 Hz) non corrisponde ai 48000 Hz richiesti. Puoi comunque partecipare senza audio, ma microfono e altoparlanti resteranno disattivati.",
+        "info": "L'audio è disattivato perché la frequenza di campionamento del tuo dispositivo audio (%1 Hz) non corrisponde ai 48000 Hz richiesti.",
+        "accept": "Partecipa senza audio",
+        "cancel": "Annulla",
+        "close": "Chiudi",
+        "unknown_rate": "sconosciuta",
+        "hints_title": "Come impostare il dispositivo su 48 kHz",
         "hints": {
-          "item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
-          "item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
-          "item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
+          "item1": "Windows: fai clic destro sull'icona dell'altoparlante → Impostazioni audio → Altre impostazioni audio → seleziona il dispositivo → Avanzate → imposta il formato predefinito su 48.000 Hz.",
+          "item2": "macOS: apri Applicazioni › Utility › Configurazione Audio MIDI → seleziona il dispositivo → imposta Formato su 48.000 Hz.",
+          "item3": "Linux: usa PulseAudio Volume Control (pavucontrol) o le impostazioni audio di sistema per scegliere un profilo a 48 kHz e poi riconnettiti."
         }
       }
     }

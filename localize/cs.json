@@ -49,18 +49,18 @@
   "audio": {
     "sample_rate": {
       "warning": {
-        "title": "Audio hardware mismatch",
-        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
-        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
-        "accept": "Join without audio",
-        "cancel": "Cancel",
-        "close": "Close",
-        "unknown_rate": "unknown",
-        "hints_title": "How to switch your device to 48 kHz",
+        "title": "Nesoulad zvukového zařízení",
+        "body": "Vzorkovací frekvence vašeho zvukového zařízení (%1 Hz) neodpovídá požadovaným 48000 Hz. Můžete se připojit bez audia, ale mikrofon i reproduktory zůstanou ztlumené.",
+        "info": "Zvuk je vypnutý, protože vzorkovací frekvence vašeho zvukového zařízení (%1 Hz) neodpovídá požadovaným 48000 Hz.",
+        "accept": "Připojit se bez audia",
+        "cancel": "Zrušit",
+        "close": "Zavřít",
+        "unknown_rate": "neznámá",
+        "hints_title": "Jak přepnout zařízení na 48 kHz",
         "hints": {
-          "item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
-          "item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
-          "item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
+          "item1": "Windows: Klikněte pravým tlačítkem na ikonu reproduktoru → Nastavení zvuku → Další nastavení zvuku → vyberte své zařízení → Upřesnit → nastavte Výchozí formát na 48 000 Hz.",
+          "item2": "macOS: Otevřete Aplikace › Nástroje › Nastavení zvuku MIDI → vyberte zařízení → nastavte Formát na 48 000 Hz.",
+          "item3": "Linux: Použijte PulseAudio Volume Control (pavucontrol) nebo systémová nastavení zvuku, zvolte profil 48 kHz a znovu se připojte."
         }
       }
     }

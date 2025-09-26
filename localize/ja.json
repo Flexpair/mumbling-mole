@@ -49,18 +49,18 @@
   "audio": {
     "sample_rate": {
       "warning": {
-        "title": "Audio hardware mismatch",
-        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
-        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
-        "accept": "Join without audio",
-        "cancel": "Cancel",
-        "close": "Close",
-        "unknown_rate": "unknown",
-        "hints_title": "How to switch your device to 48 kHz",
+        "title": "オーディオハードウェアの不一致",
+        "body": "お使いのオーディオデバイスのサンプリングレート（%1 Hz）が必要な 48,000 Hz と一致していません。音声なしで参加することはできますが、マイクとスピーカーはミュートのままになります。",
+        "info": "お使いのオーディオデバイスのサンプリングレート（%1 Hz）が必要な 48,000 Hz と一致していないため、音声は無効になっています。",
+        "accept": "音声なしで参加",
+        "cancel": "キャンセル",
+        "close": "閉じる",
+        "unknown_rate": "不明",
+        "hints_title": "デバイスを 48 kHz に切り替える方法",
         "hints": {
-          "item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
-          "item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
-          "item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
+          "item1": "Windows：スピーカーアイコンを右クリック → サウンド設定 → その他のサウンド設定 → デバイスを選択 → 詳細 → 既定の形式を 48,000 Hz に設定します。",
+          "item2": "macOS：アプリケーション › ユーティリティ › Audio MIDI 設定を開く → デバイスを選択 → フォーマットを 48,000 Hz に設定します。",
+          "item3": "Linux：PulseAudio Volume Control（pavucontrol）やシステムのサウンド設定で 48 kHz のプロファイルを選択し、再接続してください。"
         }
       }
     }

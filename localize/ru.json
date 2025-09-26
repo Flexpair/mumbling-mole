@@ -49,18 +49,18 @@
   "audio": {
     "sample_rate": {
       "warning": {
-        "title": "Audio hardware mismatch",
-        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
-        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
-        "accept": "Join without audio",
-        "cancel": "Cancel",
-        "close": "Close",
-        "unknown_rate": "unknown",
-        "hints_title": "How to switch your device to 48 kHz",
+        "title": "Несоответствие аудиооборудования",
+        "body": "Частота дискретизации вашего аудиоустройства (%1 Гц) не совпадает с требуемыми 48 000 Гц. Вы можете присоединиться без звука, но микрофон и динамики останутся отключёнными.",
+        "info": "Звук отключён, потому что частота дискретизации вашего аудиоустройства (%1 Гц) не совпадает с требуемыми 48 000 Гц.",
+        "accept": "Присоединиться без звука",
+        "cancel": "Отмена",
+        "close": "Закрыть",
+        "unknown_rate": "неизвестно",
+        "hints_title": "Как переключить устройство на 48 кГц",
         "hints": {
-          "item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
-          "item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
-          "item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
+          "item1": "Windows: нажмите правой кнопкой по значку динамика → Параметры звука → Дополнительные параметры звука → выберите устройство → Дополнительно → установите значение 48 000 Гц.",
+          "item2": "macOS: откройте Приложения › Утилиты › Аудио MIDI настройка → выберите устройство → установите Формат на 48 000 Гц.",
+          "item3": "Linux: используйте PulseAudio Volume Control (pavucontrol) или системные настройки звука, выберите профиль 48 кГц и подключитесь заново."
         }
       }
     }
