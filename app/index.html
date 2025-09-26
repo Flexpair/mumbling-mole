@@ -232,6 +232,14 @@
         <div class="dialog-header" data-bind="text: title"></div>
         <div class="dialog-body">
           <p data-bind="text: description"></p>
+          <!-- ko if: hints().length -->
+          <div class="sample-rate-hints">
+            <div class="sample-rate-hints__title" data-bind="text: hintsTitle"></div>
+            <ul data-bind="foreach: hints">
+              <li data-bind="text: $data"></li>
+            </ul>
+          </div>
+          <!-- /ko -->
         </div>
         <div class="dialog-footer">
           <input
@@ -487,6 +495,7 @@
         <div class="mic-permission-content">
           <span class="mic-icon">🎤</span>
           <span>Microphone access denied</span>
+          <p class="mic-permission-message" data-bind="visible: micPermissionErrorMessage, text: micPermissionErrorMessage"></p>
           <button data-bind="click: retryMicrophonePermission" class="mic-permission-button">
             Allow Microphone
           </button>

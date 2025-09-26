@@ -160,6 +160,23 @@ form {
 .connect-dialog .dialog-close {
   opacity: 0;
 }
+.sample-rate-hints {
+  margin-top: 10px;
+
+  &__title {
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    li {
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+  }
+}
 .dialog {
   position: absolute;
   max-height: calc(100% - 20px);
@@ -245,6 +262,11 @@ select {
     }
 
     .mic-permission-button {
+    .mic-permission-message {
+      margin: 4px 0 0;
+      font-size: 13px;
+      max-width: 240px;
+    }
       background-color: #fff;
       border: 1px solid #333;
       border-radius: 4px;

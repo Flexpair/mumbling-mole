@@ -135,6 +135,17 @@ function SampleRateWarningDialog(ui) {
       : "audio.sample_rate.warning.close";
     return translate(key);
   });
+  self.hintsTitle = ko.pureComputed(() => translate("audio.sample_rate.warning.hints_title"));
+  self.hints = ko.pureComputed(() => {
+    const hintKeys = [
+      "audio.sample_rate.warning.hints.item1",
+      "audio.sample_rate.warning.hints.item2",
+      "audio.sample_rate.warning.hints.item3"
+    ];
+    return hintKeys
+      .map((key) => translate(key))
+      .filter((text) => text && !/^\{\{.*\}\}$/.test(text));
+  });
 
   self.show = (sampleRate, params) => {
     if (ui.currentOpenModal() !== null) {
@@ -374,7 +385,11 @@ class GlobalBindings {
     this.client = null;
     
     // Add microphone permission state observable
-    this.micPermissionDenied = ko.observable(false);
+  this.micPermissionDenied = ko.observable(false);
+  this.micPermissionErrorMessage = ko.observable("");
+    this.micPermissionRetryCount = 0;
+    this.maxMicPermissionRetryCount = 3;
+    this.micPermissionRetryDelayMs = 1000;
     
     // Use netlify-identity-widget from global scope (loaded via script tag)
     if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
@@ -463,22 +478,53 @@ class GlobalBindings {
     this.selfDeaf = ko.observable();
     
     // Add method to retry microphone permission
-    this.retryMicrophonePermission = () => {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => {
-            this.micPermissionDenied(false);
-            stream.getTracks().forEach(track => track.stop());
-            // Reinitialize voice if needed
-            if (this.client && !voiceHandler) {
-              this._updateVoiceHandler();
-            }
-          })
-          .catch(err => {
-            console.error('Microphone permission denied on retry:', err);
-            alert('Microphone access is required for voice communication. Please check your browser settings.');
-          });
+    this._attemptMicrophonePermission = () => {
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+        return;
       }
+
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          this.micPermissionRetryCount = 0;
+          this.micPermissionDenied(false);
+          this.micPermissionErrorMessage("");
+          stream.getTracks().forEach((track) => track.stop());
+          // Reinitialize voice if needed
+          if (this.client && !voiceHandler) {
+            this._updateVoiceHandler();
+          }
+        })
+        .catch((err) => {
+          console.error("Microphone permission denied on retry:", err);
+          this.micPermissionRetryCount += 1;
+          const isPermissionBlocked =
+            err &&
+            (err.name === "NotAllowedError" ||
+              err.name === "SecurityError" ||
+              (typeof err.message === "string" &&
+                err.message.toLowerCase().includes("denied")));
+
+          if (isPermissionBlocked) {
+            this.micPermissionErrorMessage(
+              "Microphone access is blocked by the browser. Please allow it in the address bar or system settings, then try again."
+            );
+          }
+
+          if (this.micPermissionRetryCount >= this.maxMicPermissionRetryCount) {
+            return;
+          }
+          if (isPermissionBlocked) {
+            return;
+          }
+          setTimeout(() => this._attemptMicrophonePermission(), this.micPermissionRetryDelayMs);
+        });
+    };
+
+    this.retryMicrophonePermission = () => {
+      this.micPermissionRetryCount = 0;
+      this.micPermissionErrorMessage("");
+      this._attemptMicrophonePermission();
     };
     
     // Define initializeAudioContext method before using it
