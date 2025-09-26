@@ -105,6 +105,95 @@ function ConnectErrorDialog(connectDialog) {
   };
 }
 
+function SampleRateWarningDialog(ui) {
+  var self = this;
+  self.visible = ko.observable(false);
+  self.mode = ko.observable("confirm");
+  self.sampleRate = ko.observable(null);
+  self.pendingConnection = null;
+
+  const formatSampleRate = (value) => {
+    if (typeof value === "number" && !Number.isNaN(value) && value > 0) {
+      return Math.round(value);
+    }
+    return translate("audio.sample_rate.warning.unknown_rate");
+  };
+
+  self.title = ko.pureComputed(() => translate("audio.sample_rate.warning.title"));
+  self.isConfirm = ko.pureComputed(() => self.mode() === "confirm");
+  self.description = ko.pureComputed(() => {
+    const key = self.isConfirm()
+      ? "audio.sample_rate.warning.body"
+      : "audio.sample_rate.warning.info";
+    const template = translate(key);
+    return template.replace("%1", formatSampleRate(self.sampleRate()));
+  });
+  self.primaryLabel = ko.pureComputed(() => translate("audio.sample_rate.warning.accept"));
+  self.secondaryLabel = ko.pureComputed(() => {
+    const key = self.isConfirm()
+      ? "audio.sample_rate.warning.cancel"
+      : "audio.sample_rate.warning.close";
+    return translate(key);
+  });
+  self.hintsTitle = ko.pureComputed(() => translate("audio.sample_rate.warning.hints_title"));
+  self.hints = ko.pureComputed(() => {
+    const hintKeys = [
+      "audio.sample_rate.warning.hints.item1",
+      "audio.sample_rate.warning.hints.item2",
+      "audio.sample_rate.warning.hints.item3"
+    ];
+    return hintKeys
+      .map((key) => translate(key))
+      .filter((text) => text && !/^\{\{.*\}\}$/.test(text));
+  });
+
+  self.show = (sampleRate, params) => {
+    if (ui.currentOpenModal() !== null) {
+      return;
+    }
+    self.mode("confirm");
+    self.sampleRate(sampleRate || null);
+    self.pendingConnection = params || null;
+    self.visible(true);
+    ui.currentOpenModal('sampleRateWarning');
+  };
+
+  self.showInfo = (sampleRate) => {
+    if (ui.currentOpenModal() !== null) {
+      return;
+    }
+    self.mode("info");
+    self.sampleRate(sampleRate || null);
+    self.pendingConnection = null;
+    self.visible(true);
+    ui.currentOpenModal('sampleRateWarning');
+  };
+
+  self.hide = () => {
+    self.visible(false);
+    if (ui.currentOpenModal() === 'sampleRateWarning') {
+      ui.currentOpenModal(null);
+    }
+    self.pendingConnection = null;
+  };
+
+  self.joinWithoutAudio = () => {
+    const params = self.pendingConnection;
+    const sampleRate = self.sampleRate();
+    self.hide();
+    if (params) {
+      ui._performConnect(params, {
+        audioEnabled: false,
+        sampleRate,
+      });
+    }
+  };
+
+  self.cancel = () => {
+    self.hide();
+  };
+}
+
 class ConnectionInfo {
   constructor(ui) {
     this._ui = ui;
@@ -296,7 +385,11 @@ class GlobalBindings {
     this.client = null;
     
     // Add microphone permission state observable
-    this.micPermissionDenied = ko.observable(false);
+  this.micPermissionDenied = ko.observable(false);
+  this.micPermissionErrorMessage = ko.observable("");
+    this.micPermissionRetryCount = 0;
+    this.maxMicPermissionRetryCount = 3;
+    this.micPermissionRetryDelayMs = 1000;
     
     // Use netlify-identity-widget from global scope (loaded via script tag)
     if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
@@ -314,9 +407,64 @@ class GlobalBindings {
     }
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
+    this.sampleRateWarningDialog = new SampleRateWarningDialog(this);
     this.guacamoleFrame = new GuacamoleFrame();
     this.connectionInfo = new ConnectionInfo(this);
     this.settingsDialog = ko.observable();
+
+    this.audioLockActive = ko.observable(false);
+    this.audioLockReason = ko.observable(null);
+    this.audioLockDetails = ko.observable(null);
+
+    this._activateAudioLock = (reason, details = {}) => {
+      this.audioLockReason(reason);
+      this.audioLockDetails(details);
+      this.audioLockActive(true);
+      this.selfMute(true);
+      this.selfDeaf(true);
+      if (voiceHandler) {
+        voiceHandler.setMute(true);
+      }
+    };
+
+    this._clearAudioLock = ({ resetStates = false } = {}) => {
+      if (resetStates && this.audioLockActive()) {
+        this.selfMute(false);
+        this.selfDeaf(false);
+      }
+      this.audioLockActive(false);
+      this.audioLockReason(null);
+      this.audioLockDetails(null);
+    };
+
+    this.notifyAudioLock = () => {
+      const details = this.audioLockDetails() || {};
+      const sr =
+        details.sampleRate !== undefined
+          ? details.sampleRate
+          : this.audioContext && this.audioContext.sampleRate;
+      this.sampleRateWarningDialog.showInfo(sr);
+    };
+
+    this.handleUnmuteClick = () => {
+      if (this.audioLockActive()) {
+        this.notifyAudioLock();
+        return;
+      }
+      if (this.thisUser()) {
+        this.requestUnmute(this.thisUser());
+      }
+    };
+
+    this.handleUndeafClick = () => {
+      if (this.audioLockActive()) {
+        this.notifyAudioLock();
+        return;
+      }
+      if (this.thisUser()) {
+        this.requestUndeaf(this.thisUser());
+      }
+    };
     
     // Modal management - track currently open modal to prevent multiple modals
     this.currentOpenModal = ko.observable(null);
@@ -330,22 +478,53 @@ class GlobalBindings {
     this.selfDeaf = ko.observable();
     
     // Add method to retry microphone permission
-    this.retryMicrophonePermission = () => {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => {
-            this.micPermissionDenied(false);
-            stream.getTracks().forEach(track => track.stop());
-            // Reinitialize voice if needed
-            if (this.client && !voiceHandler) {
-              this._updateVoiceHandler();
-            }
-          })
-          .catch(err => {
-            console.error('Microphone permission denied on retry:', err);
-            alert('Microphone access is required for voice communication. Please check your browser settings.');
-          });
+    this._attemptMicrophonePermission = () => {
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+        return;
       }
+
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          this.micPermissionRetryCount = 0;
+          this.micPermissionDenied(false);
+          this.micPermissionErrorMessage("");
+          stream.getTracks().forEach((track) => track.stop());
+          // Reinitialize voice if needed
+          if (this.client && !voiceHandler) {
+            this._updateVoiceHandler();
+          }
+        })
+        .catch((err) => {
+          console.error("Microphone permission denied on retry:", err);
+          this.micPermissionRetryCount += 1;
+          const isPermissionBlocked =
+            err &&
+            (err.name === "NotAllowedError" ||
+              err.name === "SecurityError" ||
+              (typeof err.message === "string" &&
+                err.message.toLowerCase().includes("denied")));
+
+          if (isPermissionBlocked) {
+            this.micPermissionErrorMessage(
+              "Microphone access is blocked by the browser. Please allow it in the address bar or system settings, then try again."
+            );
+          }
+
+          if (this.micPermissionRetryCount >= this.maxMicPermissionRetryCount) {
+            return;
+          }
+          if (isPermissionBlocked) {
+            return;
+          }
+          setTimeout(() => this._attemptMicrophonePermission(), this.micPermissionRetryDelayMs);
+        });
+    };
+
+    this.retryMicrophonePermission = () => {
+      this.micPermissionRetryCount = 0;
+      this.micPermissionErrorMessage("");
+      this._attemptMicrophonePermission();
     };
     
     // Define initializeAudioContext method before using it
@@ -442,159 +621,198 @@ class GlobalBindings {
       tokens = [],
       channelName = ""
     ) => {
-      var user_roles = (this.netlifyIdentity.currentUser().app_metadata.roles) || [];
-      if (Array.isArray(user_roles)) {
-        // Add "watch" and "listen" roles if they are not already present
-        if (!user_roles.includes("watch")) user_roles.push("watch");
-        if (!user_roles.includes("listen")) user_roles.push("listen");
-        this.netlifyIdentity.currentUser().app_metadata.roles = user_roles
-        
-        // Request microphone permission and show overlay only if denied
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-              // Hide overlay if it was shown
-              this.micPermissionDenied(false);
-              // Stop the stream immediately as we just needed the permission
-              stream.getTracks().forEach(track => track.stop());
-            })
-            .catch(err => {
-              console.warn('Microphone permission denied, showing retry option:', err);
-              // Show the overlay at bottom-left to allow retry
-              this.micPermissionDenied(true);
-            });
-        }
-        
-        // Ensure AudioContext is ready and has proper sample rate
-        if (!this.audioContext) {
-          await this.initializeAudioContext();
-        }
-        
-        if (this.audioContext && this.audioContext.sampleRate == 48000) {
-          initVoice(
-            (data) => {
-              if (!ui.client) {
-                if (voiceHandler) {
-                  voiceHandler.end();
-                }
-                voiceHandler = null;
-              } else if (voiceHandler) {
-                voiceHandler.write(data);
-              }
-            },
-            (err) => {
-              log(translate("logentry.mic_init_error"), err);
-            }
-          );
-
-          this.resetClient();
-
-          this.remoteHost(host);
-          this.remotePort(port);
-
-          log(translate("logentry.connecting"), host);
-
-          // Ensure AudioContext is ready before connecting
-          try {
-            if (this.audioContext && this.audioContext.state === 'suspended') {
-              await this.audioContext.resume();
-              console.log('AudioContext resumed for connection');
-            } else if (!this.audioContext) {
-              await this.initializeAudioContext();
-            }
-          } catch (error) {
-            console.warn('AudioContext resume failed, continuing anyway:', error);
-          }
-
-          try {
-            const client = await this.connector
-              .connect(`wss://${host}:${port}`, {
-                username: username,
-                password: password,
-                tokens: tokens,
-              });
-                var user_roles = (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
-                let guac_login = false;
-                if (user_roles.includes("admin")) {
-                  guac_login = "admin";
-                } else if (user_roles.includes("edit")) {
-                  guac_login = "editor";
-                } else if (user_roles.includes("watch")) {
-                  guac_login = "watcher";
-                }
-                if (guac_login) {
-                  this.guacamoleFrame.start(
-                    guac_login,
-                    this.connectDialog.password()
-                  );
-                  this.guacamoleFrame.show();
-                } else {
-                  alert("For visual access please ask your administrator.");
-                }
-                log(translate("logentry.connected"));
-
-                this.client = client;
-                // Prepare for connection errors
-                client.on("error", (err) => {
-                  log(translate("logentry.connection_error"), err);
-                  this.resetClient();
-                });
-
-                // Register all channels, recursively
-                if (channelName.indexOf("/") != 0) {
-                  channelName = "/" + channelName;
-                }
-                const registerChannel = (channel, channelPath) => {
-                  this._newChannel(channel);
-                  if (channelPath === channelName) {
-                    client.self.setChannel(channel);
-                  }
-                  channel.children.forEach((ch) =>
-                    registerChannel(ch, channelPath + "/" + ch.name)
-                  );
-                };
-                registerChannel(client.root, "");
-
-                // Register all users
-                client.users.forEach((user) => this._newUser(user));
-
-                // Register future channels
-                client.on("newChannel", (channel) => this._newChannel(channel));
-                // Register future users
-                client.on("newUser", (user) => this._newUser(user));
-
-                // Set own user and root channel
-                this.thisUser(client.self.__ui);
-                this.root(client.root.__ui);
-                // Upate linked channels
-                this._updateLinks();
-
-                // Startup audio input processing
-                this._updateVoiceHandler();
-                // Tell server our mute/deaf state (if necessary)
-                if (this.selfDeaf()) {
-                  this.client.setSelfDeaf(true);
-                } else if (this.selfMute()) {
-                  this.client.setSelfMute(true);
-                }
-          } catch (err) {
-            if (err.$type && err.$type.name === "Reject") {
-              this.connectErrorDialog.type(err.type);
-              this.connectErrorDialog.reason(err.reason);
-              this.connectErrorDialog.show();
-            } else {
-              log(translate("logentry.connection_error"), err);
-            }
-          }
-        } else {
-          alert(
-            "Please set the sample rate of your audio devices to 48 kHz on system level in order to proceed."
-          );
-        }
-      } else {
+      const identity = this.netlifyIdentity.currentUser();
+      if (!identity || !identity.app_metadata) {
         alert(
           "You do not have permission to connect to the server. Please contact the administrator."
         );
+        return;
+      }
+
+      var user_roles = identity.app_metadata.roles || [];
+      if (!Array.isArray(user_roles)) {
+        user_roles = [];
+      }
+
+      // Ensure roles contain defaults
+      if (!user_roles.includes("watch")) user_roles.push("watch");
+      if (!user_roles.includes("listen")) user_roles.push("listen");
+      identity.app_metadata.roles = user_roles;
+
+      // Prepare AudioContext information before prompting for permissions
+      if (!this.audioContext) {
+        await this.initializeAudioContext();
+      }
+      const currentSampleRate = this.audioContext
+        ? this.audioContext.sampleRate
+        : null;
+      const audioCompatible = currentSampleRate === 48000;
+      const connectionParams = {
+        host,
+        port,
+        username,
+        password,
+        tokens,
+        channelName,
+      };
+
+      if (!audioCompatible) {
+        this.sampleRateWarningDialog.show(currentSampleRate, connectionParams);
+        return;
+      }
+
+      // Request microphone permission and show overlay only if denied
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            this.micPermissionDenied(false);
+            stream.getTracks().forEach((track) => track.stop());
+          })
+          .catch((err) => {
+            console.warn(
+              "Microphone permission denied, showing retry option:",
+              err
+            );
+            this.micPermissionDenied(true);
+          });
+      }
+
+      this._clearAudioLock({ resetStates: true });
+      await this._performConnect(connectionParams, { audioEnabled: true });
+    };
+
+    this._performConnect = async (
+      connectionParams,
+      { audioEnabled = true, sampleRate = null } = {}
+    ) => {
+      const {
+        host,
+        port,
+        username,
+        password,
+        tokens = [],
+        channelName: targetChannel = "",
+      } = connectionParams;
+
+      let channelName = targetChannel;
+
+      if (audioEnabled) {
+        initVoice(
+          (data) => {
+            if (!ui.client) {
+              if (voiceHandler) {
+                voiceHandler.end();
+              }
+              voiceHandler = null;
+            } else if (voiceHandler) {
+              voiceHandler.write(data);
+            }
+          },
+          (err) => {
+            log(translate("logentry.mic_init_error"), err);
+          }
+        );
+      } else {
+        this._activateAudioLock("sample-rate", { sampleRate });
+        if (voiceHandler) {
+          voiceHandler.end();
+          voiceHandler = null;
+        }
+      }
+
+      this.resetClient();
+
+      this.remoteHost(host);
+      this.remotePort(port);
+
+      log(translate("logentry.connecting"), host);
+
+      try {
+        if (this.audioContext && this.audioContext.state === "suspended") {
+          await this.audioContext.resume();
+          console.log("AudioContext resumed for connection");
+        } else if (!this.audioContext) {
+          await this.initializeAudioContext();
+        }
+      } catch (error) {
+        console.warn("AudioContext resume failed, continuing anyway:", error);
+      }
+
+      try {
+        const client = await this.connector.connect(`wss://${host}:${port}`, {
+          username: username,
+          password: password,
+          tokens: tokens,
+        });
+        var user_roles =
+          (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
+        let guac_login = false;
+        if (user_roles.includes("admin")) {
+          guac_login = "admin";
+        } else if (user_roles.includes("edit")) {
+          guac_login = "editor";
+        } else if (user_roles.includes("watch")) {
+          guac_login = "watcher";
+        }
+        if (guac_login) {
+          this.guacamoleFrame.start(
+            guac_login,
+            this.connectDialog.password()
+          );
+          this.guacamoleFrame.show();
+        } else {
+          alert("For visual access please ask your administrator.");
+        }
+        log(translate("logentry.connected"));
+
+        this.client = client;
+        client.on("error", (err) => {
+          log(translate("logentry.connection_error"), err);
+          this.resetClient();
+        });
+
+        if (channelName.indexOf("/") != 0) {
+          channelName = "/" + channelName;
+        }
+        const registerChannel = (channel, channelPath) => {
+          this._newChannel(channel);
+          if (channelPath === channelName) {
+            client.self.setChannel(channel);
+          }
+          channel.children.forEach((ch) =>
+            registerChannel(ch, channelPath + "/" + ch.name)
+          );
+        };
+        registerChannel(client.root, "");
+
+        client.users.forEach((user) => this._newUser(user));
+
+        client.on("newChannel", (channel) => this._newChannel(channel));
+        client.on("newUser", (user) => this._newUser(user));
+
+        this.thisUser(client.self.__ui);
+        this.root(client.root.__ui);
+        this._updateLinks();
+
+        this._updateVoiceHandler();
+
+        if (this.audioLockActive()) {
+          this.client.setSelfMute(true);
+          this.client.setSelfDeaf(true);
+        } else if (this.selfDeaf()) {
+          this.client.setSelfDeaf(true);
+        } else if (this.selfMute()) {
+          this.client.setSelfMute(true);
+        }
+      } catch (err) {
+        if (err.$type && err.$type.name === "Reject") {
+          this.connectErrorDialog.type(err.type);
+          this.connectErrorDialog.reason(err.reason);
+          this.connectErrorDialog.show();
+        } else {
+          log(translate("logentry.connection_error"), err);
+        }
       }
     };
 
@@ -781,7 +999,7 @@ class GlobalBindings {
           this.thisUser().talking("off");
         }
       });
-      if (this.selfMute()) {
+      if (this.audioLockActive() || this.selfMute()) {
         voiceHandler.setMute(true);
       }
 
@@ -861,6 +1079,10 @@ class GlobalBindings {
     };
 
     this.requestUnmute = (user) => {
+      if (this.audioLockActive()) {
+        this.notifyAudioLock();
+        return;
+      }
       if (user !== this.thisUser()) return;
       this.selfMute(false);
       this.selfDeaf(false);
@@ -870,6 +1092,10 @@ class GlobalBindings {
     };
 
     this.requestUndeaf = (user) => {
+      if (this.audioLockActive()) {
+        this.notifyAudioLock();
+        return;
+      }
       if (user !== this.thisUser()) return;
       this.selfDeaf(false);
       if (this.connected()) {

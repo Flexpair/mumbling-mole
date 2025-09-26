@@ -45,5 +45,24 @@
   "chat": {
     "channel_message_placeholder": "Typ hier een bericht voor iedereen...",
     "user_message_placeholder": "Typ hier een bericht aan gebruiker '%1'..."
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Audiohardware komt niet overeen",
+        "body": "De samplefrequentie van je audiapparaat (%1 Hz) komt niet overeen met de vereiste 48.000 Hz. Je kunt alsnog zonder audio deelnemen, maar je microfoon en luidsprekers blijven gedempt.",
+        "info": "Audio is uitgeschakeld omdat de samplefrequentie van je audiapparaat (%1 Hz) niet overeenkomt met de vereiste 48.000 Hz.",
+        "accept": "Deelnemen zonder audio",
+        "cancel": "Annuleren",
+        "close": "Sluiten",
+        "unknown_rate": "onbekend",
+        "hints_title": "Je apparaat naar 48 kHz schakelen",
+        "hints": {
+          "item1": "Windows: klik met de rechtermuisknop op het luidsprekerpictogram → Geluidsinstellingen → Meer geluidsinstellingen → selecteer je apparaat → Geavanceerd → stel Standaardformaat in op 48.000 Hz.",
+          "item2": "macOS: open Programma's › Hulpprogramma's › Audio/MIDI-configuratie → selecteer je apparaat → stel Formaat in op 48.000 Hz.",
+          "item3": "Linux: gebruik PulseAudio Volume Control (pavucontrol) of de systeemgeluidsinstellingen om een 48 kHz-profiel te kiezen en maak opnieuw verbinding."
+        }
+      }
+    }
   }
 }

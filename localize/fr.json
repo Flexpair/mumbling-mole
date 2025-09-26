@@ -45,5 +45,24 @@
   "chat": {
     "channel_message_placeholder": "Tapez un message à tout le monde ici...",
     "user_message_placeholder": "Tapez ici le message à l’utilisateur '%1'..."
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Incompatibilité du matériel audio",
+        "body": "La fréquence d'échantillonnage de votre périphérique audio (%1 Hz) n'est pas compatible avec les 48 000 Hz requis. Vous pouvez rejoindre sans audio, mais votre microphone et vos haut-parleurs resteront coupés.",
+        "info": "L'audio est désactivé car la fréquence d'échantillonnage de votre périphérique audio (%1 Hz) n'est pas compatible avec les 48 000 Hz requis.",
+        "accept": "Rejoindre sans audio",
+        "cancel": "Annuler",
+        "close": "Fermer",
+        "unknown_rate": "inconnue",
+        "hints_title": "Comment passer votre appareil en 48 kHz",
+        "hints": {
+          "item1": "Windows : cliquez droit sur l’icône du haut-parleur → Paramètres audio → Autres paramètres audio → sélectionnez votre périphérique → Avancé → définissez le format par défaut sur 48 000 Hz.",
+          "item2": "macOS : ouvrez Applications › Utilitaires › Configuration Audio et MIDI → sélectionnez votre périphérique → définissez le format sur 48 000 Hz.",
+          "item3": "Linux : utilisez PulseAudio Volume Control (pavucontrol) ou les paramètres audio du système pour choisir un profil 48 kHz, puis reconnectez-vous."
+        }
+      }
+    }
   }
 }

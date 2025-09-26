@@ -45,5 +45,24 @@
   "chat": {
     "channel_message_placeholder": "Sem napište zprávu všem...",
     "user_message_placeholder": "Sem napište zprávu uživateli '%1'..."
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Nesoulad zvukového zařízení",
+        "body": "Vzorkovací frekvence vašeho zvukového zařízení (%1 Hz) neodpovídá požadovaným 48000 Hz. Můžete se připojit bez audia, ale mikrofon i reproduktory zůstanou ztlumené.",
+        "info": "Zvuk je vypnutý, protože vzorkovací frekvence vašeho zvukového zařízení (%1 Hz) neodpovídá požadovaným 48000 Hz.",
+        "accept": "Připojit se bez audia",
+        "cancel": "Zrušit",
+        "close": "Zavřít",
+        "unknown_rate": "neznámá",
+        "hints_title": "Jak přepnout zařízení na 48 kHz",
+        "hints": {
+          "item1": "Windows: Klikněte pravým tlačítkem na ikonu reproduktoru → Nastavení zvuku → Další nastavení zvuku → vyberte své zařízení → Upřesnit → nastavte Výchozí formát na 48 000 Hz.",
+          "item2": "macOS: Otevřete Aplikace › Nástroje › Nastavení zvuku MIDI → vyberte zařízení → nastavte Formát na 48 000 Hz.",
+          "item3": "Linux: Použijte PulseAudio Volume Control (pavucontrol) nebo systémová nastavení zvuku, zvolte profil 48 kHz a znovu se připojte."
+        }
+      }
+    }
   }
 }
