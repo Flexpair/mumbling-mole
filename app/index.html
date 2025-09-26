@@ -224,6 +224,31 @@
         </form>
       </div>
       <!-- /ko -->
+      <!-- ko with: sampleRateWarningDialog -->
+      <div
+        class="connect-dialog sample-rate-dialog dialog"
+        data-bind="visible: visible()"
+      >
+        <div class="dialog-header" data-bind="text: title"></div>
+        <div class="dialog-body">
+          <p data-bind="text: description"></p>
+        </div>
+        <div class="dialog-footer">
+          <input
+            class="dialog-close"
+            type="button"
+            data-bind="click: cancel, value: secondaryLabel"
+          />
+          <!-- ko if: isConfirm -->
+          <input
+            class="dialog-submit"
+            type="button"
+            data-bind="click: joinWithoutAudio, value: primaryLabel"
+          />
+          <!-- /ko -->
+        </div>
+      </div>
+      <!-- /ko -->
       <!-- ko with: connectionInfo -->
       <div class="connection-info-dialog dialog" data-bind="visible: visible">
         <div id="connection-info_title" class="dialog-header">
@@ -383,7 +408,8 @@
           class="tb-unmute tb-active"
           alt="Unmute my microphone"
           data-bind="visible: selfMute,
-            click: function () { requestUnmute(thisUser()) }"
+            css: { 'tb-disabled': $root.audioLockActive },
+            click: $root.handleUnmuteClick"
           rel="unmute"
           src="svg/audio-input-microphone-muted.svg"
         />
@@ -399,7 +425,8 @@
           class="tb-undeaf tb-active"
           alt="Turn sound back on"
           data-bind="visible: selfDeaf,
-            click: function () { requestUndeaf(thisUser()) }"
+            css: { 'tb-disabled': $root.audioLockActive },
+            click: $root.handleUndeafClick"
           rel="undeaf"
           src="svg/audio-output-deafened.svg"
         />

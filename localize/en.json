@@ -50,5 +50,18 @@
     "connected": "Connected to audio server",
     "connection_error": "Connection error",
     "unknown_voice_mode": "Unknown voice mode"
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Audio hardware mismatch",
+        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
+        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
+        "accept": "Join without audio",
+        "cancel": "Cancel",
+        "close": "Close",
+        "unknown_rate": "unknown"
+      }
+    }
   }
 }

@@ -45,5 +45,18 @@
   "chat": {
     "channel_message_placeholder": "在这里向所有人输入消息",
     "user_message_placeholder": "在此处向用户'％1'输入消息"
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Audio hardware mismatch",
+        "body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
+        "info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
+        "accept": "Join without audio",
+        "cancel": "Cancel",
+        "close": "Close",
+        "unknown_rate": "unknown"
+      }
+    }
   }
 }

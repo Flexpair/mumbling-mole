@@ -87,6 +87,15 @@ iframe {
   border-radius: 3px;
   cursor: pointer;
 }
+.toolbar-horizontal img.tb-disabled {
+  filter: grayscale(100%);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.toolbar-horizontal img.tb-disabled:hover {
+  border: 1px solid transparent;
+  background-color: transparent;
+}
 .toolbar-horizontal img:hover {
   border: 1px solid $toolbar-hover-bg-color;
   background-color: $toolbar-hover-border-color;
