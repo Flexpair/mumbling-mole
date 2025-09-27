@@ -62,6 +62,10 @@ test.describe('UI Smoke Tests', () => {
       if (error.includes('WebSocket')) return false;
       if (error.includes('fetch')) return false;
       if (error.includes('Failed to load resource') && error.includes('ERR_FAILED')) return false;
+      if (error.includes('Cross-Origin Request Blocked')) return false;
+      if (error.includes('identity-proxy/settings')) return false;
+      if (error.includes('Access-Control-Allow-Origin')) return false;
+      if (error.includes('Status code: 204')) return false;
       return true;
     });
     

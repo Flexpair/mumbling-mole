@@ -6,7 +6,7 @@ const { test, expect } = require('@playwright/test');
  * Note: These tests use mocking since real audio I/O isn't available in test environments
  */
 test.describe('Audio System Tests', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, browserName }) => {
     // Mock getUserMedia to avoid permission prompts in tests
     await page.addInitScript(() => {
       const createFakeTrack = () => ({
@@ -19,8 +19,32 @@ test.describe('Audio System Tests', () => {
         getAudioTracks: () => [createFakeTrack()]
       });
 
-      navigator.mediaDevices = navigator.mediaDevices || {};
-      navigator.mediaDevices.getUserMedia = () => Promise.resolve(createFakeStream());
+      const fakeGetUserMedia = () => Promise.resolve(createFakeStream());
+
+      const fakeMediaDevices = {
+        getUserMedia: fakeGetUserMedia,
+        enumerateDevices: () => Promise.resolve([
+          { kind: 'audioinput', deviceId: 'test-mic', label: 'Test Microphone' }
+        ]),
+        getSupportedConstraints: () => ({ audio: true, video: false }),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => true,
+        ondevicechange: null
+      };
+
+      Object.defineProperty(fakeMediaDevices, Symbol.toStringTag, { value: 'MediaDevices' });
+
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        get() {
+          return fakeMediaDevices;
+        }
+      });
+
+      navigator.getUserMedia = fakeGetUserMedia;
+      navigator.webkitGetUserMedia = fakeGetUserMedia;
+      navigator.mozGetUserMedia = fakeGetUserMedia;
 
       class FakeAudioContext {
         constructor() {
@@ -71,6 +95,9 @@ test.describe('Audio System Tests', () => {
       window.AudioContext = FakeAudioContext;
       window.webkitAudioContext = FakeAudioContext;
     });
+    if (browserName === 'chromium') {
+      await page.context().grantPermissions(['microphone'], { origin: 'http://localhost:3000' });
+    }
   });
 
   test('audio context manager initializes properly', async ({ page }) => {
@@ -104,7 +131,7 @@ test.describe('Audio System Tests', () => {
       } catch (error) {
         return {
           success: false,
-          error: error.message
+          error: error && (error.name ? `${error.name}: ${error.message}` : error.message)
         };
       }
     });

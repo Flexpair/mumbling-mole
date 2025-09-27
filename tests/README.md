@@ -10,7 +10,7 @@ This directory contains comprehensive Playwright tests for the Mumbling Mole bro
 # Install Playwright browsers (if not already done)
 npx playwright install
 
-# Run all tests
+# Run all tests (Chromium, Firefox & WebKit)
 npm run test:playwright
 
 # Run with UI mode for debugging
@@ -21,6 +21,9 @@ npm run test:playwright:headed
 
 # Run specific test file
 npx playwright test tests/ui/smoke.test.js
+
+# Run only WebKit project
+npx playwright test --project=webkit
 ```
 
 ### Test Structure
@@ -84,6 +87,9 @@ tests/
 - Knockout binding compatibility
 
 ### Error Handling (11 tests)
+
+### Accessibility (1 test)
+- Axe audit to ensure no serious/critical violations on the homepage UI
 - Missing configuration files
 - Network resource errors
 - Invalid WebSocket connections
@@ -116,14 +122,14 @@ The tests are designed to:
 - **Complement existing tests**: Work alongside `e2e-check.cjs` without duplication
 - **Focus on browser behavior**: Test UI interactions and client-side functionality
 - **Mock external dependencies**: Audio APIs, network requests, etc.
-- **Provide comprehensive coverage**: 47 individual test cases across 6 suites
+- **Provide comprehensive coverage**: 48 individual test cases across 6 suites
 - **Support CI/CD**: Configurable headless/headed execution
 - **Maintain consistency**: Follow project coding conventions
 
 ## Configuration
 
 Tests use `playwright.config.js` with:
-- Chromium browser (configurable for multiple browsers)
+- Chromium, Firefox, and WebKit projects (extendable to more browsers)
 - Automatic retry on failures
 - Screenshot/video capture on failure
 - HTML reporting
