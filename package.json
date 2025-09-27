@@ -27,6 +27,7 @@
     "dist"
   ],
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@babel/core": "7.28.4",
     "@babel/plugin-transform-runtime": "7.28.3",
     "@babel/preset-env": "7.28.3",

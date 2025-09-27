@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -407,7 +407,11 @@
           id="message-box"
           type="text"
           data-bind="
-            attr: { placeholder: messageBoxHint }, textInput: messageBox"
+            attr: {
+              placeholder: messageBoxHint() || 'Type your message',
+              'aria-label': messageBoxHint() || 'Message input'
+            },
+            textInput: messageBox"
         />
         <a
           data-bind="attr: { href: mailToDesktop() }"
