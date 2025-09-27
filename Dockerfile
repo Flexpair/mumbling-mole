@@ -65,6 +65,8 @@ WORKDIR /home/node
 FROM base AS dev
 
 USER root
+# Playwright system dependencies are only needed during development
+RUN npx --yes playwright@1.55.1 install-deps && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /home/node/.npm && chown -R node:node /home/node
 USER node
 
