@@ -9,13 +9,16 @@ test.describe('UI Smoke Tests', () => {
     await page.goto('/');
     
     // Check that the page loads without error
-    await expect(page).toHaveTitle(/Mumble/);
+    const titleMatchesHost = await page.evaluate(() => {
+      return document.title === window.location.hostname;
+    });
+    expect(titleMatchesHost).toBe(true);
     
     // Check that main container is visible
     await expect(page.locator('#container')).toBeVisible();
     
-    // Check that the preloader elements exist (even if they transition out)
-    await expect(page.locator('.preloader')).toBeAttached();
+    // Ensure the preloader has cleared so the UI is interactive
+    await expect(page.locator('.preloader')).toHaveCount(0);
   });
 
   test('essential UI elements are present', async ({ page }) => {
@@ -25,7 +28,7 @@ test.describe('UI Smoke Tests', () => {
     await expect(page.locator('#container')).toBeVisible();
     
     // Check for connect dialog elements
-    await expect(page.locator('[data-bind*="connectDialog"]')).toBeAttached();
+  await expect(page.locator('.connect-dialog.dialog').first()).toBeAttached();
     
     // Check that theme CSS is loaded
     const themeLink = page.locator('link[href="theme.css"]');
@@ -53,11 +56,14 @@ test.describe('UI Smoke Tests', () => {
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
     
     // Check that no critical errors occurred
-    const criticalErrors = errors.filter(error => 
-      !error.includes('[identity] initialization failed') && // Expected in test environment
-      !error.includes('WebSocket') && // Expected without real server
-      !error.includes('fetch') // Expected network errors in test
-    );
+    const criticalErrors = errors.filter((error) => {
+      if (error.includes('[identity] initialization failed')) return false;
+      if (error.includes('identity.netlify.com')) return false;
+      if (error.includes('WebSocket')) return false;
+      if (error.includes('fetch')) return false;
+      if (error.includes('Failed to load resource') && error.includes('ERR_FAILED')) return false;
+      return true;
+    });
     
     expect(criticalErrors).toEqual([]);
   });

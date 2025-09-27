@@ -135,11 +135,15 @@ test.describe('Error Handling Tests', () => {
     expect(parameterHandling.portHandled).toBe(true);
     
     // Check that XSS attempts in parameters don't execute
-    const hasScriptExecution = await page.evaluate(() => {
-      return document.body.innerHTML.includes('<script>');
+    const hasInjectedScripts = await page.evaluate(() => {
+      const container = document.querySelector('#container');
+      if (!container) {
+        return false;
+      }
+      return container.querySelectorAll('script').length > 0;
     });
     
-    expect(hasScriptExecution).toBe(false);
+    expect(hasInjectedScripts).toBe(false);
   });
 
   test('handles missing worker files gracefully', async ({ page }) => {

@@ -9,46 +9,67 @@ test.describe('Audio System Tests', () => {
   test.beforeEach(async ({ page }) => {
     // Mock getUserMedia to avoid permission prompts in tests
     await page.addInitScript(() => {
-      // Mock navigator.mediaDevices.getUserMedia
-      navigator.mediaDevices = navigator.mediaDevices || {};
-      navigator.mediaDevices.getUserMedia = navigator.mediaDevices.getUserMedia || (() => {
-        return Promise.resolve({
-          getTracks: () => [{
-            stop: () => {},
-            getSettings: () => ({ sampleRate: 48000, channelCount: 1 })
-          }],
-          getAudioTracks: () => [{
-            stop: () => {},
-            getSettings: () => ({ sampleRate: 48000, channelCount: 1 })
-          }]
-        });
+      const createFakeTrack = () => ({
+        stop: () => {},
+        getSettings: () => ({ sampleRate: 48000, channelCount: 1 })
       });
-      
-      // Mock AudioContext
-      window.AudioContext = window.AudioContext || function() {
-        return {
-          state: 'suspended',
-          sampleRate: 48000,
-          destination: {},
-          createMediaStreamSource: () => ({
+
+      const createFakeStream = () => ({
+        getTracks: () => [createFakeTrack()],
+        getAudioTracks: () => [createFakeTrack()]
+      });
+
+      navigator.mediaDevices = navigator.mediaDevices || {};
+      navigator.mediaDevices.getUserMedia = () => Promise.resolve(createFakeStream());
+
+      class FakeAudioContext {
+        constructor() {
+          this.state = 'running';
+          this.sampleRate = 48000;
+          this.destination = {};
+        }
+
+        createMediaStreamSource() {
+          return {
             connect: () => {},
             disconnect: () => {}
-          }),
-          createScriptProcessor: () => ({
+          };
+        }
+
+        createScriptProcessor() {
+          return {
             connect: () => {},
             disconnect: () => {},
             onaudioprocess: null
-          }),
-          createGain: () => ({
+          };
+        }
+
+        createGain() {
+          return {
             gain: { value: 1 },
             connect: () => {},
             disconnect: () => {}
-          }),
-          resume: () => Promise.resolve(),
-          suspend: () => Promise.resolve(),
-          close: () => Promise.resolve()
-        };
-      };
+          };
+        }
+
+        resume() {
+          this.state = 'running';
+          return Promise.resolve();
+        }
+
+        suspend() {
+          this.state = 'suspended';
+          return Promise.resolve();
+        }
+
+        close() {
+          this.state = 'closed';
+          return Promise.resolve();
+        }
+      }
+
+      window.AudioContext = FakeAudioContext;
+      window.webkitAudioContext = FakeAudioContext;
     });
   });
 

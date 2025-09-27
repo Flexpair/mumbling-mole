@@ -14,6 +14,9 @@ test.describe('Theme Tests', () => {
     // Check that theme CSS is loaded
     const themeCSS = page.locator('link[href="theme.css"]');
     await expect(themeCSS).toBeAttached();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'MetroMumbleLight');
+  const currentTheme = await page.evaluate(() => window.mumbleUi?.currentTheme?.());
+  expect(currentTheme).toBe('MetroMumbleLight');
     
     // Check that body has appropriate styling applied
     const bodyStyles = await page.locator('body').evaluate((el) => {
@@ -40,6 +43,9 @@ test.describe('Theme Tests', () => {
     // Check that theme CSS is still loaded
     const themeCSS = page.locator('link[href="theme.css"]');
     await expect(themeCSS).toBeAttached();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'MetroMumbleDark');
+  const currentTheme = await page.evaluate(() => window.mumbleUi?.currentTheme?.());
+  expect(currentTheme).toBe('MetroMumbleDark');
     
     // Verify the page doesn't have JavaScript errors related to theming
     const errors = [];
@@ -73,6 +79,9 @@ test.describe('Theme Tests', () => {
     // Should fall back gracefully
     const themeCSS = page.locator('link[href="theme.css"]');
     await expect(themeCSS).toBeAttached();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'MetroMumbleLight');
+  const currentTheme = await page.evaluate(() => window.mumbleUi?.currentTheme?.());
+  expect(currentTheme).toBe('MetroMumbleLight');
   });
 
   test('theme switching preserves functionality', async ({ page }) => {
@@ -83,6 +92,7 @@ test.describe('Theme Tests', () => {
     // Navigate to dark theme
     await page.goto('/?theme=MetroMumbleDark');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'MetroMumbleDark');
     
     // Check that main functionality still works
     await expect(page.locator('#container')).toBeVisible();

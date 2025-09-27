@@ -21,6 +21,19 @@ import {
   translate,
 } from "./localize";
 
+const SUPPORTED_THEMES = ["MetroMumbleLight", "MetroMumbleDark"];
+const DEFAULT_THEME = SUPPORTED_THEMES[0];
+
+function normalizeTheme(themeName) {
+  if (!themeName || typeof themeName !== "string") {
+    return DEFAULT_THEME;
+  }
+  const matched = SUPPORTED_THEMES.find(
+    (candidate) => candidate.toLowerCase() === themeName.toLowerCase()
+  );
+  return matched || DEFAULT_THEME;
+}
+
 function GuacamoleFrame() {
   var self = this;
   // Start with null source to avoid the browser immediately requesting /guacamole/.
@@ -294,6 +307,26 @@ class GlobalBindings {
     this.settings = new Settings(config.settings);
     this.connector = new WorkerBasedMumbleConnector();
     this.client = null;
+    this.availableThemes = SUPPORTED_THEMES.slice();
+    this.currentTheme = ko.observable(
+      normalizeTheme(config?.defaults?.theme)
+    );
+    this.setTheme = (themeName, options = {}) => {
+      const { persist = true, forcePersist = false } = options;
+      const normalized = normalizeTheme(themeName);
+      const previous = this.currentTheme();
+      document.documentElement.setAttribute("data-theme", normalized);
+      this.currentTheme(normalized);
+      const shouldPersist = persist && (forcePersist || previous !== normalized);
+      if (shouldPersist) {
+        try {
+          window.localStorage.setItem("mumble.theme", normalized);
+        } catch (error) {
+          console.warn("[theme] unable to persist theme preference", error);
+        }
+      }
+      return normalized;
+    };
     
     // Add microphone permission state observable
     this.micPermissionDenied = ko.observable(false);
@@ -442,6 +475,18 @@ class GlobalBindings {
       tokens = [],
       channelName = ""
     ) => {
+      const SUPPORTED_THEMES = ["MetroMumbleLight", "MetroMumbleDark"];
+      const DEFAULT_THEME = SUPPORTED_THEMES[0];
+
+      function normalizeTheme(themeName) {
+        if (!themeName || typeof themeName !== "string") {
+          return DEFAULT_THEME;
+        }
+        const matched = SUPPORTED_THEMES.find(
+          (candidate) => candidate.toLowerCase() === themeName.toLowerCase()
+        );
+        return matched || DEFAULT_THEME;
+      }
       var user_roles = (this.netlifyIdentity.currentUser().app_metadata.roles) || [];
       if (Array.isArray(user_roles)) {
         // Add "watch" and "listen" roles if they are not already present
@@ -927,6 +972,19 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 
 // Used only for debugging
 window.mumbleUi = ui;
+window.mumbleUi.availableThemes = ui.availableThemes;
+window.mumbleUi.currentTheme = ui.currentTheme;
+window.mumbleUi.setTheme = ui.setTheme;
+window.mumbleUi.localization = {
+  translate,
+  translateEverything,
+  initialize: localizationInitialize,
+};
+window.mumbleUi.translateEverything = translateEverything;
+window.mumbleUi.translate = translate;
+window.translateEverything = translateEverything;
+window.translate = translate;
+window.localization = window.mumbleUi.localization;
 
 // Make netlify identity available globally
 if (ui.netlifyIdentity) {
@@ -970,6 +1028,64 @@ function initializeUI() {
 
   var queryParams = url.parse(document.location.href, true).query;
   queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
+
+  let storedTheme = null;
+  try {
+    storedTheme = window.localStorage.getItem("mumble.theme");
+  } catch (error) {
+    storedTheme = null;
+  }
+  if (!storedTheme) {
+    storedTheme = null;
+  }
+
+  const normalizedStoredTheme = storedTheme
+    ? normalizeTheme(storedTheme)
+    : null;
+  const requestedTheme = queryParams.theme;
+  const normalizedRequestedTheme = requestedTheme
+    ? normalizeTheme(requestedTheme)
+    : null;
+
+  if (
+    requestedTheme &&
+    normalizedRequestedTheme &&
+    normalizedRequestedTheme !== requestedTheme
+  ) {
+    console.warn(
+      `[theme] unsupported theme "${requestedTheme}" requested; falling back to "${normalizedRequestedTheme}"`
+    );
+  }
+
+  if (
+    storedTheme &&
+    normalizedStoredTheme &&
+    normalizedStoredTheme !== storedTheme
+  ) {
+    console.warn(
+      `[theme] stored theme "${storedTheme}" is not supported; using "${normalizedStoredTheme}" instead`
+    );
+  }
+
+  const storedThemeRequiresReset =
+    !!(
+      storedTheme &&
+      normalizedStoredTheme &&
+      normalizedStoredTheme !== storedTheme
+    );
+
+  const effectiveTheme =
+    normalizedRequestedTheme ||
+    normalizedStoredTheme ||
+    ui.currentTheme();
+
+  const appliedTheme = ui.setTheme(effectiveTheme, {
+    persist: true,
+    forcePersist: storedThemeRequiresReset,
+  });
+  queryParams.theme = appliedTheme;
+  window.mumbleWebConfig.defaults.theme = appliedTheme;
+
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
   }

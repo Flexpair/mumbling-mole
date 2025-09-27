@@ -11,16 +11,16 @@ test.describe('Localization Tests', () => {
     
     // Check that localization functions are available
     const localizationTest = await page.evaluate(() => {
+      const localization = window.mumbleUi?.localization;
       return {
-        hasTranslateFunction: typeof window.translateEverything === 'function' || 
-                             (window.mumbleUi && typeof window.mumbleUi.translateEverything === 'function'),
-        hasLocalizationSupport: window.mumbleUi?.localization !== undefined ||
-                               window.mumbleUi?.settings?.locale !== undefined
+        hasTranslateFunction: typeof window.translateEverything === 'function',
+        hasLocalizationSupport:
+          !!localization && typeof localization.translate === 'function',
       };
     });
     
-    // At least one form of localization should be present
-    expect(localizationTest.hasTranslateFunction || localizationTest.hasLocalizationSupport).toBe(true);
+    expect(localizationTest.hasTranslateFunction).toBe(true);
+    expect(localizationTest.hasLocalizationSupport).toBe(true);
   });
 
   test('page renders text content', async ({ page }) => {
@@ -31,14 +31,28 @@ test.describe('Localization Tests', () => {
     await page.waitForTimeout(1000);
     
     // Check that the page has actual text content (not just placeholder keys)
-    const hasTextContent = await page.evaluate(() => {
-      const body = document.body.innerText;
-      return body.length > 100 && // Should have substantial text
-             !body.includes('undefined') && // No undefined localization keys
-             !body.includes('null'); // No null values displayed
+    const localizationSnapshot = await page.evaluate(() => {
+      const title = document
+        .querySelector('#connect-dialog_title')
+        ?.textContent?.trim();
+      const connectLabel = document
+        .querySelector('#connect-dialog_controls_connect')
+        ?.value;
+      const bodyText = document.body.innerText || '';
+      return {
+        title,
+        connectLabel,
+        hasPlaceholders:
+          bodyText.includes('{{') ||
+          bodyText.includes('}}') ||
+          bodyText.includes('undefined') ||
+          bodyText.includes('null'),
+      };
     });
     
-    expect(hasTextContent).toBe(true);
+    expect(localizationSnapshot.title?.length).toBeGreaterThan(0);
+    expect(localizationSnapshot.connectLabel?.length).toBeGreaterThan(0);
+    expect(localizationSnapshot.hasPlaceholders).toBe(false);
   });
 
   test('localization keys are resolved', async ({ page }) => {
