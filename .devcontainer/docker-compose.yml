@@ -45,6 +45,8 @@ services:
     container_name: mumble_web_container
     ports:
       - "8081:8081"
+    depends_on:
+      - murmur
     environment:
       - MUMBLE_SERVER=murmur:${MURMUR_PORT:-64738}
       - GUACPWD=${MURMUR_PASSWORD-}
@@ -73,3 +75,20 @@ services:
     extra_hosts:
       - "gateway:172.18.0.1"
     command: /bin/bash -c "nginx -g 'daemon off;'"
+
+  murmur:
+    image: goofball222/murmur
+    networks:
+      guacamole_net:
+        ipv4_address: 172.18.0.5
+    container_name: murmur
+    ports:
+      - "${MURMUR_PORT:-64738}:${MURMUR_PORT:-64738}"
+      - "${MURMUR_PORT:-64738}:${MURMUR_PORT:-64738}/udp"
+    volumes:
+      - ./murmur_config:/opt/murmur/config
+      - ./murmur_data:/opt/murmur/data
+      - ./murmur_log:/opt/murmur/log
+      - ./letsencrypt:/opt/murmur/cert
+    environment:
+      - TZ=UTC
