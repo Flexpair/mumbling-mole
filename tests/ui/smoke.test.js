@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
  * Tests the fundamental loading and rendering of the Mumbling Mole UI
  */
 test.describe('UI Smoke Tests', () => {
+  // Sanity-checks that the landing page renders and clears the preloader without JS errors.
   test('homepage loads correctly', async ({ page }) => {
     await page.goto('/');
     
@@ -21,6 +22,7 @@ test.describe('UI Smoke Tests', () => {
     await expect(page.locator('.preloader')).toHaveCount(0);
   });
 
+  // Confirms core chrome (connect dialog + theme assets) exists once the DOM is ready.
   test('essential UI elements are present', async ({ page }) => {
     await page.goto('/');
     
@@ -35,6 +37,7 @@ test.describe('UI Smoke Tests', () => {
     await expect(themeLink).toBeAttached();
   });
 
+  // Watches console/pageerror output to detect bundle regressions while ignoring known identity noise.
   test('JavaScript bundles load without errors', async ({ page }) => {
     const errors = [];
     const isAllowedIdentityError = (message) => {
@@ -83,6 +86,7 @@ test.describe('UI Smoke Tests', () => {
     expect(criticalErrors).toEqual([]);
   });
 
+  // Ensures Knockout bindings produce a usable GlobalBindings instance.
   test('main UI components initialize', async ({ page }) => {
     await page.goto('/');
     
@@ -98,6 +102,7 @@ test.describe('UI Smoke Tests', () => {
     expect(hasGlobalBindings).toBe(true);
   });
 
+  // Spot-checks the layout under a handset viewport to guard against horizontal overflow.
   test('page is responsive on mobile viewports', async ({ page }) => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
@@ -114,6 +119,7 @@ test.describe('UI Smoke Tests', () => {
     expect(hasHorizontalScroll).toBe(false);
   });
 
+  // Exercises a wide-screen layout to confirm we render a sensible container width.
   test('page works on desktop viewports', async ({ page }) => {
     // Set desktop viewport
     await page.setViewportSize({ width: 1920, height: 1080 });

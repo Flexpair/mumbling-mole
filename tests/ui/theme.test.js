@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
  * Tests the theme switching functionality via URL parameters
  */
 test.describe('Theme Tests', () => {
+  // Asserts that the default bundle serves MetroMumbleLight with proper DOM hooks.
   test('default theme loads (MetroMumbleLight)', async ({ page }) => {
     await page.goto('/');
     
@@ -31,6 +32,7 @@ test.describe('Theme Tests', () => {
     expect(bodyStyles.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
   });
 
+  // Verifies the legacy "?theme" query parameter swaps the active theme without errors.
   test('theme parameter in URL works (?theme=MetroMumbleDark)', async ({ page }) => {
     await page.goto('/?theme=MetroMumbleDark');
     
@@ -67,6 +69,7 @@ test.describe('Theme Tests', () => {
     expect(themeErrors).toEqual([]);
   });
 
+  // Confirms an unknown theme gracefully falls back instead of breaking the UI shell.
   test('invalid theme parameter doesn\'t break the page', async ({ page }) => {
     await page.goto('/?theme=NonExistentTheme');
     
@@ -84,6 +87,7 @@ test.describe('Theme Tests', () => {
   expect(currentTheme).toBe('MetroMumbleLight');
   });
 
+  // Exercises back-to-back navigation between themes to ensure bindings stay intact.
   test('theme switching preserves functionality', async ({ page }) => {
     // Start with default theme
     await page.goto('/');
@@ -106,6 +110,7 @@ test.describe('Theme Tests', () => {
     expect(uiWorking).toBe(true);
   });
 
+  // Checks that different themes actually render with distinct color tokens.
   test('theme changes affect visual appearance', async ({ page }) => {
     // Load light theme
     await page.goto('/?theme=MetroMumbleLight');

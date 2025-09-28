@@ -6,6 +6,7 @@ const { test, expect } = require('@playwright/test');
  * Note: These tests use mocking since real audio I/O isn't available in test environments
  */
 test.describe('Audio System Tests', () => {
+  // Every test relies on the same fake media and audio APIs so we stub them once up front.
   test.beforeEach(async ({ page, browserName }) => {
     // Mock getUserMedia to avoid permission prompts in tests
     await page.addInitScript(() => {
@@ -100,6 +101,7 @@ test.describe('Audio System Tests', () => {
     }
   });
 
+  // Confirms the UI can see its audio context scaffolding before any interaction happens.
   test('audio context manager initializes properly', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -116,6 +118,7 @@ test.describe('Audio System Tests', () => {
     // voiceHandler is initialized later, so it might not be available immediately
   });
 
+  // Validates that our fake getUserMedia implementation behaves like a granted microphone request.
   test('microphone permissions handling', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -140,6 +143,7 @@ test.describe('Audio System Tests', () => {
     expect(microphoneAccess.hasAudioTracks).toBe(true);
   });
 
+  // Ensures constructing a fresh AudioContext from the stub does not throw and exposes expected defaults.
   test('audio context creation and management', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -165,6 +169,7 @@ test.describe('Audio System Tests', () => {
     expect(audioContextTest.sampleRate).toBe(48000); // Expected sample rate
   });
 
+  // Checks that once bindings settle, the global voice handler hooks into settings as expected.
   test('voice handler initialization', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -185,6 +190,7 @@ test.describe('Audio System Tests', () => {
     expect(voiceHandlerTest.hasSettings).toBe(true);
   });
 
+  // Verifies the worker-backed connector is exposed so audio processing can offload to a Web Worker.
   test('worker-based audio processing architecture', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -202,6 +208,7 @@ test.describe('Audio System Tests', () => {
     expect(workerTest.connectorExists).toBe(true);
   });
 
+  // Confirms audio-relevant settings (voice mode, bitrate, etc.) are available to tweak capture behaviour.
   test('settings contain audio configuration options', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -221,6 +228,7 @@ test.describe('Audio System Tests', () => {
     expect(audioSettings.settingsType).toBe('object');
   });
 
+  // Sanity-checks that the browser environment exposes the primitives our recorder pipeline depends on.
   test('audio worklet and recorder worker support', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -237,6 +245,7 @@ test.describe('Audio System Tests', () => {
     // AudioWorklet might not be available in all test environments
   });
 
+  // Verifies push-to-talk and voice-activation toggles are wired into persisted settings.
   test('PTT (Push-to-Talk) functionality structure', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -255,6 +264,7 @@ test.describe('Audio System Tests', () => {
     // PTT settings should be available in the settings object
   });
 
+  // Makes sure the UI exposes bitrate/sample controls so outbound Opus encoding can be tuned.
   test('audio encoding settings are configurable', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });

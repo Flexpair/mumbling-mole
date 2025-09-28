@@ -87,9 +87,6 @@ tests/
 - Knockout binding compatibility
 
 ### Error Handling (11 tests)
-
-### Accessibility (1 test)
-- Axe audit to ensure no serious/critical violations on the homepage UI
 - Missing configuration files
 - Network resource errors
 - Invalid WebSocket connections
@@ -100,6 +97,20 @@ tests/
 - Browser compatibility issues
 - Memory pressure
 - JavaScript error recovery
+- Recovery from JavaScript handler exceptions
+
+### Accessibility (1 test)
+- Axe audit to ensure no serious/critical violations on the homepage UI
+
+## Placeholder and roadmap suites
+
+The following directories are present as stubs for future expansion:
+
+- `tests/e2e/` – reserved for multi-step browser journeys that span several UI surfaces once they exist.
+- `tests/performance/` – intended for browser-based profiling or synthetic benchmarks (e.g., page load, audio latency).
+- `tests/unit/` – planned location for lightweight, VM-free tests targeting individual view models or helpers.
+
+When you begin populating these suites, mirror the commenting style used in the existing Playwright specs so new contributors can quickly understand intent and coverage.
 
 ## Demo Server
 

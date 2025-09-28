@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
  * Tests the Mumble server connection dialog functionality
  */
 test.describe('Connection Dialog Tests', () => {
+  // Ensures the Knockout template for the connect dialog renders on first load.
   test('connect dialog is present and visible', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -15,6 +16,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(connectElements).toBeGreaterThan(0);
   });
 
+  // Confirms that address/port/password query params hydrate their observables.
   test('URL parameters populate connection fields', async ({ page }) => {
     const testAddress = 'voice.example.com';
     const testPort = '64738';
@@ -37,6 +39,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(connectDialogData.password).toBe(testPassword);
   });
 
+  // Checks the username observable exists so identity providers can pre-fill it later.
   test('username field handles user metadata correctly', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -49,6 +52,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(hasUsernameField).toBe(true);
   });
 
+  // Verifies empty or absent parameters leave the dialog functional with blank defaults.
   test('connection dialog handles missing parameters gracefully', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -68,6 +72,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(typeof connectDialogData.username).toBe('string');
   });
 
+  // Spot-checks that the view model exposes validation behaviour for required fields.
   test('connect dialog validates required fields', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -82,6 +87,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(hasValidation).toBe(true);
   });
 
+  // Makes sure utf-8 and punctuation survive the URL decoding round-trip.
   test('connect dialog handles special characters in parameters', async ({ page }) => {
     const testAddress = 'võice.example.com';
     const testPassword = 'päss@wörd123!';
@@ -101,6 +107,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(connectDialogData.password).toBe(testPassword);
   });
 
+  // Confirms the page exposes connector metadata once the bindings finish.
   test('connection state management works', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -117,6 +124,7 @@ test.describe('Connection Dialog Tests', () => {
     expect(connectionState.hasConnectionInfo).toBe(true);
   });
 
+  // Ensures the generic modal manager knows about the dialog so open/close flows work.
   test('modal system works for connection dialog', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });

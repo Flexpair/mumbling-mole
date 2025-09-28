@@ -5,6 +5,7 @@ const AxeBuilder = require('@axe-core/playwright').default;
  * Accessibility smoke tests for the main UI.
  */
 test.describe('Accessibility Tests', () => {
+  // Runs axe-core against the initial UI shell to catch high-impact issues before feature flows.
   test('homepage has no serious accessibility violations', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });

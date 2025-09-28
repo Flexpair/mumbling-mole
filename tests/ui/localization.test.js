@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
  * Tests the multi-language support system in Mumbling Mole
  */
 test.describe('Localization Tests', () => {
+  // Verifies the bootstrap exposes translateEverything and the localization module.
   test('localization system initializes', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -23,6 +24,7 @@ test.describe('Localization Tests', () => {
     expect(localizationTest.hasLocalizationSupport).toBe(true);
   });
 
+  // Confirms fundamental UI copy renders real strings instead of placeholder tokens.
   test('page renders text content', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -55,6 +57,7 @@ test.describe('Localization Tests', () => {
     expect(localizationSnapshot.hasPlaceholders).toBe(false);
   });
 
+  // Guards against template markers leaking onto the page after bindings run.
   test('localization keys are resolved', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -75,6 +78,7 @@ test.describe('Localization Tests', () => {
     expect(hasUnresolvedKeys).toBe(false);
   });
 
+  // Ensures user settings expose a language flag we can toggle from the UI.
   test('language switching mechanism exists', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -95,6 +99,7 @@ test.describe('Localization Tests', () => {
     // Should have some form of language configuration
   });
 
+  // Watches for exceptions coming from the default locale files during startup.
   test('default language loads without errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -116,6 +121,7 @@ test.describe('Localization Tests', () => {
     expect(localizationErrors).toEqual([]);
   });
 
+  // Exercises translateEverything so missing keys do not crash the app shell.
   test('localization handles missing translations gracefully', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -139,6 +145,7 @@ test.describe('Localization Tests', () => {
     expect(gracefulHandling).toBe(true);
   });
 
+  // Checks that localized strings do not collapse or hide the main container.
   test('UI elements maintain structure with localization', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -155,6 +162,7 @@ test.describe('Localization Tests', () => {
     expect(containerBounds.height).toBeGreaterThan(200);
   });
 
+  // Spot-checks body text for human readable content after translation scripts run.
   test('localized text is readable and formatted', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -192,6 +200,7 @@ test.describe('Localization Tests', () => {
     expect(textQuality).toBe(true);
   });
 
+  // Validates that Knockout bindings still populate DOM elements once localization fires.
   test('knockout bindings work with localization', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });

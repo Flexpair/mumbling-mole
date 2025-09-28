@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
  * Tests how Mumbling Mole handles various error conditions and edge cases
  */
 test.describe('Error Handling Tests', () => {
+  // Simulates config endpoints returning 404 to ensure the UI still mounts a shell.
   test('handles missing configuration gracefully', async ({ page }) => {
     // Mock missing config by intercepting the request
     await page.route('**/config.js', route => {
@@ -35,6 +36,7 @@ test.describe('Error Handling Tests', () => {
     expect(pageLoaded).toBe(true);
   });
 
+  // Forces theme.css to fail so we verify the JS bootstrap proceeds without styling.
   test('handles network errors during resource loading', async ({ page }) => {
     // Mock a failing resource
     await page.route('**/theme.css', route => {
@@ -59,6 +61,7 @@ test.describe('Error Handling Tests', () => {
     expect(uiInitialized).toBe(true);
   });
 
+  // Exercises invalid server metadata to confirm the dialog guards against crashes.
   test('handles invalid WebSocket connections gracefully', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -80,6 +83,7 @@ test.describe('Error Handling Tests', () => {
     expect(connectionTest.success).toBe(true);
   });
 
+  // Mocks the identity widget throwing during init and ensures the UI keeps working.
   test('handles Netlify Identity failures gracefully', async ({ page }) => {
     // Mock Netlify Identity to throw errors
     await page.addInitScript(() => {
@@ -112,6 +116,7 @@ test.describe('Error Handling Tests', () => {
     expect(uiWorking).toBe(true);
   });
 
+  // Provides garbage query params and asserts they cannot trigger XSS or hard failures.
   test('handles malformed URL parameters', async ({ page }) => {
     // Test with various malformed parameters
     await page.goto('/?address=%&port=invalid&username=\u0000&theme=<script>');
@@ -146,6 +151,7 @@ test.describe('Error Handling Tests', () => {
     expect(hasInjectedScripts).toBe(false);
   });
 
+  // Aborts worker.js requests to confirm we degrade gracefully when audio workers fail to load.
   test('handles missing worker files gracefully', async ({ page }) => {
     // Mock worker file request to fail
     await page.route('**/worker.js', route => {
@@ -169,6 +175,7 @@ test.describe('Error Handling Tests', () => {
     expect(uiState.uiExists).toBe(true);
   });
 
+  // Adds latency to index.js to verify we cope with slow bundles rather than timing out instantly.
   test('handles resource loading timeouts', async ({ page }) => {
     // Simulate slow resource loading
     await page.route('**/index.js', async route => {
@@ -188,6 +195,7 @@ test.describe('Error Handling Tests', () => {
     expect(loadedSuccessfully).toBe(true);
   });
 
+  // Deletes modern APIs (fetch, AudioContext) to ensure legacy fallbacks keep the page alive.
   test('handles browser compatibility issues gracefully', async ({ page }) => {
     // Mock some modern APIs as unavailable
     await page.addInitScript(() => {
@@ -219,6 +227,7 @@ test.describe('Error Handling Tests', () => {
     expect(compatibility.jsLoaded).toBe(true);
   });
 
+  // Allocates and releases objects to smoke-test that the UI stays responsive under churn.
   test('handles memory pressure gracefully', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
@@ -245,6 +254,7 @@ test.describe('Error Handling Tests', () => {
     expect(memoryTest.memoryTestCompleted).toBe(true);
   });
 
+  // Intentionally misuses the connect dialog API to make sure we recover from thrown handlers.
   test('recovers from JavaScript errors in event handlers', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
