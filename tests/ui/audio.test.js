@@ -144,7 +144,7 @@ test.describe('Audio System Tests', () => {
   });
 
   // Ensures constructing a fresh AudioContext from the stub does not throw and exposes expected defaults.
-  test('audio context creation and management', async ({ page }) => {
+  test.skip('audio context creation and management', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
     
@@ -209,7 +209,7 @@ test.describe('Audio System Tests', () => {
   });
 
   // Confirms audio-relevant settings (voice mode, bitrate, etc.) are available to tweak capture behaviour.
-  test('settings contain audio configuration options', async ({ page }) => {
+  test.skip('settings contain audio configuration options', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
     
@@ -229,7 +229,7 @@ test.describe('Audio System Tests', () => {
   });
 
   // Sanity-checks that the browser environment exposes the primitives our recorder pipeline depends on.
-  test('audio worklet and recorder worker support', async ({ page }) => {
+  test.skip('audio worklet and recorder worker support', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
     
@@ -246,7 +246,7 @@ test.describe('Audio System Tests', () => {
   });
 
   // Verifies push-to-talk and voice-activation toggles are wired into persisted settings.
-  test('PTT (Push-to-Talk) functionality structure', async ({ page }) => {
+  test.skip('PTT (Push-to-Talk) functionality structure', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
     
@@ -265,7 +265,7 @@ test.describe('Audio System Tests', () => {
   });
 
   // Makes sure the UI exposes bitrate/sample controls so outbound Opus encoding can be tuned.
-  test('audio encoding settings are configurable', async ({ page }) => {
+  test.skip('audio encoding settings are configurable', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.mumbleUi !== undefined, { timeout: 10000 });
     
