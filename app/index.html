@@ -224,6 +224,39 @@
         </form>
       </div>
       <!-- /ko -->
+      <!-- ko with: sampleRateWarningDialog -->
+      <div
+        class="connect-dialog sample-rate-dialog dialog"
+        data-bind="visible: visible()"
+      >
+        <div class="dialog-header" data-bind="text: title"></div>
+        <div class="dialog-body">
+          <p data-bind="text: description"></p>
+          <!-- ko if: hints().length -->
+          <div class="sample-rate-hints">
+            <div class="sample-rate-hints__title" data-bind="text: hintsTitle"></div>
+            <ul data-bind="foreach: hints">
+              <li data-bind="text: $data"></li>
+            </ul>
+          </div>
+          <!-- /ko -->
+        </div>
+        <div class="dialog-footer">
+          <input
+            class="dialog-close"
+            type="button"
+            data-bind="click: cancel, value: secondaryLabel"
+          />
+          <!-- ko if: isConfirm -->
+          <input
+            class="dialog-submit"
+            type="button"
+            data-bind="click: joinWithoutAudio, value: primaryLabel"
+          />
+          <!-- /ko -->
+        </div>
+      </div>
+      <!-- /ko -->
       <!-- ko with: connectionInfo -->
       <div class="connection-info-dialog dialog" data-bind="visible: visible">
         <div id="connection-info_title" class="dialog-header">
@@ -383,7 +416,8 @@
           class="tb-unmute tb-active"
           alt="Unmute my microphone"
           data-bind="visible: selfMute,
-            click: function () { requestUnmute(thisUser()) }"
+            css: { 'tb-disabled': $root.audioLockActive },
+            click: $root.handleUnmuteClick"
           rel="unmute"
           src="svg/audio-input-microphone-muted.svg"
         />
@@ -399,7 +433,8 @@
           class="tb-undeaf tb-active"
           alt="Turn sound back on"
           data-bind="visible: selfDeaf,
-            click: function () { requestUndeaf(thisUser()) }"
+            css: { 'tb-disabled': $root.audioLockActive },
+            click: $root.handleUndeafClick"
           rel="undeaf"
           src="svg/audio-output-deafened.svg"
         />
@@ -464,6 +499,7 @@
         <div class="mic-permission-content">
           <span class="mic-icon">🎤</span>
           <span>Microphone access denied</span>
+          <p class="mic-permission-message" data-bind="visible: micPermissionErrorMessage, text: micPermissionErrorMessage"></p>
           <button data-bind="click: retryMicrophonePermission" class="mic-permission-button">
             Allow Microphone
           </button>

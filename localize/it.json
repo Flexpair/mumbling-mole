@@ -45,5 +45,24 @@
   "chat": {
     "channel_message_placeholder": "Digita il messaggio per tutti qui...",
     "user_message_placeholder": "Digita qui il messaggio per l'utente '%1'..."
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Incompatibilità dell'hardware audio",
+        "body": "La frequenza di campionamento del tuo dispositivo audio (%1 Hz) non corrisponde ai 48000 Hz richiesti. Puoi comunque partecipare senza audio, ma microfono e altoparlanti resteranno disattivati.",
+        "info": "L'audio è disattivato perché la frequenza di campionamento del tuo dispositivo audio (%1 Hz) non corrisponde ai 48000 Hz richiesti.",
+        "accept": "Partecipa senza audio",
+        "cancel": "Annulla",
+        "close": "Chiudi",
+        "unknown_rate": "sconosciuta",
+        "hints_title": "Come impostare il dispositivo su 48 kHz",
+        "hints": {
+          "item1": "Windows: fai clic destro sull'icona dell'altoparlante → Impostazioni audio → Altre impostazioni audio → seleziona il dispositivo → Avanzate → imposta il formato predefinito su 48.000 Hz.",
+          "item2": "macOS: apri Applicazioni › Utility › Configurazione Audio MIDI → seleziona il dispositivo → imposta Formato su 48.000 Hz.",
+          "item3": "Linux: usa PulseAudio Volume Control (pavucontrol) o le impostazioni audio di sistema per scegliere un profilo a 48 kHz e poi riconnettiti."
+        }
+      }
+    }
   }
 }

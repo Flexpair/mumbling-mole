@@ -45,5 +45,24 @@
   "chat": {
     "channel_message_placeholder": "在这里向所有人输入消息",
     "user_message_placeholder": "在此处向用户'％1'输入消息"
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "音频硬件不匹配",
+        "body": "你的音频设备采样率（%1 Hz）与所需的 48,000 Hz 不匹配。你仍然可以在没有音频的情况下加入，但麦克风和扬声器将保持静音。",
+        "info": "由于你的音频设备采样率（%1 Hz）与所需的 48,000 Hz 不匹配，音频已被禁用。",
+        "accept": "以无音频方式加入",
+        "cancel": "取消",
+        "close": "关闭",
+        "unknown_rate": "未知",
+        "hints_title": "如何将设备切换到 48 kHz",
+        "hints": {
+          "item1": "Windows：右键点击扬声器图标 → 打开声音设置 → 更多声音设置 → 选择你的设备 → 高级 → 将默认格式设置为 48,000 Hz。",
+          "item2": "macOS：打开 应用程序 › 实用工具 › 音频 MIDI 设置 → 选择你的设备 → 将格式设置为 48,000 Hz。",
+          "item3": "Linux：使用 PulseAudio 音量控制（pavucontrol）或系统声音设置，选择 48 kHz 配置后重新连接。"
+        }
+      }
+    }
   }
 }

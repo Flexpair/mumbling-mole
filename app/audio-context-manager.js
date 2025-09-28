@@ -78,10 +78,13 @@ class AudioContextManager {
   async createAudioContext(options = {}) {
     try {
       const config = {
-        sampleRate: options.sampleRate || AUDIO_CONFIG.SAMPLE_RATE,
         latencyHint: options.latencyHint || AUDIO_CONFIG.LATENCY_HINT,
         ...options
       };
+
+      if (config.sampleRate === undefined || config.sampleRate === null) {
+        delete config.sampleRate;
+      }
 
       console.log('Creating AudioContext with config:', config);
 

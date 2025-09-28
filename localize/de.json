@@ -46,5 +46,24 @@
   "chat": {
     "channel_message_placeholder": "Hier eine Nachricht an alle eintippen...",
     "user_message_placeholder": "Hier eine Nachricht an Teilnehmer '%1' eintippen..."
+  },
+  "audio": {
+    "sample_rate": {
+      "warning": {
+        "title": "Audio-Hardware stimmt nicht überein",
+        "body": "Die Abtastrate deines Audiogeräts (%1 Hz) entspricht nicht den erforderlichen 48000 Hz. Du kannst trotzdem ohne Audio beitreten, aber Mikrofon und Lautsprecher bleiben stumm.",
+        "info": "Audio ist deaktiviert, weil die Abtastrate deines Audiogeräts (%1 Hz) nicht den erforderlichen 48000 Hz entspricht.",
+        "accept": "Ohne Audio beitreten",
+        "cancel": "Abbrechen",
+        "close": "Schließen",
+        "unknown_rate": "unbekannt",
+        "hints_title": "So stellst du dein Gerät auf 48 kHz um",
+        "hints": {
+          "item1": "Windows: Rechtsklick auf das Lautsprechersymbol → Toneinstellungen → Weitere Soundeinstellungen → Gerät auswählen → Erweitert → Standardformat auf 48.000 Hz setzen.",
+          "item2": "macOS: Programme › Dienstprogramme › Audio-MIDI-Setup öffnen → Gerät auswählen → Format auf 48.000 Hz stellen.",
+          "item3": "Linux: PulseAudio-Lautstärkeregelung (pavucontrol) oder Systemeinstellungen öffnen, ein 48-kHz-Profil wählen und anschließend neu verbinden."
+        }
+      }
+    }
   }
 }
