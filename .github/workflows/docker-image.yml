@@ -40,6 +40,12 @@ jobs:
       - name: Dependency check gate
         run: npm run check:deps
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright tests (Chromium, Firefox, WebKit)
+        run: npm run test:playwright
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

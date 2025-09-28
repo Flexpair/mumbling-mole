@@ -15,8 +15,27 @@ function startTestServer(port = 3000) {
     
     const server = http.createServer((req, res) => {
       const url = new URL(req.url, `http://localhost:${port}`);
-      let filePath = url.pathname === '/' ? '/index.html' : url.pathname;
-      const fullPath = path.join(distPath, filePath);
+
+      const rawPath = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+      let decodedPath;
+      try {
+        decodedPath = decodeURIComponent(rawPath);
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Bad request');
+        return;
+      }
+
+      const normalizedPath = path.posix.normalize(decodedPath.replace(/\\/g, '/'));
+      const safeRelativePath = normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
+      const fullPath = path.resolve(distPath, safeRelativePath);
+      const relativeFromDist = path.relative(distPath, fullPath);
+
+      if (relativeFromDist.startsWith('..') || path.isAbsolute(relativeFromDist)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
+        return;
+      }
       
       try {
         const content = readFileSync(fullPath);
@@ -33,7 +52,7 @@ function startTestServer(port = 3000) {
         res.end(content);
       } catch (err) {
         // Fallback to index.html for SPA routing
-        if (url.pathname !== '/' && !filePath.includes('.')) {
+        if (safeRelativePath !== 'index.html' && !path.extname(safeRelativePath)) {
           try {
             const indexContent = readFileSync(path.join(distPath, 'index.html'));
             res.writeHead(200, { 'Content-Type': 'text/html' });
