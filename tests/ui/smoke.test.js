@@ -37,6 +37,17 @@ test.describe('UI Smoke Tests', () => {
 
   test('JavaScript bundles load without errors', async ({ page }) => {
     const errors = [];
+    const isAllowedIdentityError = (message) => {
+      const urlMatches = message.match(/https?:\/\/[^\s"'<>()]+/gi) || [];
+      return urlMatches.some((candidate) => {
+        try {
+          const { hostname } = new URL(candidate);
+          return hostname === 'identity.netlify.com';
+        } catch (error) {
+          return false;
+        }
+      });
+    };
     
     // Collect any JavaScript errors
     page.on('pageerror', (error) => {
@@ -58,7 +69,7 @@ test.describe('UI Smoke Tests', () => {
     // Check that no critical errors occurred
     const criticalErrors = errors.filter((error) => {
       if (error.includes('[identity] initialization failed')) return false;
-      if (error.includes('identity.netlify.com')) return false;
+      if (isAllowedIdentityError(error)) return false;
       if (error.includes('WebSocket')) return false;
       if (error.includes('fetch')) return false;
       if (error.includes('Failed to load resource') && error.includes('ERR_FAILED')) return false;
