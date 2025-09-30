@@ -49,6 +49,8 @@ jspm_packages/
 .vscode-server/
 .vscode-remote/
 .devcontainer/*Marker
+.devcontainer/murmur_config/
+.devcontainer/murmur_data/
 .cache/
 .dotnet/
 
