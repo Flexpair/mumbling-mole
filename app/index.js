@@ -4,7 +4,6 @@ import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
 import BufferQueueNode from "web-audio-buffer-queue";
-import getAudioContext from "audio-context";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
@@ -20,6 +19,14 @@ import {
   translateEverything,
   translate,
 } from "./localize";
+
+const createLegacyAudioContext = (options = {}) => {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    throw new Error("AudioContext is not supported in this browser");
+  }
+  return new AudioContextClass(options);
+};
 
 function GuacamoleFrame() {
   var self = this;
@@ -554,7 +561,7 @@ class GlobalBindings {
         
         // Fallback to legacy approach if managed approach fails
         try {
-          this.audioContext = getAudioContext({ latencyHint: "interactive" });
+          this.audioContext = createLegacyAudioContext({ latencyHint: "interactive" });
           console.log('Fallback to legacy AudioContext successful');
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);

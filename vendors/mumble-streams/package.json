@@ -1,0 +1,19 @@
+{
+  "name": "mumble-streams",
+  "version": "0.0.5",
+  "description": "Collection of streams for handling the Mumble protocol (Flexpair fork)",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib"
+  ],
+  "license": "ISC",
+  "author": "johni0702 <me@johni0702.de>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jafudi/mumble-streams"
+  },
+  "dependencies": {
+    "protobufjs": "^7.2.6"
+  }
+}

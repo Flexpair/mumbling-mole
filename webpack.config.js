@@ -99,7 +99,7 @@ const config = {
             },
           },
           {
-            loader: "extract-loader",
+            loader: path.resolve(__dirname, "loaders/simple-extract-loader.js"),
           },
           {
             loader: "regexp-replace-loader",
