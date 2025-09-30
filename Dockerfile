@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir websockify==0.12.0
 # ---------------------------------------------------------------------
 # Node.js 22 Installation (robust, feste Symlinks)
 # ---------------------------------------------------------------------
-ENV NODE_VERSION=22.19.0
+ENV NODE_VERSION=22.20.0
 
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \
