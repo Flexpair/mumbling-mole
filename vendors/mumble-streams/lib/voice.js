@@ -213,7 +213,7 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
         offset += voiceLength.value;
         packet.frames = voice.length ? [voice] : [];
         packet.codec = 'Opus';
-      } else if (codecId == 0 || codecIf == 2 || codecId == 3) {
+      } else if (codecId == 0 || codecId == 2 || codecId == 3) {
         packet.codec = ['CELT_Alpha', '', 'Speex', 'CELT_Beta'][codecId];
         packet.frames = [];
         while (true) {
