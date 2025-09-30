@@ -3,10 +3,15 @@
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
-import BufferQueueNode from "web-audio-buffer-queue";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
+
+const BufferQueueNodeModule = require("web-audio-buffer-queue");
+const BufferQueueNode =
+  BufferQueueNodeModule.BufferQueueNode ||
+  BufferQueueNodeModule.default ||
+  BufferQueueNodeModule;
 
 import {
   ContinuousVoiceHandler,
