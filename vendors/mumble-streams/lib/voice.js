@@ -74,7 +74,7 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
   // Special case: Ping packets
   if (chunk.timestamp !== undefined) {
     // Header byte + Timestamp
-    buffer = new Buffer(1 + 9);
+    buffer = Buffer.alloc(1 + 9);
     offset += buffer.writeUInt8(0x20, offset); // Ping packet header
     offset += toVarint(chunk.timestamp).value.copy(buffer, offset);
     return callback(null, buffer.slice(0, offset));
@@ -123,7 +123,7 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
   }
 
   // Header byte + Source Session Id + Sequence Number + Voice + Position Data
-  buffer = new Buffer(1 + 9 + 9 + voiceData.length + 3 * 4);
+  buffer = Buffer.alloc(1 + 9 + 9 + voiceData.length + 3 * 4);
   offset += buffer.writeUInt8(codecId << 5 | chunk.mode, offset);
   if (this._dest == 'client') {
     // Only server needs to send the source as the client is not allowed
@@ -277,7 +277,7 @@ function toVarint( i ) {
     var arr = [];
     if( i < 0 ) {
         i = ~i;
-        if( i <= 0x3 ) { return new Buffer( [ 0xFC | i ] ); }
+        if( i <= 0x3 ) { return Buffer.from( [ 0xFC | i ] ); }
 
         arr.push( 0xF8 );
     }
@@ -306,8 +306,8 @@ function toVarint( i ) {
         throw new TypeError( 'Non-integer values are not supported. (' + i + ')' );
     }
 
-    return {
-        value: new Buffer( arr ),
+  return {
+        value: Buffer.from( arr ),
         length: arr.length
     };
 }
