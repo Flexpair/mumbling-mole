@@ -10,6 +10,8 @@ if [[ ${1:-} == "--force" ]]; then
     log "Force build requested"
 fi
 
+MODE="${WEBPACK_MODE:-production}"
+
 ensure_vendor() {
     # Build vendors/mumble-client if lib missing (sustainable approach)
     if [[ ! -s vendors/mumble-client/lib/client.js ]]; then
@@ -42,11 +44,13 @@ validate_artifacts() {
 do_build() {
     ensure_vendor
     # Polyfill plugin is already a devDependency (installed via npm ci); avoid dynamic installs for determinism
-    log "Running webpack"
-    npx webpack --progress
+    log "Running webpack (mode=${MODE})"
+    mkdir -p dist
+    npx webpack --progress --mode "${MODE}"
     [[ -f dist/config.local.js ]] || cp app/config.local.js dist/
     cp app/recorder-worker.js dist/
     touch dist/.build-marker
+    printf '%s' "${MODE}" > dist/.build-mode
     validate_artifacts
 }
 
@@ -67,6 +71,19 @@ fi
 
 if [[ ! -f dist/.build-marker ]]; then
     log "No build marker → rebuilding"
+    do_build
+    exit 0
+fi
+
+if [[ ! -f dist/.build-mode ]]; then
+    log "No build mode file → rebuilding"
+    do_build
+    exit 0
+fi
+
+CURRENT_MODE=$(<dist/.build-mode)
+if [[ "${CURRENT_MODE}" != "${MODE}" ]]; then
+    log "Build mode mismatch (found ${CURRENT_MODE} vs ${MODE}) → rebuilding"
     do_build
     exit 0
 fi

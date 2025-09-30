@@ -4,6 +4,7 @@
   "description": "An HTML5 Mumble client.",
   "scripts": {
     "build": "./smart-build.sh",
+    "build:dev": "WEBPACK_MODE=development ./smart-build.sh",
     "build:force": "./smart-build.sh --force",
     "build:vendor:mumble-client": "npx babel vendors/mumble-client/src --out-dir vendors/mumble-client/lib",
     "audit:ci": "node scripts/audit-ci.cjs",
