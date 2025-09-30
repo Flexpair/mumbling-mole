@@ -15,11 +15,8 @@ MODE="${WEBPACK_MODE:-production}"
 ensure_vendor() {
     # Build vendors/mumble-client if lib missing (sustainable approach)
     if [[ ! -s vendors/mumble-client/lib/client.js ]]; then
-        log "Vendor mumble-client lib missing → building (babel)"
-        pushd vendors/mumble-client >/dev/null
-            npm install --no-audit --no-fund
-            npx babel src --out-dir lib
-        popd >/dev/null
+        log "Vendor mumble-client lib missing → building (babel core)"
+        node scripts/build-mumble-client.js
     fi
 }
 
