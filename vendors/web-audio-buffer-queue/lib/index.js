@@ -1,5 +1,5 @@
-const { Writable } = require('stream');
-const extend = require('extend');
+import { Writable } from 'stream';
+import extend from 'extend';
 
 let defaultAudioContext = null;
 
@@ -231,10 +231,9 @@ BufferQueueNode.AudioBuffer = AudioBufferWrapper;
 BufferQueueNode.Float32Array = Float32ArrayWrapper;
 BufferQueueNode.Int16Array = Int16ArrayWrapper;
 
-exports.AudioBuffer = AudioBufferWrapper;
-exports.Float32Array = Float32ArrayWrapper;
-exports.Int16Array = Int16ArrayWrapper;
-exports.BufferQueueNode = BufferQueueNode;
-exports.default = BufferQueueNode;
-Object.defineProperty(exports, "__esModule", { value: true });
+export { AudioBufferWrapper as AudioBuffer };
+export { Float32ArrayWrapper as Float32Array };
+export { Int16ArrayWrapper as Int16Array };
+export { BufferQueueNode };
+export default BufferQueueNode;
 

@@ -6,12 +6,9 @@ import WorkerBasedMumbleConnector from "./worker-client";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
+import BufferQueueNodeDefault, { BufferQueueNode as BufferQueueNodeNamed } from "web-audio-buffer-queue";
 
-const BufferQueueNodeModule = require("web-audio-buffer-queue");
-const BufferQueueNode =
-  BufferQueueNodeModule.BufferQueueNode ||
-  BufferQueueNodeModule.default ||
-  BufferQueueNodeModule;
+const BufferQueueNode = BufferQueueNodeDefault || BufferQueueNodeNamed;
 
 import {
   ContinuousVoiceHandler,
