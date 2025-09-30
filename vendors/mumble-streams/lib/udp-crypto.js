@@ -70,7 +70,7 @@ UdpCrypt.prototype.encrypt = function(plainText) {
   var cipher = crypto.createCipheriv('AES-128-ECB', this._key, '')
     .setAutoPadding(false);
 
-  var cipherText = new Buffer(plainText.length + 4);
+  var cipherText = Buffer.alloc(plainText.length + 4);
   var tag = ocbEncrypt(plainText, cipherText.slice(4), this._encryptIV,
       cipher.update.bind(cipher));
   cipherText[0] = this._encryptIV[0];
