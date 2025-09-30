@@ -46,7 +46,7 @@ do_build() {
     # Polyfill plugin is already a devDependency (installed via npm ci); avoid dynamic installs for determinism
     log "Running webpack (mode=${MODE})"
     mkdir -p dist
-    npx webpack --progress --mode "${MODE}"
+    WEBPACK_MODE="${MODE}" npx webpack --progress --mode "${MODE}"
     [[ -f dist/config.local.js ]] || cp app/config.local.js dist/
     cp app/recorder-worker.js dist/
     touch dist/.build-marker
