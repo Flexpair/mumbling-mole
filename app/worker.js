@@ -212,15 +212,38 @@ function setupClient(id, client) {
     pushProp(id, client, "dataStats");
   });
 
-  setupChannel(id, client.root);
-  for (let user of client.users) {
-    setupUser(id, user);
-  }
+  let initialized = false;
 
-  pushProp(id, client, "root", (it) => it.id);
-  pushProp(id, client, "self", (it) => it.id);
-  pushProp(id, client, "serverVersion");
-  pushProp(id, client, "maxBandwidth");
+  const initializeClientState = () => {
+    if (initialized) {
+      return;
+    }
+    const rootChannel = client.root;
+    if (!rootChannel) {
+      return;
+    }
+
+    initialized = true;
+
+    setupChannel(id, rootChannel);
+    for (let user of client.users) {
+      setupUser(id, user);
+    }
+
+    pushProp(id, client, "root", (it) => it.id);
+    pushProp(id, client, "self", (it) => it.id);
+    pushProp(id, client, "serverVersion");
+    pushProp(id, client, "maxBandwidth");
+
+    client.removeListener("newChannel", initializeClientState);
+    client.removeListener("connected", initializeClientState);
+  };
+
+  initializeClientState();
+  if (!initialized) {
+    client.on("newChannel", initializeClientState);
+    client.on("connected", initializeClientState);
+  }
 }
 
 function onMessage(data) {
