@@ -409,17 +409,7 @@ class MumbleClient extends EventEmitter {
     this._inFlightDataPings--
 
     const now = new Date().getTime()
-    const timestamp =
-      payload && typeof payload.timestamp === 'object' && payload.timestamp !== null && typeof payload.timestamp.toNumber === 'function'
-        ? payload.timestamp.toNumber()
-        : Number(payload && payload.timestamp)
-
-    if (!Number.isFinite(timestamp)) {
-      console.warn('Invalid ping timestamp, skipping latency update', payload && payload.timestamp)
-      return
-    }
-
-    const duration = now - timestamp
+    const duration = now - payload.timestamp.toNumber()
     this._dataStats.update(duration)
     this.emit('dataPing', duration)
   }
