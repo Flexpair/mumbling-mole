@@ -1,102 +1,82 @@
 /**
- * the default language to use
- *
- * @var {string}
- * @author svartoyg
+ * English translations - hard-coded for performance
+ * Multilanguage support has been disabled
  */
-var _languageDefault = null;
+const translations = {
+  "connectdialog.title": "Join audio conference",
+  "connectdialog.username": "Username",
+  "connectdialog.password": "Password",
+  "connectdialog.microphone": "Microphone",
+  "connectdialog.headphones": "Please use 🎧. Thank you.",
+  "connectdialog.connect": "Connect",
+  "connectdialog.error.title": "Failed to connect",
+  "connectdialog.error.reason.refused": "The connection has been refused.",
+  "connectdialog.error.reason.version": "The server uses an incompatible version.",
+  "connectdialog.error.reason.username": "Your user name was rejected. Maybe try a different one?",
+  "connectdialog.error.reason.userpassword": "The given password is incorrect.\nThe user name you have chosen requires a special one.",
+  "connectdialog.error.reason.serverpassword": "The given password is incorrect.",
+  "connectdialog.error.reason.username_in_use": "The user name you have chosen is already in use.",
+  "connectdialog.error.reason.full": "The server is full.",
+  "connectdialog.error.reason.clientcert": "The server requires you to provide a client certificate which is not supported by this web application.",
+  "connectdialog.error.reason.server": "The server reports:",
+  "connectdialog.error.retry": "Retry",
+  "connectdialog.error.cancel": "Cancel",
+  "connectinfo.title": "Audio transmission info",
+  "connectinfo.server": "Audio server details",
+  "connectinfo.webapp": "Statistics for this web app",
+  "connectinfo.native": "Desktop client / mobile app",
+  "settingsdialog.title": "Audio settings",
+  "settingsdialog.transmission": "Transmission",
+  "settingsdialog.cont": "Continuous",
+  "settingsdialog.ptt": "Push To Talk",
+  "settingsdialog.ptt_key": "PTT Key",
+  "settingsdialog.audio_quality": "Audio Quality",
+  "settingsdialog.packet": "Audio per packet",
+  "settingsdialog.close": "Cancel",
+  "settingsdialog.submit": "Apply",
+  "chat.channel_message_placeholder": "Type message to everyone here...",
+  "chat.user_message_placeholder": "Type message to user '%1' here...",
+  "logentry.mic_init_error": "Microphone initialization error",
+  "logentry.connecting": "Connecting to audio server",
+  "logentry.connected": "Connected to audio server",
+  "logentry.connection_error": "Connection error",
+  "logentry.unknown_voice_mode": "Unknown voice mode",
+  "audio.sample_rate.warning.title": "Audio hardware mismatch",
+  "audio.sample_rate.warning.body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
+  "audio.sample_rate.warning.info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
+  "audio.sample_rate.warning.accept": "Join without audio",
+  "audio.sample_rate.warning.cancel": "Cancel",
+  "audio.sample_rate.warning.close": "Close",
+  "audio.sample_rate.warning.unknown_rate": "unknown",
+  "audio.sample_rate.warning.hints_title": "How to switch your device to 48 kHz",
+  "audio.sample_rate.warning.hints.item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
+  "audio.sample_rate.warning.hints.item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
+  "audio.sample_rate.warning.hints.item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
+};
 
 /**
- * the fallback language to use
- *
- * @var {string}
- * @author svartoyg
- */
-var _languageFallback = null;
-
-/**
- * two level map with ISO-639-1 code as first key and translation id as second key
- *
- * @var {Map<string,Map<string,string>>}
- * @author svartoyg
- */
-var _data = {};
-
-/**
- * @param {string} language
- * @return Promise<Map<string,string>>
- * @author svartoyg
- */
-async function retrieveData(language) {
-  let json;
-  try {
-    json = (await import(`../localize/${language}.json`)).default;
-  } catch (exception) {
-    json = (
-      await import(
-        `../localize/${language.substr(0, language.indexOf("-"))}.json`
-      )
-    ).default;
-  }
-  const map = {};
-  flatten(json, "", map);
-  return map;
-}
-
-function flatten(tree, prefix, result) {
-  for (const [key, value] of Object.entries(tree)) {
-    if (typeof value === "string") {
-      result[prefix + key] = value;
-    } else {
-      flatten(value, prefix + key + ".", result);
-    }
-  }
-}
-
-/**
- * @param {string} languageDefault
- * @param {string} [languageFallback]
- * @author svartoyg
+ * Initialize localization (no-op since we only support English now)
+ * @param {string} languageDefault - Ignored, always uses English
+ * @param {string} [languageFallback] - Ignored, always uses English
  */
 export async function initialize(languageDefault, languageFallback = "en") {
-  _languageFallback = languageFallback;
-  _languageDefault = languageDefault;
-  for (const language of [_languageFallback, _languageDefault]) {
-    if (_data.hasOwnProperty(language)) continue;
-    let data;
-    try {
-      data = await retrieveData(language);
-    } catch (exception) {
-      console.warn(exception.toString());
-    }
-    _data[language] = data;
-  }
+  // No-op: English translations are hard-coded above
+  console.log('Localization initialized (English only)');
 }
 
 /**
- * gets a translation by its key for a specific language
+ * Gets a translation by its key
  *
  * @param {string} key
- * @param {string} [languageChosen]
+ * @param {string} [languageChosen] - Ignored, always uses English
  * @return {string}
- * @author svartoyg
  */
-export function translate(key, languageChosen = _languageDefault) {
-  let result = undefined;
-  for (const language of [languageChosen, _languageFallback]) {
-    if (
-      _data.hasOwnProperty(language) &&
-      _data[language] !== undefined &&
-      _data[language].hasOwnProperty(key)
-    ) {
-      result = _data[language][key];
-      break;
-    }
+export function translate(key, languageChosen) {
+  if (translations.hasOwnProperty(key)) {
+    return translations[key];
   }
-  if (result === undefined) {
-    result = "{{" + key + "}}";
-  }
-  return result;
+  console.warn(`Missing translation for key: ${key}`);
+  return "{{" + key + "}}";
 }
 
 /**
