@@ -96,10 +96,22 @@ async function runAudioTest() {
   // Erstelle TCP-Verbindung
   const socket = net.connect(port, host);
   
-  // Warte auf connect
+  // Warte auf connect mit Timeout
   await new Promise((resolve, reject) => {
-    socket.on('connect', resolve);
-    socket.on('error', reject);
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      reject(new Error(`Connection timeout after 10 seconds`));
+    }, 10000); // 10 Sekunden Timeout
+
+    socket.on('connect', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    
+    socket.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
   });
 
   try {
@@ -117,6 +129,8 @@ async function runAudioTest() {
     stats.connected = true;
     stats.connectionTime = Date.now() - stats.startTime;
 
+    // Warte auf Test-Completion
+    await new Promise((resolve, reject) => {
       // Voice-Stream vorbereiten (optional)
       let voiceStream = null;
       let toneInterval = null;
@@ -216,7 +230,12 @@ async function runAudioTest() {
         }, 500);
       }, TEST_DURATION);
     });
-  });
+  } catch (err) {
+    console.error(`[${timestamp()}] ❌ Fehler:`, err.message);
+    stats.errors.push({ type: 'fatal', error: err.message });
+    printResults();
+    process.exit(1);
+  }
 }
 
 function timestamp() {

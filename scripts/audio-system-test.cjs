@@ -14,10 +14,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const stats = {
   startTime: Date.now(),
@@ -182,7 +183,7 @@ async function testWorkerScripts() {
     
     // Syntax-Check mit Node
     try {
-      await execAsync(`node --check ${fullPath}`);
+      await execFileAsync('node', ['--check', fullPath]);
     } catch (err) {
       fail(`Worker-Scripts`, `${path.basename(file)} has syntax error: ${err.message}`);
       return false;
@@ -247,7 +248,7 @@ async function testAudioModules() {
     
     // Syntax-Check
     try {
-      await execAsync(`node --check ${fullPath}`);
+      await execFileAsync('node', ['--check', fullPath]);
     } catch (err) {
       fail('Audio-Module', `${path.basename(file)} hat Syntax-Fehler`);
       return false;

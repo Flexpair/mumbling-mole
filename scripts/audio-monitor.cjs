@@ -183,93 +183,121 @@ async function startMonitor() {
   
   console.log('Verbinde zu Mumble-Server...');
   
-  MumbleClient(host, port, {
-    username: USERNAME,
-    password: PASSWORD,
-    codecs: ['Opus']
-  }, (err, client) => {
-    if (err) {
-      console.error('❌ Verbindungsfehler:', err.message);
-      process.exit(1);
+  let client;
+  try {
+    client = new MumbleClient({
+      host,
+      port,
+      username: USERNAME,
+      password: PASSWORD,
+      codecs: ['Opus']
+    });
+    
+    // Erstelle TCP-Verbindung
+    const net = require('net');
+    const socket = net.connect(port, host);
+    
+    // Warte auf Verbindung
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        socket.destroy();
+        reject(new Error('Connection timeout'));
+      }, 10000);
+      
+      socket.on('connect', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      
+      socket.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+    
+    // Verbinde Client mit Socket
+    await client.connectDataStream(socket);
+  } catch (err) {
+    console.error('❌ Verbindungsfehler:', err.message);
+    process.exit(1);
+  }
+  
+  console.log('✅ Verbunden!');
+  console.log('Starte Monitoring...\n');
+  
+  // Initial render
+  setTimeout(() => renderUI(startTime), 100);
+  
+  // Periodisches UI-Update
+  const uiInterval = setInterval(() => {
+    renderUI(startTime);
+  }, REFRESH_RATE);
+  
+  // Voice-Event-Handler
+  client.on('voice', (voicePacket) => {
+    metrics.totalPackets++;
+    
+    if (voicePacket.pcm) {
+      const bytes = voicePacket.pcm.byteLength;
+      metrics.totalBytes += bytes;
+      
+      const userId = voicePacket.user.id;
+      const userName = voicePacket.user.name;
+      
+      // Update oder erstelle User-Eintrag
+      if (!metrics.activeUsers.has(userId)) {
+        metrics.activeUsers.set(userId, {
+          name: userName,
+          lastPacket: Date.now(),
+          packets: 0,
+          bytes: 0,
+          avgAmplitude: 0,
+          amplitudeHistory: []
+        });
+      }
+      
+      const user = metrics.activeUsers.get(userId);
+      user.lastPacket = Date.now();
+      user.packets++;
+      user.bytes += bytes;
+      
+      // Berechne Amplitude
+      const amplitude = analyzeAudioPacket(voicePacket.pcm);
+      user.amplitudeHistory.push(amplitude);
+      
+      // Behalte nur die letzten 10 Messungen
+      if (user.amplitudeHistory.length > 10) {
+        user.amplitudeHistory.shift();
+      }
+      
+      // Durchschnittliche Amplitude
+      user.avgAmplitude = user.amplitudeHistory.reduce((a, b) => a + b, 0) / user.amplitudeHistory.length;
+    }
+  });
+  
+  // Fehlerbehandlung
+  client.on('error', (err) => {
+    console.error('\n❌ Client-Fehler:', err.message);
+  });
+  
+  // Cleanup bei Exit
+  process.on('SIGINT', () => {
+    clearInterval(uiInterval);
+    clearScreen();
+    console.log('\n👋 Monitoring beendet.\n');
+    console.log('Zusammenfassung:');
+    console.log(`  Gesamtpakete: ${metrics.totalPackets}`);
+    console.log(`  Gesamtbytes:  ${formatBytes(metrics.totalBytes)}`);
+    console.log(`  Users:        ${metrics.activeUsers.size}`);
+    console.log('');
+    
+    try {
+      client.disconnect();
+    } catch (e) {
+      // Ignoriere Fehler beim Trennen
     }
     
-    console.log('✅ Verbunden!');
-    console.log('Starte Monitoring...\n');
-    
-    // Initial render
-    setTimeout(() => renderUI(startTime), 100);
-    
-    // Periodisches UI-Update
-    const uiInterval = setInterval(() => {
-      renderUI(startTime);
-    }, REFRESH_RATE);
-    
-    // Voice-Event-Handler
-    client.on('voice', (voicePacket) => {
-      metrics.totalPackets++;
-      
-      if (voicePacket.pcm) {
-        const bytes = voicePacket.pcm.byteLength;
-        metrics.totalBytes += bytes;
-        
-        const userId = voicePacket.user.id;
-        const userName = voicePacket.user.name;
-        
-        // Update oder erstelle User-Eintrag
-        if (!metrics.activeUsers.has(userId)) {
-          metrics.activeUsers.set(userId, {
-            name: userName,
-            lastPacket: Date.now(),
-            packets: 0,
-            bytes: 0,
-            avgAmplitude: 0,
-            amplitudeHistory: []
-          });
-        }
-        
-        const user = metrics.activeUsers.get(userId);
-        user.lastPacket = Date.now();
-        user.packets++;
-        user.bytes += bytes;
-        
-        // Berechne Amplitude
-        const amplitude = analyzeAudioPacket(voicePacket.pcm);
-        user.amplitudeHistory.push(amplitude);
-        
-        // Behalte nur die letzten 10 Messungen
-        if (user.amplitudeHistory.length > 10) {
-          user.amplitudeHistory.shift();
-        }
-        
-        // Durchschnittliche Amplitude
-        user.avgAmplitude = user.amplitudeHistory.reduce((a, b) => a + b, 0) / user.amplitudeHistory.length;
-      }
-    });
-    
-    // Fehlerbehandlung
-    client.on('error', (err) => {
-      console.error('\n❌ Client-Fehler:', err.message);
-    });
-    
-    // Cleanup bei Exit
-    process.on('SIGINT', () => {
-      clearInterval(uiInterval);
-      clearScreen();
-      console.log('\n👋 Monitoring beendet.\n');
-      console.log('Zusammenfassung:');
-      console.log(`  Gesamtpakete: ${metrics.totalPackets}`);
-      console.log(`  Gesamtbytes:  ${formatBytes(metrics.totalBytes)}`);
-      console.log(`  Users:        ${metrics.activeUsers.size}`);
-      console.log('');
-      
-      try {
-        client.disconnect();
-      } catch (e) {
-        // Ignoriere Fehler beim Trennen
-      }
-      
-      process.exit(0);
-    });
+    process.exit(0);
   });
 }
 
