@@ -17,7 +17,7 @@
 - **Entry Point**: `app/index.js` - Orchestrates authentication, server connection, and voice UX
 - **View Layer**: Knockout.js viewmodels with data bindings defined in `GlobalBindings`
 - **Templates**: HTML templates in `app/index.html` with Knockout bindings
-- **Localization**: Multi-language support via `app/localize.js` and `localize/*.json`
+- **Localization**: English-only interface via `app/localize.js` and `localize/en.json`
 
 ### Worker Thread (Audio Processing)
 - **Worker Entry**: `app/worker.js` - Runs in Web Worker, manages `mumble-client` instances
@@ -48,8 +48,8 @@ mumbling-mole/
 │   └── mumble-client/     # Forked Mumble client library
 ├── themes/                # UI themes
 │   └── MetroMumbleLight/  # Default theme with variants
-├── localize/              # Translation files
-│   *.json                 # Language-specific strings
+├── localize/              # English translations
+│   └── en.json            # UI text strings
 ├── scripts/               # Build and test scripts
 │   ├── e2e-check.cjs      # WebSocket smoke test
 │   └── audit-ci.cjs       # Security audit gate
@@ -142,17 +142,17 @@ npm run check:deps
 - Assets (SVG/PNG) copied to `dist/` during build
 
 ### Localization
-- String keys in `localize/*.json`
-- Accessed via `app/localize.js`
-- Observable-based for automatic UI updates
-- All locales must have matching keys
+- English strings in `localize/en.json`
+- Statically imported via `app/localize.js` for optimal performance
+- Flattened at module load time (no runtime overhead)
+- Keys use dot notation (e.g., `"connectdialog.title"`)
 
 ## Common Tasks
 
 ### Adding New UI State
 1. Define observable in `GlobalBindings` (app/index.js)
 2. Wire through Knockout bindings in templates
-3. Update localization strings if needed
+3. Update localization strings in `localize/en.json` if needed
 
 ### Extending Worker Events
 1. Update event handler in `app/worker.js`
@@ -217,7 +217,7 @@ npm run check:deps
 1. **Worker communication fails**: Check ID serialization in both worker files
 2. **Audio not working**: Verify AudioContext state and permissions
 3. **Build fails**: Clear `dist/` and `.build-marker`, run `npm run build:force`
-4. **Localization missing**: Ensure all locale files have matching keys
+4. **Missing translations**: Ensure keys exist in `localize/en.json` with proper dot notation
 
 ### Useful Commands
 ```bash

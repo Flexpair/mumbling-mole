@@ -33,7 +33,7 @@
 
 ## Config, localization, theming
 - Source defaults live in `app/config.js`; runtime overrides use generated `dist/config.local.js` (copy before clean rebuilds).
-- Every string addition requires updates across `localize/*.json`; missing keys log warnings and break translation expectations.
+- English-only UI: all strings live in `localize/en.json` and are statically imported by `app/localize.js` at build time; missing keys log warnings.
 - Themes sit under `themes/MetroMumbleLight`; SCSS is compiled by Webpack, so keep asset paths relative.
 
 ## Debugging hints
