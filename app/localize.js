@@ -13,7 +13,7 @@ const translations = {
   "connectdialog.error.reason.refused": "The connection has been refused.",
   "connectdialog.error.reason.version": "The server uses an incompatible version.",
   "connectdialog.error.reason.username": "Your user name was rejected. Maybe try a different one?",
-  "connectdialog.error.reason.userpassword": "The given password is incorrect.\nThe user name you have chosen requires a special one.",
+  "connectdialog.error.reason.userpassword": "The given password is incorrect.\nThe username you chose requires a special password.",
   "connectdialog.error.reason.serverpassword": "The given password is incorrect.",
   "connectdialog.error.reason.username_in_use": "The user name you have chosen is already in use.",
   "connectdialog.error.reason.full": "The server is full.",
