@@ -212,7 +212,6 @@ function setupClient(id, client) {
     pushProp(id, client, "dataStats");
   });
   client.on("connected", () => {
-    console.log('[DEBUG worker] connected event, maxBandwidth:', client.maxBandwidth);
     pushProp(id, client, "maxBandwidth");
   });
   client.on("maxBandwidthChange", () => {
