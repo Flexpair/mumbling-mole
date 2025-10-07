@@ -1278,7 +1278,7 @@ async function main() {
   console.log('Starting Mumbling Mole initialization...');
   
   document.title = window.location.hostname;
-  await localizationInitialize(navigator.language);
+  await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI();
   enumMicrophones();

@@ -12,7 +12,7 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 - 🔌 **WebSocket tunneling** – TCP voice streams over WebSocket connections (no WebRTC required)
 - 🎨 **Themeable interface** – MetroMumble-inspired Light/Dark themes
 - 👷 **Web Worker architecture** – Offloads audio processing from main thread
-- 🌍 **Multi-language support** – Full localization system
+- 🌍 **English interface** – Optimized English-only localization for performance
 - 📦 **Smart build system** – Incremental builds with vendor dependency management
 - 🐳 **Docker-ready** – Containerized development and production environments
 
@@ -251,7 +251,7 @@ We welcome contributions! Please follow these guidelines:
 
 - Use ES6+ JavaScript features
 - Maintain Worker/UI protocol compatibility
-- Add localization strings to all locale files
+- Update localization strings in `localize/en.json` when adding new UI text
 - Update both README.md and CLAUDE.md for architectural changes
 - Keep generated files (`dist/**`, `config.local.js`) out of commits
 
@@ -266,7 +266,7 @@ mumbling-mole/
 ├── vendors/               # Vendored packages
 │   └── mumble-client/     # Forked client library
 ├── themes/                # UI themes
-├── localize/              # Translation files
+├── localize/              # English translations
 ├── scripts/               # Build & test utilities
 ├── dist/                  # Build output (generated)
 └── *.sh                   # Shell scripts

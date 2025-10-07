@@ -1,48 +1,15 @@
 /**
- * the default language to use
- *
- * @var {string}
- * @author svartoyg
+ * English translations - statically imported for performance
+ * Multi-language support has been removed in favor of English-only
  */
-var _languageDefault = null;
+import translationsJson from '../localize/en.json';
 
 /**
- * the fallback language to use
- *
- * @var {string}
- * @author svartoyg
+ * Flatten nested translation object into dot-notation keys
+ * @param {Object} tree - Nested translation object
+ * @param {string} prefix - Current key prefix
+ * @param {Object} result - Flattened result object
  */
-var _languageFallback = null;
-
-/**
- * two level map with ISO-639-1 code as first key and translation id as second key
- *
- * @var {Map<string,Map<string,string>>}
- * @author svartoyg
- */
-var _data = {};
-
-/**
- * @param {string} language
- * @return Promise<Map<string,string>>
- * @author svartoyg
- */
-async function retrieveData(language) {
-  let json;
-  try {
-    json = (await import(`../localize/${language}.json`)).default;
-  } catch (exception) {
-    json = (
-      await import(
-        `../localize/${language.substr(0, language.indexOf("-"))}.json`
-      )
-    ).default;
-  }
-  const map = {};
-  flatten(json, "", map);
-  return map;
-}
-
 function flatten(tree, prefix, result) {
   for (const [key, value] of Object.entries(tree)) {
     if (typeof value === "string") {
@@ -53,50 +20,33 @@ function flatten(tree, prefix, result) {
   }
 }
 
+// Flatten translations at module load time
+const translations = {};
+flatten(translationsJson, "", translations);
+
 /**
- * @param {string} languageDefault
- * @param {string} [languageFallback]
- * @author svartoyg
+ * Initialize localization (no-op since we only support English now)
+ * Kept for API compatibility with existing code
+ * @param {string} _languageDefault - Ignored, always uses English
+ * @param {string} [_languageFallback] - Ignored, always uses English
  */
-export async function initialize(languageDefault, languageFallback = "en") {
-  _languageFallback = languageFallback;
-  _languageDefault = languageDefault;
-  for (const language of [_languageFallback, _languageDefault]) {
-    if (_data.hasOwnProperty(language)) continue;
-    let data;
-    try {
-      data = await retrieveData(language);
-    } catch (exception) {
-      console.warn(exception.toString());
-    }
-    _data[language] = data;
-  }
+export async function initialize(_languageDefault, _languageFallback = "en") {
+  // No-op: English translations are statically imported above
 }
 
 /**
- * gets a translation by its key for a specific language
+ * Gets a translation by its key (English only)
  *
- * @param {string} key
- * @param {string} [languageChosen]
- * @return {string}
- * @author svartoyg
+ * @param {string} key - Translation key in dot notation (e.g., "connectdialog.title")
+ * @param {string} [_languageChosen] - Ignored, always uses English (kept for API compatibility)
+ * @return {string} The translated string or a placeholder if key is missing
  */
-export function translate(key, languageChosen = _languageDefault) {
-  let result = undefined;
-  for (const language of [languageChosen, _languageFallback]) {
-    if (
-      _data.hasOwnProperty(language) &&
-      _data[language] !== undefined &&
-      _data[language].hasOwnProperty(key)
-    ) {
-      result = _data[language][key];
-      break;
-    }
+export function translate(key, _languageChosen) {
+  if (translations.hasOwnProperty(key)) {
+    return translations[key];
   }
-  if (result === undefined) {
-    result = "{{" + key + "}}";
-  }
-  return result;
+  console.warn(`Missing translation for key: ${key}`);
+  return "{{" + key + "}}";
 }
 
 /**
