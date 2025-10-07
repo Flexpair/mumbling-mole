@@ -184,7 +184,7 @@ async function testWorkerScripts() {
     try {
       await execAsync(`node --check ${fullPath}`);
     } catch (err) {
-      fail(`Worker-Scripts`, `${path.basename(file)} hat Syntax-Fehler: ${err.message}`);
+      fail(`Worker-Scripts`, `${path.basename(file)} has syntax error: ${err.message}`);
       return false;
     }
   }
