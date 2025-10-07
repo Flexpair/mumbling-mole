@@ -265,19 +265,24 @@
         <div class="dialog-content">
           <h3 id="connection-info_server">Audio server details</h3>
           <!-- ko with: serverVersion -->
-          Murmur version <span data-bind="text: release"></span> <br />on
+          Murmur version <span data-bind="text: release"></span> <br />
           <span data-bind="text: os"></span>
           <span data-bind="text: osVersion"></span>
           <br />
           <!-- /ko -->
           <!-- ko if: !serverVersion() -->
-          Unknown
+          Server version: Unknown<br />
           <!-- /ko -->
-          Bandwidth limited to
-          <span data-bind="text: (maxBandwidth()/1000).toFixed(1)"></span>
-          kbits/s
+          <!-- ko if: maxBandwidth() -->
+          Maximum bandwidth: <span data-bind="text: (maxBandwidth()/1000).toFixed(1)"></span> kbits/s
+          <!-- /ko -->
+          <!-- ko if: !maxBandwidth() -->
+          Maximum bandwidth: Unknown
+          <!-- /ko -->
+          <br />
 
           <h3 id="connection-info_webapp">Statistics for this web app</h3>
+          <!-- ko if: currentBandwidth() && currentBitrate() -->
           Sending
           <span data-bind="text: (currentBandwidth()/1000).toFixed(1)"></span>
           kbits/s (<span
@@ -285,9 +290,19 @@
           ></span>
           kbits/s payload)
           <br />
+          <!-- /ko -->
+          <!-- ko if: !currentBandwidth() || !currentBitrate() -->
+          Sending: Unknown
+          <br />
+          <!-- /ko -->
+          <!-- ko if: latencyMs() && !isNaN(latencyMs()) -->
           <span data-bind="text: latencyMs().toFixed(2)"></span> ms average
           latency (<span data-bind="text: latencyDeviation().toFixed(2)"></span>
           deviation)
+          <!-- /ko -->
+          <!-- ko if: !latencyMs() || isNaN(latencyMs()) -->
+          Latency: Unknown
+          <!-- /ko -->
 
           <h3 id="connection-info_native">Desktop client / mobile app</h3>
           <a href="https://www.mumble.info/downloads/" target="_blank"
@@ -417,7 +432,7 @@
           alt="Unmute my microphone"
           data-bind="visible: selfMute,
             css: { 'tb-disabled': $root.audioLockActive },
-            click: $root.handleUnmuteClick"
+            click: function() { console.log('UNMUTE CLICKED!'); $root.handleUnmuteClick(); }"
           rel="unmute"
           src="svg/audio-input-microphone-muted.svg"
         />

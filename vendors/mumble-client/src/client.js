@@ -358,15 +358,23 @@ class MumbleClient extends EventEmitter {
       patch: (payload.version >> 0) & 0xff,
       release: payload.release,
       os: payload.os,
-      osVersion: payload.os_version
+      osVersion: payload.os_version || payload.osVersion
     }
+    this.emit('serverVersion', this.serverVersion);
   }
 
   _onServerSync (payload) {
     // This packet finishes the initialization phase
+    // Handle both snake_case (max_bandwidth) and camelCase (maxBandwidth)
+    const maxBandwidth = payload.max_bandwidth || payload.maxBandwidth
     this.self = this._userById[payload.session]
-    this.maxBandwidth = payload.max_bandwidth
-    this.welcomeMessage = payload.welcome_text
+    this.maxBandwidth = maxBandwidth
+    this.welcomeMessage = payload.welcome_text || payload.welcomeText
+    
+    // Emit maxBandwidth change
+    if (maxBandwidth !== undefined) {
+      this.emit('maxBandwidthChange', maxBandwidth)
+    }
 
     // Make sure we send regular ping packets to not get disconnected
     this._pinger = setInterval(() => {
@@ -409,7 +417,9 @@ class MumbleClient extends EventEmitter {
     this._inFlightDataPings--
 
     const now = new Date().getTime()
-    const duration = now - payload.timestamp.toNumber()
+    // Handle both Long objects and plain numbers
+    const timestamp = payload.timestamp?.toNumber ? payload.timestamp.toNumber() : payload.timestamp
+    const duration = now - timestamp
     this._dataStats.update(duration)
     this.emit('dataPing', duration)
   }
@@ -553,6 +563,12 @@ class MumbleClient extends EventEmitter {
    */
   getActualBitrate (samplesPerPacket, sendPosition) {
     const bitrate = this.getPreferredBitrate(samplesPerPacket, sendPosition)
+    
+    // If server doesn't send max_bandwidth, use preferred bitrate
+    if (this.maxBandwidth === undefined) {
+      return bitrate
+    }
+    
     const bandwidth = MumbleClient.calcEnforcableBandwidth(
       bitrate,
       samplesPerPacket,
@@ -572,6 +588,10 @@ class MumbleClient extends EventEmitter {
   getPreferredBitrate (samplesPerPacket, sendPosition) {
     if (this._preferredBitrate) {
       return this._preferredBitrate
+    }
+    // If server doesn't send max_bandwidth, use a reasonable default (40000 bps = 40 kbit/s)
+    if (this.maxBandwidth === undefined) {
+      return 40000
     }
     return this.getMaxBitrate(samplesPerPacket, sendPosition)
   }
