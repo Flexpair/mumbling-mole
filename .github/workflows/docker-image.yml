@@ -40,6 +40,9 @@ jobs:
       - name: Dependency check gate
         run: npm run check:deps
 
+      - name: Audio system test
+        run: npm run test:audio:system
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
