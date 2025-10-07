@@ -1,12 +1,13 @@
 # 🧪 Testing Guide für Mumbling Mole
 
-Umfassende Dokumentation für das Testing des Audio-Systems, sowohl in lokalen DevContainers als auch in GitHub Codespaces.
+Umfassende Dokumentation für das Testing des Audio-Systems und der Multi-Service-Integration, sowohl lokal als auch in CI/CD.
 
 ## 📋 Inhaltsverzeichnis
 
 - [Schnellstart](#-schnellstart)
 - [Test-Übersicht](#-test-übersicht)
 - [Audio-System-Tests](#-audio-system-tests)
+- [Integration-Tests](#-integration-tests)
 - [Test-Szenarien](#-test-szenarien)
 - [Codespace-spezifische Anleitung](#-testing-in-github-codespaces)
 - [CI/CD Integration](#-cicd-integration)
@@ -28,6 +29,27 @@ npm run test:audio:system
 npm run test:full
 ```
 
+### Integration-Tests (Multi-Service)
+
+Testet die vollständige Service-Stack-Interaktion (Mumble, Guacamole, Nginx):
+
+```bash
+# Starte Docker Compose Stack
+docker compose -f .devcontainer/docker-compose.ci.yml up -d
+
+# Warte auf Health-Checks
+npm run test:integration:health
+
+# Führe Integration-Tests aus
+npm run test:integration
+
+# Oder alles zusammen
+npm run test:integration:full
+
+# Cleanup
+docker compose -f .devcontainer/docker-compose.ci.yml down -v
+```
+
 ### All-in-One Test mit Live-Server
 
 ```bash
@@ -45,10 +67,14 @@ npm run test:full
 |--------|--------------|
 | `npm run test` | E2E Tests + Security Audit |
 | `npm run test:full` | Alle Tests (E2E + Audio + Audit) |
+| `npm run test:quick` | Schnelle Test-Suite (Audio System + E2E + Audit) |
 | `npm run test:audio:system` | Audio-System-Test (kein Server nötig) |
 | `npm run test:audio` | Einzelner Audio-Roundtrip-Test |
 | `npm run test:audio:suite` | Vollständige Audio-Test-Suite |
 | `npm run test:e2e` | WebSocket Smoke Test |
+| `npm run test:integration` | Multi-Service Integration-Tests |
+| `npm run test:integration:health` | Health-Check aller Services |
+| `npm run test:integration:full` | Health-Check + Integration-Tests |
 | `npm run test:server:up` | Murmur Test-Server starten |
 | `npm run test:server:down` | Murmur Test-Server stoppen |
 | `npm run test:server:logs` | Server-Logs anzeigen |
@@ -82,6 +108,154 @@ npm run test:full
    - VU-Meter-Style Visualisierung
    - Zeigt aktive User und Audio-Level
    - Packet-Statistiken in Echtzeit
+
+6. **`scripts/health-check.cjs`** ⭐ NEU - Service Health-Check
+   - Prüft alle Docker Compose Services
+   - Wartet auf Service-Bereitschaft
+   - TCP/HTTP/HTTPS Checks
+   - Zeigt detaillierte Service-Status
+
+7. **`scripts/integration-test.cjs`** ⭐ NEU - Multi-Service Integration
+   - Testet Mumble ↔ Murmur Kommunikation
+   - Prüft Nginx Reverse Proxy Routing
+   - Validiert Guacamole Verfügbarkeit
+   - Cross-Service-Tests
+
+---
+
+## 🔗 Integration-Tests
+
+### Übersicht
+
+Die Integration-Tests validieren das vollständige Multi-Service-Setup:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Nginx (Reverse Proxy)                              │
+│  ├─ /mumble/     → Mumble Web Client                │
+│  └─ /guacamole/  → Guacamole                        │
+└─────────────────────────────────────────────────────┘
+         │                           │
+         ▼                           ▼
+┌──────────────────┐       ┌──────────────────┐
+│  Mumble Web      │       │  Guacamole       │
+│  (Port 8081)     │       │  (Port 8080)     │
+└──────────────────┘       └──────────────────┘
+         │                           │
+         ▼                           ▼
+┌──────────────────┐       ┌──────────────────┐
+│  Murmur Server   │       │  Guacd + DB      │
+│  (Port 64738)    │       │                  │
+└──────────────────┘       └──────────────────┘
+```
+
+### Was wird getestet?
+
+#### 1. Mumble Service Tests
+- ✅ HTTP endpoint erreichbar
+- ✅ Statische Assets verfügbar (config.js, theme.js)
+- ✅ WebSocket-Upgrade funktioniert
+- ✅ UI-Elemente vorhanden
+
+#### 2. Guacamole Service Tests
+- ✅ Guacamole endpoint erreichbar
+- ✅ Login-Seite lädt korrekt
+- ✅ Statische Ressourcen verfügbar
+
+#### 3. Nginx Proxy Tests
+- ✅ HTTP → HTTPS Redirect
+- ✅ SSL/TLS Zertifikat (self-signed)
+- ✅ `/mumble/` Routing zum Backend
+- ✅ `/guacamole/` Routing zum Backend
+
+#### 4. Cross-Service Tests
+- ✅ Nginx → Mumble Kommunikation
+- ✅ Nginx → Guacamole Kommunikation
+- ✅ Alle Services antworten innerhalb Timeout
+
+### Lokale Ausführung
+
+```bash
+# 1. Docker Compose Stack starten
+docker compose -f .devcontainer/docker-compose.ci.yml up -d
+
+# 2. Auf Services warten (max 180s)
+HEALTH_CHECK_TIMEOUT=180 npm run test:integration:health
+
+# 3. Integration-Tests ausführen
+npm run test:integration
+
+# Optional: Verbose Modus für Debugging
+INTEGRATION_TEST_VERBOSE=1 npm run test:integration
+
+# 4. Cleanup
+docker compose -f .devcontainer/docker-compose.ci.yml down -v
+```
+
+### Erwartete Ausgabe
+
+```
+======================================================================
+🧪 Integration Test Suite
+======================================================================
+
+🎤 Testing Mumble Service
+  ✅ HTTP endpoint accessible (245ms)
+  ✅ Serves static assets (config.js) (123ms)
+  ✅ WebSocket upgrade capability (89ms)
+  ✅ Contains Mumble UI elements (156ms)
+
+🖥️  Testing Guacamole Service
+  ✅ Guacamole endpoint accessible (312ms)
+  ✅ Guacamole login page loads (189ms)
+  ✅ Guacamole serves static resources (134ms)
+
+🔀 Testing Nginx Reverse Proxy
+  ✅ HTTP endpoint (port 8000) (67ms)
+  ✅ HTTPS endpoint (port 8443) (98ms)
+  ✅ Mumble proxy route (/mumble/) (145ms)
+  ✅ Guacamole proxy route (/guacamole/) (167ms)
+  ✅ SSL/TLS certificate (self-signed) (76ms)
+
+🔗 Testing Cross-Service Communication
+  ✅ Nginx → Mumble backend (234ms)
+  ✅ Nginx → Guacamole backend (198ms)
+  ✅ All services respond within timeout (456ms)
+
+======================================================================
+📊 Integration Tests - Summary
+======================================================================
+Total tests: 15
+Passed: 15
+Failed: 0
+Duration: 3.42s
+======================================================================
+
+✅ All integration tests passed!
+```
+
+### CI-optimierte Docker Compose Konfiguration
+
+Die Datei `.devcontainer/docker-compose.ci.yml` ist speziell für CI/CD optimiert:
+
+**Unterschiede zu `docker-compose.yml`:**
+
+| Feature | Development | CI |
+|---------|-------------|-----|
+| Volumes | Mounted (live reload) | None (in image) |
+| Health Checks | Optional | Required |
+| Networks | Named persistent | Ephemeral |
+| Certificates | Let's Encrypt | Self-signed |
+| Configuration | External files | Inline/generated |
+| Startup Time | ~30s | ~15s |
+| Cleanup | Manual | Automatic |
+
+**Key Features:**
+- ✅ Health-Checks für alle Services
+- ✅ Automatische Zertifikat-Generierung
+- ✅ Inline-Konfiguration (keine Volumes)
+- ✅ Optimierte Startup-Reihenfolge
+- ✅ Separate Netzwerk-Ranges (vermeidet Konflikte)
 
 ---
 
@@ -366,43 +540,124 @@ GENERATE_TONE=false MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
 
 ## 🔄 CI/CD Integration
 
-### GitHub Actions Workflow
+### GitHub Actions Workflow-Struktur
 
-```yaml
-name: Audio System Tests
+Das Projekt nutzt einen **mehrstufigen CI/CD-Ansatz** für optimale Test-Abdeckung:
 
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '22'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build application
-        run: npm run build
-      
-      - name: Run audio system tests (no server required)
-        run: npm run test:audio:system
-      
-      - name: Run E2E tests
-        run: npm run test:e2e
-      
-      - name: Security audit
-        run: npm audit --production
+```
+GitHub Actions Pipeline
+├── Job 1: docker (Fast Lane)
+│   ├── Security Audit
+│   ├── Dependency Check
+│   ├── Audio System Tests (no server)
+│   ├── Docker Build
+│   ├── HTML Smoke Test (single container)
+│   ├── E2E WebSocket Test
+│   └── Docker Push (on success)
+│
+└── Job 2: integration (Full Stack) ⭐ NEU
+    ├── Docker Compose Setup
+    ├── Health Checks (all services)
+    ├── Integration Tests (multi-service)
+    └── Cleanup
 ```
 
-### Pre-Commit Hook
+#### Job 1: Fast Lane (docker)
 
-Verhindere defekte Commits mit einem Git-Hook:
+**Zweck:** Schnelles Feedback für häufige Probleme
+
+- ⚡ Läuft bei jedem Push/PR
+- 🔒 Security & Dependency Checks
+- 🧪 Audio-System-Tests (ohne Server)
+- 🐳 Docker Build & Smoke Tests
+- ⏱️ Dauer: ~3-5 Minuten
+
+#### Job 2: Integration Tests (integration) ⭐ NEU
+
+**Zweck:** Vollständige Multi-Service-Validierung
+
+- 🔗 Startet kompletten Docker Compose Stack
+- 🏥 Health-Checks für alle Services
+- 🧪 Cross-Service-Integration-Tests
+- 🔀 Nginx Reverse-Proxy-Tests
+- ⏱️ Dauer: ~5-7 Minuten
+
+**Wann läuft es?**
+- ✅ Bei Pull Requests (vor Merge)
+- ✅ Bei Push auf `lite` Branch
+- ⏭️ Nach erfolgreichem `docker` Job
+
+### Lokale CI-Simulation
+
+Teste die komplette CI-Pipeline lokal:
+
+```bash
+# 1. Schnelle Tests (wie CI Job 1)
+npm run test:quick
+
+# 2. Integration-Tests (wie CI Job 2)
+docker compose -f .devcontainer/docker-compose.ci.yml up -d
+npm run test:integration:full
+docker compose -f .devcontainer/docker-compose.ci.yml down -v
+
+# 3. Vollständige Suite
+npm run test:full
+```
+
+### CI-Spezifische Umgebungsvariablen
+
+```bash
+# Health-Check Timeout (Standard: 120s)
+HEALTH_CHECK_TIMEOUT=180
+
+# Integration-Test Verbose-Modus
+INTEGRATION_TEST_VERBOSE=1
+
+# Docker Compose Datei
+COMPOSE_FILE=.devcontainer/docker-compose.ci.yml
+
+# E2E Test Konfiguration
+E2E_WS_PORT=8082
+E2E_TCP_PORT=5900
+E2E_TARGET_HOST=127.0.0.1
+```
+
+### GitHub Actions Workflow (Auszug)
+
+```yaml
+# .github/workflows/docker-image.yml
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      # ... Build & Test Steps ...
+      
+  integration:
+    runs-on: ubuntu-latest
+    needs: docker
+    steps:
+      - name: Start Docker Compose services
+        run: |
+          docker compose -f .devcontainer/docker-compose.ci.yml up -d
+      
+      - name: Wait for services to be healthy
+        env:
+          HEALTH_CHECK_TIMEOUT: "180"
+        run: node scripts/health-check.cjs
+      
+      - name: Run integration tests
+        run: node scripts/integration-test.cjs
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f .devcontainer/docker-compose.ci.yml down -v
+```
+
+### Pre-Commit Hooks
+
+Verhindere defekte Commits lokal:
 
 ```bash
 # .git/hooks/pre-commit
@@ -424,25 +679,94 @@ Aktiviere den Hook:
 chmod +x .git/hooks/pre-commit
 ```
 
-### Docker-basierte CI
+### Andere CI-Systeme
+
+#### GitLab CI (.gitlab-ci.yml)
 
 ```yaml
-# .gitlab-ci.yml (Beispiel)
+stages:
+  - test
+  - integration
+
 test:audio:
+  stage: test
   image: node:22
-  services:
-    - name: goofball222/murmur:latest
-      alias: murmur
-  
-  variables:
-    MUMBLE_SERVER: "murmur:64738"
-  
   script:
     - npm ci
-    - npm run build
     - npm run test:audio:system
-    - npm run test:audio
+    - npm run test:quick
+
+integration:multi-service:
+  stage: integration
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - apk add --no-cache docker-compose nodejs npm
+  script:
+    - npm ci
+    - docker compose -f .devcontainer/docker-compose.ci.yml up -d
+    - npm run test:integration:full
+    - docker compose -f .devcontainer/docker-compose.ci.yml down -v
 ```
+
+#### Jenkins (Jenkinsfile)
+
+```groovy
+pipeline {
+  agent any
+  
+  stages {
+    stage('Test') {
+      steps {
+        sh 'npm ci'
+        sh 'npm run test:audio:system'
+      }
+    }
+    
+    stage('Integration') {
+      steps {
+        sh 'docker compose -f .devcontainer/docker-compose.ci.yml up -d'
+        sh 'npm run test:integration:full'
+      }
+    }
+  }
+  
+  post {
+    always {
+      sh 'docker compose -f .devcontainer/docker-compose.ci.yml down -v'
+    }
+  }
+}
+```
+
+### Best Practices für CI
+
+1. **Parallele Ausführung nutzen**
+   - Audio-System-Tests laufen ohne Server (schnell)
+   - Integration-Tests nur bei wichtigen Branches
+
+2. **Caching aktivieren**
+   ```yaml
+   - uses: actions/cache@v3
+     with:
+       path: ~/.npm
+       key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+   ```
+
+3. **Timeout-Limits setzen**
+   ```yaml
+   timeout-minutes: 15  # Verhindert hängende Jobs
+   ```
+
+4. **Artifacts speichern bei Fehlern**
+   ```yaml
+   - uses: actions/upload-artifact@v3
+     if: failure()
+     with:
+       name: service-logs
+       path: /tmp/*.log
+   ```
 
 ---
 

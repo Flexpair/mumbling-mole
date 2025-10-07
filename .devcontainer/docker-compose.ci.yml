@@ -1,0 +1,212 @@
+# Docker Compose configuration for CI/CD pipelines
+# Optimized for GitHub Actions and automated testing
+# 
+# Key differences from docker-compose.yml:
+# - No volume mounts (everything in images)
+# - Health checks for all services
+# - Minimal configuration for faster startup
+# - CI-specific environment variables
+# - Self-signed certificates (no Let's Encrypt dependency)
+
+version: '3.8'
+
+networks:
+  ci_test_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24
+
+services:
+  # Mumble server (Murmur)
+  murmur:
+    image: goofball222/murmur:latest
+    container_name: murmur_ci
+    networks:
+      ci_test_net:
+        ipv4_address: 172.19.0.5
+    ports:
+      - "64738:64738"
+      - "64738:64738/udp"
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    # Minimal config for CI - create temporary config
+    command: |
+      sh -c "
+        mkdir -p /opt/murmur/config /opt/murmur/data /opt/murmur/log &&
+        echo 'welcometext=\"<br />Welcome to CI Test Server<br />\"' > /opt/murmur/config/murmur.ini &&
+        echo 'port=64738' >> /opt/murmur/config/murmur.ini &&
+        echo 'host=0.0.0.0' >> /opt/murmur/config/murmur.ini &&
+        echo 'bandwidth=130000' >> /opt/murmur/config/murmur.ini &&
+        echo 'users=10' >> /opt/murmur/config/murmur.ini &&
+        echo 'serverpassword=' >> /opt/murmur/config/murmur.ini &&
+        exec /opt/murmur/murmur.x86 -fg -ini /opt/murmur/config/murmur.ini
+      "
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "64738"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Main application container (built from local Dockerfile)
+  mumble:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: prod
+    container_name: mumble_web_ci
+    networks:
+      ci_test_net:
+        ipv4_address: 172.19.0.6
+    ports:
+      - "8081:8081"
+    depends_on:
+      murmur:
+        condition: service_healthy
+    environment:
+      - MUMBLE_SERVER=murmur:64738
+      - SKIP_TUNNEL=0
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8081/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  # PostgreSQL for Guacamole
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_ci
+    networks:
+      ci_test_net:
+        ipv4_address: 172.19.0.2
+    environment:
+      POSTGRES_DB: guacamole_db
+      POSTGRES_USER: guacamole_user
+      POSTGRES_PASSWORD: ci_test_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guacamole_user -d guacamole_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Guacamole daemon
+  guacd:
+    image: guacamole/guacd:1.6.0
+    container_name: guacd_ci
+    networks:
+      ci_test_net:
+        ipv4_address: 172.19.0.3
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "4822"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Guacamole web application
+  guacamole:
+    image: guacamole/guacamole:1.6.0
+    container_name: guacamole_ci
+    networks:
+      ci_test_net:
+        ipv4_address: 172.19.0.4
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      guacd:
+        condition: service_healthy
+    environment:
+      GUACD_HOSTNAME: guacd
+      POSTGRES_DATABASE: guacamole_db
+      POSTGRES_HOSTNAME: postgres
+      POSTGRES_USER: guacamole_user
+      POSTGRES_PASSWORD: ci_test_password
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/guacamole/"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 30s
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_ci
+    networks:
+      ci_test_net:
+        ipv4_address: 172.19.0.7
+    ports:
+      - "8443:443"
+      - "8000:80"
+    depends_on:
+      guacamole:
+        condition: service_healthy
+      mumble:
+        condition: service_healthy
+    # Create minimal nginx config on-the-fly for CI
+    command: |
+      sh -c "
+        mkdir -p /etc/nginx/ssl &&
+        openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+          -keyout /etc/nginx/ssl/nginx.key \
+          -out /etc/nginx/ssl/nginx.crt \
+          -subj '/C=US/ST=Test/L=Test/O=CI/CN=localhost' &&
+        cat > /etc/nginx/conf.d/default.conf << 'EOF'
+      upstream mumble_backend {
+        server 172.19.0.6:8081;
+      }
+      upstream guacamole_backend {
+        server 172.19.0.4:8080;
+      }
+      server {
+        listen 80;
+        server_name _;
+        location / {
+          return 301 https://\$$host\$$request_uri;
+        }
+      }
+      server {
+        listen 443 ssl;
+        server_name _;
+        ssl_certificate /etc/nginx/ssl/nginx.crt;
+        ssl_certificate_key /etc/nginx/ssl/nginx.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        location /mumble/ {
+          proxy_pass http://mumble_backend/;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade \$$http_upgrade;
+          proxy_set_header Connection \"upgrade\";
+          proxy_set_header Host \$$host;
+          proxy_set_header X-Real-IP \$$remote_addr;
+        }
+        location /guacamole/ {
+          proxy_pass http://guacamole_backend/guacamole/;
+          proxy_buffering off;
+          proxy_http_version 1.1;
+          proxy_set_header X-Forwarded-For \$$proxy_add_x_forwarded_for;
+          proxy_set_header Upgrade \$$http_upgrade;
+          proxy_set_header Connection \$$http_connection;
+        }
+        location / {
+          return 200 'CI Nginx OK';
+          add_header Content-Type text/plain;
+        }
+      }
+      EOF
+        exec nginx -g 'daemon off;'
+      "
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
