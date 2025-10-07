@@ -56,22 +56,21 @@ const translations = {
 
 /**
  * Initialize localization (no-op since we only support English now)
- * @param {string} languageDefault - Ignored, always uses English
- * @param {string} [languageFallback] - Ignored, always uses English
+ * @param {string} _languageDefault - Ignored, always uses English
+ * @param {string} [_languageFallback] - Ignored, always uses English
  */
-export async function initialize(languageDefault, languageFallback = "en") {
+export async function initialize(_languageDefault, _languageFallback = "en") {
   // No-op: English translations are hard-coded above
-  console.log('Localization initialized (English only)');
 }
 
 /**
  * Gets a translation by its key
  *
  * @param {string} key
- * @param {string} [languageChosen] - Ignored, always uses English
+ * @param {string} [_languageChosen] - Ignored, always uses English
  * @return {string}
  */
-export function translate(key, languageChosen) {
+export function translate(key, _languageChosen) {
   if (translations.hasOwnProperty(key)) {
     return translations[key];
   }
