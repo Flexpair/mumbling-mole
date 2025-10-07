@@ -265,11 +265,12 @@ function onMessage(data) {
         clients[id] = client;
         setupClient(id, client);
         // Push maxBandwidth and serverVersion immediately after setup since events may have already fired
+        const idObj = { client: id };
         if (client.maxBandwidth !== undefined) {
-          pushProp({ client: id }, client, "maxBandwidth");
+          pushProp(idObj, client, "maxBandwidth");
         }
         if (client.serverVersion !== undefined) {
-          pushProp({ client: id }, client, "serverVersion");
+          pushProp(idObj, client, "serverVersion");
         }
         return id;
       })
