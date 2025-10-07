@@ -211,6 +211,16 @@ function setupClient(id, client) {
   client.on("dataPing", () => {
     pushProp(id, client, "dataStats");
   });
+  client.on("connected", () => {
+    console.log('[DEBUG worker] connected event, maxBandwidth:', client.maxBandwidth);
+    pushProp(id, client, "maxBandwidth");
+  });
+  client.on("maxBandwidthChange", () => {
+    pushProp(id, client, "maxBandwidth");
+  });
+  client.on("serverVersion", () => {
+    pushProp(id, client, "serverVersion");
+  });
 
   let initialized = false;
 
@@ -255,6 +265,13 @@ function onMessage(data) {
         let id = nextClientId++;
         clients[id] = client;
         setupClient(id, client);
+        // Push maxBandwidth and serverVersion immediately after setup since events may have already fired
+        if (client.maxBandwidth !== undefined) {
+          pushProp({ client: id }, client, "maxBandwidth");
+        }
+        if (client.serverVersion !== undefined) {
+          pushProp({ client: id }, client, "serverVersion");
+        }
         return id;
       })
       .then(

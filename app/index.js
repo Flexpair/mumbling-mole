@@ -258,8 +258,8 @@ class ConnectionInfo {
 
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
-      let maxBitrate = client.getMaxBitrate(spp, false);
       let maxBandwidth = client.maxBandwidth;
+      let maxBitrate = client.maxBandwidth !== undefined ? client.getMaxBitrate(spp, false) : NaN;
       let actualBitrate = client.getActualBitrate(spp, false);
       let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
         actualBitrate,
@@ -456,20 +456,12 @@ class GlobalBindings {
     };
 
     this.handleUnmuteClick = () => {
-      if (this.audioLockActive()) {
-        this.notifyAudioLock();
-        return;
-      }
       if (this.thisUser()) {
         this.requestUnmute(this.thisUser());
       }
     };
 
     this.handleUndeafClick = () => {
-      if (this.audioLockActive()) {
-        this.notifyAudioLock();
-        return;
-      }
       if (this.thisUser()) {
         this.requestUndeaf(this.thisUser());
       }
@@ -538,6 +530,12 @@ class GlobalBindings {
     
     // Define initializeAudioContext method before using it
     this.initializeAudioContext = async () => {
+      // Prevent duplicate initialization
+      if (this.audioContext) {
+        console.log('AudioContext already initialized, reusing existing instance');
+        return;
+      }
+      
       try {
         console.log('Initializing managed AudioContext...');
         this.audioContext = await ensureAudioContext({ 
@@ -549,7 +547,7 @@ class GlobalBindings {
           sampleRate: this.audioContext.sampleRate
         });
 
-        // Set up event handlers for audio context state changes
+        // Set up event handlers for audio context state changes (only once)
         audioContextManager.onSuspend(() => {
           console.log('AudioContext suspended - audio features may be limited');
         });
@@ -800,6 +798,11 @@ class GlobalBindings {
         client.on("newChannel", (channel) => this._newChannel(channel));
         client.on("newUser", (user) => this._newUser(user));
 
+        // Ensure client.self has __ui before setting thisUser
+        if (client.self && !client.self.__ui) {
+          this._newUser(client.self);
+        }
+        
         this.thisUser(client.self.__ui);
         this.root(client.root.__ui);
         this._updateLinks();
@@ -890,6 +893,11 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
+          // Ensure audioContext is available before creating audio nodes
+          if (!this.audioContext) {
+            console.error('AudioContext not available for voice playback');
+            return;
+          }
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
@@ -1088,15 +1096,33 @@ class GlobalBindings {
     };
 
     this.requestUnmute = (user) => {
+      console.log('[DEBUG] requestUnmute called', { 
+        user: user?.name?.(), 
+        audioLockActive: this.audioLockActive(),
+        thisUser: this.thisUser()?.name?.(),
+        connected: this.connected()
+      });
+      
       if (this.audioLockActive()) {
+        console.log('[DEBUG] audioLock is active, showing notification');
         this.notifyAudioLock();
         return;
       }
-      if (user !== this.thisUser()) return;
+      if (user !== this.thisUser()) {
+        console.log('[DEBUG] user is not thisUser, returning');
+        return;
+      }
+      
+      console.log('[DEBUG] Setting selfMute(false) and selfDeaf(false)');
       this.selfMute(false);
       this.selfDeaf(false);
+      
       if (this.connected()) {
+        console.log('[DEBUG] Calling client.setSelfMute(false) and client.setSelfDeaf(false)');
         this.client.setSelfMute(false);
+        this.client.setSelfDeaf(false);
+      } else {
+        console.log('[DEBUG] Not connected, skipping client calls');
       }
     };
 
@@ -1113,7 +1139,7 @@ class GlobalBindings {
     };
 
     this._updateLinks = () => {
-      if (!this.thisUser()) {
+      if (!this.thisUser() || !this.thisUser().channel()) {
         return;
       }
 
@@ -1126,16 +1152,19 @@ class GlobalBindings {
 
       function findLinks(channel, knownLinks) {
         knownLinks.push(channel);
-        channel.links.forEach((next) => {
-          if (next && knownLinks.indexOf(next) === -1) {
-            findLinks(next, knownLinks);
-          }
-        });
+        if (channel.links) {
+          channel.links.forEach((next) => {
+            if (next && knownLinks.indexOf(next) === -1) {
+              findLinks(next, knownLinks);
+            }
+          });
+        }
         allChannels
           .map((c) => c.model)
           .forEach((next) => {
             if (
               next &&
+              next.links &&
               knownLinks.indexOf(next) === -1 &&
               next.links.indexOf(channel) !== -1
             ) {
