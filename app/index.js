@@ -22,14 +22,6 @@ import {
   translate,
 } from "./localize";
 
-const createLegacyAudioContext = (options = {}) => {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) {
-    throw new Error("AudioContext is not supported in this browser");
-  }
-  return new AudioContextClass(options);
-};
-
 function GuacamoleFrame() {
   var self = this;
   // Start with null source to avoid the browser immediately requesting /guacamole/.
@@ -561,7 +553,11 @@ class GlobalBindings {
         
         // Fallback to legacy approach if managed approach fails
         try {
-          this.audioContext = createLegacyAudioContext({ latencyHint: "interactive" });
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) {
+            throw new Error("AudioContext is not supported in this browser");
+          }
+          this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
           console.log('Fallback to legacy AudioContext successful');
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
