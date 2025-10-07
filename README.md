@@ -144,14 +144,23 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run build:force` | Clean rebuild of all artifacts |
 | `npm run build:vendor:mumble-client` | Rebuild vendored mumble-client |
 
-### Development
+### Testing
+
+| Command | Description |
+|---------|-------------|
+| `npm run test` | Run E2E tests + security audit |
+| `npm run test:full` | Run all tests (E2E + Audio + Audit) |
+| `npm run test:audio:system` | Audio system test (no server needed) |
+| `npm run test:audio:suite` | Complete audio test suite |
+
+> See **[TESTING.md](./TESTING.md)** for comprehensive testing documentation.
+
+### Development & Analysis
 
 | Command | Description |
 |---------|-------------|
 | `npm run analyze` | Generate bundle analysis report |
 | `npm run check:deps` | Find unused dependencies |
-| `npm run test` | Run all tests (E2E + security audit) |
-| `npm run test:e2e` | Run WebSocket smoke test only |
 
 ### Maintenance
 
@@ -159,6 +168,31 @@ Create custom themes by extending existing ones in `themes/` directory.
 |---------|-------------|
 | `npm run audit:baseline` | Update security audit baseline |
 | `npm audit` | Check for vulnerabilities |
+
+## 🧪 Testing
+
+Umfassende Dokumentation für alle Test-Szenarien findest du in **[TESTING.md](./TESTING.md)**.
+
+### Schnelltest
+
+```bash
+# Automatisierter Audio-System-Test (kein Server erforderlich)
+npm run test:audio:system
+
+# Vollständige Test-Suite
+npm run test:full
+```
+
+### Wichtige Test-Kommandos
+
+| Kommando | Beschreibung |
+|----------|--------------|
+| `npm run test:audio:system` | Audio-Komponenten-Test ohne Live-Server |
+| `npm run test:full` | E2E + Audio + Security Tests |
+| `npm run test:audio:suite` | Vollständige Audio-Test-Suite mit Server |
+| `./scripts/quick-audio-test.sh` | All-in-One Test inkl. Server-Setup |
+
+Für detaillierte Informationen zu Test-Szenarien, CI/CD-Integration, Troubleshooting und Codespace-spezifischen Anleitungen, siehe **[TESTING.md](./TESTING.md)**.
 
 ## 🐛 Troubleshooting
 

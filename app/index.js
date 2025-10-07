@@ -893,11 +893,6 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
-          // Ensure audioContext is available before creating audio nodes
-          if (!this.audioContext) {
-            console.error('AudioContext not available for voice playback');
-            return;
-          }
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
