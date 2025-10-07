@@ -89,8 +89,8 @@ const config = {
         ]
       },
       {
-        type: "javascript/auto",
         test: /manifest\.json$|\.xml$/,
+        type: 'asset/resource',
         use: [
           {
             loader: path.resolve(__dirname, "loaders/simple-extract-loader.js"),
