@@ -151,7 +151,20 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run analyze` | Generate bundle analysis report |
 | `npm run check:deps` | Find unused dependencies |
 | `npm run test` | Run all tests (E2E + security audit) |
+| `npm run test:full` | Run all tests including audio tests |
 | `npm run test:e2e` | Run WebSocket smoke test only |
+| `npm run test:audio` | Run audio roundtrip test |
+| `npm run test:audio:suite` | Run complete audio test suite |
+
+### Audio Testing
+
+| Command | Description |
+|---------|-------------|
+| `npm run test:server:up` | Start Murmur server from .devcontainer |
+| `npm run test:server:down` | Stop Murmur server |
+| `npm run test:server:logs` | View Murmur server logs |
+| `./scripts/quick-audio-test.sh` | Quick all-in-one audio test |
+| `node scripts/audio-monitor.cjs` | Real-time audio stream monitor |
 
 ### Maintenance
 
@@ -159,6 +172,91 @@ Create custom themes by extending existing ones in `themes/` directory.
 |---------|-------------|
 | `npm run audit:baseline` | Update security audit baseline |
 | `npm audit` | Check for vulnerabilities |
+
+## 🧪 Testing Audio Functionality
+
+Before deploying to production, test audio send/receive functionality:
+
+### Quick Test (Automated)
+
+```bash
+# Start test server and run audio tests (all-in-one)
+./scripts/quick-audio-test.sh
+```
+
+This will:
+1. Start a local Mumble test server
+2. Connect and send a test tone (440 Hz)
+3. Verify audio packets are sent correctly
+4. Clean up automatically
+
+### Comprehensive Test Suite
+
+```bash
+# Start test server
+npm run test:server:up
+
+# Run complete audio test suite
+npm run test:audio:suite
+
+# Stop test server
+npm run test:server:down
+```
+
+### Manual Testing with Two Clients
+
+For full audio roundtrip testing:
+
+1. **Start test server:**
+   ```bash
+   npm run test:server:up
+   ```
+
+2. **Connect with official Mumble client:**
+   - Download from [mumble.info](https://www.mumble.info/downloads/)
+   - Connect to `localhost:64738`
+   - Join a channel
+
+3. **Run browser client:**
+   ```bash
+   MUMBLE_SERVER=localhost:64738 ./start-dev-server.sh
+   ```
+   - Open `http://local.flexpair.app`
+   - Allow microphone access
+   - Connect to server
+   - Speak and verify voice indicator activates
+
+4. **Verify audio:**
+   - You should hear your voice in the Mumble desktop client
+   - Speaking in desktop client should show activity in browser
+
+### Real-Time Audio Monitoring
+
+Monitor audio streams in real-time with a VU-meter style display:
+
+```bash
+MUMBLE_SERVER=localhost:64738 node scripts/audio-monitor.cjs
+```
+
+This shows:
+- Active users and their audio levels
+- Packet rates and bandwidth usage
+- Audio amplitude visualization
+- Connection statistics
+
+### Expected Test Results
+
+✅ **Passing Tests Should Show:**
+- WebSocket connection established
+- Audio packets sent at ~50 packets/second (20ms frames)
+- Packet success rate > 95%
+- No encoder/decoder errors
+
+⚠️ **Normal Warnings:**
+- "No audio received" when no other clients are sending
+- "Partial test" when running solo (expected behavior)
+
+For detailed testing documentation, see [AUDIO-TESTING.md](./AUDIO-TESTING.md).
 
 ## 🐛 Troubleshooting
 
