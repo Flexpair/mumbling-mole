@@ -12,7 +12,7 @@
         "refused": "The connection has been refused.",
         "version": "The server uses an incompatible version.",
         "username": "Your user name was rejected. Maybe try a different one?",
-        "userpassword": "The given password is incorrect.\nThe user name you have chosen requires a special one.",
+        "userpassword": "The given password is incorrect.\nThe username you chose requires a special password.",
         "serverpassword": "The given password is incorrect.",
         "username_in_use": "The user name you have chosen is already in use.",
         "full": "The server is full.",

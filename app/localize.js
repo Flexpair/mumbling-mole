@@ -1,74 +1,45 @@
 /**
- * English translations - hard-coded for performance
- * Multilanguage support has been disabled
+ * English translations - statically imported for performance
+ * Multi-language support has been removed in favor of English-only
  */
-const translations = {
-  "connectdialog.title": "Join audio conference",
-  "connectdialog.username": "Username",
-  "connectdialog.password": "Password",
-  "connectdialog.microphone": "Microphone",
-  "connectdialog.headphones": "Please use 🎧. Thank you.",
-  "connectdialog.connect": "Connect",
-  "connectdialog.error.title": "Failed to connect",
-  "connectdialog.error.reason.refused": "The connection has been refused.",
-  "connectdialog.error.reason.version": "The server uses an incompatible version.",
-  "connectdialog.error.reason.username": "Your user name was rejected. Maybe try a different one?",
-  "connectdialog.error.reason.userpassword": "The given password is incorrect.\nThe username you chose requires a special password.",
-  "connectdialog.error.reason.serverpassword": "The given password is incorrect.",
-  "connectdialog.error.reason.username_in_use": "The user name you have chosen is already in use.",
-  "connectdialog.error.reason.full": "The server is full.",
-  "connectdialog.error.reason.clientcert": "The server requires you to provide a client certificate which is not supported by this web application.",
-  "connectdialog.error.reason.server": "The server reports:",
-  "connectdialog.error.retry": "Retry",
-  "connectdialog.error.cancel": "Cancel",
-  "connectinfo.title": "Audio transmission info",
-  "connectinfo.server": "Audio server details",
-  "connectinfo.webapp": "Statistics for this web app",
-  "connectinfo.native": "Desktop client / mobile app",
-  "settingsdialog.title": "Audio settings",
-  "settingsdialog.transmission": "Transmission",
-  "settingsdialog.cont": "Continuous",
-  "settingsdialog.ptt": "Push To Talk",
-  "settingsdialog.ptt_key": "PTT Key",
-  "settingsdialog.audio_quality": "Audio Quality",
-  "settingsdialog.packet": "Audio per packet",
-  "settingsdialog.close": "Cancel",
-  "settingsdialog.submit": "Apply",
-  "chat.channel_message_placeholder": "Type message to everyone here...",
-  "chat.user_message_placeholder": "Type message to user '%1' here...",
-  "logentry.mic_init_error": "Microphone initialization error",
-  "logentry.connecting": "Connecting to audio server",
-  "logentry.connected": "Connected to audio server",
-  "logentry.connection_error": "Connection error",
-  "logentry.unknown_voice_mode": "Unknown voice mode",
-  "audio.sample_rate.warning.title": "Audio hardware mismatch",
-  "audio.sample_rate.warning.body": "Your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz. You can still join without audio, but your microphone and speakers will remain muted.",
-  "audio.sample_rate.warning.info": "Audio is disabled because your audio device sample rate (%1 Hz) doesn't match the required 48000 Hz.",
-  "audio.sample_rate.warning.accept": "Join without audio",
-  "audio.sample_rate.warning.cancel": "Cancel",
-  "audio.sample_rate.warning.close": "Close",
-  "audio.sample_rate.warning.unknown_rate": "unknown",
-  "audio.sample_rate.warning.hints_title": "How to switch your device to 48 kHz",
-  "audio.sample_rate.warning.hints.item1": "Windows: Right-click the speaker icon → Sound settings → More sound settings → select your device → Advanced → set Default Format to 48,000 Hz.",
-  "audio.sample_rate.warning.hints.item2": "macOS: Open Applications › Utilities › Audio MIDI Setup → select your device → set Format to 48,000 Hz.",
-  "audio.sample_rate.warning.hints.item3": "Linux: Use PulseAudio Volume Control (pavucontrol) or system audio settings to choose a 48 kHz profile, then reconnect."
-};
+import translationsJson from '../localize/en.json';
+
+/**
+ * Flatten nested translation object into dot-notation keys
+ * @param {Object} tree - Nested translation object
+ * @param {string} prefix - Current key prefix
+ * @param {Object} result - Flattened result object
+ */
+function flatten(tree, prefix, result) {
+  for (const [key, value] of Object.entries(tree)) {
+    if (typeof value === "string") {
+      result[prefix + key] = value;
+    } else {
+      flatten(value, prefix + key + ".", result);
+    }
+  }
+}
+
+// Flatten translations at module load time
+const translations = {};
+flatten(translationsJson, "", translations);
 
 /**
  * Initialize localization (no-op since we only support English now)
+ * Kept for API compatibility with existing code
  * @param {string} _languageDefault - Ignored, always uses English
  * @param {string} [_languageFallback] - Ignored, always uses English
  */
 export async function initialize(_languageDefault, _languageFallback = "en") {
-  // No-op: English translations are hard-coded above
+  // No-op: English translations are statically imported above
 }
 
 /**
- * Gets a translation by its key
+ * Gets a translation by its key (English only)
  *
- * @param {string} key
- * @param {string} [_languageChosen] - Ignored, always uses English
- * @return {string}
+ * @param {string} key - Translation key in dot notation (e.g., "connectdialog.title")
+ * @param {string} [_languageChosen] - Ignored, always uses English (kept for API compatibility)
+ * @return {string} The translated string or a placeholder if key is missing
  */
 export function translate(key, _languageChosen) {
   if (translations.hasOwnProperty(key)) {
