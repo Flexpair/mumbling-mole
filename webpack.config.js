@@ -93,12 +93,6 @@ const config = {
         test: /manifest\.json$|\.xml$/,
         use: [
           {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-          {
             loader: path.resolve(__dirname, "loaders/simple-extract-loader.js"),
           },
           {
@@ -118,17 +112,16 @@ const config = {
             },
           },
         ],
+        generator: {
+          filename: '[name][ext]'
+        }
       },
       {
         test: /\.(svg|png|ico)$/,
-        use: [
-          {
-            loader: "file-loader",
-            options: {
-              esModule: false,
-            },
-          },
-        ],
+        type: 'asset/resource',
+        generator: {
+          filename: '[name][ext]'
+        }
       },
       {
         // Worker files are referenced via new Worker(new URL('./worker.js', import.meta.url))
