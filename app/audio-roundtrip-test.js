@@ -166,7 +166,13 @@ class AudioRoundtripTest {
             const testClient = await testConnector.connect(`wss://${host}`, {
                 username: uniqueUsername,
                 password: '', // Normalerweise kein Passwort nötig
-                tokens: []
+                tokens: [],
+                // ANTI-SESSION-KONFLIKT: Verschiedene Client-Eigenschaften
+                serverPassword: '',
+                // Verschiedene User-Agent und Client-Info um Session-Konflikte zu vermeiden
+                userAgent: 'MumbleWebTestBot/1.0.0',
+                version: [1, 4, 0],
+                clientName: 'AudioTestBot'
             });                console.log('✅ Test-Client Worker-Verbindung hergestellt');
                 this.updateProgress('✅ Worker-Verbindung hergestellt, warte auf Initialisierung...');
                 
@@ -179,8 +185,24 @@ class AudioRoundtripTest {
                 console.log('  - Hauptclient Root vorhanden:', !!this.mainClient.root);
                 
                 if (!this.mainClient.ready || !this.mainClient.root) {
-                    console.error('🚨 HAUPTCLIENT WURDE GEKICKT! Test-Client hat Hauptclient verdrängt!');
-                    throw new Error('HAUPTCLIENT WURDE VOM SERVER GEKICKT - Session-Konflikt erkannt!');
+                    console.error('🚨 SESSION-KONFLIKT BESTÄTIGT! Test-Client verdrängt Hauptclient!');
+                    console.log('💡 LÖSUNGSANSÄTZE:');
+                    console.log('  1. Echte separate Browser/Tabs für jeden Client');
+                    console.log('  2. Lokaler Audio-Loopback ohne zweiten Mumble-Client');
+                    console.log('  3. Mock-Client der nur Audio-Pipeline testet');
+                    console.log('  4. Server-Konfiguration für Multi-Session-Support');
+                    
+                    // Versuche Test-Client zu trennen um Hauptclient zu retten
+                    console.log('🔧 Versuche Test-Client zu trennen...');
+                    try {
+                        if (testClient && typeof testClient.disconnect === 'function') {
+                            testClient.disconnect();
+                        }
+                    } catch (disconnectError) {
+                        console.warn('⚠️ Test-Client-Trennung fehlgeschlagen:', disconnectError);
+                    }
+                    
+                    throw new Error('SESSION-KONFLIKT: Mumble-Server erlaubt nur einen Client pro Browser-Session. Authentischer Dual-Client-Test erfordert separate Browser-Instanzen oder Server-Rekonfiguration.');
                 }
                 
                 // Warte auf vollständige Mumble-Initialisierung mit Timeout

@@ -634,6 +634,7 @@ class GlobalBindings {
       }
       
       if (!this.client) {
+        console.error('❌ Kein Client verfügbar');
         this.audioTestStatus('Fehler: Nicht mit Mumble-Server verbunden');
         this.audioTestSuccess(false);
         return;
@@ -644,18 +645,27 @@ class GlobalBindings {
       this.audioTestSuccess(false);
       
       try {
+        console.log('📦 Versuche Audio-Roundtrip-Test zu importieren...');
+        
         // Importiere und starte den echten Audio-Roundtrip-Test
         const AudioRoundtripTest = (await import('./audio-roundtrip-test.js')).default;
+        console.log('✅ Audio-Roundtrip-Test erfolgreich importiert');
+        
         const testInstance = new AudioRoundtripTest();
+        console.log('✅ Test-Instanz erstellt');
         
         // Führe Test mit Fortschritts-Updates aus
         const updateProgress = (message) => {
+          console.log('📱 UI-Update:', message);
           this.audioTestStatus(message);
         };
         
         // Starte Test mit Progress-Callback
         testInstance.progressCallback = updateProgress;
+        console.log('🚀 Starte Test-Ausführung...');
+        
         const results = await testInstance.runTest(this.client);
+        console.log('📊 Test-Ergebnisse erhalten:', results);
         
         if (results.success) {
           this.audioTestStatus(`🎉 ECHTER Roundtrip erfolgreich! (${results.sentPackets}→${results.testClientReceivedPackets}→${results.testClientSentPackets}→${results.receivedPackets})`);
@@ -678,10 +688,12 @@ class GlobalBindings {
         }
         
       } catch (error) {
-        console.error('Audio-Roundtrip-Test-Fehler:', error);
+        console.error('❌ Audio-Roundtrip-Test-Fehler:', error);
+        console.error('❌ Error-Stack:', error.stack);
         this.audioTestStatus(`❌ Test-Fehler: ${error.message}`);
         this.audioTestSuccess(false);
       } finally {
+        console.log('🏁 Test-Ausführung beendet');
         this.audioTestRunning(false);
       }
     };
