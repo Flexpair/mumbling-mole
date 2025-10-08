@@ -1,26 +1,23 @@
 # =====================================================================
-# Stage 1: base
+# Stage 1: base-runtime (minimal runtime dependencies)
 # =====================================================================
-FROM ubuntu:24.04 AS base
+FROM ubuntu:24.04 AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Deadsnakes PPA für Python 3.11
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update
+    apt-get update && \
+    apt-get remove -y software-properties-common && \
+    apt-get autoremove -y
 
-# Grundpakete
+# Runtime-Pakete (nur was prod wirklich braucht)
 RUN apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
     tini \
     bash \
-    jq \
     python3.11 \
-    python3.11-venv \
-    xz-utils && \
+    python3.11-venv && \
     rm -rf /var/lib/apt/lists/*
 
 # Python 3.11 venv + websockify
@@ -28,8 +25,30 @@ RUN /usr/bin/python3.11 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --no-cache-dir websockify==0.12.0
 
+# User node anlegen
+RUN useradd -m -U -s /bin/bash node && \
+    chown -R node:node /home/node
+
+WORKDIR /home/node
+
+
+# =====================================================================
+# Stage 2: builder (build-time dependencies)
+# =====================================================================
+FROM base-runtime AS builder
+
+USER root
+
+# Build-Tools installieren
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    xz-utils && \
+    rm -rf /var/lib/apt/lists/*
+
 # ---------------------------------------------------------------------
-# Node.js 22 Installation (robust, feste Symlinks)
+# Node.js 22 Installation (nur für Build)
 # ---------------------------------------------------------------------
 ENV NODE_VERSION=22.20.0
 
@@ -46,23 +65,24 @@ RUN set -eux; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/node" /usr/local/bin/node; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/npm" /usr/local/bin/npm; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/npx" /usr/local/bin/npx; \
+    rm /tmp/node.tar.xz; \
     /usr/local/bin/node -v && /usr/local/bin/npm -v
 
-# PATH explizit setzen
 ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 
-# User node anlegen
-RUN useradd -m -U -s /bin/bash node && \
-    mkdir -p /home/node/.npm-global && \
-    chown -R node:node /home/node
-
+# Projekt-Files kopieren und builden
+COPY --chown=node:node ./ /home/node/
+USER node
 WORKDIR /home/node
 
+RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
+RUN npm run build:force
+
 
 # =====================================================================
-# Stage 2: dev
+# Stage 3: dev (development environment)
 # =====================================================================
-FROM base AS dev
+FROM builder AS dev
 
 USER root
 
@@ -83,20 +103,19 @@ CMD ["bash", "-lc", "while :; do sleep 3600; done"]
 
 
 # =====================================================================
-# Stage 3: prod
+# Stage 4: prod (production - minimal runtime only)
 # =====================================================================
-FROM base AS prod
+FROM base-runtime AS prod
 
-COPY ./ /home/node/
-RUN chown -R node:node /home/node
+# Nur die gebauten Artefakte kopieren, NICHT node_modules oder Build-Tools
+COPY --from=builder --chown=node:node /home/node/dist /home/node/dist
+COPY --chown=node:node ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 
 USER node
 WORKDIR /home/node
 
-RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
-RUN npm run build:force # smart-build.sh ensures vendor build & artifact validation
+RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 8081 8082
-RUN chmod +x ./docker-entrypoint.sh
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/home/node/docker-entrypoint.sh"]
