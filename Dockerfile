@@ -65,6 +65,42 @@ WORKDIR /home/node
 FROM base AS dev
 
 USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    tar \
+    gawk \
+    unzip \
+    xz-utils \
+    gnupg \
+    lsb-release \
+    zsh \
+    fzf \
+    openssh-client \
+    curl \
+    wget \
+    git \
+    vim \
+    nano \
+    net-tools \
+    build-essential \
+    ca-certificates \
+    sudo \
+    build-essential \
+    curl wget git \
+    vim nano tree htop \
+    unzip zip \
+    nodejs npm \
+    python3 python3-pip python3-dev python3-setuptools \
+    jq sqlite3 \
+    net-tools dnsutils iputils-ping telnet openssh-client \
+    tmux screen \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p /home/node/.npm && chown -R node:node /home/node
 USER node
 
