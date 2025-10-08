@@ -182,32 +182,72 @@ class AudioRoundtripTest {
         
         // Listener für Test-Client (empfängt Audio vom Hauptclient und sendet zurück)
         this.testClientVoiceListener = (voiceStream) => {
-            console.log('📥 Test-Client empfängt Voice-Stream');
+            console.log('📥 Test-Client empfängt Voice-Stream von einem Benutzer');
             
             voiceStream.on('data', (data) => {
                 this.testClientReceivedPackets++;
                 
                 if (this.testClientReceivedPackets === 1) {
-                    console.log('📥 Test-Client: Erstes Audio-Paket empfangen - starte Echo');
-                    // Starte Echo-Antwort
-                    this.startTestClientEcho();
+                    console.log('📥 Test-Client: Erstes Audio-Paket empfangen - starte Echo in 500ms');
+                    // Kurze Verzögerung bevor Echo gestartet wird
+                    setTimeout(() => {
+                        this.startTestClientEcho();
+                    }, 500);
                 }
                 
-                if (this.testClientReceivedPackets % 20 === 0) {
+                if (this.testClientReceivedPackets % 10 === 0) {
                     console.log(`📊 Test-Client: ${this.testClientReceivedPackets} Audio-Pakete empfangen`);
                 }
             });
         };
         
-        // Registriere Listener
+        // Registriere Listener für Hauptclient
         if (this.mainClient && typeof this.mainClient.on === 'function') {
             this.mainClient.on('voice', this.mainClientVoiceListener);
             console.log('✅ Voice-Listener für Hauptclient registriert');
+        } else {
+            console.warn('⚠️ Hauptclient unterstützt keine Voice-Events');
         }
         
+        // Registriere Listener für Test-Client
         if (this.testClient && typeof this.testClient.on === 'function') {
             this.testClient.on('voice', this.testClientVoiceListener);
             console.log('✅ Voice-Listener für Test-Client registriert');
+        } else {
+            console.warn('⚠️ Test-Client unterstützt keine Voice-Events');
+        }
+        
+        // DEBUG: Zusätzlich auf alle User-Voice-Events hören
+        console.log('🔍 Debug: Registriere Voice-Listener auf allen Benutzern...');
+        
+        // Für Hauptclient-Benutzer
+        if (this.mainClient && this.mainClient.users) {
+            const users = this.mainClient.users;
+            console.log(`🔍 Hauptclient hat ${users.length} Benutzer`);
+            users.forEach((user, index) => {
+                if (user && typeof user.on === 'function') {
+                    user.on('voice', (voiceStream) => {
+                        console.log(`📥 User-Voice-Event für Hauptclient-User ${index} (${user.name || 'unknown'})`);
+                        this.mainClientVoiceListener(voiceStream);
+                    });
+                    console.log(`✅ User-Voice-Listener für Hauptclient-User ${index} registriert`);
+                }
+            });
+        }
+        
+        // Für Test-Client-Benutzer
+        if (this.testClient && this.testClient.users) {
+            const users = this.testClient.users;
+            console.log(`🔍 Test-Client hat ${users.length} Benutzer`);
+            users.forEach((user, index) => {
+                if (user && typeof user.on === 'function') {
+                    user.on('voice', (voiceStream) => {
+                        console.log(`📥 User-Voice-Event für Test-Client-User ${index} (${user.name || 'unknown'})`);
+                        this.testClientVoiceListener(voiceStream);
+                    });
+                    console.log(`✅ User-Voice-Listener für Test-Client-User ${index} registriert`);
+                }
+            });
         }
     }
 
@@ -244,27 +284,56 @@ class AudioRoundtripTest {
         
         return new Promise((resolve, reject) => {
             try {
+                console.log('🔧 Erstelle Voice-Stream für Hauptclient...');
                 const voiceStream = this.mainClient.createVoiceStream(960);
+                
+                if (!voiceStream) {
+                    throw new Error('Voice-Stream konnte nicht erstellt werden');
+                }
+                
+                console.log('✅ Voice-Stream erstellt, starte Audio-Sendung...');
+                
+                voiceStream.on('error', (err) => {
+                    console.error('❌ Voice-Stream-Fehler:', err);
+                });
+                
+                voiceStream.on('finish', () => {
+                    console.log('📤 Voice-Stream beendet');
+                });
                 
                 const sendAudioData = () => {
                     if (this.sentPackets < 50) { // 1 Sekunde Audio
-                        const audioBuffer = new Float32Array(960);
-                        // 440Hz Testton
-                        for (let i = 0; i < 960; i++) {
-                            audioBuffer[i] = Math.sin(2 * Math.PI * 440 * (this.sentPackets * 960 + i) / 48000) * 0.2;
+                        try {
+                            const audioBuffer = new Float32Array(960);
+                            // 440Hz Testton
+                            for (let i = 0; i < 960; i++) {
+                                audioBuffer[i] = Math.sin(2 * Math.PI * 440 * (this.sentPackets * 960 + i) / 48000) * 0.2;
+                            }
+                            
+                            voiceStream.write(Buffer.from(audioBuffer.buffer));
+                            this.sentPackets++;
+                            
+                            if (this.sentPackets === 1) {
+                                console.log('📤 Hauptclient: Erstes Audio-Paket gesendet');
+                            }
+                            
+                            if (this.sentPackets % 10 === 0) {
+                                console.log(`📤 Hauptclient: ${this.sentPackets} Audio-Pakete gesendet`);
+                            }
+                            
+                            setTimeout(sendAudioData, 20);
+                        } catch (err) {
+                            console.error('❌ Fehler beim Senden von Audio-Paket:', err);
+                            reject(err);
+                            return;
                         }
-                        
-                        voiceStream.write(Buffer.from(audioBuffer.buffer));
-                        this.sentPackets++;
-                        
-                        if (this.sentPackets === 1) {
-                            console.log('📤 Hauptclient: Erstes Audio-Paket gesendet');
-                        }
-                        
-                        setTimeout(sendAudioData, 20);
                     } else {
                         console.log(`📤 Hauptclient: Audio-Sendung beendet (${this.sentPackets} Pakete)`);
-                        voiceStream.end();
+                        try {
+                            voiceStream.end();
+                        } catch (err) {
+                            console.error('⚠️ Fehler beim Beenden des Voice-Streams:', err);
+                        }
                         resolve();
                     }
                 };
@@ -272,6 +341,7 @@ class AudioRoundtripTest {
                 sendAudioData();
                 
             } catch (error) {
+                console.error('❌ Fehler beim Starten der Audio-Sendung:', error);
                 reject(error);
             }
         });
@@ -281,27 +351,56 @@ class AudioRoundtripTest {
         console.log('🔊 Test-Client startet Echo-Antwort...');
         
         try {
+            console.log('🔧 Erstelle Voice-Stream für Test-Client...');
             const voiceStream = this.testClient.createVoiceStream(960);
+            
+            if (!voiceStream) {
+                console.error('❌ Test-Client Voice-Stream konnte nicht erstellt werden');
+                return;
+            }
+            
+            console.log('✅ Test-Client Voice-Stream erstellt, starte Echo-Sendung...');
+            
+            voiceStream.on('error', (err) => {
+                console.error('❌ Test-Client Voice-Stream-Fehler:', err);
+            });
+            
+            voiceStream.on('finish', () => {
+                console.log('📤 Test-Client Voice-Stream beendet');
+            });
             
             const sendEcho = () => {
                 if (this.testClientSentPackets < 50) { // 1 Sekunde Echo
-                    const audioBuffer = new Float32Array(960);
-                    // 880Hz Echo-Ton (eine Oktave höher)
-                    for (let i = 0; i < 960; i++) {
-                        audioBuffer[i] = Math.sin(2 * Math.PI * 880 * (this.testClientSentPackets * 960 + i) / 48000) * 0.2;
+                    try {
+                        const audioBuffer = new Float32Array(960);
+                        // 880Hz Echo-Ton (eine Oktave höher)
+                        for (let i = 0; i < 960; i++) {
+                            audioBuffer[i] = Math.sin(2 * Math.PI * 880 * (this.testClientSentPackets * 960 + i) / 48000) * 0.2;
+                        }
+                        
+                        voiceStream.write(Buffer.from(audioBuffer.buffer));
+                        this.testClientSentPackets++;
+                        
+                        if (this.testClientSentPackets === 1) {
+                            console.log('📤 Test-Client: Echo-Sendung gestartet');
+                        }
+                        
+                        if (this.testClientSentPackets % 10 === 0) {
+                            console.log(`📤 Test-Client: ${this.testClientSentPackets} Echo-Pakete gesendet`);
+                        }
+                        
+                        setTimeout(sendEcho, 20);
+                    } catch (err) {
+                        console.error('❌ Fehler beim Senden von Echo-Paket:', err);
+                        return;
                     }
-                    
-                    voiceStream.write(Buffer.from(audioBuffer.buffer));
-                    this.testClientSentPackets++;
-                    
-                    if (this.testClientSentPackets === 1) {
-                        console.log('📤 Test-Client: Echo-Sendung gestartet');
-                    }
-                    
-                    setTimeout(sendEcho, 20);
                 } else {
                     console.log(`📤 Test-Client: Echo beendet (${this.testClientSentPackets} Pakete)`);
-                    voiceStream.end();
+                    try {
+                        voiceStream.end();
+                    } catch (err) {
+                        console.error('⚠️ Fehler beim Beenden des Test-Client Voice-Streams:', err);
+                    }
                 }
             };
             
