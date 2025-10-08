@@ -478,6 +478,11 @@ class GlobalBindings {
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
     
+    // Audio test observables
+    this.audioTestRunning = ko.observable(false);
+    this.audioTestStatus = ko.observable('');
+    this.audioTestSuccess = ko.observable(false);
+    
     // Add method to retry microphone permission
     this._attemptMicrophonePermission = () => {
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
@@ -617,6 +622,53 @@ class GlobalBindings {
       // Clear the modal state when settings dialog is closed
       if (this.currentOpenModal() === 'settings') {
         this.currentOpenModal(null);
+      }
+    };
+
+    this.testAudioRoundtrip = async () => {
+      console.log('🎵 Audio-Roundtrip-Test wird gestartet...');
+      
+      if (this.audioTestRunning()) {
+        console.log('Test läuft bereits, ignoriere neue Anfrage');
+        return;
+      }
+      
+      if (!this.client) {
+        this.audioTestStatus('Fehler: Nicht mit Mumble-Server verbunden');
+        this.audioTestSuccess(false);
+        return;
+      }
+      
+      this.audioTestRunning(true);
+      this.audioTestStatus('Test läuft... Bitte warten');
+      this.audioTestSuccess(false);
+      
+      try {
+        // Importiere und starte den Audio-Roundtrip-Test
+        const AudioRoundtripTest = (await import('./audio-roundtrip-test.js')).default;
+        const testInstance = new AudioRoundtripTest();
+        const results = await testInstance.runTest(this.client);
+        
+        if (results.success) {
+          this.audioTestStatus(`✅ Test erfolgreich! (${results.sentPackets} gesendet, ${results.receivedPackets} empfangen)`);
+          this.audioTestSuccess(true);
+        } else if (results.sentPackets === 0) {
+          this.audioTestStatus('❌ Audio-Aufnahme fehlgeschlagen');
+          this.audioTestSuccess(false);
+        } else if (results.receivedPackets === 0) {
+          this.audioTestStatus('❌ Audio-Empfang fehlgeschlagen');
+          this.audioTestSuccess(false);
+        } else {
+          this.audioTestStatus('❌ Audio-Roundtrip fehlgeschlagen');
+          this.audioTestSuccess(false);
+        }
+        
+      } catch (error) {
+        console.error('Audio-Test-Fehler:', error);
+        this.audioTestStatus(`❌ Test-Fehler: ${error.message}`);
+        this.audioTestSuccess(false);
+      } finally {
+        this.audioTestRunning(false);
       }
     };
 

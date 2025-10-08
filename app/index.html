@@ -35,6 +35,24 @@
   <!-- Load identity widget before index.js so window.netlifyIdentity exists early -->
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <!-- Removed duplicate index.js include (already loaded in <head>) -->
+  
+  <style type="text/css">
+    /* Audio Test Styles */
+    .audio-test-success {
+      color: #4CAF50 !important;
+      font-weight: bold;
+    }
+    
+    .audio-test-error {
+      color: #f44336 !important;
+      font-weight: bold;
+    }
+    
+    .disabled {
+      opacity: 0.6;
+      cursor: not-allowed !important;
+    }
+  </style>
 </head>  <body>
     <div class="preloader" data-bind="css: { loaded: true }">
       <div class="lds-ripple" data-bind="css: { loaded: true }">
@@ -397,6 +415,24 @@
                   data-bind="text: (overheadBandwidth()/1000).toFixed(1)"
                 ></span
                 >)
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="text-align: center; padding: 10px;">
+                <input
+                  type="button"
+                  value="Audio-Roundtrip testen"
+                  data-bind="click: $root.testAudioRoundtrip, 
+                             css: { 'disabled': $root.audioTestRunning() },
+                             attr: { disabled: $root.audioTestRunning() }"
+                  style="width: 200px; background-color: #4CAF50; color: white; padding: 8px;"
+                />
+                <br/>
+                <span data-bind="text: $root.audioTestStatus, 
+                                 css: { 'audio-test-success': $root.audioTestSuccess(), 
+                                        'audio-test-error': !$root.audioTestSuccess() && $root.audioTestStatus() }"
+                      style="font-size: 12px; margin-top: 5px; display: block;">
+                </span>
               </td>
             </tr>
           </table>
