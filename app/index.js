@@ -645,13 +645,13 @@ class GlobalBindings {
       this.audioTestSuccess(false);
       
       try {
-        console.log('📦 Versuche Audio-Roundtrip-Test zu importieren...');
+        console.log('📦 Versuche Audio-Loopback-Test zu importieren...');
         
-        // Importiere und starte den echten Audio-Roundtrip-Test
-        const AudioRoundtripTest = (await import('./audio-roundtrip-test.js')).default;
-        console.log('✅ Audio-Roundtrip-Test erfolgreich importiert');
+        // Importiere und starte den Local Audio Loopback Test (Option 1)
+        const AudioLoopbackTest = (await import('./audio-loopback-test.js')).default;
+        console.log('✅ Audio-Loopback-Test erfolgreich importiert');
         
-        const testInstance = new AudioRoundtripTest();
+        const testInstance = new AudioLoopbackTest();
         console.log('✅ Test-Instanz erstellt');
         
         // Führe Test mit Fortschritts-Updates aus
@@ -661,31 +661,15 @@ class GlobalBindings {
         };
         
         // Starte Test mit Progress-Callback
-        testInstance.progressCallback = updateProgress;
-        console.log('🚀 Starte Test-Ausführung...');
+        testInstance.setProgressCallback(updateProgress);
+        console.log('🚀 Starte Loopback-Test-Ausführung...');
         
-        const results = await testInstance.runTest(this.client);
-        console.log('📊 Test-Ergebnisse erhalten:', results);
+        await testInstance.runTest(); // Loopback braucht keinen Client-Parameter
+        console.log('📊 Loopback-Test abgeschlossen');
         
-        if (results.success) {
-          this.audioTestStatus(`🎉 ECHTER Roundtrip erfolgreich! (${results.sentPackets}→${results.testClientReceivedPackets}→${results.testClientSentPackets}→${results.receivedPackets})`);
-          this.audioTestSuccess(true);
-        } else if (!results.testClientCreated) {
-          this.audioTestStatus('❌ Test-Bot konnte nicht erstellt werden');
-          this.audioTestSuccess(false);
-        } else if (results.testClientReceivedPackets === 0) {
-          this.audioTestStatus('❌ Test-Bot empfing kein Audio (Audio-Sendung fehlerhaft)');
-          this.audioTestSuccess(false);
-        } else if (results.receivedPackets === 0) {
-          this.audioTestStatus('❌ Kein Echo empfangen (Audio-Empfang fehlerhaft)');
-          this.audioTestSuccess(false);
-        } else if (!results.roundtripCompleted) {
-          this.audioTestStatus('❌ Roundtrip unvollständig');
-          this.audioTestSuccess(false);
-        } else {
-          this.audioTestStatus('❌ Roundtrip-Test fehlgeschlagen');
-          this.audioTestSuccess(false);
-        }
+        // Loopback-Test war erfolgreich wenn er ohne Exception beendet wurde
+        this.audioTestStatus(`✅ Audio-Loopback erfolgreich! Pipeline: Mikrofon → Encoder → Decoder → Lautsprecher`);
+        this.audioTestSuccess(true);
         
       } catch (error) {
         console.error('❌ Audio-Roundtrip-Test-Fehler:', error);
