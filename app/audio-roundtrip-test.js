@@ -1,22 +1,29 @@
 /**
- * Audio Roundtrip Test für v3.12.0 - Korrigierte Version
+ * Echter Audio Roundtrip Test für v3.12.0
  * Testet den kompletten Audio-Workflow mit echtem Mumble-Server
- * Aufnahme → Mumble-Server → Empfang → Playback
  * 
- * HINWEIS: Da Mumble normalerweise kein Echo/Loopback hat,
- * testen wir stattdessen, ob Audio erfolgreich gesendet werden kann
- * und ob das System grundsätzlich funktioniert.
+ * STRATEGIE:
+ * 1. Hauptclient (bereits verbunden) sendet Audio
+ * 2. Testclient (neuer Bot) empfängt das Audio  
+ * 3. Testclient sendet Audio zurück
+ * 4. Hauptclient empfängt Audio vom Testclient
+ * 
+ * Echter Roundtrip: Client A → Server → Client B → Server → Client A
  */
 
 class AudioRoundtripTest {
     constructor() {
-        this.client = null;
+        this.mainClient = null;
+        this.testClient = null;
         this.receivedPackets = 0;
         this.sentPackets = 0;
+        this.testClientReceivedPackets = 0;
+        this.testClientSentPackets = 0;
         this.testStartTime = null;
-        this.voiceEventListener = null;
-        this.streamCreated = false;
-        this.streamErrors = [];
+        this.mainClientVoiceListener = null;
+        this.testClientVoiceListener = null;
+        this.testClientReady = false;
+        this.roundtripCompleted = false;
     }
 
     async runTest(mumbleClient) {
@@ -24,22 +31,30 @@ class AudioRoundtripTest {
             throw new Error('Kein Mumble-Client verfügbar');
         }
 
-        console.log('🎵 Starte Audio-Roundtrip-Test mit echtem Mumble-Server (v3.12.0)...');
-        this.client = mumbleClient;
+        console.log('🎵 Starte ECHTEN Audio-Roundtrip-Test (zwei Clients)...');
+        this.mainClient = mumbleClient;
         this.receivedPackets = 0;
         this.sentPackets = 0;
-        this.streamCreated = false;
-        this.streamErrors = [];
+        this.testClientReceivedPackets = 0;
+        this.testClientSentPackets = 0;
+        this.testClientReady = false;
+        this.roundtripCompleted = false;
         this.testStartTime = Date.now();
 
         try {
-            // 1. Höre auf eingehende Audio-Pakete (von anderen Benutzern)
-            this.setupAudioListener();
+            // 1. Erstelle zweiten Test-Client (Bot)
+            await this.createTestClient();
 
-            // 2. Starte Audio-Aufnahme und -Sendung
-            await this.startRecordingAndSending();
+            // 2. Richte Voice-Event-Listener ein
+            this.setupVoiceListeners();
 
-            // 3. Warte auf Ergebnisse
+            // 3. Warte bis Test-Client bereit ist
+            await this.waitForTestClientReady();
+
+            // 4. Starte Roundtrip-Sequenz
+            await this.performRoundtripTest();
+
+            // 5. Warte auf Ergebnisse
             return await this.waitForResults();
 
         } catch (error) {
@@ -50,212 +65,313 @@ class AudioRoundtripTest {
         }
     }
 
-    setupAudioListener() {
-        console.log('🎧 Richte Audio-Listener ein...');
+    async createTestClient() {
+        console.log('🤖 Erstelle Test-Client (Audio-Bot)...');
         
-        // Höre auf Voice-Events vom Client
-        this.voiceEventListener = (voiceStream) => {
-            console.log('📥 Voice-Event empfangen, richte Stream-Listener ein');
+        try {
+            // Hole Verbindungsdaten vom Hauptclient
+            const serverInfo = this.getServerInfo();
+            console.log('📡 Verbinde Audio-Bot mit Server:', serverInfo);
             
-            // Höre auf Daten vom Voice-Stream
+            // Importiere Mumble-WebSocket-Client
+            const mumbleConnect = (await import('./mumble-websocket.js')).default;
+            
+            // Erstelle neue Verbindung als Test-Bot
+            this.testClient = await mumbleConnect(serverInfo.address, {
+                username: 'AudioTestBot_' + Date.now(),
+                password: serverInfo.password || '',
+                codecs: serverInfo.codecs || ['Opus']
+            });
+            
+            console.log('✅ Test-Client erfolgreich verbunden');
+            
+            // Warte auf vollständige Verbindung
+            await new Promise(resolve => {
+                if (this.testClient.root) {
+                    resolve();
+                } else {
+                    this.testClient.on('ready', resolve);
+                }
+            });
+            
+            this.testClientReady = true;
+            console.log('✅ Test-Client ist bereit');
+            
+        } catch (error) {
+            console.error('❌ Fehler beim Erstellen des Test-Clients:', error);
+            throw new Error(`Test-Client-Erstellung fehlgeschlagen: ${error.message}`);
+        }
+    }
+
+    getServerInfo() {
+        // Extrahiere Server-Info aus dem Hauptclient
+        // Das ist eine vereinfachte Annahme - in der Realität müssten wir
+        // die Verbindungsdaten anders ermitteln
+        return {
+            address: window.location.protocol.replace('http', 'ws') + '//' + window.location.host + '/mumble',
+            password: '',
+            codecs: ['Opus']
+        };
+    }
+
+    setupVoiceListeners() {
+        console.log('🎧 Richte Voice-Event-Listener für beide Clients ein...');
+        
+        // Listener für Hauptclient (empfängt Audio vom Test-Client)
+        this.mainClientVoiceListener = (voiceStream) => {
+            console.log('📥 Hauptclient empfängt Voice-Stream');
+            
             voiceStream.on('data', (data) => {
                 this.receivedPackets++;
                 
                 if (this.receivedPackets === 1) {
                     const elapsed = Date.now() - this.testStartTime;
-                    console.log(`📥 Erstes Audio-Paket empfangen nach ${elapsed}ms`);
+                    console.log(`📥 Hauptclient: Erstes Audio-Paket empfangen nach ${elapsed}ms`);
+                    this.roundtripCompleted = true;
                 }
                 
                 if (this.receivedPackets % 10 === 0) {
-                    console.log(`📊 ${this.receivedPackets} Audio-Pakete empfangen`);
+                    console.log(`📊 Hauptclient: ${this.receivedPackets} Audio-Pakete empfangen`);
                 }
-            });
-            
-            voiceStream.on('error', (err) => {
-                console.error('❌ Voice-Stream-Fehler:', err);
-            });
-            
-            voiceStream.on('end', () => {
-                console.log('📤 Voice-Stream beendet');
             });
         };
-
-        // Falls client Events unterstützt, höre darauf
-        if (this.client && typeof this.client.on === 'function') {
-            this.client.on('voice', this.voiceEventListener);
-            console.log('✅ Voice-Event-Listener am Client registriert');
-        } else {
-            console.log('⚠️ Client unterstützt keine Events oder ist null');
-        }
         
-        // Zusätzlich: Höre auf Voice-Events von allen Benutzern
-        if (this.client && this.client.users) {
-            this.client.users.forEach(user => {
-                if (user && typeof user.on === 'function') {
-                    user.on('voice', this.voiceEventListener);
-                    console.log(`✅ Voice-Event-Listener für Benutzer ${user.name || user.id} registriert`);
+        // Listener für Test-Client (empfängt Audio vom Hauptclient und sendet zurück)
+        this.testClientVoiceListener = (voiceStream) => {
+            console.log('📥 Test-Client empfängt Voice-Stream');
+            
+            voiceStream.on('data', (data) => {
+                this.testClientReceivedPackets++;
+                
+                if (this.testClientReceivedPackets === 1) {
+                    console.log('📥 Test-Client: Erstes Audio-Paket empfangen - starte Echo');
+                    // Starte Echo-Antwort
+                    this.startTestClientEcho();
+                }
+                
+                if (this.testClientReceivedPackets % 20 === 0) {
+                    console.log(`📊 Test-Client: ${this.testClientReceivedPackets} Audio-Pakete empfangen`);
                 }
             });
+        };
+        
+        // Registriere Listener
+        if (this.mainClient && typeof this.mainClient.on === 'function') {
+            this.mainClient.on('voice', this.mainClientVoiceListener);
+            console.log('✅ Voice-Listener für Hauptclient registriert');
+        }
+        
+        if (this.testClient && typeof this.testClient.on === 'function') {
+            this.testClient.on('voice', this.testClientVoiceListener);
+            console.log('✅ Voice-Listener für Test-Client registriert');
         }
     }
 
-    async startRecordingAndSending() {
-        console.log('🎤 Starte Audio-Aufnahme für 3 Sekunden...');
-        console.log('💬 Sende synthetisches Audio-Signal (440Hz Testton)');
+    async waitForTestClientReady() {
+        console.log('⏳ Warte auf Test-Client-Bereitschaft...');
+        
+        let attempts = 0;
+        while (!this.testClientReady && attempts < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (!this.testClientReady) {
+            throw new Error('Test-Client wurde nicht rechtzeitig bereit');
+        }
+        
+        console.log('✅ Test-Client ist bereit für Roundtrip-Test');
+    }
 
+    async performRoundtripTest() {
+        console.log('🔄 Starte Roundtrip-Sequenz...');
+        
+        // Phase 1: Hauptclient sendet Audio an Test-Client
+        await this.sendAudioFromMainClient();
+        
+        // Phase 2: Warte auf Test-Client-Echo (wird automatisch gestartet)
+        await this.waitForEcho();
+    }
+
+    async sendAudioFromMainClient() {
+        console.log('📤 Hauptclient sendet Audio...');
+        
         return new Promise((resolve, reject) => {
             try {
-                // Erstelle Voice-Stream für Mumble-Client
-                console.log('🔧 Erstelle Voice-Stream...');
-                this.voiceStream = this.client.createVoiceStream(960); // Standard: 960 samples/packet
+                const voiceStream = this.mainClient.createVoiceStream(960);
                 
-                if (!this.voiceStream) {
-                    throw new Error('Voice-Stream konnte nicht erstellt werden');
-                }
-                
-                this.streamCreated = true;
-                console.log('✅ Voice-Stream erfolgreich erstellt');
-                
-                // Voice-Stream Event-Handler
-                this.voiceStream.on('error', (err) => {
-                    console.error('❌ Voice-Stream-Fehler:', err);
-                    this.streamErrors.push(err.message);
-                });
-                
-                this.voiceStream.on('finish', () => {
-                    console.log('📤 Voice-Stream beendet');
-                });
-                
-                // Simuliere Audio-Sendung mit 440Hz Testton
                 const sendAudioData = () => {
-                    if (this.sentPackets < 150) { // ~3 Sekunden bei 20ms pro Paket
-                        try {
-                            // Simuliere Audio-Paket (960 Samples = 20ms @ 48kHz)
-                            const audioBuffer = new Float32Array(960);
-                            // Fülle mit Testsignal (Sinuswelle)
-                            for (let i = 0; i < 960; i++) {
-                                audioBuffer[i] = Math.sin(2 * Math.PI * 440 * (this.sentPackets * 960 + i) / 48000) * 0.1;
-                            }
-                            
-                            // Sende an Voice-Stream
-                            if (this.voiceStream && !this.voiceStream.destroyed) {
-                                this.voiceStream.write(Buffer.from(audioBuffer.buffer));
-                                this.sentPackets++;
-                                
-                                if (this.sentPackets === 1) {
-                                    console.log('📤 Erstes Audio-Paket gesendet');
-                                }
-                                
-                                if (this.sentPackets % 50 === 0) {
-                                    console.log(`📤 ${this.sentPackets} Audio-Pakete gesendet`);
-                                }
-                            } else {
-                                console.error('❌ Voice-Stream ist nicht verfügbar');
-                                reject(new Error('Voice-Stream ist nicht verfügbar'));
-                                return;
-                            }
-                            
-                            // Nächstes Paket nach 20ms
-                            setTimeout(sendAudioData, 20);
-                        } catch (err) {
-                            console.error('❌ Fehler beim Senden von Audio:', err);
-                            reject(err);
-                            return;
+                    if (this.sentPackets < 50) { // 1 Sekunde Audio
+                        const audioBuffer = new Float32Array(960);
+                        // 440Hz Testton
+                        for (let i = 0; i < 960; i++) {
+                            audioBuffer[i] = Math.sin(2 * Math.PI * 440 * (this.sentPackets * 960 + i) / 48000) * 0.2;
                         }
+                        
+                        voiceStream.write(Buffer.from(audioBuffer.buffer));
+                        this.sentPackets++;
+                        
+                        if (this.sentPackets === 1) {
+                            console.log('📤 Hauptclient: Erstes Audio-Paket gesendet');
+                        }
+                        
+                        setTimeout(sendAudioData, 20);
                     } else {
-                        console.log(`📤 Audio-Sendung beendet - ${this.sentPackets} Pakete gesendet`);
-                        if (this.voiceStream && !this.voiceStream.destroyed) {
-                            this.voiceStream.end();
-                        }
+                        console.log(`📤 Hauptclient: Audio-Sendung beendet (${this.sentPackets} Pakete)`);
+                        voiceStream.end();
                         resolve();
                     }
                 };
                 
-                // Starte Audio-Sendung
                 sendAudioData();
                 
             } catch (error) {
-                console.error('❌ Fehler beim Starten der Audio-Sendung:', error);
-                this.streamErrors.push(error.message);
                 reject(error);
             }
         });
     }
 
-    async waitForResults() {
-        console.log('⏳ Warte auf Audio-Test-Ergebnisse...');
+    startTestClientEcho() {
+        console.log('🔊 Test-Client startet Echo-Antwort...');
         
-        // Warte weitere 2 Sekunden auf verspätete Pakete
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+            const voiceStream = this.testClient.createVoiceStream(960);
+            
+            const sendEcho = () => {
+                if (this.testClientSentPackets < 50) { // 1 Sekunde Echo
+                    const audioBuffer = new Float32Array(960);
+                    // 880Hz Echo-Ton (eine Oktave höher)
+                    for (let i = 0; i < 960; i++) {
+                        audioBuffer[i] = Math.sin(2 * Math.PI * 880 * (this.testClientSentPackets * 960 + i) / 48000) * 0.2;
+                    }
+                    
+                    voiceStream.write(Buffer.from(audioBuffer.buffer));
+                    this.testClientSentPackets++;
+                    
+                    if (this.testClientSentPackets === 1) {
+                        console.log('📤 Test-Client: Echo-Sendung gestartet');
+                    }
+                    
+                    setTimeout(sendEcho, 20);
+                } else {
+                    console.log(`📤 Test-Client: Echo beendet (${this.testClientSentPackets} Pakete)`);
+                    voiceStream.end();
+                }
+            };
+            
+            sendEcho();
+            
+        } catch (error) {
+            console.error('❌ Test-Client Echo-Fehler:', error);
+        }
+    }
+
+    async waitForEcho() {
+        console.log('⏳ Warte auf Echo-Empfang...');
+        
+        let attempts = 0;
+        while (!this.roundtripCompleted && attempts < 100) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        console.log('✅ Echo-Phase abgeschlossen');
+    }
+
+    async waitForResults() {
+        console.log('⏳ Analysiere Roundtrip-Ergebnisse...');
+        
+        // Warte weitere 3 Sekunden auf verspätete Pakete
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         const results = {
             sentPackets: this.sentPackets,
             receivedPackets: this.receivedPackets,
-            streamCreated: this.streamCreated,
-            streamErrors: this.streamErrors,
+            testClientReceivedPackets: this.testClientReceivedPackets,
+            testClientSentPackets: this.testClientSentPackets,
+            roundtripCompleted: this.roundtripCompleted,
+            testClientCreated: this.testClient !== null,
             success: false,
             roundtripTime: Date.now() - this.testStartTime
         };
         
-        // Erfolgskriterien:
-        // 1. Voice-Stream wurde erfolgreich erstellt
-        // 2. Audio-Pakete wurden erfolgreich gesendet
-        // 3. Keine kritischen Stream-Fehler
-        if (this.streamCreated && this.sentPackets > 100 && this.streamErrors.length === 0) {
+        // Erfolgskriterien für echten Roundtrip:
+        // 1. Test-Client wurde erstellt
+        // 2. Hauptclient hat Audio gesendet
+        // 3. Test-Client hat Audio empfangen
+        // 4. Test-Client hat Echo gesendet  
+        // 5. Hauptclient hat Echo empfangen (Roundtrip komplett)
+        
+        if (results.testClientCreated && 
+            results.sentPackets > 40 && 
+            results.testClientReceivedPackets > 0 &&
+            results.testClientSentPackets > 0 &&
+            results.receivedPackets > 0 &&
+            results.roundtripCompleted) {
+            
             results.success = true;
-            console.log('✅ Audio-Sendung erfolgreich!');
-            console.log(`   📤 Gesendet: ${results.sentPackets} Pakete`);
-            console.log(`   📥 Empfangen: ${results.receivedPackets} Pakete (von anderen Benutzern)`);
-            console.log(`   ⏱️ Dauer: ${results.roundtripTime}ms`);
+            console.log('🎉 ECHTER Audio-Roundtrip erfolgreich!');
+            console.log(`   📤 Hauptclient gesendet: ${results.sentPackets} Pakete`);
+            console.log(`   📥 Test-Client empfangen: ${results.testClientReceivedPackets} Pakete`);
+            console.log(`   📤 Test-Client Echo: ${results.testClientSentPackets} Pakete`);
+            console.log(`   📥 Hauptclient Echo empfangen: ${results.receivedPackets} Pakete`);
+            console.log(`   ⏱️ Roundtrip-Zeit: ${results.roundtripTime}ms`);
+            
         } else {
-            console.log('❌ Audio-Test fehlgeschlagen:');
-            if (!this.streamCreated) {
-                console.log('   - Voice-Stream konnte nicht erstellt werden');
+            console.log('❌ Audio-Roundtrip fehlgeschlagen:');
+            if (!results.testClientCreated) {
+                console.log('   - Test-Client konnte nicht erstellt werden');
             }
-            if (this.sentPackets <= 100) {
-                console.log(`   - Zu wenige Pakete gesendet: ${this.sentPackets}`);
+            if (results.sentPackets <= 40) {
+                console.log(`   - Hauptclient sendete zu wenig: ${results.sentPackets} Pakete`);
             }
-            if (this.streamErrors.length > 0) {
-                console.log(`   - Stream-Fehler: ${this.streamErrors.join(', ')}`);
+            if (results.testClientReceivedPackets === 0) {
+                console.log('   - Test-Client empfing kein Audio');
+            }
+            if (results.testClientSentPackets === 0) {
+                console.log('   - Test-Client sendete kein Echo');
+            }
+            if (results.receivedPackets === 0) {
+                console.log('   - Hauptclient empfing kein Echo');
+            }
+            if (!results.roundtripCompleted) {
+                console.log('   - Roundtrip wurde nicht abgeschlossen');
             }
         }
         
-        console.log('📊 Vollständige Test-Ergebnisse:', results);
-        
+        console.log('📊 Detaillierte Roundtrip-Ergebnisse:', results);
         return results;
     }
 
     cleanup() {
         console.log('🧹 Cleanup wird durchgeführt...');
         
-        // Entferne Event-Listener vom Client
-        if (this.client && this.voiceEventListener && typeof this.client.off === 'function') {
-            this.client.off('voice', this.voiceEventListener);
-            console.log('✅ Voice-Event-Listener vom Client entfernt');
+        // Entferne Event-Listener vom Hauptclient
+        if (this.mainClient && this.mainClientVoiceListener && typeof this.mainClient.off === 'function') {
+            this.mainClient.off('voice', this.mainClientVoiceListener);
+            console.log('✅ Voice-Listener vom Hauptclient entfernt');
         }
         
-        // Entferne Event-Listener von allen Benutzern  
-        if (this.client && this.client.users) {
-            this.client.users.forEach(user => {
-                if (user && typeof user.off === 'function') {
-                    user.off('voice', this.voiceEventListener);
-                    console.log(`✅ Voice-Event-Listener von Benutzer ${user.name || user.id} entfernt`);
-                }
-            });
+        // Entferne Event-Listener vom Test-Client
+        if (this.testClient && this.testClientVoiceListener && typeof this.testClient.off === 'function') {
+            this.testClient.off('voice', this.testClientVoiceListener);
+            console.log('✅ Voice-Listener vom Test-Client entfernt');
         }
         
-        // Schließe Voice-Stream
-        if (this.voiceStream && !this.voiceStream.destroyed) {
+        // Trenne Test-Client
+        if (this.testClient && typeof this.testClient.disconnect === 'function') {
             try {
-                this.voiceStream.end();
-                console.log('✅ Voice-Stream beendet');
+                this.testClient.disconnect();
+                console.log('✅ Test-Client getrennt');
             } catch (e) {
-                console.log('⚠️ Fehler beim Beenden des Voice-Streams:', e.message);
+                console.log('⚠️ Fehler beim Trennen des Test-Clients:', e.message);
             }
         }
         
-        this.voiceStream = null;
-        this.voiceEventListener = null;
+        this.mainClient = null;
+        this.testClient = null;
+        this.mainClientVoiceListener = null;
+        this.testClientVoiceListener = null;
     }
 }
 

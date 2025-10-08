@@ -626,7 +626,7 @@ class GlobalBindings {
     };
 
     this.testAudioRoundtrip = async () => {
-      console.log('🎵 Audio-Roundtrip-Test wird gestartet...');
+      console.log('🎵 ECHTER Audio-Roundtrip-Test wird gestartet...');
       
       if (this.audioTestRunning()) {
         console.log('Test läuft bereits, ignoriere neue Anfrage');
@@ -640,34 +640,37 @@ class GlobalBindings {
       }
       
       this.audioTestRunning(true);
-      this.audioTestStatus('Test läuft... Bitte warten');
+      this.audioTestStatus('Echter Roundtrip-Test läuft... (erstelle Test-Bot)');
       this.audioTestSuccess(false);
       
       try {
-        // Importiere und starte den Audio-Roundtrip-Test
+        // Importiere und starte den echten Audio-Roundtrip-Test
         const AudioRoundtripTest = (await import('./audio-roundtrip-test.js')).default;
         const testInstance = new AudioRoundtripTest();
         const results = await testInstance.runTest(this.client);
         
         if (results.success) {
-          this.audioTestStatus(`✅ Audio-Sendung erfolgreich! (${results.sentPackets} Pakete gesendet)`);
+          this.audioTestStatus(`🎉 ECHTER Roundtrip erfolgreich! (${results.sentPackets}→${results.testClientReceivedPackets}→${results.testClientSentPackets}→${results.receivedPackets})`);
           this.audioTestSuccess(true);
-        } else if (!results.streamCreated) {
-          this.audioTestStatus('❌ Voice-Stream-Erstellung fehlgeschlagen');
+        } else if (!results.testClientCreated) {
+          this.audioTestStatus('❌ Test-Bot konnte nicht erstellt werden');
           this.audioTestSuccess(false);
-        } else if (results.streamErrors.length > 0) {
-          this.audioTestStatus(`❌ Stream-Fehler: ${results.streamErrors[0]}`);
+        } else if (results.testClientReceivedPackets === 0) {
+          this.audioTestStatus('❌ Test-Bot empfing kein Audio (Audio-Sendung fehlerhaft)');
           this.audioTestSuccess(false);
-        } else if (results.sentPackets <= 100) {
-          this.audioTestStatus(`❌ Audio-Sendung unvollständig (${results.sentPackets}/150 Pakete)`);
+        } else if (results.receivedPackets === 0) {
+          this.audioTestStatus('❌ Kein Echo empfangen (Audio-Empfang fehlerhaft)');
+          this.audioTestSuccess(false);
+        } else if (!results.roundtripCompleted) {
+          this.audioTestStatus('❌ Roundtrip unvollständig');
           this.audioTestSuccess(false);
         } else {
-          this.audioTestStatus('❌ Audio-Test fehlgeschlagen');
+          this.audioTestStatus('❌ Roundtrip-Test fehlgeschlagen');
           this.audioTestSuccess(false);
         }
         
       } catch (error) {
-        console.error('Audio-Test-Fehler:', error);
+        console.error('Audio-Roundtrip-Test-Fehler:', error);
         this.audioTestStatus(`❌ Test-Fehler: ${error.message}`);
         this.audioTestSuccess(false);
       } finally {
