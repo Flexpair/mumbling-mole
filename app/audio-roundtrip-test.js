@@ -117,14 +117,19 @@ class AudioRoundtripTest {
             
             // Timeout für die gesamte Client-Erstellung
             const createClientWithTimeout = async () => {
-                // Verwende WebSocket mit wss:// (wie der Hauptclient)
-                const testClient = await testConnector.connect(`wss://${host}`, {
-                    username: 'AudioTestBot_' + Date.now(),
-                    password: '', // Normalerweise kein Passwort nötig
-                    tokens: []
-                });
-                
-                console.log('✅ Test-Client Worker-Verbindung hergestellt');
+            // Warte länger, damit der Hauptclient vollständig initialisiert ist
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Verwende WebSocket mit wss:// (wie der Hauptclient)
+            const uniqueUsername = 'AudioTestBot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            console.log('🤖 Test-Client Benutzername:', uniqueUsername);
+            console.log('🔍 Hauptclient-Benutzername:', this.mainClient.username || this.mainClient.self?.username || 'unknown');
+            
+            const testClient = await testConnector.connect(`wss://${host}`, {
+                username: uniqueUsername,
+                password: '', // Normalerweise kein Passwort nötig
+                tokens: []
+            });                console.log('✅ Test-Client Worker-Verbindung hergestellt');
                 this.updateProgress('✅ Worker-Verbindung hergestellt, warte auf Initialisierung...');
                 
                 // Warte auf vollständige Mumble-Initialisierung mit Timeout
@@ -288,28 +293,93 @@ class AudioRoundtripTest {
         
         console.log('✅ Test-Client ist grundsätzlich bereit');
         
-        // WICHTIG: Warte bis Test-Client andere Benutzer sieht
-        console.log('⏳ Warte bis Test-Client andere Benutzer sieht...');
+        // WICHTIG: Warte bis Test-Client den Hauptclient-Benutzer sieht
+        console.log('⏳ Warte bis Test-Client den Hauptclient-Benutzer sieht...');
+        console.log('🔍 Debug vor Synchronisation:');
+        
+        const mainClientUsername = this.mainClient.username || this.mainClient.self?.username || 'unknown';
+        console.log('  Hauptclient:', {
+            users: this.mainClient.users?.length || 0,
+            channel: this.mainClient.channel?.name || 'unknown',
+            channelId: this.mainClient.channel?.id || 'unknown',
+            ready: this.mainClient.ready,
+            username: mainClientUsername
+        });
+        console.log('  Test-Client:', {
+            users: this.testClient.users?.length || 0,
+            channel: this.testClient.channel?.name || 'unknown', 
+            channelId: this.testClient.channel?.id || 'unknown',
+            ready: this.testClient.ready,
+            username: this.testClient.username || this.testClient.self?.username || 'unknown'
+        });
+        
         attempts = 0;
-        while (attempts < 100) { // 10 Sekunden
+        let foundMainClient = false;
+        while (attempts < 150) { // 15 Sekunden
             if (this.testClient && this.testClient.users && this.testClient.users.length > 0) {
                 console.log(`✅ Test-Client sieht jetzt ${this.testClient.users.length} Benutzer!`);
-                break;
+                console.log('👥 Test-Client Benutzer:', this.testClient.users.map(u => u.username || u.id));
+                
+                // Prüfe ob der Hauptclient-Benutzer dabei ist
+                foundMainClient = this.testClient.users.some(user => 
+                    (user.username && user.username === mainClientUsername) ||
+                    (user.id && this.mainClient.self && user.id === this.mainClient.self.id)
+                );
+                
+                if (foundMainClient) {
+                    console.log('🎯 Test-Client kann den Hauptclient-Benutzer sehen!');
+                    break;
+                } else {
+                    console.log(`⚠️ Test-Client sieht ${this.testClient.users.length} Benutzer, aber nicht den Hauptclient (${mainClientUsername})`);
+                }
             }
             
-            if (attempts % 10 === 0) {
-                console.log(`⏳ Warte auf Benutzer... (${attempts}/100) - aktuell: ${this.testClient?.users?.length || 0} Benutzer`);
+            if (attempts % 20 === 0) {
+                console.log(`⏳ Warte auf Benutzer-Synchronisation... (${attempts}/150)`);
+                console.log(`  Test-Client: ${this.testClient?.users?.length || 0} Benutzer, Channel: ${this.testClient?.channel?.name || 'unknown'}`);
+                console.log(`  Hauptclient: ${this.mainClient?.users?.length || 0} Benutzer, Channel: ${this.mainClient?.channel?.name || 'unknown'}`);
+                console.log(`  Suche nach Hauptclient-Benutzer: "${mainClientUsername}"`);
+                
+                // Prüfe auch die Worker-Datenstrukturen
+                if (this.testClient?._connector?._worker) {
+                    console.log('  Test-Client Worker aktiv, prüfe interne Daten...');
+                }
             }
             
             await new Promise(resolve => setTimeout(resolve, 100));
             attempts++;
         }
         
-        if (!this.testClient.users || this.testClient.users.length === 0) {
-            throw new Error('Test-Client kann keine anderen Benutzer sehen - Channel-Synchronisation fehlgeschlagen');
+        if (!this.testClient.users || this.testClient.users.length === 0 || !foundMainClient) {
+            console.error('❌ Test-Client kann den Hauptclient-Benutzer nicht sehen!');
+            console.log('🔍 Finale Debug-Informationen:');
+            console.log('  Hauptclient:', {
+                users: this.mainClient.users?.length || 0,
+                userNames: this.mainClient.users?.map(u => u.username || u.id) || [],
+                channel: this.mainClient.channel?.name || 'unknown',
+                channelId: this.mainClient.channel?.id || 'unknown',
+                username: mainClientUsername,
+                selfId: this.mainClient.self?.id || 'unknown'
+            });
+            console.log('  Test-Client:', {
+                users: this.testClient.users?.length || 0,
+                userNames: this.testClient.users?.map(u => u.username || u.id) || [],
+                channel: this.testClient.channel?.name || 'unknown',
+                channelId: this.testClient.channel?.id || 'unknown',
+                username: this.testClient.username || this.testClient.self?.username || 'unknown',
+                selfId: this.testClient.self?.id || 'unknown'
+            });
+            
+            const errorMsg = foundMainClient ? 
+                'Test-Client sieht Benutzer, aber nicht den Hauptclient' : 
+                'Test-Client kann keine anderen Benutzer sehen';
+                
+            throw new Error(`${errorMsg} - Mumble-Server-Synchronisation fehlgeschlagen. 
+                Hauptclient "${mainClientUsername}" in Channel "${this.mainClient.channel?.name || 'unknown'}", 
+                Test-Client sieht ${this.testClient.users?.length || 0} Benutzer in Channel "${this.testClient.channel?.name || 'unknown'}"`);
         }
         
-        console.log('✅ Test-Client ist bereit für Roundtrip-Test und sieht andere Benutzer');
+        console.log('✅ Test-Client ist bereit für Roundtrip-Test und kann den Hauptclient sehen');
     }
 
     setupVoiceListenersAfterSync() {
