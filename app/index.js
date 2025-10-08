@@ -626,22 +626,18 @@ class GlobalBindings {
     };
 
     this.testAudioRoundtrip = async () => {
-      console.log('🎵 ECHTER Audio-Roundtrip-Test wird gestartet...');
+      console.log('🎵 Starting Audio Loopback Test...');
       
       if (this.audioTestRunning()) {
         console.log('Test läuft bereits, ignoriere neue Anfrage');
         return;
       }
       
-      if (!this.client) {
-        console.error('❌ Kein Client verfügbar');
-        this.audioTestStatus('Fehler: Nicht mit Mumble-Server verbunden');
-        this.audioTestSuccess(false);
-        return;
-      }
+      // Loopback-Test braucht KEINE Mumble-Server-Verbindung!
+      // Removed: Client-Check für lokalen Audio-Test
       
       this.audioTestRunning(true);
-      this.audioTestStatus('🤖 Erstelle Test-Bot...');
+      this.audioTestStatus('🎤 Starting Audio Pipeline Test...');
       this.audioTestSuccess(false);
       
       try {
@@ -668,7 +664,7 @@ class GlobalBindings {
         console.log('📊 Loopback test completed');
         
         // Loopback-Test war erfolgreich wenn er ohne Exception beendet wurde
-        this.audioTestStatus(`✅ Audio Pipeline Test successful!`);
+        this.audioTestStatus(`✅ Audio Loopback Test successful!`);
         this.audioTestSuccess(true);
         
       } catch (error) {
