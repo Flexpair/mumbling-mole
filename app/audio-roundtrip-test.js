@@ -104,12 +104,15 @@ class AudioRoundtripTest {
     }
 
     getServerInfo() {
-        // Extrahiere Server-Info aus dem Hauptclient
-        // Das ist eine vereinfachte Annahme - in der Realität müssten wir
-        // die Verbindungsdaten anders ermitteln
+        // Extrahiere Server-Info für WebSocket-Verbindung über websockify
+        // websockify läuft auf demselben Host/Port wie die Web-App
+        // und tunnelt WebSocket-Verbindungen zum echten Mumble-Server
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host; // Host:Port von websockify
+        
         return {
-            address: window.location.protocol.replace('http', 'ws') + '//' + window.location.host + '/mumble',
-            password: '',
+            address: `${protocol}//${host}/`, // websockify root path
+            password: '', // Normalerweise kein Passwort nötig
             codecs: ['Opus']
         };
     }
