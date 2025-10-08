@@ -263,9 +263,5 @@ class AudioLoopbackTest {
     }
 }
 
-// Export für Verwendung in anderen Modulen
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = AudioLoopbackTest;
-} else {
-    window.AudioLoopbackTest = AudioLoopbackTest;
-}
+// ES6 Export für Webpack
+export default AudioLoopbackTest;
