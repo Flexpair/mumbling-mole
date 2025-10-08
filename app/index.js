@@ -662,13 +662,13 @@ class GlobalBindings {
         
         // Starte Test mit Progress-Callback
         testInstance.setProgressCallback(updateProgress);
-        console.log('🚀 Starte Loopback-Test-Ausführung...');
+        console.log('🚀 Starting loopback test execution...');
         
         await testInstance.runTest(); // Loopback braucht keinen Client-Parameter
-        console.log('📊 Loopback-Test abgeschlossen');
+        console.log('📊 Loopback test completed');
         
         // Loopback-Test war erfolgreich wenn er ohne Exception beendet wurde
-        this.audioTestStatus(`✅ Audio-Loopback erfolgreich! Pipeline: Mikrofon → Encoder → Decoder → Lautsprecher`);
+        this.audioTestStatus(`✅ Audio Pipeline Test successful! Pipeline: Microphone → Encoder → Decoder → Speakers`);
         this.audioTestSuccess(true);
         
       } catch (error) {

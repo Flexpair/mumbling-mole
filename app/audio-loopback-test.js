@@ -35,8 +35,8 @@ class AudioLoopbackTest {
     }
 
     async runTest() {
-        console.log('🎵 Starte Local Audio Loopback Test...');
-        this.updateProgress('🎤 Starte Audio Loopback Test...');
+        console.log('🎵 Starting Local Audio Loopback Test...');
+        this.updateProgress('🎤 Starting Audio Pipeline Test...');
         
         try {
             this.startTime = Date.now();
@@ -61,11 +61,11 @@ class AudioLoopbackTest {
             this.showResults();
             
             console.log('✅ Audio Loopback Test erfolgreich abgeschlossen!');
-            this.updateProgress('✅ Audio Loopback Test erfolgreich!');
+            this.updateProgress('✅ Audio Pipeline Test successful!');
             
         } catch (error) {
             console.error('❌ Audio Loopback Test fehlgeschlagen:', error);
-            this.updateProgress(`❌ Test fehlgeschlagen: ${error.message}`);
+            this.updateProgress(`❌ Test failed: ${error.message}`);
             throw error;
         } finally {
             await this.cleanup();
@@ -73,7 +73,7 @@ class AudioLoopbackTest {
     }
 
     async initializeAudioContext() {
-        this.updateProgress('🔧 Initialisiere Audio-Kontext...');
+        this.updateProgress('🔧 Initializing Audio Context...');
         
         // Verwende den bestehenden AudioContext oder erstelle einen neuen
         if (window.audioContextManager && window.audioContextManager.getAudioContext) {
@@ -106,7 +106,7 @@ class AudioLoopbackTest {
     }
 
     async setupMicrophone() {
-        this.updateProgress('🎤 Setuppe Mikrofon-Zugriff...');
+        this.updateProgress('🎤 Setting up microphone access...');
         
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -132,12 +132,12 @@ class AudioLoopbackTest {
             
         } catch (error) {
             console.error('❌ Mikrofon-Zugriff fehlgeschlagen:', error);
-            throw new Error(`Mikrofon-Zugriff fehlgeschlagen: ${error.message}`);
+            throw new Error(`Microphone access failed: ${error.message}`);
         }
     }
 
     async setupCodecs() {
-        this.updateProgress('🔧 Setuppe Opus Encoder/Decoder...');
+        this.updateProgress('🔧 Setting up audio codecs...');
         
         // Hier würden wir normalerweise die Mumble Opus-Codecs verwenden
         // Für jetzt simulieren wir das mit Audio-Nodes
@@ -183,7 +183,7 @@ class AudioLoopbackTest {
     }
 
     async connectAudioPipeline() {
-        this.updateProgress('🔗 Verbinde Audio-Pipeline...');
+        this.updateProgress('🔗 Connecting audio pipeline...');
         
         // Pipeline: Mikrofon → Encoder → Decoder → Lautsprecher
         this.sourceNode.connect(this.encoder);
@@ -196,7 +196,7 @@ class AudioLoopbackTest {
     }
 
     async runLoopbackTest() {
-        this.updateProgress('🔄 Laufe Loopback-Test (5 Sekunden)...');
+        this.updateProgress('🔄 Running loopback test (5 seconds)...');
         
         console.log('🎵 Loopback-Test gestartet - sprechen Sie ins Mikrofon!');
         console.log('⏱️ Test läuft für 5 Sekunden...');
@@ -204,7 +204,7 @@ class AudioLoopbackTest {
         // Status-Updates alle Sekunde
         const statusInterval = setInterval(() => {
             const elapsed = (Date.now() - this.startTime) / 1000;
-            this.updateProgress(`🔄 Loopback läuft... ${elapsed.toFixed(1)}s (${this.encodedPackets} Pakete)`);
+            this.updateProgress(`🔄 Testing... ${elapsed.toFixed(1)}s (${this.encodedPackets} packets)`);
             
             console.log('📊 Live-Statistik:');
             console.log(`  - Laufzeit: ${elapsed.toFixed(1)}s`);
@@ -239,16 +239,16 @@ class AudioLoopbackTest {
         console.log(`🎯 Effizienz: ${efficiency.toFixed(1)}% (erwarte ~${expectedPacketsPerSec} Pakete/s)`);
         
         if (this.encodedPackets > 0 && this.decodedPackets > 0) {
-            console.log('✅ ERFOLG: Audio-Pipeline funktioniert!');
-            this.updateProgress(`✅ ERFOLG: ${this.encodedPackets} Pakete verarbeitet (${efficiency.toFixed(1)}% Effizienz)`);
+            console.log('✅ SUCCESS: Audio pipeline working!');
+            this.updateProgress(`✅ SUCCESS: ${this.encodedPackets} packets processed (${efficiency.toFixed(1)}% efficiency)`);
         } else {
-            console.log('❌ FEHLER: Keine Audio-Verarbeitung erkannt');
-            this.updateProgress('❌ FEHLER: Keine Audio-Verarbeitung erkannt');
+            console.log('❌ ERROR: No audio processing detected');
+            this.updateProgress('❌ ERROR: No audio processing detected');
         }
     }
 
     async cleanup() {
-        this.updateProgress('🧹 Cleanup...');
+        this.updateProgress('🧹 Cleaning up...');
         this.isRunning = false;
         
         try {
