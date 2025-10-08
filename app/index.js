@@ -668,7 +668,7 @@ class GlobalBindings {
         console.log('📊 Loopback test completed');
         
         // Loopback-Test war erfolgreich wenn er ohne Exception beendet wurde
-        this.audioTestStatus(`✅ Audio Pipeline Test successful! Pipeline: Microphone → Encoder → Decoder → Speakers`);
+        this.audioTestStatus(`✅ Audio Pipeline Test successful!`);
         this.audioTestSuccess(true);
         
       } catch (error) {
