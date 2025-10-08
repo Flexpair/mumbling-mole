@@ -650,16 +650,19 @@ class GlobalBindings {
         const results = await testInstance.runTest(this.client);
         
         if (results.success) {
-          this.audioTestStatus(`✅ Test erfolgreich! (${results.sentPackets} gesendet, ${results.receivedPackets} empfangen)`);
+          this.audioTestStatus(`✅ Audio-Sendung erfolgreich! (${results.sentPackets} Pakete gesendet)`);
           this.audioTestSuccess(true);
-        } else if (results.sentPackets === 0) {
-          this.audioTestStatus('❌ Audio-Aufnahme fehlgeschlagen');
+        } else if (!results.streamCreated) {
+          this.audioTestStatus('❌ Voice-Stream-Erstellung fehlgeschlagen');
           this.audioTestSuccess(false);
-        } else if (results.receivedPackets === 0) {
-          this.audioTestStatus('❌ Audio-Empfang fehlgeschlagen');
+        } else if (results.streamErrors.length > 0) {
+          this.audioTestStatus(`❌ Stream-Fehler: ${results.streamErrors[0]}`);
+          this.audioTestSuccess(false);
+        } else if (results.sentPackets <= 100) {
+          this.audioTestStatus(`❌ Audio-Sendung unvollständig (${results.sentPackets}/150 Pakete)`);
           this.audioTestSuccess(false);
         } else {
-          this.audioTestStatus('❌ Audio-Roundtrip fehlgeschlagen');
+          this.audioTestStatus('❌ Audio-Test fehlgeschlagen');
           this.audioTestSuccess(false);
         }
         
