@@ -77,11 +77,20 @@ class AudioLoopbackTest {
         
         // Verwende den bestehenden AudioContext oder erstelle einen neuen
         if (window.audioContextManager && window.audioContextManager.getAudioContext) {
-            this.audioContext = window.audioContextManager.getAudioContext();
-            console.log('✅ Verwende bestehenden AudioContext');
+            console.log('✅ AudioContextManager gefunden, verwende getAudioContext()');
+            this.audioContext = await window.audioContextManager.getAudioContext();
         } else {
+            console.log('⚠️ Kein AudioContextManager - erstelle neuen AudioContext');
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('✅ Neuer AudioContext erstellt');
+        }
+        
+        console.log('📊 AudioContext-Objekt:', this.audioContext);
+        console.log('📊 AudioContext-Typ:', typeof this.audioContext);
+        console.log('📊 AudioContext-Constructor:', this.audioContext.constructor.name);
+        
+        if (!this.audioContext || typeof this.audioContext.createMediaStreamSource !== 'function') {
+            console.error('❌ Ungültiger AudioContext - erstelle neuen');
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
         
         if (this.audioContext.state === 'suspended') {
@@ -93,6 +102,7 @@ class AudioLoopbackTest {
         console.log('  - State:', this.audioContext.state);
         console.log('  - Sample Rate:', this.audioContext.sampleRate, 'Hz');
         console.log('  - Base Latency:', this.audioContext.baseLatency?.toFixed(3), 'sec');
+        console.log('  - createMediaStreamSource verfügbar:', typeof this.audioContext.createMediaStreamSource);
     }
 
     async setupMicrophone() {
