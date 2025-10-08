@@ -1,6 +1,44 @@
 /**
  * Echter Audio Roundtrip Test für v3.12.0
- * Testet den kompletten Audio-Workflow mit echtem Mumble-Server
+ * Testet den kompletten Audio-Workflow mit echtem Mu        try {
+            // WIC            // Warte länger, damit der Hauptclient vollständig initialisiert ist
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // WICHTIGE ERKENNTNIS: Beide Clients könnten sich gegenseitig "rauskicken"!
+            console.log('🚨 DIAGNOSE: Prüfe ob Mumble-Server beide Clients als denselben Benutzer behandelt...');
+            console.log('📊 Vor Test-Client-Verbindung - Hauptclient Status:');
+            console.log('  - Hauptclient Benutzer-Anzahl:', this.mainClient.users?.length || 0);
+            console.log('  - Hauptclient Self-ID:', this.mainClient.self?.id || 'unknown');
+            console.log('  - Hauptclient Username:', this.mainClient.username || this.mainClient.self?.username || 'unknown');
+            console.log('  - Hauptclient Verbindung aktiv:', this.mainClient.ready);
+            
+            // Verwende WebSocket mit wss:// (wie der Hauptclient)
+            const uniqueUsername = 'AudioTestBot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            console.log('🤖 Test-Client Benutzername:', uniqueUsername);
+            console.log('🔍 Hauptclient-Benutzername:', this.mainClient.username || this.mainClient.self?.username || 'unknown');
+            
+            // WICHTIG: Prüfe unterschiedliche Verbindungsparameter
+            console.log('🔍 Verbindungsparameter-Vergleich:');
+            console.log('  - Test-Client Username:', uniqueUsername);
+            console.log('  - Hauptclient Username:', this.mainClient.username || this.mainClient.self?.username || 'unknown');
+            console.log('  - Beide verwenden denselben Host:', host);
+            console.log('  - Potentielle Session-Konflikte möglich!');
+            
+            const testClient = await sharedConnector.connect(`wss://${host}`, {
+                username: uniqueUsername,
+                password: '', // Normalerweise kein Passwort nötignde denselben Worker wie der Hauptclient für echte Server-Sichtbarkeit
+            console.log('🔗 Verwende DENSELBEN Worker wie Hauptclient für echte Mumble-Server-Sichtbarkeit...');
+            
+            // Verwende denselben Connector wie der Hauptclient
+            const sharedConnector = this.mainClient._connector;
+            if (!sharedConnector) {
+                throw new Error('Hauptclient hat keinen Connector - kann nicht geteilt werden');
+            }
+            
+            console.log('✅ Verwende geteilten Connector für authentische Server-Sichtbarkeit');
+            this.updateProgress('🔗 Verwende geteilten Mumble-Connector...');
+            
+            // Extrahiere Verbindungsparameter vom Hauptclientr
  * 
  * STRATEGIE:
  * 1. Hauptclient (bereits verbunden) sendet Audio
@@ -131,6 +169,19 @@ class AudioRoundtripTest {
                 tokens: []
             });                console.log('✅ Test-Client Worker-Verbindung hergestellt');
                 this.updateProgress('✅ Worker-Verbindung hergestellt, warte auf Initialisierung...');
+                
+                // SOFORT NACH TEST-CLIENT-VERBINDUNG: Prüfe ob Hauptclient noch aktiv ist!
+                console.log('🚨 KRITISCHE PRÜFUNG: Ist Hauptclient nach Test-Client-Verbindung noch aktiv?');
+                console.log('📊 Nach Test-Client-Verbindung - Hauptclient Status:');
+                console.log('  - Hauptclient Benutzer-Anzahl:', this.mainClient.users?.length || 0);
+                console.log('  - Hauptclient Self-ID:', this.mainClient.self?.id || 'unknown');
+                console.log('  - Hauptclient Verbindung aktiv:', this.mainClient.ready);
+                console.log('  - Hauptclient Root vorhanden:', !!this.mainClient.root);
+                
+                if (!this.mainClient.ready || !this.mainClient.root) {
+                    console.error('🚨 HAUPTCLIENT WURDE GEKICKT! Test-Client hat Hauptclient verdrängt!');
+                    throw new Error('HAUPTCLIENT WURDE VOM SERVER GEKICKT - Session-Konflikt erkannt!');
+                }
                 
                 // Warte auf vollständige Mumble-Initialisierung mit Timeout
                 await new Promise((resolve, reject) => {
@@ -324,6 +375,33 @@ class AudioRoundtripTest {
                     self: u === this.testClient.self ? 'SELF' : 'OTHER'
                 })));
                 
+                // Zusätzliche Debug-Informationen für tiefere Analyse
+                console.log('🔍 Erweiterte Debug-Informationen:');
+                console.log('  Hauptclient:', {
+                    connectorType: this.mainClient._connector?.constructor?.name || 'unknown',
+                    workerActive: !!this.mainClient._connector?._worker,
+                    clientId: this.mainClient.clientId || 'unknown',
+                    connectionReady: this.mainClient.ready,
+                    userCount: this.mainClient.users?.length || 0,
+                    allUsers: this.mainClient.users?.map(u => ({
+                        id: u.id,
+                        username: u.username,
+                        isSelf: u === this.mainClient.self
+                    })) || []
+                });
+                console.log('  Test-Client:', {
+                    connectorType: this.testClient._connector?.constructor?.name || 'unknown',
+                    workerActive: !!this.testClient._connector?._worker,
+                    clientId: this.testClient.clientId || 'unknown',
+                    connectionReady: this.testClient.ready,
+                    userCount: this.testClient.users?.length || 0,
+                    allUsers: this.testClient.users?.map(u => ({
+                        id: u.id,
+                        username: u.username,
+                        isSelf: u === this.testClient.self
+                    })) || []
+                });
+                
                 // Prüfe ob der Hauptclient-Benutzer dabei ist
                 // Der Test-Client sollte mindestens 2 Benutzer sehen: sich selbst und den Hauptclient
                 const hasOtherUsers = this.testClient.users.length >= 2;
@@ -340,7 +418,10 @@ class AudioRoundtripTest {
                     });
                     break;
                 } else {
-                    console.log(`⚠️ Test-Client sieht ${this.testClient.users.length} Benutzer, aber nur sich selbst`);
+                    if (attempts % 10 === 0) {
+                        console.log(`⚠️ Test-Client sieht ${this.testClient.users.length} Benutzer, aber nur sich selbst`);
+                        console.log(`💡 Mumble-Server-Problem: Beide Clients verbinden sich getrennt, sehen sich aber nicht!`);
+                    }
                 }
             }
             
@@ -384,13 +465,10 @@ class AudioRoundtripTest {
                 selfId: this.testClient.self?.id || 'unknown'
             });
             
-            const errorMsg = this.testClient.users?.length >= 2 ? 
-                'Test-Client sieht Benutzer, aber Verifikation fehlgeschlagen' : 
-                'Test-Client kann nur sich selbst oder gar keine Benutzer sehen';
-                
-            throw new Error(`${errorMsg} - Mumble-Server-Synchronisation fehlgeschlagen. 
-                Benötigt: Test-Client sollte mindestens 2 Benutzer sehen (sich selbst + Hauptclient). 
-                Aktuell: Test-Client sieht ${this.testClient.users?.length || 0} Benutzer in Channel "${this.testClient.channel?.name || 'unknown'}"`);
+            throw new Error(`MUMBLE-SERVER-SYNCHRONISATION FEHLGESCHLAGEN: 
+                Test-Client kann Hauptclient nicht sehen (${this.testClient.users?.length || 0} vs ${this.mainClient.users?.length || 0} Benutzer).
+                Beide Clients sind verbunden aber isoliert voneinander.
+                Echte Lösung erforderlich für authentischen Dual-Client-Test.`);
         }
         
         console.log('✅ Test-Client ist bereit für Roundtrip-Test und kann andere Benutzer sehen');
