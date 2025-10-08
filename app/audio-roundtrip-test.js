@@ -81,27 +81,33 @@ class AudioRoundtripTest {
         console.log('🤖 Erstelle Test-Client (Audio-Bot)...');
         
         try {
-            // Hole Verbindungsdaten vom Hauptclient
-            const serverInfo = this.getServerInfo();
-            console.log('📡 Verbinde Audio-Bot mit Server:', serverInfo);
+            // Verwende denselben WorkerBasedMumbleConnector wie der Hauptclient
+            const WorkerBasedMumbleConnector = (await import('./worker-client.js')).default;
+            
+            console.log('� Erstelle WorkerBasedMumbleConnector...');
+            this.updateProgress('🔗 Erstelle WorkerBasedMumbleConnector...');
+            
+            const testConnector = new WorkerBasedMumbleConnector();
+            
+            // Extrahiere Verbindungsparameter vom Hauptclient
+            const host = this.mainClient._connector._worker ? 
+                         window.location.host : // Fallback auf aktuellen Host
+                         `${this.mainClient.remoteHost}:${this.mainClient.remotePort}`;
+            
+            console.log('� Verbinde Test-Client über Worker-Connector zu:', host);
+            this.updateProgress('� Verbinde Test-Client...');
             
             // Timeout für die gesamte Client-Erstellung
             const createClientWithTimeout = async () => {
-                // Importiere Mumble-WebSocket-Client
-                const mumbleConnect = (await import('./mumble-websocket.js')).default;
-                
-                console.log('🔗 Starte WebSocket-Verbindung...');
-                this.updateProgress('🔗 Verbinde WebSocket...');
-                
-                // Erstelle neue Verbindung als Test-Bot
-                const testClient = await mumbleConnect(serverInfo.address, {
+                // Verwende WebSocket mit wss:// (wie der Hauptclient)
+                const testClient = await testConnector.connect(`wss://${host}`, {
                     username: 'AudioTestBot_' + Date.now(),
-                    password: serverInfo.password || '',
-                    codecs: serverInfo.codecs || ['Opus']
+                    password: '', // Normalerweise kein Passwort nötig
+                    tokens: []
                 });
                 
-                console.log('✅ WebSocket-Verbindung hergestellt');
-                this.updateProgress('✅ WebSocket verbunden, warte auf Mumble-Initialisierung...');
+                console.log('✅ Test-Client Worker-Verbindung hergestellt');
+                this.updateProgress('✅ Worker-Verbindung hergestellt, warte auf Initialisierung...');
                 
                 // Warte auf vollständige Mumble-Initialisierung mit Timeout
                 await new Promise((resolve, reject) => {
@@ -150,20 +156,6 @@ class AudioRoundtripTest {
             console.error('❌ Fehler beim Erstellen des Test-Clients:', error);
             throw new Error(`Test-Client-Erstellung fehlgeschlagen: ${error.message}`);
         }
-    }
-
-    getServerInfo() {
-        // Extrahiere Server-Info für WebSocket-Verbindung über websockify
-        // websockify läuft auf demselben Host/Port wie die Web-App
-        // und tunnelt WebSocket-Verbindungen zum echten Mumble-Server
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host; // Host:Port von websockify
-        
-        return {
-            address: `${protocol}//${host}/`, // websockify root path
-            password: '', // Normalerweise kein Passwort nötig
-            codecs: ['Opus']
-        };
     }
 
     setupVoiceListeners() {
