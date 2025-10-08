@@ -640,13 +640,21 @@ class GlobalBindings {
       }
       
       this.audioTestRunning(true);
-      this.audioTestStatus('Echter Roundtrip-Test läuft... (erstelle Test-Bot)');
+      this.audioTestStatus('🤖 Erstelle Test-Bot...');
       this.audioTestSuccess(false);
       
       try {
         // Importiere und starte den echten Audio-Roundtrip-Test
         const AudioRoundtripTest = (await import('./audio-roundtrip-test.js')).default;
         const testInstance = new AudioRoundtripTest();
+        
+        // Führe Test mit Fortschritts-Updates aus
+        const updateProgress = (message) => {
+          this.audioTestStatus(message);
+        };
+        
+        // Starte Test mit Progress-Callback
+        testInstance.progressCallback = updateProgress;
         const results = await testInstance.runTest(this.client);
         
         if (results.success) {

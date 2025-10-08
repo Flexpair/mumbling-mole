@@ -24,6 +24,13 @@ class AudioRoundtripTest {
         this.testClientVoiceListener = null;
         this.testClientReady = false;
         this.roundtripCompleted = false;
+        this.progressCallback = null; // Für UI-Updates
+    }
+
+    updateProgress(message) {
+        if (this.progressCallback) {
+            this.progressCallback(message);
+        }
     }
 
     async runTest(mumbleClient) {
@@ -43,18 +50,23 @@ class AudioRoundtripTest {
 
         try {
             // 1. Erstelle zweiten Test-Client (Bot)
+            this.updateProgress('🤖 Erstelle Test-Bot...');
             await this.createTestClient();
 
             // 2. Richte Voice-Event-Listener ein
+            this.updateProgress('🎧 Richte Audio-Listener ein...');
             this.setupVoiceListeners();
 
             // 3. Warte bis Test-Client bereit ist
+            this.updateProgress('⏳ Warte auf Test-Bot-Bereitschaft...');
             await this.waitForTestClientReady();
 
             // 4. Starte Roundtrip-Sequenz
+            this.updateProgress('🔄 Starte Audio-Roundtrip...');
             await this.performRoundtripTest();
 
             // 5. Warte auf Ergebnisse
+            this.updateProgress('📊 Analysiere Ergebnisse...');
             return await this.waitForResults();
 
         } catch (error) {
@@ -73,29 +85,66 @@ class AudioRoundtripTest {
             const serverInfo = this.getServerInfo();
             console.log('📡 Verbinde Audio-Bot mit Server:', serverInfo);
             
-            // Importiere Mumble-WebSocket-Client
-            const mumbleConnect = (await import('./mumble-websocket.js')).default;
+            // Timeout für die gesamte Client-Erstellung
+            const createClientWithTimeout = async () => {
+                // Importiere Mumble-WebSocket-Client
+                const mumbleConnect = (await import('./mumble-websocket.js')).default;
+                
+                console.log('🔗 Starte WebSocket-Verbindung...');
+                this.updateProgress('🔗 Verbinde WebSocket...');
+                
+                // Erstelle neue Verbindung als Test-Bot
+                const testClient = await mumbleConnect(serverInfo.address, {
+                    username: 'AudioTestBot_' + Date.now(),
+                    password: serverInfo.password || '',
+                    codecs: serverInfo.codecs || ['Opus']
+                });
+                
+                console.log('✅ WebSocket-Verbindung hergestellt');
+                this.updateProgress('✅ WebSocket verbunden, warte auf Mumble-Initialisierung...');
+                
+                // Warte auf vollständige Mumble-Initialisierung mit Timeout
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Timeout beim Warten auf Mumble-Client-Initialisierung'));
+                    }, 10000); // 10 Sekunden Timeout
+                    
+                    if (testClient.root) {
+                        clearTimeout(timeout);
+                        resolve();
+                    } else {
+                        const onReady = () => {
+                            clearTimeout(timeout);
+                            testClient.off('ready', onReady);
+                            testClient.off('error', onError);
+                            resolve();
+                        };
+                        
+                        const onError = (error) => {
+                            clearTimeout(timeout);
+                            testClient.off('ready', onReady);
+                            testClient.off('error', onError);
+                            reject(error);
+                        };
+                        
+                        testClient.on('ready', onReady);
+                        testClient.on('error', onError);
+                    }
+                });
+                
+                return testClient;
+            };
             
-            // Erstelle neue Verbindung als Test-Bot
-            this.testClient = await mumbleConnect(serverInfo.address, {
-                username: 'AudioTestBot_' + Date.now(),
-                password: serverInfo.password || '',
-                codecs: serverInfo.codecs || ['Opus']
-            });
-            
-            console.log('✅ Test-Client erfolgreich verbunden');
-            
-            // Warte auf vollständige Verbindung
-            await new Promise(resolve => {
-                if (this.testClient.root) {
-                    resolve();
-                } else {
-                    this.testClient.on('ready', resolve);
-                }
-            });
+            // Führe Client-Erstellung mit globalem Timeout aus
+            this.testClient = await Promise.race([
+                createClientWithTimeout(),
+                new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Globaler Timeout bei Test-Client-Erstellung')), 15000);
+                })
+            ]);
             
             this.testClientReady = true;
-            console.log('✅ Test-Client ist bereit');
+            console.log('✅ Test-Client ist vollständig bereit');
             
         } catch (error) {
             console.error('❌ Fehler beim Erstellen des Test-Clients:', error);
@@ -190,9 +239,11 @@ class AudioRoundtripTest {
         console.log('🔄 Starte Roundtrip-Sequenz...');
         
         // Phase 1: Hauptclient sendet Audio an Test-Client
+        this.updateProgress('📤 Sende Audio vom Hauptclient...');
         await this.sendAudioFromMainClient();
         
         // Phase 2: Warte auf Test-Client-Echo (wird automatisch gestartet)
+        this.updateProgress('📥 Warte auf Echo vom Test-Bot...');
         await this.waitForEcho();
     }
 
