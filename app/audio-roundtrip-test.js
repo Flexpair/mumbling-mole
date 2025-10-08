@@ -34,7 +34,11 @@ class AudioRoundtripTest {
     }
 
     async runTest(mumbleClient) {
+        console.log('🔥 AudioRoundtripTest.runTest() gestartet');
+        console.log('🔍 Übergebener mumbleClient:', mumbleClient);
+        
         if (!mumbleClient) {
+            console.error('❌ Kein mumbleClient übergeben');
             throw new Error('Kein Mumble-Client verfügbar');
         }
 
@@ -48,31 +52,45 @@ class AudioRoundtripTest {
         this.roundtripCompleted = false;
         this.testStartTime = Date.now();
 
+        console.log('✅ Test-Variablen initialisiert, beginne Test-Schritte...');
+
         try {
             // 1. Erstelle zweiten Test-Client (Bot)
+            console.log('📝 Schritt 1: Test-Client erstellen');
             this.updateProgress('🤖 Erstelle Test-Bot...');
             await this.createTestClient();
 
             // 2. Richte Voice-Event-Listener ein
+            console.log('📝 Schritt 2: Voice-Listener einrichten');
             this.updateProgress('🎧 Richte Audio-Listener ein...');
             this.setupVoiceListeners();
 
             // 3. Warte bis Test-Client bereit ist
+            console.log('📝 Schritt 3: Warte auf Test-Client-Bereitschaft');
             this.updateProgress('⏳ Warte auf Test-Bot-Bereitschaft...');
             await this.waitForTestClientReady();
 
+            // 3.5. Voice-Listener nochmal einrichten (nach Benutzer-Sync)
+            console.log('📝 Schritt 3.5: Voice-Listener nach Benutzer-Sync aktualisieren');
+            this.updateProgress('🎧 Aktualisiere Audio-Listener...');
+            this.setupVoiceListenersAfterSync();
+
             // 4. Starte Roundtrip-Sequenz
+            console.log('📝 Schritt 4: Starte Roundtrip-Sequenz');
             this.updateProgress('🔄 Starte Audio-Roundtrip...');
             await this.performRoundtripTest();
 
             // 5. Warte auf Ergebnisse
+            console.log('📝 Schritt 5: Analysiere Ergebnisse');
             this.updateProgress('📊 Analysiere Ergebnisse...');
             return await this.waitForResults();
 
         } catch (error) {
-            console.error('❌ Audio-Roundtrip-Test fehlgeschlagen:', error);
+            console.error('❌ Fehler in runTest():', error);
+            console.error('❌ Error-Stack:', error.stack);
             throw error;
         } finally {
+            console.log('🧹 Cleanup wird ausgeführt...');
             this.cleanup();
         }
     }
@@ -235,10 +253,10 @@ class AudioRoundtripTest {
             });
         }
         
-        // Für Test-Client-Benutzer
+        // Für Test-Client-Benutzer (NACH Benutzer-Synchronisation)
         if (this.testClient && this.testClient.users) {
             const users = this.testClient.users;
-            console.log(`🔍 Test-Client hat ${users.length} Benutzer`);
+            console.log(`🔍 Test-Client hat jetzt ${users.length} Benutzer (nach Sync)`);
             users.forEach((user, index) => {
                 if (user && typeof user.on === 'function') {
                     user.on('voice', (voiceStream) => {
@@ -246,8 +264,12 @@ class AudioRoundtripTest {
                         this.testClientVoiceListener(voiceStream);
                     });
                     console.log(`✅ User-Voice-Listener für Test-Client-User ${index} registriert`);
+                } else {
+                    console.warn(`⚠️ Test-Client-User ${index} unterstützt keine Voice-Events`);
                 }
             });
+        } else {
+            console.warn('⚠️ Test-Client hat noch keine Benutzer oder users-Array ist undefined');
         }
     }
 
@@ -264,7 +286,53 @@ class AudioRoundtripTest {
             throw new Error('Test-Client wurde nicht rechtzeitig bereit');
         }
         
-        console.log('✅ Test-Client ist bereit für Roundtrip-Test');
+        console.log('✅ Test-Client ist grundsätzlich bereit');
+        
+        // WICHTIG: Warte bis Test-Client andere Benutzer sieht
+        console.log('⏳ Warte bis Test-Client andere Benutzer sieht...');
+        attempts = 0;
+        while (attempts < 100) { // 10 Sekunden
+            if (this.testClient && this.testClient.users && this.testClient.users.length > 0) {
+                console.log(`✅ Test-Client sieht jetzt ${this.testClient.users.length} Benutzer!`);
+                break;
+            }
+            
+            if (attempts % 10 === 0) {
+                console.log(`⏳ Warte auf Benutzer... (${attempts}/100) - aktuell: ${this.testClient?.users?.length || 0} Benutzer`);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (!this.testClient.users || this.testClient.users.length === 0) {
+            throw new Error('Test-Client kann keine anderen Benutzer sehen - Channel-Synchronisation fehlgeschlagen');
+        }
+        
+        console.log('✅ Test-Client ist bereit für Roundtrip-Test und sieht andere Benutzer');
+    }
+
+    setupVoiceListenersAfterSync() {
+        console.log('🔄 Richte Voice-Listener nach Benutzer-Synchronisation ein...');
+        
+        // Für Test-Client-Benutzer (NACH Benutzer-Synchronisation)
+        if (this.testClient && this.testClient.users) {
+            const users = this.testClient.users;
+            console.log(`🔍 Test-Client hat jetzt ${users.length} Benutzer (nach Sync)`);
+            users.forEach((user, index) => {
+                if (user && typeof user.on === 'function') {
+                    user.on('voice', (voiceStream) => {
+                        console.log(`📥 POST-SYNC User-Voice-Event für Test-Client-User ${index} (${user.name || 'unknown'})`);
+                        this.testClientVoiceListener(voiceStream);
+                    });
+                    console.log(`✅ POST-SYNC User-Voice-Listener für Test-Client-User ${index} registriert`);
+                } else {
+                    console.warn(`⚠️ Test-Client-User ${index} unterstützt keine Voice-Events`);
+                }
+            });
+        } else {
+            console.error('❌ Test-Client hat immer noch keine Benutzer nach Sync!');
+        }
     }
 
     async performRoundtripTest() {
