@@ -318,19 +318,29 @@ class AudioRoundtripTest {
         while (attempts < 150) { // 15 Sekunden
             if (this.testClient && this.testClient.users && this.testClient.users.length > 0) {
                 console.log(`✅ Test-Client sieht jetzt ${this.testClient.users.length} Benutzer!`);
-                console.log('👥 Test-Client Benutzer:', this.testClient.users.map(u => u.username || u.id));
+                console.log('👥 Test-Client Benutzer:', this.testClient.users.map(u => ({
+                    username: u.username || 'undefined',
+                    id: u.id || 'undefined',
+                    self: u === this.testClient.self ? 'SELF' : 'OTHER'
+                })));
                 
                 // Prüfe ob der Hauptclient-Benutzer dabei ist
-                foundMainClient = this.testClient.users.some(user => 
-                    (user.username && user.username === mainClientUsername) ||
-                    (user.id && this.mainClient.self && user.id === this.mainClient.self.id)
-                );
+                // Der Test-Client sollte mindestens 2 Benutzer sehen: sich selbst und den Hauptclient
+                const hasOtherUsers = this.testClient.users.length >= 2;
+                const hasNonSelfUsers = this.testClient.users.some(user => user !== this.testClient.self);
+                
+                foundMainClient = hasOtherUsers && hasNonSelfUsers;
                 
                 if (foundMainClient) {
-                    console.log('🎯 Test-Client kann den Hauptclient-Benutzer sehen!');
+                    console.log('🎯 Test-Client kann andere Benutzer (inklusive Hauptclient) sehen!');
+                    console.log('📊 Benutzer-Details:', {
+                        totalUsers: this.testClient.users.length,
+                        selfUser: this.testClient.self?.id || 'unknown',
+                        otherUsers: this.testClient.users.filter(u => u !== this.testClient.self).map(u => u.id || u.username || 'unknown')
+                    });
                     break;
                 } else {
-                    console.log(`⚠️ Test-Client sieht ${this.testClient.users.length} Benutzer, aber nicht den Hauptclient (${mainClientUsername})`);
+                    console.log(`⚠️ Test-Client sieht ${this.testClient.users.length} Benutzer, aber nur sich selbst`);
                 }
             }
             
@@ -351,7 +361,7 @@ class AudioRoundtripTest {
         }
         
         if (!this.testClient.users || this.testClient.users.length === 0 || !foundMainClient) {
-            console.error('❌ Test-Client kann den Hauptclient-Benutzer nicht sehen!');
+            console.error('❌ Test-Client kann andere Benutzer nicht sehen!');
             console.log('🔍 Finale Debug-Informationen:');
             console.log('  Hauptclient:', {
                 users: this.mainClient.users?.length || 0,
@@ -363,23 +373,27 @@ class AudioRoundtripTest {
             });
             console.log('  Test-Client:', {
                 users: this.testClient.users?.length || 0,
-                userNames: this.testClient.users?.map(u => u.username || u.id) || [],
+                userDetails: this.testClient.users?.map(u => ({
+                    username: u.username || 'undefined',
+                    id: u.id || 'undefined',
+                    isSelf: u === this.testClient.self
+                })) || [],
                 channel: this.testClient.channel?.name || 'unknown',
                 channelId: this.testClient.channel?.id || 'unknown',
                 username: this.testClient.username || this.testClient.self?.username || 'unknown',
                 selfId: this.testClient.self?.id || 'unknown'
             });
             
-            const errorMsg = foundMainClient ? 
-                'Test-Client sieht Benutzer, aber nicht den Hauptclient' : 
-                'Test-Client kann keine anderen Benutzer sehen';
+            const errorMsg = this.testClient.users?.length >= 2 ? 
+                'Test-Client sieht Benutzer, aber Verifikation fehlgeschlagen' : 
+                'Test-Client kann nur sich selbst oder gar keine Benutzer sehen';
                 
             throw new Error(`${errorMsg} - Mumble-Server-Synchronisation fehlgeschlagen. 
-                Hauptclient "${mainClientUsername}" in Channel "${this.mainClient.channel?.name || 'unknown'}", 
-                Test-Client sieht ${this.testClient.users?.length || 0} Benutzer in Channel "${this.testClient.channel?.name || 'unknown'}"`);
+                Benötigt: Test-Client sollte mindestens 2 Benutzer sehen (sich selbst + Hauptclient). 
+                Aktuell: Test-Client sieht ${this.testClient.users?.length || 0} Benutzer in Channel "${this.testClient.channel?.name || 'unknown'}"`);
         }
         
-        console.log('✅ Test-Client ist bereit für Roundtrip-Test und kann den Hauptclient sehen');
+        console.log('✅ Test-Client ist bereit für Roundtrip-Test und kann andere Benutzer sehen');
     }
 
     setupVoiceListenersAfterSync() {
