@@ -124,6 +124,13 @@
           <div class="dialog-footer">
             <input class="dialog-close" type="button" value="Cancel" disabled />
             <input
+              id="connect-dialog_controls_loopback"
+              class="dialog-submit"
+              type="button"
+              value="Test"
+              data-bind="click: connectLoopback"
+            />
+            <input
               id="connect-dialog_controls_connect"
               class="dialog-submit"
               type="submit"
@@ -453,6 +460,16 @@
           rel="undeaf"
           src="svg/audio-output-deafened.svg"
         />
+        <button
+          class="tb-test"
+          type="button"
+          id="toolbar_test_button"
+          data-bind="
+            visible: connected,
+            click: startLoopbackTest
+          "
+          style="background: #007bff; color: white; border: 1px solid #0056b3; padding: 4px 8px; margin: 0 5px; border-radius: 3px; cursor: pointer;"
+        >Test</button>
         <input
           id="message-box"
           type="text"

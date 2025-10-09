@@ -44,6 +44,9 @@ function reject(reqId, value, transfer) {
 
 function registerEventProxy(id, obj, event, transform) {
   obj.on(event, function (_) {
+    if (event === "voice") {
+      console.log("[WORKER] Voice event triggered for user:", id.user, "event:", event);
+    }
     postMessage({
       clientId: id.client,
       channelId: id.channel,
@@ -117,6 +120,7 @@ function setupChannel(id, channel) {
 }
 
 function setupUser(id, user) {
+  console.log("[WORKER] Setting up user:", user.name || user.id || "unknown", "id:", user.id);
   id = Object.assign({}, id, { user: user.id });
 
   registerEventProxy(id, user, "update", (actor, props) => {
@@ -130,6 +134,7 @@ function setupUser(id, user) {
   });
   registerEventProxy(id, user, "voice", (stream) => {
     let voiceId = nextVoiceId++;
+    console.log("[WORKER] Voice stream started for user:", user.name || user.id || "unknown", "voiceId:", voiceId);
 
     let target;
 
@@ -141,9 +146,11 @@ function setupUser(id, user) {
       .on("data", (data) => {
         // store target so we can pass it on after resampling
         target = data.target;
+        console.log("[WORKER] Voice data received from user:", user.name || user.id || "unknown", "target:", target, "pcm bytes:", data.pcm.byteLength);
         resampler.write(Buffer.from(data.pcm.buffer));
       })
       .on("end", () => {
+        console.log("[WORKER] Voice stream ended for user:", user.name, "voiceId:", voiceId);
         resampler.end();
       });
 
@@ -151,6 +158,7 @@ function setupUser(id, user) {
     resampler
       .on("data", (data) => {
         data = toArrayBuffer(data); // postMessage can't transfer node's Buffer
+        console.log("[WORKER] Sending voice data to UI thread, target:", target, "bytes:", data.byteLength);
         postMessage(
           {
             voiceId: voiceId,
@@ -161,6 +169,7 @@ function setupUser(id, user) {
         );
       })
       .on("end", () => {
+        console.log("[WORKER] Sending voice end to UI thread, voiceId:", voiceId);
         postMessage({
           voiceId: voiceId,
         });
@@ -188,6 +197,8 @@ function setupUser(id, user) {
 }
 
 function setupClient(id, client) {
+  let tempRootChannel = null; // Worker-scope variable for root channel
+  
   id = { client: id };
 
   registerEventProxy(id, client, "error");
@@ -212,6 +223,8 @@ function setupClient(id, client) {
     pushProp(id, client, "dataStats");
   });
   client.on("connected", () => {
+    console.log("[WORKER] 'connected' event triggered");
+    console.log("[WORKER] At connected event - client.root:", !!client.root, "client.users.length:", client.users ? client.users.length : 'undefined');
     pushProp(id, client, "maxBandwidth");
   });
   client.on("maxBandwidthChange", () => {
@@ -224,34 +237,108 @@ function setupClient(id, client) {
   let initialized = false;
 
   const initializeClientState = () => {
+    console.log("[WORKER] initializeClientState called, initialized:", initialized);
     if (initialized) {
       return;
     }
-    const rootChannel = client.root;
+    let rootChannel = client.root;
+    
+    // Use temporary root channel if available
+    if (!rootChannel && tempRootChannel) {
+      rootChannel = tempRootChannel;
+      console.log("[WORKER] Using temporary root channel:", rootChannel.name);
+    }
+    
+    console.log("[WORKER] Root channel:", rootChannel ? "exists" : "undefined");
     if (!rootChannel) {
+      console.log("[WORKER] No root channel, waiting...");
       return;
     }
 
     initialized = true;
+
+    console.log("[WORKER] Initializing client state, users count:", client.users.length);
+    console.log("[WORKER] Client self:", client.self?.name || client.self?.id || "undefined");
 
     setupChannel(id, rootChannel);
     for (let user of client.users) {
       setupUser(id, user);
     }
 
-    pushProp(id, client, "root", (it) => it.id);
+    pushProp(id, client, "root", (it) => it ? it.id : (rootChannel ? rootChannel.id : undefined));
     pushProp(id, client, "self", (it) => it.id);
     pushProp(id, client, "serverVersion");
     pushProp(id, client, "maxBandwidth");
 
     client.removeListener("newChannel", initializeClientState);
     client.removeListener("connected", initializeClientState);
+    
+    // Clean up temporary storage
+    tempRootChannel = null;
   };
 
   initializeClientState();
   if (!initialized) {
-    client.on("newChannel", initializeClientState);
-    client.on("connected", initializeClientState);
+    console.log("[WORKER] Setting up event listeners for client initialization");
+    client.on("newChannel", () => {
+      console.log("[WORKER] 'newChannel' event triggered");
+      initializeClientState();
+    });
+    client.on("connected", () => {
+      console.log("[WORKER] 'connected' event triggered for initialization");
+      initializeClientState();
+    });
+    
+    // Also set up a periodic check as fallback
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+      checkCount++;
+      console.log(`[WORKER] Periodic check ${checkCount}:`);
+      console.log("  - client.root exists:", !!client.root);
+      console.log("  - client.users.length:", client.users ? client.users.length : 'undefined');
+      console.log("  - client.channels exists:", !!client.channels);
+      console.log("  - client.self exists:", !!client.self);
+      
+      // Try alternative ways to get root channel
+      if (client.channels) {
+        const channels = client.channels;
+        console.log("  - client.channels type:", typeof channels);
+        console.log("  - client.channels keys:", Object.keys(channels));
+        
+        if (typeof channels === 'object') {
+          const channelEntries = Object.entries(channels);
+          console.log("  - Available channels:", channelEntries.map(([id, ch]) => `${id}:${ch.name || 'unnamed'}`));
+          
+          // Look for root channel (usually has id 0 or no parent)
+          const rootCandidates = channelEntries.filter(([id, ch]) => !ch.parent || ch.parent === null || ch.parent === undefined);
+          console.log("  - Root candidates:", rootCandidates.map(([id, ch]) => `${id}:${ch.name || 'unnamed'}`));
+          
+          if (rootCandidates.length > 0) {
+            const [rootId, rootChannel] = rootCandidates[0];
+            console.log("  - Found root channel candidate:", rootId, rootChannel.name);
+            // Don't try to set client.root, use the channel directly
+            console.log("[WORKER] Using root channel directly for initialization");
+            clearInterval(checkInterval);
+            
+            // Store root channel in a worker-scope variable
+            tempRootChannel = rootChannel;
+            
+            initializeClientState();
+            return;
+          }
+        }
+      }
+      
+      if (client.root || checkCount > 20) { // Stop after 10 seconds
+        clearInterval(checkInterval);
+        if (client.root) {
+          console.log("[WORKER] Root channel found via periodic check");
+          initializeClientState();
+        } else {
+          console.log("[WORKER] Gave up waiting for root channel");
+        }
+      }
+    }, 500);
   }
 }
 
