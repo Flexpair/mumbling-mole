@@ -186,15 +186,15 @@ export function initVoice(onData, onUserMediaError) {
       // Worklet-Node (mono)
       const node = new AudioWorkletNode(ac, "recorder-processor", {
         numberOfInputs: 1,
-        numberOfOutputs: 0, // kein Audio-Out nötig
+        numberOfOutputs: 0, // No audio output needed
         channelCount: 1,
       });
 
-      // PCM-Frames (Float32, 960 Samples @48k) an bestehende Pipeline geben
+      // Send PCM frames (Float32, 960 samples @48kHz) to existing pipeline
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
-          // Diese Zeile ist auskommentiert um Console-Spam zu vermeiden
+          // This line is commented out to avoid console spam
           // console.log("[VOICE] PCM data received, samples:", f32.length, "max amplitude:", Math.max(...f32.map(Math.abs)));
           onData(Buffer.from(f32.buffer));
         }

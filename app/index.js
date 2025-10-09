@@ -10,6 +10,9 @@ import BufferQueueNodeDefault, { BufferQueueNode as BufferQueueNodeNamed } from 
 
 const BufferQueueNode = BufferQueueNodeDefault || BufferQueueNodeNamed;
 
+// Debug flag for verbose voice logging (set to false for production)
+const DEBUG_VOICE = false;
+
 import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
@@ -987,22 +990,24 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
-          console.log("[DEBUG-VOICE] Received voice stream from user", ui.name ? ui.name() : 'unknown');
-          console.log("[DEBUG-VOICE] AudioContext state:", this.audioContext.state);
-          console.log("[DEBUG-VOICE] AudioContext sampleRate:", this.audioContext.sampleRate);
+          if (DEBUG_VOICE) {
+            console.log("[DEBUG-VOICE] Received voice stream from user", ui.name ? ui.name() : 'unknown');
+            console.log("[DEBUG-VOICE] AudioContext state:", this.audioContext.state);
+            console.log("[DEBUG-VOICE] AudioContext sampleRate:", this.audioContext.sampleRate);
+          }
           
           // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
           
-          console.log("[DEBUG-VOICE] BufferQueueNode created");
+          if (DEBUG_VOICE) console.log("[DEBUG-VOICE] BufferQueueNode created");
           userNode.connect(this.audioContext.destination);
-          console.log("[DEBUG-VOICE] Connected to destination");
+          if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Connected to destination");
 
           stream
             .on("data", (data) => {
-              console.log("[DEBUG-VOICE] Received audio data packet - target:", data.target, "buffer size:", data.buffer?.byteLength);
+              if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Received audio data packet - target:", data.target, "buffer size:", data.buffer?.byteLength);
               
               if (data.target === "normal") {
                 ui.talking("on");
@@ -1016,12 +1021,14 @@ class GlobalBindings {
                 ui.talking("on");
               }
               
-              console.log("[DEBUG-VOICE] Writing to userNode");
+              if (DEBUG_VOICE) {
+                console.log("[DEBUG-VOICE] Writing to userNode");
+              }
               userNode.write(data.buffer);
-              console.log("[DEBUG-VOICE] Write completed");
+              if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Write completed");
             })
             .on("end", () => {
-              console.log("[DEBUG-VOICE] Voice stream ended");
+              if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Voice stream ended");
               ui.talking("off");
               userNode.end();
             });

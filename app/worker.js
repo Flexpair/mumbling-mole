@@ -196,6 +196,11 @@ function setupUser(id, user) {
 function setupClient(id, client) {
   let tempRootChannel = null; // Worker-scope variable for root channel
   
+  // Root channel initialization timeout constants
+  const ROOT_CHECK_INTERVAL_MS = 500; // How often to check for root channel
+  const ROOT_CHECK_MAX_COUNT = 20; // Maximum number of checks (20 × 500ms = 10 seconds)
+  const ROOT_CHECK_TIMEOUT_SECONDS = (ROOT_CHECK_MAX_COUNT * ROOT_CHECK_INTERVAL_MS) / 1000;
+  
   id = { client: id };
 
   registerEventProxy(id, client, "error");
@@ -305,16 +310,16 @@ function setupClient(id, client) {
         }
       }
       
-      if (client.root || checkCount > 20) { // Stop after 10 seconds
+      if (client.root || checkCount > ROOT_CHECK_MAX_COUNT) { // Stop after ROOT_CHECK_TIMEOUT_SECONDS seconds (ROOT_CHECK_MAX_COUNT intervals of ROOT_CHECK_INTERVAL_MS ms)
         clearInterval(checkInterval);
         if (client.root) {
           initializeClientState();
         } else {
-          // Failed to find root channel after 10 seconds - this shouldn't happen
-          console.warn("[WORKER] Failed to initialize: root channel not found after 10s");
+          // Failed to find root channel after timeout - this shouldn't happen
+          console.warn(`[WORKER] Failed to initialize: root channel not found after ${ROOT_CHECK_TIMEOUT_SECONDS}s`);
         }
       }
-    }, 500);
+    }, ROOT_CHECK_INTERVAL_MS);
   }
 }
 
