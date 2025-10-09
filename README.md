@@ -15,6 +15,7 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 - 🌍 **Multi-language support** – Full localization system
 - 📦 **Smart build system** – Incremental builds with vendor dependency management
 - 🐳 **Docker-ready** – Containerized development and production environments
+- 🔊 **Audio loopback testing** – Built-in server loopback mode for testing audio without a second client
 
 ## 📋 Prerequisites
 
@@ -54,6 +55,17 @@ This will:
 ```bash
 ./stop-dev-server.sh
 ```
+
+### 4. Test Audio (Loopback Mode)
+
+Once connected to a Mumble server, you can test your audio setup using the built-in loopback feature:
+
+1. Connect to a Mumble server
+2. Click the **Test** button (blue button next to Connect)
+3. Speak into your microphone
+4. Your audio will be routed back through the server (target 31) and played back to you
+
+This allows you to verify your microphone and audio processing without needing a second client.
 
 ## 🏗️ Architecture
 
@@ -226,6 +238,12 @@ SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh
 - Check browser console for serialization errors
 - Ensure both worker files are in sync (`app/worker.js` and `app/worker-client.js`)
 
+#### Loopback test not working
+- Ensure you're connected to a Mumble server that supports loopback (target 31)
+- Check browser console for `[LOOPBACK]` prefixed messages
+- Verify microphone permissions are granted
+- Check that AudioContext is running (not suspended)
+
 ### Debug Mode
 
 Enable verbose logging:
@@ -250,10 +268,12 @@ We welcome contributions! Please follow these guidelines:
 ### Coding Conventions
 
 - Use ES6+ JavaScript features
-- Maintain Worker/UI protocol compatibility
-- Add localization strings to all locale files
-- Update both README.md and CLAUDE.md for architectural changes
+- Maintain Worker/UI protocol compatibility (update both `worker.js` and `worker-client.js`)
+- Add localization strings to all locale files (`localize/*.json`)
+- Update documentation files (README.md, CLAUDE.md, .github/copilot-instructions.md) for architectural changes
 - Keep generated files (`dist/**`, `config.local.js`) out of commits
+- Use `[LOOPBACK]` prefix for loopback-related console logging
+- Always use `ensureAudioContext()` from `audio-context-manager.js`, never instantiate `AudioContext` directly
 
 ## 📁 Project Structure
 
