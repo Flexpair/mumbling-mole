@@ -57,19 +57,14 @@ function GuacamoleFrame() {
       guacUser +
       "&password=" +
       encodeURIComponent(password || "");
-    console.log("[Guac] setting iframe src", src);
     self.guacSource(src);
   };
 
   self.onLoad = function () {
     self.loading(false);
-    console.log("[Guac] iframe load event", self.guacSource());
     try {
       const frame = document.getElementById("guacframe");
       const doc = frame && frame.contentDocument;
-      if (doc) {
-        console.log("[Guac] iframe title:", doc.title);
-      }
     } catch (e) {
       console.warn("[Guac] cannot inspect iframe content", e);
     }
@@ -529,28 +524,23 @@ class GlobalBindings {
     this.initializeAudioContext = async () => {
       // Prevent duplicate initialization
       if (this.audioContext) {
-        console.log('AudioContext already initialized, reusing existing instance');
+        // AudioContext already exists, reusing singleton instance
         return;
       }
       
       try {
-        console.log('Initializing managed AudioContext...');
+        // Initialize managed AudioContext with autoplay policy handling
         this.audioContext = await ensureAudioContext({ 
           latencyHint: "interactive" 
-        });
-        
-        console.log('AudioContext initialized:', {
-          state: this.audioContext.state,
-          sampleRate: this.audioContext.sampleRate
         });
 
         // Set up event handlers for audio context state changes (only once)
         audioContextManager.onSuspend(() => {
-          console.log('AudioContext suspended - audio features may be limited');
+          // AudioContext suspended - audio features may be limited until user interaction
         });
 
         audioContextManager.onResume(() => {
-          console.log('AudioContext resumed - audio features restored');
+          // AudioContext resumed - audio features restored
         });
 
       } catch (error) {
@@ -563,7 +553,6 @@ class GlobalBindings {
             throw new Error("AudioContext is not supported in this browser");
           }
           this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
-          console.log('Fallback to legacy AudioContext successful');
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
           // AudioContext will remain null, audio features will be disabled
@@ -750,29 +739,26 @@ class GlobalBindings {
 
       this._clearAudioLock({ resetStates: true });
       // Mark as loopback mode and connect
-      console.log("[LOOPBACK] Enabling loopback mode");
+      console.log("[LOOPBACK] Enabling loopback test mode for audio testing");
       this.isLoopbackMode(true);
       await this._performConnect(connectionParams, { audioEnabled: true });
     };
 
     // Wrapper function for the Test button - uses current connection if available
     this.startLoopbackTest = () => {
-      console.log("[LOOPBACK] Test button clicked");
+      console.log("[LOOPBACK] Audio test initiated");
       if (this.connected()) {
         // If already connected, just enable loopback mode
-        console.log("[LOOPBACK] Already connected, enabling loopback mode");
         this.isLoopbackMode(true);
         
         // Force recreation of voice handler with loopback target
         if (this.voiceHandler) {
-          console.log("[LOOPBACK] Stopping current voice handler");
           this.voiceHandler.setMute(true);
           this.voiceHandler.end();
           this.voiceHandler = null;
         }
         
         // Recreate voice handler with loopback target (31)
-        console.log("[LOOPBACK] Creating new voice handler with target 31");
         this._updateVoiceHandler();
       } else {
         // If not connected, use default connection parameters for loopback
@@ -827,7 +813,6 @@ class GlobalBindings {
       
       // Set loopback mode after resetClient (which resets it to false)
       if (connectionParams.isLoopback) {
-        console.log("[LOOPBACK] Re-enabling loopback mode after resetClient");
         this.isLoopbackMode(true);
       }
 
@@ -839,7 +824,6 @@ class GlobalBindings {
       try {
         if (this.audioContext && this.audioContext.state === "suspended") {
           await this.audioContext.resume();
-          console.log("AudioContext resumed for connection");
         } else if (!this.audioContext) {
           await this.initializeAudioContext();
         }
@@ -934,9 +918,6 @@ class GlobalBindings {
     };
 
     this._newUser = (user) => {
-      console.log(`[INDEX] _newUser called for user:`, user, `user._id:`, user._id, `typeof user:`, typeof user, `constructor:`, user.constructor.name);
-      console.log(`[INDEX] User listenerCount('voice') BEFORE registration:`, user.listenerCount('voice'));
-      
       const simpleProperties = {
         uniqueId: "uid",
         username: "name",
@@ -1001,26 +982,15 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
-          console.log("[LOOPBACK] Creating new BufferQueueNode for voice stream");
-          
-          console.log(`[INDEX] voice handler executed! User:`, user, `user._id:`, user._id);
-          console.log(`[INDEX] User listenerCount('voice'):`, user.listenerCount('voice'));
-          
+          // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
           
-          console.log("[LOOPBACK] Connecting userNode to destination");
-          console.log("[LOOPBACK] AudioContext:", this.audioContext, "state:", this.audioContext.state);
-          console.log("[LOOPBACK] UserNode:", userNode);
-          
           userNode.connect(this.audioContext.destination);
-          
-          console.log("[LOOPBACK] Node connected, ready to receive audio data");
 
           stream
             .on("data", (data) => {
-              console.log("[LOOPBACK] Received audio data:", data.target, "buffer size:", data.buffer?.byteLength, "PCM size:", data.pcm?.length);
               if (data.target === "normal") {
                 ui.talking("on");
               } else if (data.target === "shout") {
@@ -1028,26 +998,18 @@ class GlobalBindings {
               } else if (data.target === "whisper") {
                 ui.talking("whisper");
               } else if (data.target === "loopback") {
-                // Server loopback - show talking status
-                console.log("[LOOPBACK] Playing back loopback audio");
+                // Server loopback - show talking status and log for debugging
+                console.log("[LOOPBACK] Received loopback audio packet");
                 ui.talking("on");
               }
-              
-              // Debug audio playback
-              console.log("[LOOPBACK] Writing to userNode, buffer:", data.buffer);
-              console.log("[LOOPBACK] UserNode connected:", userNode.context === this.audioContext);
-              console.log("[LOOPBACK] AudioContext state:", this.audioContext.state, "destination:", this.audioContext.destination);
               
               userNode.write(data.buffer);
             })
             .on("end", () => {
-              console.log("[LOOPBACK] Voice stream ended, cleaning up");
               ui.talking("off");
               userNode.end();
             });
         });
-      
-      console.log(`[INDEX] _newUser completed for user._id: ${user._id}, listenerCount('voice') AFTER registration:`, user.listenerCount('voice'));
     };
 
     this._newChannel = (channel) => {
@@ -1129,7 +1091,10 @@ class GlobalBindings {
       }
       let mode = this.settings.voiceMode;
       let target = this.isLoopbackMode() ? 31 : 0; // Use target 31 for server loopback
-      console.log("[LOOPBACK] Voice handler mode:", mode, "target:", target, "isLoopbackMode:", this.isLoopbackMode());
+      // Log voice handler setup for loopback debugging
+      if (this.isLoopbackMode()) {
+        console.log("[LOOPBACK] Creating voice handler with loopback target (31)");
+      }
       if (mode === "cont") {
         voiceHandler = new ContinuousVoiceHandler(this.client, this.settings, target);
       } else if (mode === "ptt") {
@@ -1228,33 +1193,20 @@ class GlobalBindings {
     };
 
     this.requestUnmute = (user) => {
-      console.log('[DEBUG] requestUnmute called', { 
-        user: user?.name?.(), 
-        audioLockActive: this.audioLockActive(),
-        thisUser: this.thisUser()?.name?.(),
-        connected: this.connected()
-      });
-      
       if (this.audioLockActive()) {
-        console.log('[DEBUG] audioLock is active, showing notification');
         this.notifyAudioLock();
         return;
       }
       if (user !== this.thisUser()) {
-        console.log('[DEBUG] user is not thisUser, returning');
         return;
       }
       
-      console.log('[DEBUG] Setting selfMute(false) and selfDeaf(false)');
       this.selfMute(false);
       this.selfDeaf(false);
       
       if (this.connected()) {
-        console.log('[DEBUG] Calling client.setSelfMute(false) and client.setSelfDeaf(false)');
         this.client.setSelfMute(false);
         this.client.setSelfDeaf(false);
-      } else {
-        console.log('[DEBUG] Not connected, skipping client calls');
       }
     };
 
@@ -1344,7 +1296,6 @@ function initializeUI() {
   }
 
   ui.netlifyIdentity.on("login", (user) => {
-    console.log("login", user);
     ui.connectDialog.username(
       user.user_metadata.full_name.replace(/[\s]+/g, "_")
     );
@@ -1416,15 +1367,11 @@ function userToState() {
 var voiceHandler;
 
 async function main() {
-  console.log('Starting Mumbling Mole initialization...');
-  
   document.title = window.location.hostname;
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI();
   enumMicrophones();
-  
-  console.log('Mumbling Mole initialization completed successfully');
 }
 
 window.onload = main;

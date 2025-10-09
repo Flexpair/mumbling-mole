@@ -342,7 +342,7 @@ class MumbleClient extends EventEmitter {
     if (this['_on' + chunk.name]) {
       this['_on' + chunk.name](chunk.payload)
     } else {
-      console.log('Unhandled data packet:', chunk)
+      console.warn('Unhandled data packet:', chunk)
     }
   }
 
