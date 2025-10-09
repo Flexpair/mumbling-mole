@@ -6,6 +6,7 @@
     "microphone": "Microphone",
     "headphones": "Please use \uD83C\uDFA7. Thank you.",
     "connect": "Connect",
+    "loopback": "Test",
     "error": {
       "title": "Failed to connect",
       "reason": {
@@ -48,6 +49,7 @@
     "mic_init_error": "Microphone initialization error",
     "connecting": "Connecting to audio server",
     "connected": "Connected to audio server",
+    "connected_loopback": "Connected to audio server (loopback mode)",
     "connection_error": "Connection error",
     "unknown_voice_mode": "Unknown voice mode"
   },

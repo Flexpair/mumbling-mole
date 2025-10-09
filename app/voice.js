@@ -5,10 +5,11 @@ import DropStream from "drop-stream";
 import audioContextManager, { getAudioContext, ensureAudioContext } from "./audio-context-manager";
 
 class VoiceHandler extends Writable {
-  constructor(client, settings) {
+  constructor(client, settings, target = 0) {
     super({ objectMode: true });
     this._client = client;
     this._settings = settings;
+    this._target = target;
     this._outbound = null;
     this._mute = false;
   }
@@ -32,8 +33,10 @@ class VoiceHandler extends Writable {
       }
 
       // Note: the samplesPerPacket argument is handled in worker.js and not passed on
+      console.log("[LOOPBACK] Creating voice stream with target:", this._target);
       this._outbound = this._client.createVoiceStream(
-        this._settings.samplesPerPacket
+        this._settings.samplesPerPacket,
+        this._target
       );
 
       this.emit("started_talking");
@@ -56,8 +59,8 @@ class VoiceHandler extends Writable {
 }
 
 export class ContinuousVoiceHandler extends VoiceHandler {
-  constructor(client, settings) {
-    super(client, settings);
+  constructor(client, settings, target = 0) {
+    super(client, settings, target);
   }
 
   _write(data, _, callback) {
@@ -70,8 +73,8 @@ export class ContinuousVoiceHandler extends VoiceHandler {
 }
 
 export class PushToTalkVoiceHandler extends VoiceHandler {
-  constructor(client, settings) {
-    super(client, settings);
+  constructor(client, settings, target = 0) {
+    super(client, settings, target);
     this._key = settings.pttKey;
     this._pushed = false;
     this._keydown_handler = () => (this._pushed = true);
@@ -194,6 +197,8 @@ export function initVoice(onData, onUserMediaError) {
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
+          // Diese Zeile ist auskommentiert um Console-Spam zu vermeiden
+          // console.log("[VOICE] PCM data received, samples:", f32.length, "max amplitude:", Math.max(...f32.map(Math.abs)));
           onData(Buffer.from(f32.buffer));
         }
       };

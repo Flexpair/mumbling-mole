@@ -115,6 +115,12 @@ export function translateEverything() {
     "connectdialog.connect"
   );
   translatePiece(
+    "#connect-dialog_controls_loopback",
+    "attribute",
+    { name: "value" },
+    "connectdialog.loopback"
+  );
+  translatePiece(
     ".connect-dialog.error-dialog .dialog-header",
     "textcontent",
     {},

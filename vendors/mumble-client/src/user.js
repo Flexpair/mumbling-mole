@@ -80,6 +80,7 @@ class User extends EventEmitter {
 
   _getOrCreateVoiceStream () {
     if (!this._voice) {
+      console.log('[MUMBLE-CLIENT] Creating NEW voice stream for user:', this.name || this.id)
       // New transmission
       if (!this._client._codecs) {
         // No codecs available, cannot decode
@@ -97,6 +98,8 @@ class User extends EventEmitter {
         }
       }, this._client._options.userVoiceTimeout || 200).set()
       this.emit('voice', this._voice)
+    } else {
+      console.log('[MUMBLE-CLIENT] Reusing EXISTING voice stream for user:', this.name || this.id)
     }
     return this._voice
   }
@@ -120,6 +123,7 @@ class User extends EventEmitter {
    * the transmission has ended it closes the stream.
    */
   _onVoice (seqNum, codec, target, frames, position, end) {
+    console.log('[MUMBLE-CLIENT] _onVoice called for user:', this.name || this.id, 'target:', target, 'frames:', frames.length, 'has existing voice stream:', this._voice != null)
     if (frames.length > 0) {
       const duration = this._getDuration(codec, frames)
       if (this._voice != null) {

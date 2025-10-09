@@ -131,11 +131,13 @@ class WorkerBasedMumbleConnector {
       let stream = this._voiceStreams[data.voiceId];
       let buffer = data.buffer;
       if (buffer) {
+        console.log("[WORKER-CLIENT] Voice data received from worker, voiceId:", data.voiceId, "target:", data.target, "bytes:", buffer.byteLength);
         stream.write({
           target: data.target,
           buffer: Buffer.from(buffer),
         });
       } else {
+        console.log("[WORKER-CLIENT] Voice stream ended, voiceId:", data.voiceId);
         delete this._voiceStreams[data.voiceId];
         stream.end();
       }
@@ -209,8 +211,12 @@ class WorkerBasedMumbleClient extends EventEmitter {
   _user(id) {
     let user = this._users[id];
     if (!user) {
+      console.log(`[WORKER-CLIENT] Creating NEW WorkerBasedMumbleUser for id: ${id}`);
       user = new WorkerBasedMumbleUser(this._connector, this, id);
       this._users[id] = user;
+      console.log(`[WORKER-CLIENT] User created and cached, listenerCount('voice'): ${user.listenerCount('voice')}`);
+    } else {
+      console.log(`[WORKER-CLIENT] Returning EXISTING WorkerBasedMumbleUser for id: ${id}, listenerCount('voice'): ${user.listenerCount('voice')}`);
     }
     return user;
   }
@@ -245,6 +251,15 @@ class WorkerBasedMumbleClient extends EventEmitter {
     }
     if (name === "self") {
       name = "_selfId";
+      // If we have an undefined self user and we're setting a real ID, migrate it
+      if (this._users[undefined] && value !== undefined) {
+        console.log(`[WORKER-CLIENT] Migrating user from undefined to ${value}`);
+        const undefinedUser = this._users[undefined];
+        undefinedUser._id = value;
+        this._users[value] = undefinedUser;
+        delete this._users[undefined];
+        console.log(`[WORKER-CLIENT] User migrated, listenerCount('voice'): ${undefinedUser.listenerCount('voice')}`);
+      }
     }
     if (name === "maxBandwidth") {
       this._dummyClient.maxBandwidth = value;
@@ -340,6 +355,7 @@ class WorkerBasedMumbleUser extends EventEmitter {
   }
 
   _dispatchEvent(name, args) {
+    console.log('[WORKER-CLIENT-USER] _dispatchEvent called for user:', this._id, 'event:', name, 'listenerCount:', this.listenerCount(name));
     if (name === "update") {
       let [actor, props] = args;
       Object.entries(props).forEach((entry) => {
@@ -350,17 +366,21 @@ class WorkerBasedMumbleUser extends EventEmitter {
       }
       args = [this._client._user(actor), props];
     } else if (name === "voice") {
+      console.log('[WORKER-CLIENT-USER] Creating voice stream, voiceId:', args[0]);
       let [id] = args;
       let stream = new PassThrough({
         objectMode: true,
       });
       this._connector._voiceStreams[id] = stream;
       args = [stream];
+      console.log('[WORKER-CLIENT-USER] About to emit voice event with stream');
     } else if (name === "remove") {
       delete this._client._users[this._id];
     }
     args.unshift(name);
+    console.log('[WORKER-CLIENT-USER] Emitting event:', name, 'with', args.length - 1, 'args');
     this.emit.apply(this, args);
+    console.log('[WORKER-CLIENT-USER] Event emitted');
   }
 
   _setProp(name, value) {
