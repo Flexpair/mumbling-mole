@@ -205,6 +205,10 @@ class WorkerBasedMumbleClient extends EventEmitter {
     if (!user) {
       user = new WorkerBasedMumbleUser(this._connector, this, id);
       this._users[id] = user;
+      // Emit newUser event to ensure UI handlers are registered
+      // This handles race conditions where voice events arrive before
+      // the newUser event from the worker
+      this.emit('newUser', user);
     }
     return user;
   }
@@ -214,6 +218,10 @@ class WorkerBasedMumbleClient extends EventEmitter {
     if (!channel) {
       channel = new WorkerBasedMumbleChannel(this._connector, this, id);
       this._channels[id] = channel;
+      // Emit newChannel event to ensure UI handlers are registered
+      // This handles race conditions where events arrive before
+      // the newChannel event from the worker
+      this.emit('newChannel', channel);
     }
     return channel;
   }

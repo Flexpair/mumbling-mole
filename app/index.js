@@ -918,6 +918,11 @@ class GlobalBindings {
     };
 
     this._newUser = (user) => {
+      // Skip if UI already initialized (prevents duplicate event handlers)
+      if (user.__ui) {
+        return;
+      }
+      
       const simpleProperties = {
         uniqueId: "uid",
         username: "name",
@@ -1024,6 +1029,11 @@ class GlobalBindings {
     };
 
     this._newChannel = (channel) => {
+      // Skip if UI already initialized (prevents duplicate event handlers)
+      if (channel.__ui) {
+        return;
+      }
+      
       const simpleProperties = {
         position: "position",
         name: "name",
