@@ -982,15 +982,23 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
+          console.log("[DEBUG-VOICE] Received voice stream from user", ui.name ? ui.name() : 'unknown');
+          console.log("[DEBUG-VOICE] AudioContext state:", this.audioContext.state);
+          console.log("[DEBUG-VOICE] AudioContext sampleRate:", this.audioContext.sampleRate);
+          
           // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
           
+          console.log("[DEBUG-VOICE] BufferQueueNode created");
           userNode.connect(this.audioContext.destination);
+          console.log("[DEBUG-VOICE] Connected to destination");
 
           stream
             .on("data", (data) => {
+              console.log("[DEBUG-VOICE] Received audio data packet - target:", data.target, "buffer size:", data.buffer?.byteLength);
+              
               if (data.target === "normal") {
                 ui.talking("on");
               } else if (data.target === "shout") {
@@ -1003,9 +1011,12 @@ class GlobalBindings {
                 ui.talking("on");
               }
               
+              console.log("[DEBUG-VOICE] Writing to userNode");
               userNode.write(data.buffer);
+              console.log("[DEBUG-VOICE] Write completed");
             })
             .on("end", () => {
+              console.log("[DEBUG-VOICE] Voice stream ended");
               ui.talking("off");
               userNode.end();
             });

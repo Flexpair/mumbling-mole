@@ -126,6 +126,13 @@ class AudioContextManager {
       this.audioContext.addEventListener('statechange', () => {
         // Log state changes as they're critical for debugging audio issues
         console.log('[AudioContext] State changed to:', this.audioContext.state);
+        console.log('[AudioContext] Full state:', {
+          state: this.audioContext.state,
+          sampleRate: this.audioContext.sampleRate,
+          currentTime: this.audioContext.currentTime,
+          baseLatency: this.audioContext.baseLatency,
+          outputLatency: this.audioContext.outputLatency
+        });
         
         if (this.audioContext.state === 'suspended') {
           this.onSuspendCallbacks.forEach(callback => {
