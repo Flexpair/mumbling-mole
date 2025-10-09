@@ -11,7 +11,7 @@ import BufferQueueNodeDefault, { BufferQueueNode as BufferQueueNodeNamed } from 
 const BufferQueueNode = BufferQueueNodeDefault || BufferQueueNodeNamed;
 
 // Debug flag for verbose voice logging (set to false for production)
-const DEBUG_VOICE = false;
+const DEBUG_VOICE = true;
 
 import {
   ContinuousVoiceHandler,
@@ -81,12 +81,60 @@ function ConnectDialog() {
   self.username = ko.observable("");
   self.password = ko.observable("");
   self.visible = ko.observable(true);
+  self.isTestActive = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
   self.hide = self.visible.bind(self.visible, false);
+  
   self.connect = function () {
     self.hide();
-    ui.connect(self.address(), self.port(), self.username(), self.password());
+    
+    if (ui.connected()) {
+      // Already connected - switch to normal mode
+      console.log("[CONNECT] Already connected, switching to normal mode");
+      self.isTestActive(false);
+      ui.isLoopbackMode(false);
+      
+      // Unmute if we were muted (to ensure voice works in normal mode)
+      if (!ui.selfMute() && !ui.selfDeaf()) {
+        console.log("[CONNECT] Ensuring voice is unmuted");
+      }
+      
+      ui._updateVoiceHandler();
+      
+      // Start and show Guacamole frame if we have login credentials
+      if (ui._guacLogin) {
+        console.log("[CONNECT] Starting Guacamole frame with login:", ui._guacLogin);
+        ui.guacamoleFrame.loading(false);
+        ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
+        ui.guacamoleFrame.show();
+      } else {
+        console.log("[CONNECT] No Guacamole login available");
+        ui.guacamoleFrame.loading(false);
+      }
+    } else {
+      // Not connected yet - connect in normal mode
+      console.log("[CONNECT] Connecting in normal mode");
+      self.isTestActive(false);
+      ui.connect(self.address(), self.port(), self.username(), self.password());
+    }
   };
+  
+  self.toggleLoopback = function () {
+      console.log("[LOOPBACK] Toggle clicked, current state:", self.isTestActive());
+      
+      // Only allow activating, not deactivating
+      if (self.isTestActive()) {
+        console.log("[LOOPBACK] Already active, ignoring");
+        return;
+      }
+      
+      // Activate loopback mode
+      self.isTestActive(true);
+      console.log("[LOOPBACK] Activating and connecting in loopback mode");
+      
+      // Connect in loopback mode but keep modal open (don't call self.hide())
+      ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
+    };  // Legacy function for backward compatibility (now closes dialog)
   self.connectLoopback = function () {
     self.hide();
     ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
@@ -419,6 +467,8 @@ class GlobalBindings {
     this.audioLockReason = ko.observable(null);
     this.audioLockDetails = ko.observable(null);
     this.isLoopbackMode = ko.observable(false);
+    this._guacLogin = null; // Store Guacamole login for later use
+    this._guacPassword = null; // Store password for Guacamole
 
     this._activateAudioLock = (reason, details = {}) => {
       this.audioLockReason(reason);
@@ -797,6 +847,10 @@ class GlobalBindings {
               }
               voiceHandler = null;
             } else if (voiceHandler) {
+              // Debug: Log occasional writes to verify mic is working
+              if (Math.random() < 0.01) { // Log ~1% of writes to avoid spam
+                console.log("[MIC] Writing data to voiceHandler, handler exists:", !!voiceHandler);
+              }
               voiceHandler.write(data);
             }
           },
@@ -850,15 +904,22 @@ class GlobalBindings {
         } else if (user_roles.includes("watch")) {
           guac_login = "watcher";
         }
-        if (guac_login) {
+        
+        // Store Guacamole credentials for later use (e.g., when switching from loopback to normal)
+        this._guacLogin = guac_login;
+        this._guacPassword = this.connectDialog.password();
+        
+        // Only show Guacamole frame if NOT in loopback mode
+        if (guac_login && !this.isLoopbackMode()) {
           this.guacamoleFrame.start(
             guac_login,
             this.connectDialog.password()
           );
           this.guacamoleFrame.show();
-        } else {
+        } else if (!guac_login && !this.isLoopbackMode()) {
           alert("For visual access please ask your administrator.");
         }
+        
         if (this.isLoopbackMode()) {
           log(translate("logentry.connected_loopback"));
         } else {
@@ -1105,6 +1166,9 @@ class GlobalBindings {
       this.client = null;
       this.selected(null).root(null).thisUser(null);
       this.isLoopbackMode(false); // Reset loopback mode on disconnect
+      
+      // Note: We don't automatically reset isTestActive here anymore
+      // It's controlled manually by the toggle function
     };
 
     this.connected = () => this.thisUser() != null;
@@ -1141,8 +1205,15 @@ class GlobalBindings {
           this.thisUser().talking("off");
         }
       });
+      
+      // Log mute state for debugging
+      console.log("[VOICE-HANDLER] audioLockActive:", this.audioLockActive(), "selfMute:", this.selfMute());
+      
       if (this.audioLockActive() || this.selfMute()) {
+        console.log("[VOICE-HANDLER] Setting new handler to muted state");
         voiceHandler.setMute(true);
+      } else {
+        console.log("[VOICE-HANDLER] New handler is unmuted and ready");
       }
 
       this.client.setAudioQuality(

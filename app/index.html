@@ -122,20 +122,23 @@
             </tr>
           </table>
           <div class="dialog-footer">
-            <input class="dialog-close" type="button" value="Cancel" disabled />
-            <input
-              id="connect-dialog_controls_loopback"
-              class="dialog-submit"
-              type="button"
-              value="Test"
-              data-bind="click: connectLoopback"
-            />
-            <input
-              id="connect-dialog_controls_connect"
-              class="dialog-submit"
-              type="submit"
-              value="Connect"
-            />
+            <div class="test-toggle-container">
+              <div class="test-toggle-label" 
+                   data-bind="click: toggleLoopback, 
+                              clickBubble: false">
+                <span class="test-toggle-text" data-bind="text: isTestActive() ? 'Audio Test (Active)' : 'Audio Test'"></span>
+                <span class="test-toggle-slider" data-bind="css: { 'active': isTestActive() }"></span>
+              </div>
+            </div>
+            <div class="dialog-buttons">
+              <input class="dialog-close" type="button" value="Cancel" disabled />
+              <input
+                id="connect-dialog_controls_connect"
+                class="dialog-submit"
+                type="submit"
+                value="Connect"
+              />
+            </div>
           </div>
         </form>
       </div>

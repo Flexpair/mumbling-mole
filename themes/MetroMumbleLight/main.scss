@@ -134,8 +134,14 @@ form {
   width: calc(100% - 20px);
   margin: 10px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
+}
+.dialog-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 .dialog-submit {
   flex: 0 0 auto;
@@ -151,7 +157,89 @@ form {
   color: $dialog-button-color;
   padding: 1px 15px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
+.dialog-submit.button-active {
+  background-color: #28a745;
+  color: white;
+  border-color: #1e7e34;
+}
+.dialog-submit[disabled] {
+  background-color: #e0e0e0;
+  color: #999;
+  border-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Modern Toggle Switch */
+.test-toggle-container {
+  display: flex;
+  align-items: center;
+}
+.test-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+  
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    
+    &:hover {
+      background-color: transparent;
+    }
+  }
+}
+.test-toggle-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: $dialog-color;
+}
+.test-toggle-slider {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  background-color: #ccc;
+  border-radius: 26px;
+  transition: background-color 0.3s ease;
+  display: inline-block;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    left: 2px;
+    top: 2px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  &.active {
+    background-color: #28a745;
+    
+    &::before {
+      transform: translateX(24px);
+    }
+  }
+}
+.test-toggle-label:hover .test-toggle-slider {
+  opacity: 0.9;
+}
+
 .connect-dialog table {
   width: 100%;
 }
