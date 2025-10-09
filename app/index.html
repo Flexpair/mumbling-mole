@@ -439,7 +439,7 @@
           alt="Unmute my microphone"
           data-bind="visible: selfMute,
             css: { 'tb-disabled': $root.audioLockActive },
-            click: function() { console.log('UNMUTE CLICKED!'); $root.handleUnmuteClick(); }"
+            click: function() { $root.handleUnmuteClick(); }"
           rel="unmute"
           src="svg/audio-input-microphone-muted.svg"
         />

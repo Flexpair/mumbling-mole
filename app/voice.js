@@ -33,7 +33,9 @@ class VoiceHandler extends Writable {
       }
 
       // Note: the samplesPerPacket argument is handled in worker.js and not passed on
-      console.log("[LOOPBACK] Creating voice stream with target:", this._target);
+      if (this._target === 31) {
+        console.log("[LOOPBACK] Creating voice stream with loopback target (31)");
+      }
       this._outbound = this._client.createVoiceStream(
         this._settings.samplesPerPacket,
         this._target
@@ -134,7 +136,7 @@ function gotDevices(deviceInfos) {
 }
 
 function handleError(error) {
-  console.log(
+  console.error(
     "navigator.MediaDevices.getUserMedia error: ",
     error.message,
     error.name
@@ -169,15 +171,10 @@ export function initVoice(onData, onUserMediaError) {
 
     try {
       // Use managed AudioContext with autoplay policy handling
-      console.log('Initializing voice with managed AudioContext...');
+      console.log('Initializing voice input with AudioWorklet (48kHz mono)');
       const ac = await ensureAudioContext({
         sampleRate: 48000,
         latencyHint: 'interactive'
-      });
-
-      console.log('AudioContext ready for voice:', {
-        state: ac.state,
-        sampleRate: ac.sampleRate
       });
 
       // Worklet laden

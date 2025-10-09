@@ -23,7 +23,6 @@ class AudioContextManager {
     this.onResumeCallbacks = [];
     
     this.setupUserInteractionDetection();
-    console.log('AudioContextManager initialized');
   }
 
   setupUserInteractionDetection() {
@@ -33,7 +32,6 @@ class AudioContextManager {
     const handleUserInteraction = () => {
       if (!this.userInteractionDetected) {
         this.userInteractionDetected = true;
-        console.log('User interaction detected, audio context can be resumed');
         
         // Try to resume audio context if it exists and is suspended
         if (this.audioContext && this.audioContext.state === 'suspended') {
@@ -86,9 +84,7 @@ class AudioContextManager {
         delete config.sampleRate;
       }
 
-      console.log('Creating AudioContext with config:', config);
-
-      // Create AudioContext with cross-browser compatibility
+      // Create AudioContext - important for handling browser autoplay policies
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) {
         throw new Error('AudioContext is not supported in this browser');
@@ -99,13 +95,6 @@ class AudioContextManager {
 
       // Set up event listeners for state changes
       this.setupAudioContextEventListeners();
-
-      console.log('AudioContext created:', {
-        state: this.audioContext.state,
-        sampleRate: this.audioContext.sampleRate,
-        baseLatency: this.audioContext.baseLatency,
-        outputLatency: this.audioContext.outputLatency
-      });
 
       // Notify ready callbacks
       this.onReadyCallbacks.forEach(callback => {
@@ -135,7 +124,8 @@ class AudioContextManager {
     // Listen for state changes (not all browsers support this)
     if (typeof this.audioContext.addEventListener === 'function') {
       this.audioContext.addEventListener('statechange', () => {
-        console.log('AudioContext state changed to:', this.audioContext.state);
+        // Log state changes as they're critical for debugging audio issues
+        console.log('[AudioContext] State changed to:', this.audioContext.state);
         
         if (this.audioContext.state === 'suspended') {
           this.onSuspendCallbacks.forEach(callback => {
@@ -169,12 +159,9 @@ class AudioContextManager {
       return this.audioContext;
     }
 
-    console.log('Attempting to resume AudioContext...');
-
     try {
       await this.audioContext.resume();
       this.resumeAttempts = 0; // Reset on success
-      console.log('AudioContext resumed successfully');
       return this.audioContext;
     } catch (error) {
       this.resumeAttempts++;
@@ -183,7 +170,6 @@ class AudioContextManager {
       // Retry with exponential backoff if under limit
       if (this.resumeAttempts < AUDIO_CONFIG.MAX_RESUME_ATTEMPTS) {
         const delay = AUDIO_CONFIG.RESUME_RETRY_DELAY * Math.pow(2, this.resumeAttempts - 1);
-        console.log(`Retrying resume in ${delay}ms...`);
         
         return new Promise((resolve, reject) => {
           setTimeout(async () => {
@@ -212,7 +198,6 @@ class AudioContextManager {
 
     try {
       await this.audioContext.suspend();
-      console.log('AudioContext suspended');
     } catch (error) {
       console.error('Failed to suspend AudioContext:', error);
       throw error;
@@ -229,7 +214,6 @@ class AudioContextManager {
 
     try {
       await this.audioContext.close();
-      console.log('AudioContext closed');
       this.audioContext = null;
       this.isInitialized = false;
       this.resumeAttempts = 0;
@@ -298,7 +282,6 @@ class AudioContextManager {
    */
   forceUserInteraction() {
     this.userInteractionDetected = true;
-    console.log('User interaction manually set');
   }
 }
 
