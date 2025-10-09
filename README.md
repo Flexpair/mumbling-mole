@@ -294,9 +294,16 @@ mumbling-mole/
 
 ## 📚 Documentation
 
+### General Documentation
 - [Architecture Details](CLAUDE.md) – In-depth technical documentation
+- [Testing Guide](TESTING.md) – Comprehensive testing documentation
 - [Copilot Instructions](.github/copilot-instructions.md) – AI assistant context
 - [Webpack Config](webpack.config.js) – Build configuration
+
+### Audio & Debugging
+- [Audio Debug Guide](AUDIO_DEBUG_GUIDE.md) – Production audio debugging guide
+- [Loopback Test Coverage](LOOPBACK_TEST_COVERAGE.md) – What loopback tests can and cannot detect
+- [Audio Playback Fix](AUDIO_PLAYBACK_FIX_DOCUMENTATION.md) – Race condition fix documentation (Oct 2025)
 
 ## 🔐 Security
 
