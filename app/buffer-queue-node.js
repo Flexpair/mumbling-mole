@@ -155,8 +155,8 @@ class BufferQueueNode extends Writable {
   async _initializeWorklet() {
     try {
       // Load the AudioWorklet module
-      const processorUrl = new URL('./playback-buffer-processor.js', import.meta.url);
-      await this._audioContext.audioWorklet.addModule(processorUrl);
+      // Use direct path since file is copied as-is by webpack
+      await this._audioContext.audioWorklet.addModule('playback-buffer-processor.js');
       
       // Create the AudioWorkletNode
       this._workletNode = new AudioWorkletNode(this._audioContext, 'playback-buffer-processor', {
@@ -185,7 +185,9 @@ class BufferQueueNode extends Writable {
 
   connect(...args) {
     if (!this._workletNode) {
-      throw new Error('AudioWorkletNode not initialized yet');
+      // If worklet not ready yet, wait for it
+      this.once('ready', () => this.connect(...args));
+      return this;
     }
     return this._workletNode.connect(...args);
   }

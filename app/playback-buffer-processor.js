@@ -1,9 +1,12 @@
 /**
  * AudioWorklet processor for audio playback buffering
  * Replaces deprecated ScriptProcessorNode from web-audio-buffer-queue
+ * 
+ * NOTE: This file must NOT use ES6 class syntax or any imports!
+ * AudioWorklet processors run in their own scope and cannot import modules.
  */
 
-class PlaybackBufferProcessor extends AudioWorkletProcessor {
+registerProcessor('playback-buffer-processor', class extends AudioWorkletProcessor {
   constructor() {
     super();
     
@@ -90,6 +93,4 @@ class PlaybackBufferProcessor extends AudioWorkletProcessor {
     
     return true;
   }
-}
-
-registerProcessor('playback-buffer-processor', PlaybackBufferProcessor);
+});
