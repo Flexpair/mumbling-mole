@@ -223,6 +223,21 @@ class BufferQueueNode extends Writable {
       // Convert to channel data format for worklet
       const channelData = formatted.toChannelData();
       
+      // Debug: Log first write to verify data format
+      if (!this._hasLoggedFirstWrite) {
+        console.log('[BufferQueueNode] First write:', {
+          chunkType: chunk.constructor.name,
+          chunkLength: chunk.length,
+          channels: this._channels,
+          interleaved: this._interleaved,
+          formattedLength: formatted.length,
+          channelDataChannels: channelData.channels.length,
+          channelDataLength: channelData.length,
+          firstSamples: channelData.channels[0].slice(0, 10)
+        });
+        this._hasLoggedFirstWrite = true;
+      }
+      
       // Send to AudioWorklet processor
       this._workletNode.port.postMessage({
         type: 'data',
