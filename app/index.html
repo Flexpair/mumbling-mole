@@ -138,7 +138,7 @@
                 data-bind="
                   event: { mousedown: $root.startBeep, mouseup: $root.stopBeep, mouseleave: $root.stopBeep, touchstart: $root.startBeep, touchend: $root.stopBeep },
                   css: { 'active': $root.isBeeping },
-                  enable: $root.connected()"
+                  visible: isTestActive() && $root.beeperReady()"
               >🎹 Play 440Hz</button>
               <input class="dialog-close" type="button" value="Cancel" disabled />
               <input

@@ -119,6 +119,23 @@ function ConnectDialog() {
       // Mark test as active and connect in loopback mode
       self.isTestActive(true);
       
+      // BEEPER-PREPARATION: Start beeper initialization immediately when test is activated
+      // This ensures the beeper is ready by the time the user wants to click the button
+      setTimeout(async () => {
+        // Wait for mixer to be available after loopback connection
+        let retries = 100; // 100 * 50ms = 5 seconds
+        while (retries > 0 && !window._audioMixer) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          retries--;
+        }
+        
+        if (window._audioMixer && !ui._persistentBeeper) {
+          console.log('[BEEP] Initializing beeper after loopback toggle...');
+          await ui._initializePersistentBeeper();
+          console.log('[BEEP] Beeper ready for immediate use');
+        }
+      }, 100); // Small delay to let loopback connection start
+      
       // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
       // This allows user to see connection status and switch back to normal mode
       ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
@@ -519,6 +536,7 @@ class GlobalBindings {
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
     this.isBeeping = ko.observable(false);
+    this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
     
     // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
     
@@ -561,13 +579,17 @@ class GlobalBindings {
           isPlaying: false
         };
         
-        console.log('[BEEP] Persistent beeper initialized and connected to mixer');
+        // BEEPER-READY: Mark beeper as ready for UI
+        this.beeperReady(true);
+        
+        console.log('[BEEP] Persistent beeper initialized and connected to mixer - UI button enabled');
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
+        this.beeperReady(false);
       }
     };
 
-    this.startBeep = async () => {
+    this.startBeep = () => {
       console.log('[BEEP] Start beep requested');
       
       if (!this.connected()) {
@@ -575,35 +597,40 @@ class GlobalBindings {
         return;
       }
       
-      // FALLBACK-INIT: If beeper wasn't initialized during setup, try to initialize it now
-      if (!this._persistentBeeper && window._audioMixer) {
-        console.log('[BEEP] Beeper not ready, initializing now...');
-        await this._initializePersistentBeeper();
+      // INSTANT-RESPONSE: If beeper is ready, start immediately (no await, no delay)
+      if (this._persistentBeeper) {
+        try {
+          const beeper = this._persistentBeeper;
+          const ac = beeper.gain.context;
+          const currentTime = ac.currentTime;
+          
+          // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
+          const attackTime = 0.005; // 5ms attack to eliminate clicks
+          
+          beeper.gain.gain.cancelScheduledValues(currentTime);
+          beeper.gain.gain.setValueAtTime(0, currentTime); // Start from silence
+          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime); // Quick smooth ramp
+          
+          beeper.isPlaying = true;
+          this.isBeeping(true);
+          
+          console.log('[BEEP] INSTANT beep tone activated (no delay)');
+          return; // Exit immediately after successful beep
+        } catch (err) {
+          console.error('[BEEP] Error starting instant beep:', err);
+        }
       }
       
-      if (!this._persistentBeeper) {
+      // FALLBACK-ASYNC: Only if beeper wasn't ready - this will have delay but is rare
+      if (window._audioMixer) {
+        console.log('[BEEP] Beeper not ready, initializing async (will have delay)...');
+        this._initializePersistentBeeper().then(() => {
+          if (this._persistentBeeper && this.connected()) {
+            this.startBeep(); // Retry immediately after initialization
+          }
+        });
+      } else {
         console.error('[BEEP] Beeper not ready! Audio mixer not available');
-        return;
-      }
-      
-      try {
-        const beeper = this._persistentBeeper;
-        const ac = beeper.gain.context;
-        const currentTime = ac.currentTime;
-        
-        // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
-        const attackTime = 0.005; // 5ms attack to eliminate clicks
-        
-        beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0, currentTime); // Start from silence
-        beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime); // Quick smooth ramp
-        
-        beeper.isPlaying = true;
-        this.isBeeping(true);
-        
-        console.log('[BEEP] Instant beep tone activated');
-      } catch (err) {
-        console.error('[BEEP] Error starting beep:', err);
       }
     };
 
@@ -1321,6 +1348,7 @@ class GlobalBindings {
       this.client = null;
       this.selected(null).root(null).thisUser(null);
       this.isLoopbackMode(false); // Reset loopback mode on disconnect
+      this.beeperReady(false); // Reset beeper ready state on disconnect
       
       // Note: We don't automatically reset isTestActive here anymore
       // It's controlled manually by the toggle function
@@ -1381,6 +1409,17 @@ class GlobalBindings {
         this.settings.audioBitrate,
         this.settings.samplesPerPacket
       );
+      
+      // BEEPER-AUTO-INIT: Initialize beeper when voice handler is ready and test is active
+      // This ensures the button appears automatically once everything is set up
+      if (this.connectDialog.isTestActive()) {
+        setTimeout(async () => {
+          if (window._audioMixer && !this._persistentBeeper) {
+            console.log('[BEEP] Auto-initializing beeper for test mode...');
+            await this._initializePersistentBeeper();
+          }
+        }, 100); // Small delay to ensure mixer is fully ready
+      }
     };
 
     this.messageBoxHint = ko.pureComputed(() => {
