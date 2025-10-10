@@ -522,161 +522,113 @@ class GlobalBindings {
     
     // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
     
-    this.startBeep = async () => {
-      console.log('[BEEP] Start beep requested');
-      console.log('[BEEP] Connected:', this.connected());
-      console.log('[BEEP] Already beeping:', this.isBeeping());
+    // PERSISTENT-BEEPER: Initialize permanent beep oscillator once, control via gain
+    this._initializePersistentBeeper = async () => {
+      if (this._persistentBeeper) return; // Already initialized
       
-      if (!this.connected() || this.isBeeping()) {
-        console.log('[BEEP] Aborting - preconditions not met');
+      try {
+        const mixer = window._audioMixer;
+        if (!mixer) {
+          console.log('[BEEP] Mixer not ready, will retry when available');
+          return;
+        }
+        
+        const ac = await window.audioContextManager.getAudioContext();
+        if (!ac || ac.state !== 'running') {
+          console.log('[BEEP] AudioContext not ready, will retry');
+          return;
+        }
+        
+        // Create permanent oscillator and gain for beep tone
+        const oscillator = ac.createOscillator();
+        const beepGain = ac.createGain();
+        
+        oscillator.frequency.setValueAtTime(440, ac.currentTime);
+        oscillator.type = 'sine';
+        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent
+        
+        // Connect: Oscillator -> Gain -> Mixer (permanent connection)
+        oscillator.connect(beepGain);
+        beepGain.connect(mixer);
+        
+        // Start oscillator permanently (it just runs silently at gain=0)
+        oscillator.start();
+        
+        // Store references
+        this._persistentBeeper = {
+          oscillator,
+          gain: beepGain,
+          isPlaying: false
+        };
+        
+        console.log('[BEEP] Persistent beeper initialized and connected to mixer');
+      } catch (err) {
+        console.error('[BEEP] Failed to initialize persistent beeper:', err);
+      }
+    };
+
+    this.startBeep = () => {
+      console.log('[BEEP] Start beep requested');
+      
+      if (!this.connected()) {
+        console.log('[BEEP] Not connected, ignoring beep');
         return;
       }
       
-      this.isBeeping(true);
-      console.log('[BEEP] Starting beep by injecting into audio pipeline');
-      
-      // Retry logic to wait for audio system to be ready
-      let retryCount = 0;
-      const maxRetries = 15; // Increased retries
-      
-      const tryStartBeep = async () => {
-        try {
-          // Check if we have the audio mixer first
-          const mixer = window._audioMixer;
-          console.log('[BEEP] Audio mixer available:', !!mixer);
-          
-          if (!mixer) {
-            if (retryCount < maxRetries) {
-              retryCount++;
-              console.log(`[BEEP] Audio mixer not ready, retry ${retryCount}/${maxRetries}`);
-              setTimeout(tryStartBeep, 300);
-              return;
-            } else {
-              console.error('[BEEP] Audio mixer not available after retries - microphone system may not be active');
-              this.isBeeping(false);
-              return;
-            }
-          }
-          
-          // Get AudioContext and ensure it's running
-          let ac = await window.audioContextManager.getAudioContext();
-          if (ac.state === 'suspended') {
-            await window.audioContextManager.resumeAudioContext();
-          }
-          
-          if (!ac || ac.state !== 'running') {
-            if (retryCount < maxRetries) {
-              retryCount++;
-              console.log(`[BEEP] AudioContext not running, retry ${retryCount}/${maxRetries}`, ac ? `state: ${ac.state}` : 'ac is null');
-              setTimeout(tryStartBeep, 300);
-              return;
-            } else {
-              console.error('[BEEP] AudioContext not running after retries', ac ? `final state: ${ac.state}` : 'ac is null');
-              this.isBeeping(false);
-              return;
-            }
-          }
-          
-          console.log('[BEEP] AudioContext state:', ac.state, 'sampleRate:', ac.sampleRate);
-          console.log('[BEEP] Audio mixer found, proceeding with beep injection');
-          
-          // Create oscillator for beep tone - this acts like a virtual microphone
-          const oscillator = ac.createOscillator();
-          const beepGain = ac.createGain();
-          
-          oscillator.frequency.setValueAtTime(440, ac.currentTime);
-          oscillator.type = 'sine';
-          beepGain.gain.setValueAtTime(0.4, ac.currentTime); // Increased volume
-          
-          oscillator.connect(beepGain);
-          
-          // Store references for cleanup
-          this._beepOscillator = oscillator;
-          this._beepGain = beepGain;
-          
-          // Connect beep oscillator to the same mixer as the microphone
-          // This ensures the beep takes exactly the same path as voice audio
-          beepGain.connect(mixer);
-          console.log('[BEEP] Beep oscillator connected to audio mixer (same path as microphone)');
-          
-          // Start the oscillator
-          oscillator.start();
-          
-          console.log('[BEEP] Beep started and injected into voice audio pipeline');
-          
-        } catch (err) {
-          console.error('[BEEP] Failed to create beep oscillator:', err);
-          this.isBeeping(false);
-        }
-      };
-      
-      // Start the retry process
-      tryStartBeep();
-    };
-    
-    this.stopBeep = () => {
-      console.log('[BEEP] Stop beep requested, isBeeping:', this.isBeeping());
-      if (!this.isBeeping()) return;
-      
-      // Stop beeping flag first
-      this.isBeeping(false);
-      
-      // PIANO-FADE: Natural fade-out like a piano key release (without sustain pedal)
-      // Instead of abrupt stop, fade out over ~1 second like acoustic piano
-      try {
-        if (this._beepGain && this._beepOscillator) {
-          const ac = this._beepGain.context;
-          const currentTime = ac.currentTime;
-          const fadeOutDuration = 1.0; // 1 second fade-out like piano
-          
-          // Exponential fade-out for natural piano-like decay
-          this._beepGain.gain.exponentialRampToValueAtTime(0.001, currentTime + fadeOutDuration);
-          
-          // Stop oscillator after fade completes
-          this._beepOscillator.stop(currentTime + fadeOutDuration);
-          
-          // Clean up after fade completes
-          setTimeout(() => {
-            try {
-              if (this._beepOscillator) {
-                this._beepOscillator.disconnect();
-                this._beepOscillator = null;
-              }
-              if (this._beepGain) {
-                this._beepGain.disconnect();
-                this._beepGain = null;
-              }
-              this._beepInjectionNode = null;
-            } catch (cleanupErr) {
-              console.error('[BEEP] Error in delayed cleanup:', cleanupErr);
-            }
-          }, fadeOutDuration * 1000 + 100); // Add small buffer
-          
-          console.log('[BEEP] Piano-style fade-out started');
-        }
-      } catch (err) {
-        console.error('[BEEP] Error during piano fade-out:', err);
-        // Fallback to immediate cleanup if fade fails
-        try {
-          if (this._beepOscillator) {
-            this._beepOscillator.stop();
-            this._beepOscillator.disconnect();
-            this._beepOscillator = null;
-          }
-          if (this._beepGain) {
-            this._beepGain.disconnect();
-            this._beepGain = null;
-          }
-          this._beepInjectionNode = null;
-        } catch (fallbackErr) {
-          console.error('[BEEP] Fallback cleanup failed:', fallbackErr);
+      // Initialize persistent beeper if needed
+      if (!this._persistentBeeper) {
+        this._initializePersistentBeeper();
+        // If still not ready, ignore this beep request
+        if (!this._persistentBeeper) {
+          console.log('[BEEP] Persistent beeper not ready yet');
+          return;
         }
       }
       
-      console.log('[BEEP] Piano-style beep release initiated');
+      try {
+        const beeper = this._persistentBeeper;
+        const ac = beeper.gain.context;
+        const currentTime = ac.currentTime;
+        
+        // Cancel any ongoing fade-outs and set to full volume instantly
+        beeper.gain.gain.cancelScheduledValues(currentTime);
+        beeper.gain.gain.setValueAtTime(0.4, currentTime);
+        
+        beeper.isPlaying = true;
+        this.isBeeping(true);
+        
+        console.log('[BEEP] Beep tone activated (gain=0.4)');
+      } catch (err) {
+        console.error('[BEEP] Error starting beep:', err);
+      }
     };
-    
-    // Add method to retry microphone permission
+
+    this.stopBeep = () => {
+      console.log('[BEEP] Stop beep requested');
+      
+      if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
+        console.log('[BEEP] Beeper not playing, ignoring stop');
+        return;
+      }
+      
+      try {
+        const beeper = this._persistentBeeper;
+        const ac = beeper.gain.context;
+        const currentTime = ac.currentTime;
+        const fadeTime = 1.0; // 1 second piano-style fade
+        
+        // Smooth exponential fade to silence
+        beeper.gain.gain.cancelScheduledValues(currentTime);
+        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + fadeTime);
+        
+        beeper.isPlaying = false;
+        this.isBeeping(false);
+        
+        console.log('[BEEP] Beep fading out over 1 second');
+      } catch (err) {
+        console.error('[BEEP] Error stopping beep:', err);
+      }
+    };    // Add method to retry microphone permission
     this._attemptMicrophonePermission = () => {
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
         return;
@@ -1391,6 +1343,12 @@ class GlobalBindings {
       if (this.audioLockActive() || this.selfMute()) {
         voiceHandler.setMute(true);
       }
+
+      // PERSISTENT-BEEPER: Initialize beeper when voice handler is ready
+      // This ensures beeper is available for loopback testing
+      setTimeout(() => {
+        this._initializePersistentBeeper();
+      }, 500); // Small delay to ensure mixer is ready
 
       this.client.setAudioQuality(
         this.settings.audioBitrate,
