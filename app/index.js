@@ -10,9 +10,6 @@ import BufferQueueNodeDefault, { BufferQueueNode as BufferQueueNodeNamed } from 
 
 const BufferQueueNode = BufferQueueNodeDefault || BufferQueueNodeNamed;
 
-// Debug flag for verbose voice logging (set to false for production)
-const DEBUG_VOICE = true;
-
 import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
