@@ -90,47 +90,34 @@ function ConnectDialog() {
     
     if (ui.connected()) {
       // Already connected - switch to normal mode
-      console.log("[CONNECT] Already connected, switching to normal mode");
       self.isTestActive(false);
       ui.isLoopbackMode(false);
-      
-      // Unmute if we were muted (to ensure voice works in normal mode)
-      if (!ui.selfMute() && !ui.selfDeaf()) {
-        console.log("[CONNECT] Ensuring voice is unmuted");
-      }
       
       ui._updateVoiceHandler();
       
       // Start and show Guacamole frame if we have login credentials
       if (ui._guacLogin) {
-        console.log("[CONNECT] Starting Guacamole frame with login:", ui._guacLogin);
         ui.guacamoleFrame.loading(false);
         ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
         ui.guacamoleFrame.show();
       } else {
-        console.log("[CONNECT] No Guacamole login available");
         ui.guacamoleFrame.loading(false);
       }
     } else {
       // Not connected yet - connect in normal mode
-      console.log("[CONNECT] Connecting in normal mode");
       self.isTestActive(false);
       ui.connect(self.address(), self.port(), self.username(), self.password());
     }
   };
   
   self.toggleLoopback = function () {
-      console.log("[LOOPBACK] Toggle clicked, current state:", self.isTestActive());
-      
       // Only allow activating, not deactivating
       if (self.isTestActive()) {
-        console.log("[LOOPBACK] Already active, ignoring");
         return;
       }
       
       // Activate loopback mode
       self.isTestActive(true);
-      console.log("[LOOPBACK] Activating and connecting in loopback mode");
       
       // Connect in loopback mode but keep modal open (don't call self.hide())
       ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
@@ -792,14 +779,12 @@ class GlobalBindings {
 
       this._clearAudioLock({ resetStates: true });
       // Mark as loopback mode and connect
-      console.log("[LOOPBACK] Enabling loopback test mode for audio testing");
       this.isLoopbackMode(true);
       await this._performConnect(connectionParams, { audioEnabled: true });
     };
 
     // Wrapper function for the Test button - uses current connection if available
     this.startLoopbackTest = () => {
-      console.log("[LOOPBACK] Audio test initiated");
       if (this.connected()) {
         // If already connected, just enable loopback mode
         this.isLoopbackMode(true);
@@ -847,10 +832,6 @@ class GlobalBindings {
               }
               voiceHandler = null;
             } else if (voiceHandler) {
-              // Debug: Log occasional writes to verify mic is working
-              if (Math.random() < 0.01) { // Log ~1% of writes to avoid spam
-                console.log("[MIC] Writing data to voiceHandler, handler exists:", !!voiceHandler);
-              }
               voiceHandler.write(data);
             }
           },
@@ -1051,25 +1032,15 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
-          if (DEBUG_VOICE) {
-            console.log("[DEBUG-VOICE] Received voice stream from user", ui.name ? ui.name() : 'unknown');
-            console.log("[DEBUG-VOICE] AudioContext state:", this.audioContext.state);
-            console.log("[DEBUG-VOICE] AudioContext sampleRate:", this.audioContext.sampleRate);
-          }
-          
           // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
           
-          if (DEBUG_VOICE) console.log("[DEBUG-VOICE] BufferQueueNode created");
           userNode.connect(this.audioContext.destination);
-          if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Connected to destination");
 
           stream
             .on("data", (data) => {
-              if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Received audio data packet - target:", data.target, "buffer size:", data.buffer?.byteLength);
-              
               if (data.target === "normal") {
                 ui.talking("on");
               } else if (data.target === "shout") {
@@ -1077,19 +1048,13 @@ class GlobalBindings {
               } else if (data.target === "whisper") {
                 ui.talking("whisper");
               } else if (data.target === "loopback") {
-                // Server loopback - show talking status and log for debugging
-                console.log("[LOOPBACK] Received loopback audio packet");
+                // Server loopback - show talking status
                 ui.talking("on");
               }
               
-              if (DEBUG_VOICE) {
-                console.log("[DEBUG-VOICE] Writing to userNode");
-              }
               userNode.write(data.buffer);
-              if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Write completed");
             })
             .on("end", () => {
-              if (DEBUG_VOICE) console.log("[DEBUG-VOICE] Voice stream ended");
               ui.talking("off");
               userNode.end();
             });
@@ -1183,10 +1148,6 @@ class GlobalBindings {
       }
       let mode = this.settings.voiceMode;
       let target = this.isLoopbackMode() ? 31 : 0; // Use target 31 for server loopback
-      // Log voice handler setup for loopback debugging
-      if (this.isLoopbackMode()) {
-        console.log("[LOOPBACK] Creating voice handler with loopback target (31)");
-      }
       if (mode === "cont") {
         voiceHandler = new ContinuousVoiceHandler(this.client, this.settings, target);
       } else if (mode === "ptt") {
@@ -1206,14 +1167,8 @@ class GlobalBindings {
         }
       });
       
-      // Log mute state for debugging
-      console.log("[VOICE-HANDLER] audioLockActive:", this.audioLockActive(), "selfMute:", this.selfMute());
-      
       if (this.audioLockActive() || this.selfMute()) {
-        console.log("[VOICE-HANDLER] Setting new handler to muted state");
         voiceHandler.setMute(true);
-      } else {
-        console.log("[VOICE-HANDLER] New handler is unmuted and ready");
       }
 
       this.client.setAudioQuality(

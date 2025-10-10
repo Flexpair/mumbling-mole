@@ -25,9 +25,7 @@ class DecoderStream extends Transform {
   }
 
   _onMessage(data) {
-    if (DEBUG_DECODER) console.log("[DEBUG-DECODER] Received message from worker:", data.action);
     if (data.action === "decoded") {
-      if (DEBUG_DECODER) console.log("[DEBUG-DECODER] Decoded audio - buffer size:", data.buffer?.byteLength, "channels:", data.numberOfChannels);
       this.push({
         target: data.target,
         pcm: new Float32Array(data.buffer),
@@ -35,7 +33,6 @@ class DecoderStream extends Transform {
         position: data.position,
       });
     } else if (data.action === "reset") {
-      if (DEBUG_DECODER) console.log("[DEBUG-DECODER] Reset action received");
       this._finalCallback();
     } else {
       throw new Error("unexpected message:" + data);
@@ -43,10 +40,8 @@ class DecoderStream extends Transform {
   }
 
   _transform(chunk, encoding, callback) {
-    if (DEBUG_DECODER) console.log("[DEBUG-DECODER] Transform called - codec:", chunk.codec, "frame size:", chunk.frame?.length);
     if (chunk.frame) {
       const buffer = toArrayBuffer(chunk.frame);
-      if (DEBUG_DECODER) console.log("[DEBUG-DECODER] Posting message to worker - action: decode" + chunk.codec);
       this._worker.postMessage(
         {
           action: "decode" + chunk.codec,
@@ -56,7 +51,6 @@ class DecoderStream extends Transform {
         },
         [buffer]
       );
-      if (DEBUG_DECODER) console.log("[DEBUG-DECODER] Message posted to worker");
     } else {
       this._worker.postMessage({
         action: "decode" + chunk.codec,

@@ -26,8 +26,6 @@ class VoiceHandler extends Writable {
       throw new Error("tried to send audio while self-muted");
     }
     if (!this._outbound) {
-      console.log("[VOICE-HANDLER] Creating new outbound stream, client exists:", !!this._client, "target:", this._target);
-      
       if (!this._client) {
         this._outbound = DropStream.obj();
         this.emit("started_talking");
@@ -35,18 +33,12 @@ class VoiceHandler extends Writable {
       }
 
       // Note: the samplesPerPacket argument is handled in worker.js and not passed on
-      if (this._target === 31) {
-        console.log("[LOOPBACK] Creating voice stream with loopback target (31)");
-      } else {
-        console.log("[NORMAL-MODE] Creating voice stream with target:", this._target);
-      }
       this._outbound = this._client.createVoiceStream(
         this._settings.samplesPerPacket,
         this._target
       );
 
       this.emit("started_talking");
-      console.log("[VOICE-HANDLER] Outbound stream created successfully");
     }
     return this._outbound;
   }
@@ -68,16 +60,9 @@ class VoiceHandler extends Writable {
 export class ContinuousVoiceHandler extends VoiceHandler {
   constructor(client, settings, target = 0) {
     super(client, settings, target);
-    this._writeCount = 0;
   }
 
   _write(data, _, callback) {
-    this._writeCount++;
-    // Debug: Log occasionally to verify _write is being called
-    if (this._writeCount % 100 === 0) {
-      console.log(`[VOICE-HANDLER] _write called ${this._writeCount} times, muted: ${this._mute}, target: ${this._target}`);
-    }
-    
     if (this._mute) {
       callback();
     } else {
@@ -188,7 +173,6 @@ export function initVoice(onData, onUserMediaError) {
 
     try {
       // Use managed AudioContext with autoplay policy handling
-      console.log('Initializing voice input with AudioWorklet (48kHz mono)');
       const ac = await ensureAudioContext({
         sampleRate: 48000,
         latencyHint: 'interactive'

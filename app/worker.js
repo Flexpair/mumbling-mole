@@ -130,7 +130,6 @@ function setupUser(id, user) {
   });
   registerEventProxy(id, user, "voice", (stream) => {
     let voiceId = nextVoiceId++;
-    console.log("[DEBUG-WORKER] Voice stream started for user, voiceId:", voiceId);
 
     let target;
 
@@ -140,20 +139,17 @@ function setupUser(id, user) {
     // Pipe stream into resampler
     stream
       .on("data", (data) => {
-        console.log("[DEBUG-WORKER] Voice data received - target:", data.target, "pcm size:", data.pcm?.byteLength);
         // store target so we can pass it on after resampling
         target = data.target;
         resampler.write(Buffer.from(data.pcm.buffer));
       })
       .on("end", () => {
-        console.log("[DEBUG-WORKER] Voice stream ended, voiceId:", voiceId);
         resampler.end();
       });
 
     // Pipe resampler into output stream on UI thread
     resampler
       .on("data", (data) => {
-        console.log("[DEBUG-WORKER] Resampled data - size:", data.length, "target:", target);
         data = toArrayBuffer(data); // postMessage can't transfer node's Buffer
         postMessage(
           {
@@ -163,10 +159,8 @@ function setupUser(id, user) {
           },
           [data]
         );
-        console.log("[DEBUG-WORKER] Posted message to UI thread");
       })
       .on("end", () => {
-        console.log("[DEBUG-WORKER] Resampler ended, sending end message for voiceId:", voiceId);
         postMessage({
           voiceId: voiceId,
         });
