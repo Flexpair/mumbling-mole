@@ -63,7 +63,11 @@ const config = {
     rules: [
       {
         test: /\.js$/,
-        exclude: /node_modules/,
+        exclude: [
+          /node_modules/,
+          /recorder-worker\.js$/,              // AudioWorklet processors cannot use imports
+          /playback-buffer-processor\.js$/     // AudioWorklet processors cannot use imports
+        ],
         use: {
           loader: "babel-loader",
           options: {
@@ -173,6 +177,7 @@ const config = {
         { from: 'app/favicons', to: 'favicons' },
         { from: 'themes/MetroMumbleLight/svg', to: 'svg' },
         { from: 'themes/MetroMumbleLight/img', to: 'img' }
+        // AudioWorklet processors copied by smart-build.sh (must not be transpiled)
       ]
     }),
     new webpack.ProgressPlugin({

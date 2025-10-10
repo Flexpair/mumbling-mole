@@ -44,7 +44,7 @@ Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a
 ## Vendored dependencies
 - `vendors/mumble-client` is `file:` protocol dep; after editing `src/`, run `npm run build:vendor:mumble-client` to refresh `lib/`
 - `vendors/netlify-identity-widget` ships as-is; UI expects `window.netlifyIdentity` global before auth flows
-- `vendors/web-audio-buffer-queue` provides `BufferQueueNode` for audio playback (handles both default/named exports via `import BufferQueueNodeDefault, { BufferQueueNode as BufferQueueNodeNamed }`)
+- **Deprecated**: `vendors/web-audio-buffer-queue` (replaced by native `app/buffer-queue-node.js` using AudioWorklet instead of deprecated ScriptProcessorNode)
 
 ## Config, localization, theming
 **Config**: Source defaults in `app/config.js`; runtime overrides in generated `dist/config.local.js` (back up before clean builds!)  
