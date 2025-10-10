@@ -12,9 +12,10 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 - 🔌 **WebSocket tunneling** – TCP voice streams over WebSocket connections (no WebRTC required)
 - 🎨 **Themeable interface** – MetroMumble-inspired Light/Dark themes
 - 👷 **Web Worker architecture** – Offloads audio processing from main thread
-- 🌍 **English interface** – Optimized English-only localization for performance
+- 🌍 **Multi-language support** – Full localization system
 - 📦 **Smart build system** – Incremental builds with vendor dependency management
 - 🐳 **Docker-ready** – Containerized development and production environments
+- 🔊 **Audio loopback testing** – Built-in server loopback mode for testing audio without a second client
 
 ## 📋 Prerequisites
 
@@ -55,30 +56,39 @@ This will:
 ./stop-dev-server.sh
 ```
 
+### 4. Test Audio (Loopback Mode)
+
+Once connected to a Mumble server, you can test your audio setup using the built-in loopback feature:
+
+1. Connect to a Mumble server
+2. Click the **Test** button (blue button next to Connect)
+3. Speak into your microphone
+4. Your audio will be routed back through the server (target 31) and played back to you
+
+This allows you to verify your microphone and audio processing without needing a second client.
+
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      Browser Window                          │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────────────────────┐  ┌──────────────────────┐ │
-│  │     Main Thread (UI)          │  │    Web Worker        │ │
-│  │                               │  │                      │ │
-│  │  • Knockout.js MVVM           │◄─┤  • mumble-client     │ │
-│  │  • GlobalBindings state       │  │  • Audio resampling  │ │
-│  │  • Netlify Identity auth      │  │  • Opus encoding     │ │
-│  │  • Guacamole iframe gating    │  │  • Event dispatch    │ │
-│  │  • Localization & Theming     │  │  • ID serialization  │ │
-│  └──────────┬───────────────────┘  └──────────┬───────────┘ │
-│             │                                  │             │
-│  ┌──────────▼───────────────────────────────────┐           │
-│  │         AudioContext + AudioWorklet           │           │
-│  │     (48 kHz mono PCM, 960 samples/packet)    │           │
-│  │  audio-context-manager.js + recorder-worker  │           │
-│  └────────────────────────────────────────────────┘          │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      Browser Window                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────────────────────┐  ┌──────────────────────┐ │
+│  │     Main Thread (UI)         │  │    Web Worker        │ │
+│  │                              │  │                      │ │
+│  │  • Knockout.js MVVM          │◄─┤  • mumble-client     │ │
+│  │  • GlobalBindings state      │  │  • Audio resampling  │ │
+│  │  • Localization              │  │  • Opus encoding     │ │
+│  │  • Theme management          │  │  • Event dispatch    │ │
+│  └──────────┬──────────────────┘  └──────────┬───────────┘ │
+│             │                                 │             │
+│  ┌──────────▼──────────────────────────────────┐           │
+│  │         AudioContext + AudioWorklet          │           │
+│  │     (48kHz mono PCM, 960 samples/packet)    │           │
+│  └───────────────────────────────────────────────┘          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
                     ┌──────────────────┐
@@ -87,8 +97,7 @@ This will:
                               │
                               ▼
                     ┌──────────────────┐
-                    │   websockify      │
-                    │ (WebSocket→TCP)   │
+                    │    websockify     │
                     └──────────────────┘
                               │
                               ▼
@@ -97,13 +106,6 @@ This will:
                     │    (TCP:64738)    │
                     └──────────────────┘
 ```
-
-### Key Components
-
-- **Main Thread** (`app/index.js`): Bootstraps `GlobalBindings`, handles authentication, and dispatches voice controls
-- **Web Worker** (`app/worker.js`): Manages `mumble-client`, mirrors channel/user trees via serialized IDs, handles Opus resampling
-- **Audio Pipeline**: `audio-context-manager.js` maintains shared `AudioContext`; `voice.js` handles continuous/PTT; `recorder-worker.js` captures 48 kHz mono
-- **Worker Communication**: UI and Worker exchange only numeric IDs (not object references) for serialization safety
 
 ## 🔧 Configuration
 
@@ -154,13 +156,6 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run build:force` | Clean rebuild of all artifacts |
 | `npm run build:vendor:mumble-client` | Rebuild vendored mumble-client |
 
-**Build internals:**
-- `smart-build.sh` respects `dist/.build-marker` and `dist/.build-mode` for incremental builds
-- Auto-compiles `vendors/mumble-client` when `lib/` is missing
-- Copies `config.local.js` and `recorder-worker.js` to `dist/`
-- Uses Webpack 5: `asset/resource` for images/SVGs, explicit polyfills for `buffer`/`util`/`process`
-- `prepare` script runs automatically during `npm install` (skip with `SKIP_PREPARE=1`)
-
 ### Testing
 
 | Command | Description |
@@ -169,11 +164,6 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run test:full` | Run all tests (E2E + Audio + Audit) |
 | `npm run test:audio:system` | Audio system test (no server needed) |
 | `npm run test:audio:suite` | Complete audio test suite |
-| `./scripts/quick-audio-test.sh` | All-in-one test with auto server setup |
-
-**Test modes:**
-- E2E tests support `--mode=container` for CI validation
-- Set `PLAIN_TARGET=1` for non-TLS tunneling scenarios
 
 > See **[TESTING.md](./TESTING.md)** for comprehensive testing documentation.
 
@@ -247,7 +237,12 @@ SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh
 #### Worker communication errors
 - Check browser console for serialization errors
 - Ensure both worker files are in sync (`app/worker.js` and `app/worker-client.js`)
-- Remember: Workers and UI exchange only numeric IDs, never object references
+
+#### Loopback test not working
+- Ensure you're connected to a Mumble server that supports loopback (target 31)
+- Check browser console for `[LOOPBACK]` prefixed messages
+- Verify microphone permissions are granted
+- Check that AudioContext is running (not suspended)
 
 ### Debug Mode
 
@@ -256,12 +251,6 @@ Enable verbose logging:
 // In browser console
 localStorage.setItem('debug', 'true');
 location.reload();
-```
-
-Access AudioContext stats:
-```javascript
-// In browser console
-audioContextManager.getStats();
 ```
 
 ## 🤝 Contributing
@@ -279,13 +268,12 @@ We welcome contributions! Please follow these guidelines:
 ### Coding Conventions
 
 - Use ES6+ JavaScript features
-- **Worker/UI protocol**: Exchange only numeric IDs (not object references); update `_dispatchEvent` in both `worker-client.js` and `worker.js` when adding events
-- **Audio invariants**: 48 kHz mono, 960-sample frames; adjust `voice.js`, worker resampler, and `Settings` together
-- **AudioContext**: Always use `ensureAudioContext()` from `audio-context-manager.js` (never instantiate directly)
-- **Knockout.js**: Use `ko.observable(value)`, `.subscribe()` for watchers, `ko.computed()` for computed values
-- **State persistence**: Store UI state in `GlobalBindings` observables, persist via `localStorage` with `mumble.*` keys
-- Update localization strings in `localize/en.json` when adding new UI text
+- Maintain Worker/UI protocol compatibility (update both `worker.js` and `worker-client.js`)
+- Add localization strings to all locale files (`localize/*.json`)
+- Update documentation files (README.md, CLAUDE.md, .github/copilot-instructions.md) for architectural changes
 - Keep generated files (`dist/**`, `config.local.js`) out of commits
+- Use `[LOOPBACK]` prefix for loopback-related console logging
+- Always use `ensureAudioContext()` from `audio-context-manager.js`, never instantiate `AudioContext` directly
 
 ## 📁 Project Structure
 
@@ -298,7 +286,7 @@ mumbling-mole/
 ├── vendors/               # Vendored packages
 │   └── mumble-client/     # Forked client library
 ├── themes/                # UI themes
-├── localize/              # English translations
+├── localize/              # Translation files
 ├── scripts/               # Build & test utilities
 ├── dist/                  # Build output (generated)
 └── *.sh                   # Shell scripts
@@ -306,9 +294,16 @@ mumbling-mole/
 
 ## 📚 Documentation
 
+### General Documentation
+- [Architecture Details](CLAUDE.md) – In-depth technical documentation
 - [Testing Guide](TESTING.md) – Comprehensive testing documentation
-- [Copilot Instructions](.github/copilot-instructions.md) – AI assistant context & development guide
-- [Webpack Config](webpack.config.js) – Webpack 5 build configuration
+- [Copilot Instructions](.github/copilot-instructions.md) – AI assistant context
+- [Webpack Config](webpack.config.js) – Build configuration
+
+### Audio & Debugging
+- [Audio Debug Guide](AUDIO_DEBUG_GUIDE.md) – Production audio debugging guide
+- [Loopback Test Coverage](LOOPBACK_TEST_COVERAGE.md) – What loopback tests can and cannot detect
+- [Audio Playback Fix](AUDIO_PLAYBACK_FIX_DOCUMENTATION.md) – Race condition fix documentation (Oct 2025)
 
 ## 🔐 Security
 

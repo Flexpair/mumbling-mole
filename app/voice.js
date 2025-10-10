@@ -4,11 +4,16 @@ import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
 import audioContextManager, { getAudioContext, ensureAudioContext } from "./audio-context-manager";
 
+// VOICE-HANDLER: Base class for voice transmission handling
+// Manages outbound audio streams and routing to different targets (channels, users, or loopback)
 class VoiceHandler extends Writable {
-  constructor(client, settings) {
+  // LOOPBACK-FEATURE: Constructor now accepts target parameter for voice routing
+  // target=0 (default) routes to current channel, target=31 routes to server loopback
+  constructor(client, settings, target = 0) {
     super({ objectMode: true });
     this._client = client;
     this._settings = settings;
+    this._target = target; // Voice routing target (0=normal, 31=loopback)
     this._outbound = null;
     this._mute = false;
   }
@@ -26,14 +31,18 @@ class VoiceHandler extends Writable {
     }
     if (!this._outbound) {
       if (!this._client) {
+        // FALLBACK: No client available - use drop stream to discard audio
         this._outbound = DropStream.obj();
         this.emit("started_talking");
         return this._outbound;
       }
 
-      // Note: the samplesPerPacket argument is handled in worker.js and not passed on
+      // VOICE-STREAM-CREATION: Create voice stream with specified target
+      // samplesPerPacket controls frame size (default 960 samples = 20ms @ 48kHz)
+      // target parameter routes voice to different destinations
       this._outbound = this._client.createVoiceStream(
-        this._settings.samplesPerPacket
+        this._settings.samplesPerPacket,
+        this._target
       );
 
       this.emit("started_talking");
@@ -55,23 +64,36 @@ class VoiceHandler extends Writable {
   }
 }
 
+// CONTINUOUS-MODE: Always-on voice transmission mode
+// Continuously streams audio data without requiring key press
 export class ContinuousVoiceHandler extends VoiceHandler {
-  constructor(client, settings) {
-    super(client, settings);
+  // LOOPBACK-FEATURE: Pass target parameter to base class for routing
+  constructor(client, settings, target = 0) {
+    super(client, settings, target);
   }
 
   _write(data, _, callback) {
     if (this._mute) {
       callback();
     } else {
-      this._getOrCreateOutbound().write(data, callback);
+      // ERROR-HANDLING: Wrap stream write in try-catch to prevent uncaught exceptions
+      // Helps diagnose issues when voice stream fails unexpectedly
+      try {
+        this._getOrCreateOutbound().write(data, callback);
+      } catch (err) {
+        console.error("[VOICE-HANDLER] Error in _getOrCreateOutbound:", err);
+        callback(err);
+      }
     }
   }
 }
 
+// PTT-MODE: Push-to-talk voice transmission mode
+// Only streams audio when designated key is pressed
 export class PushToTalkVoiceHandler extends VoiceHandler {
-  constructor(client, settings) {
-    super(client, settings);
+  // LOOPBACK-FEATURE: Pass target parameter to base class for routing
+  constructor(client, settings, target = 0) {
+    super(client, settings, target);
     this._key = settings.pttKey;
     this._pushed = false;
     this._keydown_handler = () => (this._pushed = true);
@@ -131,7 +153,7 @@ function gotDevices(deviceInfos) {
 }
 
 function handleError(error) {
-  console.log(
+  console.error(
     "navigator.MediaDevices.getUserMedia error: ",
     error.message,
     error.name
@@ -165,35 +187,36 @@ export function initVoice(onData, onUserMediaError) {
     }
 
     try {
-      // Use managed AudioContext with autoplay policy handling
-      console.log('Initializing voice with managed AudioContext...');
+      // AUDIO-CONTEXT: Use managed AudioContext with autoplay policy handling
+      // Sample rate must be 48kHz to match Mumble protocol requirements
       const ac = await ensureAudioContext({
         sampleRate: 48000,
         latencyHint: 'interactive'
       });
 
-      console.log('AudioContext ready for voice:', {
-        state: ac.state,
-        sampleRate: ac.sampleRate
-      });
-
-      // Worklet laden
+      // AUDIOWORKLET: Load AudioWorklet processor for real-time audio capture
+      // recorder-worker.js runs in audio thread for low-latency processing
       await ac.audioWorklet.addModule("recorder-worker.js");
 
-      // Quelle aus getUserMedia
+      // AUDIO-SOURCE: Create audio source from microphone stream
       const src = ac.createMediaStreamSource(userMedia);
 
-      // Worklet-Node (mono)
+      // WORKLET-NODE: Create AudioWorklet node for mono audio processing
+      // Processes audio in audio thread, not main thread
       const node = new AudioWorkletNode(ac, "recorder-processor", {
         numberOfInputs: 1,
-        numberOfOutputs: 0, // kein Audio-Out nötig
-        channelCount: 1,
+        numberOfOutputs: 0, // No audio output needed - we only capture, not play back
+        channelCount: 1, // Mono channel (Mumble protocol requirement)
       });
 
-      // PCM-Frames (Float32, 960 Samples @48k) an bestehende Pipeline geben
+      // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
+      // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
+          // DEBUG-LOGGING: Commented out to avoid console spam during normal operation
+          // Uncomment for debugging audio capture issues:
+          // console.log("[VOICE] PCM data received, samples:", f32.length, "max amplitude:", Math.max(...f32.map(Math.abs)));
           onData(Buffer.from(f32.buffer));
         }
       };

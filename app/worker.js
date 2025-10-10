@@ -187,9 +187,20 @@ function setupUser(id, user) {
   return user.id;
 }
 
+// CLIENT-SETUP: Initialize client proxy with event handlers and state synchronization
 function setupClient(id, client) {
+  // FALLBACK-MECHANISM: Temporary storage for root channel found via alternative methods
+  let tempRootChannel = null;
+  
+  // ROOT-CHANNEL-TIMEOUT: Configuration for root channel initialization fallback
+  // Some server configurations may delay root channel availability
+  const ROOT_CHECK_INTERVAL_MS = 500; // How often to check for root channel (500ms)
+  const ROOT_CHECK_MAX_COUNT = 20; // Maximum number of checks before giving up
+  const ROOT_CHECK_TIMEOUT_SECONDS = (ROOT_CHECK_MAX_COUNT * ROOT_CHECK_INTERVAL_MS) / 1000; // Total timeout: 10 seconds
+  
   id = { client: id };
 
+  // EVENT-PROXYING: Register event handlers that forward events from worker to main thread
   registerEventProxy(id, client, "error");
   registerEventProxy(id, client, "denied", (it) => [it]);
   registerEventProxy(id, client, "newChannel", (it) => [setupChannel(id, it)]);
@@ -199,6 +210,8 @@ function setupClient(id, client) {
     client,
     "message",
     (sender, message, users, channels, trees) => {
+      // SERIALIZATION: Convert object references to IDs for main thread
+      // Main thread cannot access worker objects directly, only serialized IDs
       return [
         sender.id,
         message,
@@ -208,9 +221,13 @@ function setupClient(id, client) {
       ];
     }
   );
+  
+  // STATS-MONITORING: Push data statistics when ping responses arrive
   client.on("dataPing", () => {
     pushProp(id, client, "dataStats");
   });
+  
+  // CONNECTION-STATE: Synchronize connection properties to main thread
   client.on("connected", () => {
     pushProp(id, client, "maxBandwidth");
   });
@@ -223,35 +240,112 @@ function setupClient(id, client) {
 
   let initialized = false;
 
+  // INITIALIZATION: Set up initial client state once root channel is available
+  // Root channel must exist before we can traverse channel tree
   const initializeClientState = () => {
     if (initialized) {
       return;
     }
-    const rootChannel = client.root;
+    let rootChannel = client.root;
+    
+    // FALLBACK-CHECK: Use temporary root channel if found via alternative discovery method
+    // Handles edge cases where client.root is not set but channel exists in client.channels
+    if (!rootChannel && tempRootChannel) {
+      rootChannel = tempRootChannel;
+    }
+    
     if (!rootChannel) {
+      // ROOT-WAIT: Root channel not yet available - will retry via event listeners or periodic check
+      // This is normal for some server configurations during initial connection
       return;
     }
 
     initialized = true;
 
+    // TREE-INITIALIZATION: Set up all channels and users now that we have root channel
+    // Root channel is the entry point for traversing the entire channel tree
     setupChannel(id, rootChannel);
     for (let user of client.users) {
       setupUser(id, user);
     }
 
-    pushProp(id, client, "root", (it) => it.id);
+    // PROP-SYNC: Push initial state to main thread
+    pushProp(id, client, "root", (it) => it ? it.id : (rootChannel ? rootChannel.id : undefined));
     pushProp(id, client, "self", (it) => it.id);
     pushProp(id, client, "serverVersion");
     pushProp(id, client, "maxBandwidth");
 
+    // CLEANUP-LISTENERS: Remove initialization event listeners (no longer needed)
     client.removeListener("newChannel", initializeClientState);
     client.removeListener("connected", initializeClientState);
+    
+    // CLEANUP-TEMP: Clear temporary root channel storage
+    tempRootChannel = null;
   };
 
+  // IMMEDIATE-INIT: Try to initialize immediately if root channel already exists
   initializeClientState();
+  
   if (!initialized) {
-    client.on("newChannel", initializeClientState);
-    client.on("connected", initializeClientState);
+    // DELAYED-INIT: Root channel not immediately available - set up fallback mechanisms
+    // Some servers send root channel in later packets after connection established
+    
+    // STRATEGY-1: Listen for newChannel events (normal path)
+    client.on("newChannel", () => {
+      initializeClientState();
+    });
+    
+    // STRATEGY-2: Listen for connected event (backup path)
+    client.on("connected", () => {
+      initializeClientState();
+    });
+    
+    // STRATEGY-3: Periodic check as last-resort fallback for edge cases where events don't fire
+    // This handles unusual server behaviors or timing issues where normal event-based init fails
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+      checkCount++;
+      
+      // ALTERNATIVE-DISCOVERY: Try finding root channel in client.channels map
+      // Sometimes client.root property is not set but channel exists in channels collection
+      if (client.channels) {
+        const channels = client.channels;
+        
+        if (typeof channels === 'object') {
+          const channelEntries = Object.entries(channels);
+          
+          // ROOT-IDENTIFICATION: Find root channel by checking for null/undefined parent
+          // Root channel is the only channel without a parent
+          const rootCandidates = channelEntries.filter(([id, ch]) => !ch.parent || ch.parent === null || ch.parent === undefined);
+          
+          if (rootCandidates.length > 0) {
+            const [rootId, rootChannel] = rootCandidates[0];
+            
+            // SUCCESS: Found root channel via alternative method
+            clearInterval(checkInterval);
+            
+            // Store for use in initializeClientState
+            tempRootChannel = rootChannel;
+            
+            initializeClientState();
+            return;
+          }
+        }
+      }
+      
+      // TIMEOUT-CHECK: Stop after maximum attempts or when root channel appears
+      if (client.root || checkCount > ROOT_CHECK_MAX_COUNT) {
+        clearInterval(checkInterval);
+        if (client.root) {
+          // Root channel appeared normally - initialize
+          initializeClientState();
+        } else {
+          // TIMEOUT-FAILURE: Root channel still not found after 10 seconds
+          // This indicates a serious connection or server issue
+          console.warn(`[WORKER] Failed to initialize: root channel not found after ${ROOT_CHECK_TIMEOUT_SECONDS}s`);
+        }
+      }
+    }, ROOT_CHECK_INTERVAL_MS);
   }
 }
 

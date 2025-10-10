@@ -57,19 +57,14 @@ function GuacamoleFrame() {
       guacUser +
       "&password=" +
       encodeURIComponent(password || "");
-    console.log("[Guac] setting iframe src", src);
     self.guacSource(src);
   };
 
   self.onLoad = function () {
     self.loading(false);
-    console.log("[Guac] iframe load event", self.guacSource());
     try {
       const frame = document.getElementById("guacframe");
       const doc = frame && frame.contentDocument;
-      if (doc) {
-        console.log("[Guac] iframe title:", doc.title);
-      }
     } catch (e) {
       console.warn("[Guac] cannot inspect iframe content", e);
     }
@@ -83,11 +78,58 @@ function ConnectDialog() {
   self.username = ko.observable("");
   self.password = ko.observable("");
   self.visible = ko.observable(true);
+  // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
+  self.isTestActive = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
   self.hide = self.visible.bind(self.visible, false);
+  
   self.connect = function () {
     self.hide();
-    ui.connect(self.address(), self.port(), self.username(), self.password());
+    
+    // LOOPBACK-FEATURE: When already connected, this transitions from test mode back to normal mode
+    if (ui.connected()) {
+      // Switch from loopback test mode back to normal voice routing
+      self.isTestActive(false);
+      ui.isLoopbackMode(false);
+      
+      // Recreate voice handler with normal target (not loopback target 31)
+      ui._updateVoiceHandler();
+      
+      // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
+      // Uses stored credentials from initial connection
+      if (ui._guacLogin) {
+        ui.guacamoleFrame.loading(false);
+        ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
+        ui.guacamoleFrame.show();
+      } else {
+        ui.guacamoleFrame.loading(false);
+      }
+    } else {
+      // Normal connection flow - not yet connected to server
+      self.isTestActive(false);
+      ui.connect(self.address(), self.port(), self.username(), self.password());
+    }
+  };
+  
+  // LOOPBACK-FEATURE: Toggle button handler - activates loopback test mode
+  self.toggleLoopback = function () {
+      // One-way activation: prevent deactivation via this button (use Connect button instead)
+      if (self.isTestActive()) {
+        return;
+      }
+      
+      // Mark test as active and connect in loopback mode
+      self.isTestActive(true);
+      
+      // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
+      // This allows user to see connection status and switch back to normal mode
+      ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
+    };  
+  
+  // LEGACY-COMPAT: Legacy function for backward compatibility (closes dialog like old behavior)
+  self.connectLoopback = function () {
+    self.hide();
+    ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
   };
 }
 
@@ -416,6 +458,15 @@ class GlobalBindings {
     this.audioLockActive = ko.observable(false);
     this.audioLockReason = ko.observable(null);
     this.audioLockDetails = ko.observable(null);
+    
+    // LOOPBACK-FEATURE: Track whether client is in loopback test mode
+    // When true, voice is routed to server loopback (target=31) for echo testing
+    this.isLoopbackMode = ko.observable(false);
+    
+    // GUACAMOLE-INTEGRATION: Store credentials for later use when switching from test to normal mode
+    // Allows seamless transition to Guacamole desktop without re-authentication
+    this._guacLogin = null; 
+    this._guacPassword = null;
 
     this._activateAudioLock = (reason, details = {}) => {
       this.audioLockReason(reason);
@@ -520,48 +571,46 @@ class GlobalBindings {
       this._attemptMicrophonePermission();
     };
     
-    // Define initializeAudioContext method before using it
+    // AUDIO-CONTEXT: Initialize managed AudioContext with autoplay policy handling
+    // This method ensures singleton pattern and handles browser autoplay restrictions
     this.initializeAudioContext = async () => {
-      // Prevent duplicate initialization
+      // SINGLETON-PATTERN: Prevent duplicate initialization - reuse existing instance
       if (this.audioContext) {
-        console.log('AudioContext already initialized, reusing existing instance');
+        // AudioContext already exists, reusing singleton instance
         return;
       }
       
       try {
-        console.log('Initializing managed AudioContext...');
+        // AUTOPLAY-POLICY: Use managed AudioContext that handles browser autoplay restrictions
+        // Waits for user interaction before allowing audio playback
         this.audioContext = await ensureAudioContext({ 
           latencyHint: "interactive" 
         });
-        
-        console.log('AudioContext initialized:', {
-          state: this.audioContext.state,
-          sampleRate: this.audioContext.sampleRate
-        });
 
-        // Set up event handlers for audio context state changes (only once)
+        // STATE-MONITORING: Set up event handlers for audio context state changes
+        // These help diagnose audio issues by tracking suspend/resume cycles
         audioContextManager.onSuspend(() => {
-          console.log('AudioContext suspended - audio features may be limited');
+          // AudioContext suspended - audio features may be limited until user interaction
         });
 
         audioContextManager.onResume(() => {
-          console.log('AudioContext resumed - audio features restored');
+          // AudioContext resumed - audio features restored
         });
 
       } catch (error) {
         console.error('Failed to initialize AudioContext:', error);
         
-        // Fallback to legacy approach if managed approach fails
+        // FALLBACK-STRATEGY: Try legacy AudioContext creation if managed approach fails
+        // Some older browsers or restricted environments may not support managed approach
         try {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           if (!AudioContextClass) {
             throw new Error("AudioContext is not supported in this browser");
           }
           this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
-          console.log('Fallback to legacy AudioContext successful');
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
-          // AudioContext will remain null, audio features will be disabled
+          // DEGRADED-MODE: AudioContext remains null, audio features will be disabled
         }
       }
     };
@@ -685,6 +734,106 @@ class GlobalBindings {
       await this._performConnect(connectionParams, { audioEnabled: true });
     };
 
+    // LOOPBACK-FEATURE: Connect to server in loopback test mode
+    // Routes voice through server echo (target=31) for testing audio encode/decode pipeline
+    this.connectLoopback = async (
+      host,
+      port,
+      username,
+      password,
+      tokens = [],
+      channelName = ""
+    ) => {
+      // AUTH-CHECK: Verify Netlify Identity authentication before connecting
+      const identity = this.netlifyIdentity.currentUser();
+      if (!identity || !identity.app_metadata) {
+        alert(
+          "You do not have permission to connect to the server. Please contact the administrator."
+        );
+        return;
+      }
+
+      // ROLE-MANAGEMENT: Ensure user has minimum required roles for voice testing
+      var user_roles = identity.app_metadata.roles || [];
+      if (!Array.isArray(user_roles)) {
+        user_roles = [];
+      }
+
+      // Add default roles if missing (watch for UI, listen for audio)
+      if (!user_roles.includes("watch")) user_roles.push("watch");
+      if (!user_roles.includes("listen")) user_roles.push("listen");
+      identity.app_metadata.roles = user_roles;
+
+      // AUDIO-INIT: Prepare AudioContext before requesting microphone permissions
+      // This ensures audio subsystem is ready for loopback testing
+      if (!this.audioContext) {
+        await this.initializeAudioContext();
+      }
+
+      const connectionParams = {
+        host,
+        port,
+        username,
+        password,
+        tokens,
+        channelName,
+        isLoopback: true, // ROUTING-FLAG: Mark connection for loopback voice routing (target=31)
+      };
+
+      // MIC-PERMISSION: Request microphone access and track permission state
+      // Shows retry overlay if user denies permission
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            this.micPermissionDenied(false);
+            // CLEANUP: Stop temporary permission check stream immediately
+            stream.getTracks().forEach((track) => track.stop());
+          })
+          .catch((err) => {
+            console.warn(
+              "Microphone permission denied, showing retry option:",
+              err
+            );
+            this.micPermissionDenied(true);
+          });
+      }
+
+      this._clearAudioLock({ resetStates: true });
+      
+      // MODE-FLAG: Set loopback mode before connection to affect voice handler creation
+      this.isLoopbackMode(true);
+      await this._performConnect(connectionParams, { audioEnabled: true });
+    };
+
+    // TEST-BUTTON: Wrapper function for the Test button - enables loopback on existing connection
+    // This allows testing audio without reconnecting if already connected to server
+    this.startLoopbackTest = () => {
+      if (this.connected()) {
+        // ALREADY-CONNECTED: Switch existing connection to loopback mode
+        // More efficient than disconnecting and reconnecting
+        this.isLoopbackMode(true);
+        
+        // VOICE-HANDLER-RESET: Force recreation of voice handler with new loopback target
+        // Old handler uses normal routing, new one will use target=31 for loopback
+        if (this.voiceHandler) {
+          this.voiceHandler.setMute(true);
+          this.voiceHandler.end();
+          this.voiceHandler = null;
+        }
+        
+        // HANDLER-RECREATION: Create new voice handler with loopback target (31)
+        this._updateVoiceHandler();
+      } else {
+        // NOT-CONNECTED: Use default connection parameters for initial loopback connection
+        const host = this.config.defaults.host || "localhost";
+        const port = this.config.defaults.port || 64738;
+        const username = this.config.defaults.username || "WebClient";
+        const password = this.config.defaults.password || "";
+        this.connectLoopback(host, port, username, password);
+      }
+    };
+
     this._performConnect = async (
       connectionParams,
       { audioEnabled = true, sampleRate = null } = {}
@@ -725,6 +874,11 @@ class GlobalBindings {
       }
 
       this.resetClient();
+      
+      // Set loopback mode after resetClient (which resets it to false)
+      if (connectionParams.isLoopback) {
+        this.isLoopbackMode(true);
+      }
 
       this.remoteHost(host);
       this.remotePort(port);
@@ -734,7 +888,6 @@ class GlobalBindings {
       try {
         if (this.audioContext && this.audioContext.state === "suspended") {
           await this.audioContext.resume();
-          console.log("AudioContext resumed for connection");
         } else if (!this.audioContext) {
           await this.initializeAudioContext();
         }
@@ -758,16 +911,27 @@ class GlobalBindings {
         } else if (user_roles.includes("watch")) {
           guac_login = "watcher";
         }
-        if (guac_login) {
+        
+        // Store Guacamole credentials for later use (e.g., when switching from loopback to normal)
+        this._guacLogin = guac_login;
+        this._guacPassword = this.connectDialog.password();
+        
+        // Only show Guacamole frame if NOT in loopback mode
+        if (guac_login && !this.isLoopbackMode()) {
           this.guacamoleFrame.start(
             guac_login,
             this.connectDialog.password()
           );
           this.guacamoleFrame.show();
-        } else {
+        } else if (!guac_login && !this.isLoopbackMode()) {
           alert("For visual access please ask your administrator.");
         }
-        log(translate("logentry.connected"));
+        
+        if (this.isLoopbackMode()) {
+          log(translate("logentry.connected_loopback"));
+        } else {
+          log(translate("logentry.connected"));
+        }
 
         this.client = client;
         client.on("error", (err) => {
@@ -825,6 +989,11 @@ class GlobalBindings {
     };
 
     this._newUser = (user) => {
+      // Skip if UI already initialized (prevents duplicate event handlers)
+      if (user.__ui) {
+        return;
+      }
+      
       const simpleProperties = {
         uniqueId: "uid",
         username: "name",
@@ -889,9 +1058,11 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
+          // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
+          
           userNode.connect(this.audioContext.destination);
 
           stream
@@ -902,7 +1073,11 @@ class GlobalBindings {
                 ui.talking("shout");
               } else if (data.target === "whisper") {
                 ui.talking("whisper");
+              } else if (data.target === "loopback") {
+                // Server loopback - show talking status
+                ui.talking("on");
               }
+              
               userNode.write(data.buffer);
             })
             .on("end", () => {
@@ -913,6 +1088,11 @@ class GlobalBindings {
     };
 
     this._newChannel = (channel) => {
+      // Skip if UI already initialized (prevents duplicate event handlers)
+      if (channel.__ui) {
+        return;
+      }
+      
       const simpleProperties = {
         position: "position",
         name: "name",
@@ -976,27 +1156,47 @@ class GlobalBindings {
       }
       this.client = null;
       this.selected(null).root(null).thisUser(null);
+      this.isLoopbackMode(false); // Reset loopback mode on disconnect
+      
+      // Note: We don't automatically reset isTestActive here anymore
+      // It's controlled manually by the toggle function
     };
 
     this.connected = () => this.thisUser() != null;
 
+    // VOICE-HANDLER-UPDATE: Recreate voice handler when mode or target changes
+    // Called when switching between normal/loopback mode or changing PTT/continuous settings
     this._updateVoiceHandler = () => {
       if (!this.client) {
         return;
       }
+      
+      // CLEANUP: Destroy existing handler before creating new one
       if (voiceHandler) {
         voiceHandler.end();
         voiceHandler = null;
       }
+      
       let mode = this.settings.voiceMode;
+      
+      // TARGET-ROUTING: Determine voice routing target based on mode
+      // target=31 routes to server loopback for echo testing (loopback mode)
+      // target=0 routes normally to channel/user (normal mode)
+      let target = this.isLoopbackMode() ? 31 : 0;
+      
+      // HANDLER-CREATION: Create appropriate handler based on voice activation mode
       if (mode === "cont") {
-        voiceHandler = new ContinuousVoiceHandler(this.client, this.settings);
+        // Continuous transmission - always sending audio
+        voiceHandler = new ContinuousVoiceHandler(this.client, this.settings, target);
       } else if (mode === "ptt") {
-        voiceHandler = new PushToTalkVoiceHandler(this.client, this.settings);
+        // Push-to-talk - only sending when key is pressed
+        voiceHandler = new PushToTalkVoiceHandler(this.client, this.settings, target);
       } else {
         log(translate("logentry.unknown_voice_mode"), mode);
         return;
       }
+      
+      // UI-BINDING: Connect voice handler events to UI talking indicators
       voiceHandler.on("started_talking", () => {
         if (this.thisUser()) {
           this.thisUser().talking("on");
@@ -1007,6 +1207,8 @@ class GlobalBindings {
           this.thisUser().talking("off");
         }
       });
+      
+      // MUTE-STATE: Apply current mute state to new handler
       if (this.audioLockActive() || this.selfMute()) {
         voiceHandler.setMute(true);
       }
@@ -1087,33 +1289,20 @@ class GlobalBindings {
     };
 
     this.requestUnmute = (user) => {
-      console.log('[DEBUG] requestUnmute called', { 
-        user: user?.name?.(), 
-        audioLockActive: this.audioLockActive(),
-        thisUser: this.thisUser()?.name?.(),
-        connected: this.connected()
-      });
-      
       if (this.audioLockActive()) {
-        console.log('[DEBUG] audioLock is active, showing notification');
         this.notifyAudioLock();
         return;
       }
       if (user !== this.thisUser()) {
-        console.log('[DEBUG] user is not thisUser, returning');
         return;
       }
       
-      console.log('[DEBUG] Setting selfMute(false) and selfDeaf(false)');
       this.selfMute(false);
       this.selfDeaf(false);
       
       if (this.connected()) {
-        console.log('[DEBUG] Calling client.setSelfMute(false) and client.setSelfDeaf(false)');
         this.client.setSelfMute(false);
         this.client.setSelfDeaf(false);
-      } else {
-        console.log('[DEBUG] Not connected, skipping client calls');
       }
     };
 
@@ -1203,7 +1392,6 @@ function initializeUI() {
   }
 
   ui.netlifyIdentity.on("login", (user) => {
-    console.log("login", user);
     ui.connectDialog.username(
       user.user_metadata.full_name.replace(/[\s]+/g, "_")
     );
@@ -1275,15 +1463,11 @@ function userToState() {
 var voiceHandler;
 
 async function main() {
-  console.log('Starting Mumbling Mole initialization...');
-  
   document.title = window.location.hostname;
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI();
   enumMicrophones();
-  
-  console.log('Mumbling Mole initialization completed successfully');
 }
 
 window.onload = main;

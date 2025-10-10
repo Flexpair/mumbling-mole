@@ -21,13 +21,10 @@ function createWorker() {
  */
 class WorkerBasedMumbleConnector {
   constructor() {
-  // Create the underlying worker (now single strategy; subworkers removed)
+  // WORKER-CREATION: Create the underlying worker (single strategy, subworkers removed for simplicity)
   try {
     const globalWorker = typeof Worker !== 'undefined' ? Worker : undefined;
-    if (globalWorker) {
-      const sig = (() => { try { return Function.prototype.toString.call(globalWorker); } catch { return 'uninspectable'; } })();
-      console.debug('[worker] global Worker signature snippet:', sig.slice(0, 80).replace(/\n/g, ' '), '...');
-    } else {
+    if (!globalWorker) {
       console.warn('[worker] global Worker constructor missing in this environment');
     }
     this._worker = createWorker();
@@ -52,9 +49,10 @@ class WorkerBasedMumbleConnector {
     }
   }
 
+  // RPC-CALL: Send method call to worker and return promise for response
+  // Removed debug logging to reduce console spam
   _call(id, method, payload, transfer) {
     let reqId = this._reqId++;
-    console.debug(method, id, payload);
     this._postMessage(
       {
         clientId: id.client,
@@ -97,10 +95,13 @@ class WorkerBasedMumbleConnector {
     return client;
   }
 
+  // MESSAGE-HANDLER: Process messages from worker thread
+  // Removed debug logging to reduce console spam in production
   _onMessage(ev) {
     let data = ev.data;
+    
+    // RPC-RESPONSE: Handle method call responses
     if (data.reqId != null) {
-      console.debug(data);
       let { reqId, result, error } = data;
       let [resolve, reject] = this._requests[reqId];
       delete this._requests[reqId];
@@ -109,10 +110,12 @@ class WorkerBasedMumbleConnector {
       } else {
         reject(error);
       }
-    } else if (data.clientId != null) {
-      console.debug(data);
+    } 
+    // EVENT-DISPATCH: Handle property updates and events from worker
+    else if (data.clientId != null) {
       let client = this._client(data.clientId);
 
+      // TARGET-RESOLUTION: Determine which object (client/channel/user) to update
       let target;
       if (data.userId != null) {
         target = client._user(data.userId);
@@ -122,12 +125,15 @@ class WorkerBasedMumbleConnector {
         target = client;
       }
 
+      // DISPATCH: Send event or property update to target object
       if (data.event) {
         target._dispatchEvent(data.event, data.value);
       } else if (data.prop) {
         target._setProp(data.prop, data.value);
       }
-    } else if (data.voiceId != null) {
+    } 
+    // VOICE-DATA: Handle incoming voice audio data
+    else if (data.voiceId != null) {
       let stream = this._voiceStreams[data.voiceId];
       let buffer = data.buffer;
       if (buffer) {
@@ -206,20 +212,32 @@ class WorkerBasedMumbleClient extends EventEmitter {
     };
   }
 
+  // USER-FACTORY: Get or create user proxy object
   _user(id) {
     let user = this._users[id];
     if (!user) {
       user = new WorkerBasedMumbleUser(this._connector, this, id);
       this._users[id] = user;
+      
+      // RACE-CONDITION-FIX: Emit newUser event immediately when creating user proxy
+      // Handles race condition where voice events arrive before the newUser event from worker
+      // Ensures UI event handlers (like voice stream listeners) are registered in time
+      this.emit('newUser', user);
     }
     return user;
   }
 
+  // CHANNEL-FACTORY: Get or create channel proxy object
   _channel(id) {
     let channel = this._channels[id];
     if (!channel) {
       channel = new WorkerBasedMumbleChannel(this._connector, this, id);
       this._channels[id] = channel;
+      
+      // RACE-CONDITION-FIX: Emit newChannel event immediately when creating channel proxy
+      // Handles race condition where events arrive before the newChannel event from worker
+      // Ensures UI event handlers are registered in time
+      this.emit('newChannel', channel);
     }
     return channel;
   }
@@ -245,6 +263,20 @@ class WorkerBasedMumbleClient extends EventEmitter {
     }
     if (name === "self") {
       name = "_selfId";
+      
+      // USER-MIGRATION: Handle race condition where voice events arrive before self ID is assigned
+      // When connecting, server initially assigns undefined ID, then later sends real ID
+      // Voice event handlers may be attached to _users[undefined] before we get the real ID
+      // This migration preserves those event listeners when the real ID is assigned
+      if (this._users[undefined] && value !== undefined) {
+        const undefinedUser = this._users[undefined];
+        undefinedUser._id = value; // Update user object's ID
+        this._users[value] = undefinedUser; // Move to correct key in map
+        delete this._users[undefined]; // Remove old entry
+        
+        // This is critical for loopback mode where voice events arrive immediately after connection
+        // Without migration, loopback voice events would be lost or create duplicate user objects
+      }
     }
     if (name === "maxBandwidth") {
       this._dummyClient.maxBandwidth = value;
