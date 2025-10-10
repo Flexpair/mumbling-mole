@@ -615,16 +615,23 @@ class GlobalBindings {
         const beeper = this._persistentBeeper;
         const ac = beeper.gain.context;
         const currentTime = ac.currentTime;
-        const fadeTime = 1.0; // 1 second piano-style fade
         
-        // Smooth exponential fade to silence
+        // PIANO-PHYSICS: Real piano strings vibrate for minimum time even on staccato
+        // Even quick taps should produce audible tone with natural decay
+        const minimumSustain = 0.6; // Minimum sustain like piano string physics
+        const fadeTime = 1.2; // Natural exponential decay time
+        
+        // Schedule fade to start after minimum sustain time
+        // This ensures even staccato notes have proper body and presence
         beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + fadeTime);
+        beeper.gain.gain.setValueAtTime(0.4, currentTime); // Hold current level
+        beeper.gain.gain.setValueAtTime(0.4, currentTime + minimumSustain); // Sustain minimum time
+        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + minimumSustain + fadeTime);
         
         beeper.isPlaying = false;
         this.isBeeping(false);
         
-        console.log('[BEEP] Beep fading out over 1 second');
+        console.log(`[BEEP] Piano-style: sustain ${minimumSustain}s + fade ${fadeTime}s = ${minimumSustain + fadeTime}s total`);
       } catch (err) {
         console.error('[BEEP] Error stopping beep:', err);
       }
