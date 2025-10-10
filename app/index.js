@@ -1424,7 +1424,14 @@ class GlobalBindings {
 
     this.requestDeaf = (user) => {
       if (user !== this.thisUser()) return;
-      this.selfMute(true);
+      
+      // LOOPBACK-FEATURE: Allow deaf without mute in loopback test mode
+      // In normal mode, deaf automatically enables mute (standard Mumble behavior)
+      // In loopback mode, allow deaf without mute for testing purposes
+      if (!this.isLoopbackMode()) {
+        this.selfMute(true);
+      }
+      
       this.selfDeaf(true);
       if (this.connected()) {
         this.client.setSelfDeaf(true);
