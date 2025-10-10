@@ -590,14 +590,18 @@ class GlobalBindings {
         const ac = beeper.gain.context;
         const currentTime = ac.currentTime;
         
-        // Cancel any ongoing fade-outs and set to full volume instantly
+        // ANTI-CLICK: Very fast but smooth attack to prevent audio pops
+        // Real piano hammers take a few milliseconds to impact strings
+        const attackTime = 0.005; // 5ms attack to eliminate clicks
+        
         beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0.4, currentTime);
+        beeper.gain.gain.setValueAtTime(0, currentTime); // Start from silence
+        beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime); // Quick smooth ramp
         
         beeper.isPlaying = true;
         this.isBeeping(true);
         
-        console.log('[BEEP] Beep tone activated (gain=0.4)');
+        console.log('[BEEP] Beep tone activated with smooth 5ms attack');
       } catch (err) {
         console.error('[BEEP] Error starting beep:', err);
       }
