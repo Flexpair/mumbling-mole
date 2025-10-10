@@ -575,16 +575,15 @@ class GlobalBindings {
         return;
       }
       
-      // Initialize persistent beeper if needed (and wait for it)
-      if (!this._persistentBeeper) {
-        console.log('[BEEP] Initializing beeper for first use...');
+      // FALLBACK-INIT: If beeper wasn't initialized during setup, try to initialize it now
+      if (!this._persistentBeeper && window._audioMixer) {
+        console.log('[BEEP] Beeper not ready, initializing now...');
         await this._initializePersistentBeeper();
-        
-        // If still not ready after initialization, abort
-        if (!this._persistentBeeper) {
-          console.log('[BEEP] Failed to initialize beeper');
-          return;
-        }
+      }
+      
+      if (!this._persistentBeeper) {
+        console.error('[BEEP] Beeper not ready! Audio mixer not available');
+        return;
       }
       
       try {
@@ -592,8 +591,7 @@ class GlobalBindings {
         const ac = beeper.gain.context;
         const currentTime = ac.currentTime;
         
-        // ANTI-CLICK: Very fast but smooth attack to prevent audio pops
-        // Real piano hammers take a few milliseconds to impact strings
+        // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
         const attackTime = 0.005; // 5ms attack to eliminate clicks
         
         beeper.gain.gain.cancelScheduledValues(currentTime);
@@ -603,7 +601,7 @@ class GlobalBindings {
         beeper.isPlaying = true;
         this.isBeeping(true);
         
-        console.log('[BEEP] Beep tone activated with smooth 5ms attack');
+        console.log('[BEEP] Instant beep tone activated');
       } catch (err) {
         console.error('[BEEP] Error starting beep:', err);
       }
@@ -930,7 +928,7 @@ class GlobalBindings {
 
     // TEST-BUTTON: Wrapper function for the Test button - enables loopback on existing connection
     // This allows testing audio without reconnecting if already connected to server
-    this.startLoopbackTest = () => {
+    this.startLoopbackTest = async () => {
       if (this.connected()) {
         // ALREADY-CONNECTED: Switch existing connection to loopback mode
         // More efficient than disconnecting and reconnecting
@@ -946,6 +944,26 @@ class GlobalBindings {
         
         // HANDLER-RECREATION: Create new voice handler with loopback target (31)
         this._updateVoiceHandler();
+        
+        // BEEPER-PREPARATION: Wait for mixer to be ready, then initialize beeper
+        // This ensures button responds instantly when user clicks
+        console.log('[LOOPBACK] Waiting for audio mixer to be ready...');
+        
+        // Wait up to 5 seconds for mixer to be available
+        let retries = 50; // 50 * 100ms = 5 seconds
+        while (retries > 0 && !window._audioMixer) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          retries--;
+        }
+        
+        if (window._audioMixer) {
+          console.log('[LOOPBACK] Mixer ready, initializing beeper...');
+          await this._initializePersistentBeeper();
+          console.log('[LOOPBACK] Beeper ready - button will respond instantly');
+        } else {
+          console.log('[LOOPBACK] Warning: Mixer not ready after 5 seconds, beeper will initialize on first click');
+        }
+        
       } else {
         // NOT-CONNECTED: Use default connection parameters for initial loopback connection
         const host = this.config.defaults.host || "localhost";
@@ -1358,12 +1376,6 @@ class GlobalBindings {
       if (this.audioLockActive() || this.selfMute()) {
         voiceHandler.setMute(true);
       }
-
-      // PERSISTENT-BEEPER: Initialize beeper when voice handler is ready
-      // This ensures beeper is available for loopback testing
-      setTimeout(() => {
-        this._initializePersistentBeeper();
-      }, 500); // Small delay to ensure mixer is ready
 
       this.client.setAudioQuality(
         this.settings.audioBitrate,
