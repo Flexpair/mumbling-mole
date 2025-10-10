@@ -616,22 +616,24 @@ class GlobalBindings {
         const ac = beeper.gain.context;
         const currentTime = ac.currentTime;
         
-        // PIANO-PHYSICS: Real piano strings vibrate for minimum time even on staccato
-        // Even quick taps should produce audible tone with natural decay
-        const minimumSustain = 0.6; // Minimum sustain like piano string physics
-        const fadeTime = 1.2; // Natural exponential decay time
+        // PIANO-ENVELOPE: More realistic decay curve like acoustic piano
+        // Initial gentle decline, then stronger exponential decay
+        const initialDeclineTime = 0.3; // Gentle decline phase
+        const mainDecayTime = 1.0; // Main exponential decay
         
-        // Schedule fade to start after minimum sustain time
-        // This ensures even staccato notes have proper body and presence
         beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0.4, currentTime); // Hold current level
-        beeper.gain.gain.setValueAtTime(0.4, currentTime + minimumSustain); // Sustain minimum time
-        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + minimumSustain + fadeTime);
+        beeper.gain.gain.setValueAtTime(0.4, currentTime); // Current level
+        
+        // PHASE 1: Gentle initial decline (like piano hammer release)
+        beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
+        
+        // PHASE 2: Natural exponential decay (like string resonance)
+        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
         
         beeper.isPlaying = false;
         this.isBeeping(false);
         
-        console.log(`[BEEP] Piano-style: sustain ${minimumSustain}s + fade ${fadeTime}s = ${minimumSustain + fadeTime}s total`);
+        console.log(`[BEEP] Realistic piano envelope: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay`);
       } catch (err) {
         console.error('[BEEP] Error stopping beep:', err);
       }
