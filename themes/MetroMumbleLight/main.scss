@@ -143,6 +143,35 @@ form {
   gap: 10px;
   align-items: center;
 }
+.beep-test-button {
+  padding: 6px 12px;
+  font-size: 14px;
+  border: 1px solid $dialog-button-border-color;
+  border-radius: 3px;
+  background-color: $dialog-button-bg-color;
+  color: $dialog-button-color;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  
+  &:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+  
+  &.active {
+    background-color: #28a745;
+    color: white;
+    border-color: #1e7e34;
+  }
+  
+  &:disabled {
+    background-color: #e0e0e0;
+    color: #999;
+    border-color: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
 .dialog-submit {
   flex: 0 0 auto;
 }

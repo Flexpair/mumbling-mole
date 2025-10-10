@@ -518,6 +518,127 @@ class GlobalBindings {
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
+    this.isBeeping = ko.observable(false);
+    
+    // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
+    
+    this.startBeep = async () => {
+      console.log('[BEEP] Start beep requested');
+      console.log('[BEEP] Connected:', this.connected());
+      console.log('[BEEP] Already beeping:', this.isBeeping());
+      
+      if (!this.connected() || this.isBeeping()) {
+        console.log('[BEEP] Aborting - preconditions not met');
+        return;
+      }
+      
+      this.isBeeping(true);
+      console.log('[BEEP] Starting beep by injecting into audio pipeline');
+      
+      // Retry logic to wait for audio system to be ready
+      let retryCount = 0;
+      const maxRetries = 15; // Increased retries
+      
+      const tryStartBeep = async () => {
+        try {
+          // Check if we have the audio mixer first
+          const mixer = window._audioMixer;
+          console.log('[BEEP] Audio mixer available:', !!mixer);
+          
+          if (!mixer) {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`[BEEP] Audio mixer not ready, retry ${retryCount}/${maxRetries}`);
+              setTimeout(tryStartBeep, 300);
+              return;
+            } else {
+              console.error('[BEEP] Audio mixer not available after retries - microphone system may not be active');
+              this.isBeeping(false);
+              return;
+            }
+          }
+          
+          // Get AudioContext and ensure it's running
+          let ac = await window.audioContextManager.getAudioContext();
+          if (ac.state === 'suspended') {
+            await window.audioContextManager.resumeAudioContext();
+          }
+          
+          if (!ac || ac.state !== 'running') {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`[BEEP] AudioContext not running, retry ${retryCount}/${maxRetries}`, ac ? `state: ${ac.state}` : 'ac is null');
+              setTimeout(tryStartBeep, 300);
+              return;
+            } else {
+              console.error('[BEEP] AudioContext not running after retries', ac ? `final state: ${ac.state}` : 'ac is null');
+              this.isBeeping(false);
+              return;
+            }
+          }
+          
+          console.log('[BEEP] AudioContext state:', ac.state, 'sampleRate:', ac.sampleRate);
+          console.log('[BEEP] Audio mixer found, proceeding with beep injection');
+          
+          // Create oscillator for beep tone - this acts like a virtual microphone
+          const oscillator = ac.createOscillator();
+          const beepGain = ac.createGain();
+          
+          oscillator.frequency.setValueAtTime(440, ac.currentTime);
+          oscillator.type = 'sine';
+          beepGain.gain.setValueAtTime(0.4, ac.currentTime); // Increased volume
+          
+          oscillator.connect(beepGain);
+          
+          // Store references for cleanup
+          this._beepOscillator = oscillator;
+          this._beepGain = beepGain;
+          
+          // Connect beep oscillator to the same mixer as the microphone
+          // This ensures the beep takes exactly the same path as voice audio
+          beepGain.connect(mixer);
+          console.log('[BEEP] Beep oscillator connected to audio mixer (same path as microphone)');
+          
+          // Start the oscillator
+          oscillator.start();
+          
+          console.log('[BEEP] Beep started and injected into voice audio pipeline');
+          
+        } catch (err) {
+          console.error('[BEEP] Failed to create beep oscillator:', err);
+          this.isBeeping(false);
+        }
+      };
+      
+      // Start the retry process
+      tryStartBeep();
+    };
+    
+    this.stopBeep = () => {
+      console.log('[BEEP] Stop beep requested, isBeeping:', this.isBeeping());
+      if (!this.isBeeping()) return;
+      
+      // Stop beeping flag first
+      this.isBeeping(false);
+      
+      // Clean up oscillator and nodes
+      try {
+        if (this._beepOscillator) {
+          this._beepOscillator.stop();
+          this._beepOscillator.disconnect();
+          this._beepOscillator = null;
+        }
+        if (this._beepGain) {
+          this._beepGain.disconnect();
+          this._beepGain = null;
+        }
+        this._beepInjectionNode = null;
+      } catch (err) {
+        console.error('[BEEP] Error cleaning up beep nodes:', err);
+      }
+      
+      console.log('[BEEP] Beep stopped and cleaned up');
+    };
     
     // Add method to retry microphone permission
     this._attemptMicrophonePermission = () => {
@@ -1056,15 +1177,34 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
+          console.log('[VOICE] Voice stream received for user:', user.username);
+          
           // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
           
-          userNode.connect(this.audioContext.destination);
+          // Create a GainNode to control volume (for deafen functionality)
+          var gainNode = this.audioContext.createGain();
+          
+          // Set initial gain based on current deafen state
+          gainNode.gain.value = this.selfDeaf() ? 0 : 1;
+          console.log('[VOICE] Initial gain set to:', gainNode.gain.value, '(selfDeaf:', this.selfDeaf(), ')');
+          
+          // Connect: userNode -> gainNode -> destination
+          userNode.connect(gainNode);
+          gainNode.connect(this.audioContext.destination);
+          
+          // Subscribe to selfDeaf changes to update gain
+          var deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
+            gainNode.gain.value = isDeaf ? 0 : 1;
+            console.log('[VOICE] Gain updated to:', gainNode.gain.value, '(deaf:', isDeaf, ')');
+          });
 
           stream
             .on("data", (data) => {
+              console.log('[VOICE] Audio data received, target:', data.target, 'buffer size:', data.buffer?.length);
+              
               if (data.target === "normal") {
                 ui.talking("on");
               } else if (data.target === "shout") {
@@ -1074,13 +1214,17 @@ class GlobalBindings {
               } else if (data.target === "loopback") {
                 // Server loopback - show talking status
                 ui.talking("on");
+                console.log('[VOICE] Loopback audio received!');
               }
               
               userNode.write(data.buffer);
             })
             .on("end", () => {
+              console.log('[VOICE] Voice stream ended for user:', user.username);
               ui.talking("off");
               userNode.end();
+              // Clean up subscription when stream ends
+              deafSubscription.dispose();
             });
         });
     };
@@ -1149,6 +1293,7 @@ class GlobalBindings {
     };
 
     this.resetClient = () => {
+      this.stopBeep(); // Stop beep if active
       if (this.client) {
         this.client.disconnect();
       }

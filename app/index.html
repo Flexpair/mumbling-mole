@@ -131,6 +131,15 @@
               </div>
             </div>
             <div class="dialog-buttons">
+              <button
+                type="button"
+                class="beep-test-button"
+                title="Hold to send 440Hz test tone (bypasses mute, tests deafen)"
+                data-bind="
+                  event: { mousedown: $root.startBeep, mouseup: $root.stopBeep, mouseleave: $root.stopBeep, touchstart: $root.startBeep, touchend: $root.stopBeep },
+                  css: { 'active': $root.isBeeping },
+                  enable: $root.connected()"
+              >🔊 Beep Test</button>
               <input class="dialog-close" type="button" value="Cancel" disabled />
               <input
                 id="connect-dialog_controls_connect"
