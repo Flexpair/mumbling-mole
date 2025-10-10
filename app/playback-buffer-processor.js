@@ -21,15 +21,6 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
       const { type, data } = event.data;
       
       if (type === 'data') {
-        // Debug: Log first buffer to verify data format
-        if (!this._hasLogged && data && data.channels) {
-          console.log('[PlaybackProcessor] First buffer:', {
-            channelCount: data.channels.length,
-            bufferLength: data.length,
-            firstSamples: data.channels[0].slice(0, 10)
-          });
-          this._hasLogged = true;
-        }
         // Queue incoming audio buffer
         this._queue.push(data);
       } else if (type === 'finish') {

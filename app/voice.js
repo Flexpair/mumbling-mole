@@ -175,6 +175,8 @@ export function initVoice(onData, onUserMediaError) {
     audio: {
       deviceId: audioSource ? { exact: audioSource } : undefined,
       echoCancellation: true,
+      autoGainControl: true,  // Enable automatic gain control to boost quiet microphones
+      noiseSuppression: true,  // Also enable noise suppression for better quality
       channelCount: { ideal: 1 },
       sampleRate: { ideal: 48000 },
     },
@@ -214,9 +216,6 @@ export function initVoice(onData, onUserMediaError) {
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
-          // DEBUG-LOGGING: Commented out to avoid console spam during normal operation
-          // Uncomment for debugging audio capture issues:
-          // console.log("[VOICE] PCM data received, samples:", f32.length, "max amplitude:", Math.max(...f32.map(Math.abs)));
           onData(Buffer.from(f32.buffer));
         }
       };

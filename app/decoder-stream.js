@@ -23,9 +23,11 @@ class DecoderStream extends Transform {
 
   _onMessage(data) {
     if (data.action === "decoded") {
+      const pcm = new Float32Array(data.buffer);
+      
       this.push({
         target: data.target,
-        pcm: new Float32Array(data.buffer),
+        pcm: pcm,
         numberOfChannels: data.numberOfChannels,
         position: data.position,
       });
