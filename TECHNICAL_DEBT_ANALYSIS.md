@@ -152,27 +152,24 @@ describe('AudioContextManager', () => {
 ```
 
 **Recommendation (Effort: Medium, Impact: High):**
-1. **Document fork reasons** in `vendors/*/FORK_RATIONALE.md` for each vendored dep
+1. ✅ **COMPLETED:** Document fork reasons in `vendors/*/FORK_RATIONALE.md` for each vendored dep
 2. **Add upstream git remotes** to vendor subdirectories
 3. **Create quarterly sync schedule** for reviewing upstream changes
 4. **Migrate to npm/GitHub packages** where possible (especially `web-audio-buffer-queue`)
 5. **Add Dependabot** or Renovate config for vendored dependencies
-6. **Document custom patches** in vendor README files
+6. ✅ **COMPLETED:** Document custom patches in vendor README files
 
-**Example Documentation:**
-```markdown
-# vendors/mumble-client/FORK_RATIONALE.md
+**Documentation Created:**
+- ✅ `vendors/README.md` - Overview of all vendored dependencies
+- ✅ `vendors/mumble-client/FORK_RATIONALE.md` - Babel 7 upgrade, formatting changes
+- ✅ `vendors/mumble-streams/FORK_RATIONALE.md` - **Critical:** ProtobufJS v5→v7 security fork
+- ✅ `vendors/web-audio-buffer-queue/FORK_RATIONALE.md` - Polyfill removal, refactoring
+- ✅ `vendors/netlify-identity-widget/VENDOR_STATUS.md` - Unmodified upstream copy
 
-## Why Forked
-- Upstream doesn't support ES6 modules
-- Need custom babel config for browser compatibility
-- Waiting on PR #123 to be merged upstream
-
-## Sync Strategy
-- Review upstream quarterly (Jan/Apr/Jul/Oct)
-- Cherry-pick security fixes immediately
-- Track upstream version: v1.4.1 (2024-08-15)
-```
+**Key Findings:**
+- **mumble-streams** uses ProtobufJS v7 (upstream still on vulnerable v5) - **DO NOT sync blindly**
+- All forks are functionally compatible with upstream
+- Quarterly review schedule documented in `vendors/README.md`
 
 ---
 
