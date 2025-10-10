@@ -78,6 +78,7 @@ function ConnectDialog() {
   self.username = ko.observable("");
   self.password = ko.observable("");
   self.visible = ko.observable(true);
+  // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
   self.isTestActive = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
   self.hide = self.visible.bind(self.visible, false);
@@ -85,14 +86,17 @@ function ConnectDialog() {
   self.connect = function () {
     self.hide();
     
+    // LOOPBACK-FEATURE: When already connected, this transitions from test mode back to normal mode
     if (ui.connected()) {
-      // Already connected - switch to normal mode
+      // Switch from loopback test mode back to normal voice routing
       self.isTestActive(false);
       ui.isLoopbackMode(false);
       
+      // Recreate voice handler with normal target (not loopback target 31)
       ui._updateVoiceHandler();
       
-      // Start and show Guacamole frame if we have login credentials
+      // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
+      // Uses stored credentials from initial connection
       if (ui._guacLogin) {
         ui.guacamoleFrame.loading(false);
         ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
@@ -101,24 +105,28 @@ function ConnectDialog() {
         ui.guacamoleFrame.loading(false);
       }
     } else {
-      // Not connected yet - connect in normal mode
+      // Normal connection flow - not yet connected to server
       self.isTestActive(false);
       ui.connect(self.address(), self.port(), self.username(), self.password());
     }
   };
   
+  // LOOPBACK-FEATURE: Toggle button handler - activates loopback test mode
   self.toggleLoopback = function () {
-      // Only allow activating, not deactivating
+      // One-way activation: prevent deactivation via this button (use Connect button instead)
       if (self.isTestActive()) {
         return;
       }
       
-      // Activate loopback mode
+      // Mark test as active and connect in loopback mode
       self.isTestActive(true);
       
-      // Connect in loopback mode but keep modal open (don't call self.hide())
+      // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
+      // This allows user to see connection status and switch back to normal mode
       ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
-    };  // Legacy function for backward compatibility (now closes dialog)
+    };  
+  
+  // LEGACY-COMPAT: Legacy function for backward compatibility (closes dialog like old behavior)
   self.connectLoopback = function () {
     self.hide();
     ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
@@ -450,9 +458,15 @@ class GlobalBindings {
     this.audioLockActive = ko.observable(false);
     this.audioLockReason = ko.observable(null);
     this.audioLockDetails = ko.observable(null);
+    
+    // LOOPBACK-FEATURE: Track whether client is in loopback test mode
+    // When true, voice is routed to server loopback (target=31) for echo testing
     this.isLoopbackMode = ko.observable(false);
-    this._guacLogin = null; // Store Guacamole login for later use
-    this._guacPassword = null; // Store password for Guacamole
+    
+    // GUACAMOLE-INTEGRATION: Store credentials for later use when switching from test to normal mode
+    // Allows seamless transition to Guacamole desktop without re-authentication
+    this._guacLogin = null; 
+    this._guacPassword = null;
 
     this._activateAudioLock = (reason, details = {}) => {
       this.audioLockReason(reason);
@@ -557,21 +571,24 @@ class GlobalBindings {
       this._attemptMicrophonePermission();
     };
     
-    // Define initializeAudioContext method before using it
+    // AUDIO-CONTEXT: Initialize managed AudioContext with autoplay policy handling
+    // This method ensures singleton pattern and handles browser autoplay restrictions
     this.initializeAudioContext = async () => {
-      // Prevent duplicate initialization
+      // SINGLETON-PATTERN: Prevent duplicate initialization - reuse existing instance
       if (this.audioContext) {
         // AudioContext already exists, reusing singleton instance
         return;
       }
       
       try {
-        // Initialize managed AudioContext with autoplay policy handling
+        // AUTOPLAY-POLICY: Use managed AudioContext that handles browser autoplay restrictions
+        // Waits for user interaction before allowing audio playback
         this.audioContext = await ensureAudioContext({ 
           latencyHint: "interactive" 
         });
 
-        // Set up event handlers for audio context state changes (only once)
+        // STATE-MONITORING: Set up event handlers for audio context state changes
+        // These help diagnose audio issues by tracking suspend/resume cycles
         audioContextManager.onSuspend(() => {
           // AudioContext suspended - audio features may be limited until user interaction
         });
@@ -583,7 +600,8 @@ class GlobalBindings {
       } catch (error) {
         console.error('Failed to initialize AudioContext:', error);
         
-        // Fallback to legacy approach if managed approach fails
+        // FALLBACK-STRATEGY: Try legacy AudioContext creation if managed approach fails
+        // Some older browsers or restricted environments may not support managed approach
         try {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           if (!AudioContextClass) {
@@ -592,7 +610,7 @@ class GlobalBindings {
           this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
-          // AudioContext will remain null, audio features will be disabled
+          // DEGRADED-MODE: AudioContext remains null, audio features will be disabled
         }
       }
     };
@@ -716,6 +734,8 @@ class GlobalBindings {
       await this._performConnect(connectionParams, { audioEnabled: true });
     };
 
+    // LOOPBACK-FEATURE: Connect to server in loopback test mode
+    // Routes voice through server echo (target=31) for testing audio encode/decode pipeline
     this.connectLoopback = async (
       host,
       port,
@@ -724,6 +744,7 @@ class GlobalBindings {
       tokens = [],
       channelName = ""
     ) => {
+      // AUTH-CHECK: Verify Netlify Identity authentication before connecting
       const identity = this.netlifyIdentity.currentUser();
       if (!identity || !identity.app_metadata) {
         alert(
@@ -732,17 +753,19 @@ class GlobalBindings {
         return;
       }
 
+      // ROLE-MANAGEMENT: Ensure user has minimum required roles for voice testing
       var user_roles = identity.app_metadata.roles || [];
       if (!Array.isArray(user_roles)) {
         user_roles = [];
       }
 
-      // Ensure roles contain defaults
+      // Add default roles if missing (watch for UI, listen for audio)
       if (!user_roles.includes("watch")) user_roles.push("watch");
       if (!user_roles.includes("listen")) user_roles.push("listen");
       identity.app_metadata.roles = user_roles;
 
-      // Prepare AudioContext information before prompting for permissions
+      // AUDIO-INIT: Prepare AudioContext before requesting microphone permissions
+      // This ensures audio subsystem is ready for loopback testing
       if (!this.audioContext) {
         await this.initializeAudioContext();
       }
@@ -754,15 +777,17 @@ class GlobalBindings {
         password,
         tokens,
         channelName,
-        isLoopback: true, // Mark this as a loopback connection
+        isLoopback: true, // ROUTING-FLAG: Mark connection for loopback voice routing (target=31)
       };
 
-      // Request microphone permission and show overlay only if denied
+      // MIC-PERMISSION: Request microphone access and track permission state
+      // Shows retry overlay if user denies permission
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices
           .getUserMedia({ audio: true })
           .then((stream) => {
             this.micPermissionDenied(false);
+            // CLEANUP: Stop temporary permission check stream immediately
             stream.getTracks().forEach((track) => track.stop());
           })
           .catch((err) => {
@@ -775,28 +800,32 @@ class GlobalBindings {
       }
 
       this._clearAudioLock({ resetStates: true });
-      // Mark as loopback mode and connect
+      
+      // MODE-FLAG: Set loopback mode before connection to affect voice handler creation
       this.isLoopbackMode(true);
       await this._performConnect(connectionParams, { audioEnabled: true });
     };
 
-    // Wrapper function for the Test button - uses current connection if available
+    // TEST-BUTTON: Wrapper function for the Test button - enables loopback on existing connection
+    // This allows testing audio without reconnecting if already connected to server
     this.startLoopbackTest = () => {
       if (this.connected()) {
-        // If already connected, just enable loopback mode
+        // ALREADY-CONNECTED: Switch existing connection to loopback mode
+        // More efficient than disconnecting and reconnecting
         this.isLoopbackMode(true);
         
-        // Force recreation of voice handler with loopback target
+        // VOICE-HANDLER-RESET: Force recreation of voice handler with new loopback target
+        // Old handler uses normal routing, new one will use target=31 for loopback
         if (this.voiceHandler) {
           this.voiceHandler.setMute(true);
           this.voiceHandler.end();
           this.voiceHandler = null;
         }
         
-        // Recreate voice handler with loopback target (31)
+        // HANDLER-RECREATION: Create new voice handler with loopback target (31)
         this._updateVoiceHandler();
       } else {
-        // If not connected, use default connection parameters for loopback
+        // NOT-CONNECTED: Use default connection parameters for initial loopback connection
         const host = this.config.defaults.host || "localhost";
         const port = this.config.defaults.port || 64738;
         const username = this.config.defaults.username || "WebClient";
@@ -1135,24 +1164,39 @@ class GlobalBindings {
 
     this.connected = () => this.thisUser() != null;
 
+    // VOICE-HANDLER-UPDATE: Recreate voice handler when mode or target changes
+    // Called when switching between normal/loopback mode or changing PTT/continuous settings
     this._updateVoiceHandler = () => {
       if (!this.client) {
         return;
       }
+      
+      // CLEANUP: Destroy existing handler before creating new one
       if (voiceHandler) {
         voiceHandler.end();
         voiceHandler = null;
       }
+      
       let mode = this.settings.voiceMode;
-      let target = this.isLoopbackMode() ? 31 : 0; // Use target 31 for server loopback
+      
+      // TARGET-ROUTING: Determine voice routing target based on mode
+      // target=31 routes to server loopback for echo testing (loopback mode)
+      // target=0 routes normally to channel/user (normal mode)
+      let target = this.isLoopbackMode() ? 31 : 0;
+      
+      // HANDLER-CREATION: Create appropriate handler based on voice activation mode
       if (mode === "cont") {
+        // Continuous transmission - always sending audio
         voiceHandler = new ContinuousVoiceHandler(this.client, this.settings, target);
       } else if (mode === "ptt") {
+        // Push-to-talk - only sending when key is pressed
         voiceHandler = new PushToTalkVoiceHandler(this.client, this.settings, target);
       } else {
         log(translate("logentry.unknown_voice_mode"), mode);
         return;
       }
+      
+      // UI-BINDING: Connect voice handler events to UI talking indicators
       voiceHandler.on("started_talking", () => {
         if (this.thisUser()) {
           this.thisUser().talking("on");
@@ -1164,6 +1208,7 @@ class GlobalBindings {
         }
       });
       
+      // MUTE-STATE: Apply current mute state to new handler
       if (this.audioLockActive() || this.selfMute()) {
         voiceHandler.setMute(true);
       }

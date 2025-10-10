@@ -25,47 +25,53 @@ class AudioContextManager {
     this.setupUserInteractionDetection();
   }
 
+  // AUTOPLAY-POLICY: Detect user interactions to enable audio playback
+  // Modern browsers require user interaction before allowing AudioContext to run
   setupUserInteractionDetection() {
-    // Listen for user interactions to enable audio
+    // USER-EVENTS: Listen for any user interaction that indicates intent to use audio
     const userInteractionEvents = ['click', 'touchstart', 'keydown', 'mousedown'];
     
     const handleUserInteraction = () => {
       if (!this.userInteractionDetected) {
         this.userInteractionDetected = true;
         
-        // Try to resume audio context if it exists and is suspended
+        // AUTO-RESUME: Try to resume suspended AudioContext after first user interaction
+        // This handles browsers that auto-suspend AudioContext until user interacts
         if (this.audioContext && this.audioContext.state === 'suspended') {
           this.resumeAudioContext();
         }
         
-        // Remove listeners after first interaction
+        // CLEANUP: Remove listeners after first interaction (no longer needed)
         userInteractionEvents.forEach(event => {
           document.removeEventListener(event, handleUserInteraction, { passive: true });
         });
       }
     };
 
-    // Add passive listeners to detect user interaction
+    // PASSIVE-LISTENERS: Use passive listeners for better scroll performance
     userInteractionEvents.forEach(event => {
       document.addEventListener(event, handleUserInteraction, { passive: true });
     });
   }
 
   /**
-   * Get or create the global AudioContext with proper autoplay policy handling
+   * SINGLETON-PATTERN: Get or create the global AudioContext with autoplay policy handling
+   * Always returns the same AudioContext instance throughout app lifecycle
    */
   async getAudioContext(options = {}) {
     if (!this.audioContext) {
       await this.createAudioContext(options);
     }
 
-    // If the cached context was closed elsewhere, recreate it
+    // RECOVERY: If cached context was closed elsewhere, recreate it
+    // This handles edge cases where AudioContext is closed unexpectedly
     if (this.audioContext && this.audioContext.state === 'closed') {
       console.warn('AudioContext was closed; recreating...');
       await this.createAudioContext(options);
     }
 
-    // Always try to resume if suspended (and user has interacted)
+    // AUTO-RESUME: Always try to resume if suspended and user has interacted
+    // Ensures audio is ready to play when needed
     if (this.audioContext.state === 'suspended' && this.userInteractionDetected) {
       await this.resumeAudioContext();
     }
@@ -75,16 +81,20 @@ class AudioContextManager {
 
   async createAudioContext(options = {}) {
     try {
+      // CONFIG-MERGE: Combine default config with user-provided options
       const config = {
         latencyHint: options.latencyHint || AUDIO_CONFIG.LATENCY_HINT,
         ...options
       };
 
+      // SAMPLE-RATE: Remove undefined sampleRate to let browser choose best rate
+      // Unless explicitly specified by caller (e.g., 48kHz for Mumble)
       if (config.sampleRate === undefined || config.sampleRate === null) {
         delete config.sampleRate;
       }
 
-      // Create AudioContext - important for handling browser autoplay policies
+      // BROWSER-COMPAT: Create AudioContext with cross-browser compatibility
+      // Handles browser autoplay policies and initialization
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) {
         throw new Error('AudioContext is not supported in this browser');
@@ -93,10 +103,11 @@ class AudioContextManager {
       this.audioContext = new AudioContextClass(config);
       this.isInitialized = true;
 
-      // Set up event listeners for state changes
+      // EVENT-LISTENERS: Set up state change monitoring
       this.setupAudioContextEventListeners();
 
-      // Notify ready callbacks
+      // CALLBACK-NOTIFICATION: Notify all registered ready callbacks
+      // These are used by other components waiting for AudioContext initialization
       this.onReadyCallbacks.forEach(callback => {
         try {
           callback(this.audioContext);
@@ -105,7 +116,8 @@ class AudioContextManager {
         }
       });
 
-      // Try to resume immediately if user has already interacted
+      // EAGER-RESUME: Try to resume immediately if user has already interacted
+      // Avoids delay when audio is needed right after context creation
       if (this.audioContext.state === 'suspended' && this.userInteractionDetected) {
         await this.resumeAudioContext();
       }
@@ -118,13 +130,16 @@ class AudioContextManager {
     }
   }
 
+  // STATE-MONITORING: Set up listeners for AudioContext state changes
+  // Critical for debugging audio issues and tracking suspend/resume cycles
   setupAudioContextEventListeners() {
     if (!this.audioContext) return;
 
-    // Listen for state changes (not all browsers support this)
+    // BROWSER-COMPAT: Not all browsers support addEventListener on AudioContext
     if (typeof this.audioContext.addEventListener === 'function') {
       this.audioContext.addEventListener('statechange', () => {
-        // Log state changes as they're critical for debugging audio issues
+        // DETAILED-LOGGING: Log comprehensive state information for debugging
+        // This helps diagnose audio issues in production without verbose debug logs
         console.log('[AudioContext] State changed to:', this.audioContext.state);
         console.log('[AudioContext] Full state:', {
           state: this.audioContext.state,
@@ -134,6 +149,8 @@ class AudioContextManager {
           outputLatency: this.audioContext.outputLatency
         });
         
+        // SUSPEND-CALLBACKS: Notify listeners when AudioContext is suspended
+        // This allows components to pause audio-related operations
         if (this.audioContext.state === 'suspended') {
           this.onSuspendCallbacks.forEach(callback => {
             try {
@@ -142,7 +159,10 @@ class AudioContextManager {
               console.error('Error in onSuspend callback:', error);
             }
           });
-        } else if (this.audioContext.state === 'running') {
+        } 
+        // RESUME-CALLBACKS: Notify listeners when AudioContext is running
+        // This allows components to resume audio-related operations
+        else if (this.audioContext.state === 'running') {
           this.onResumeCallbacks.forEach(callback => {
             try {
               callback(this.audioContext);
@@ -150,8 +170,10 @@ class AudioContextManager {
               console.error('Error in onResume callback:', error);
             }
           });
-        } else if (this.audioContext.state === 'closed') {
-          // Clear reference so future calls will recreate a fresh instance
+        } 
+        // CLOSED-STATE: Handle AudioContext closure
+        // Clear cached reference so future calls create fresh instance
+        else if (this.audioContext.state === 'closed') {
           console.warn('AudioContext transitioned to closed; clearing cached reference');
           this.audioContext = null;
           this.isInitialized = false;
@@ -161,6 +183,8 @@ class AudioContextManager {
     }
   }
 
+  // RESUME-LOGIC: Attempt to resume suspended AudioContext with retry logic
+  // Uses exponential backoff to handle transient browser restrictions
   async resumeAudioContext() {
     if (!this.audioContext || this.audioContext.state !== 'suspended') {
       return this.audioContext;
@@ -168,13 +192,14 @@ class AudioContextManager {
 
     try {
       await this.audioContext.resume();
-      this.resumeAttempts = 0; // Reset on success
+      this.resumeAttempts = 0; // RESET-COUNTER: Reset on success for future resumes
       return this.audioContext;
     } catch (error) {
       this.resumeAttempts++;
       console.warn(`Failed to resume AudioContext (attempt ${this.resumeAttempts}):`, error);
 
-      // Retry with exponential backoff if under limit
+      // RETRY-BACKOFF: Retry with exponential backoff if under limit
+      // Handles browsers that need time before allowing resume
       if (this.resumeAttempts < AUDIO_CONFIG.MAX_RESUME_ATTEMPTS) {
         const delay = AUDIO_CONFIG.RESUME_RETRY_DELAY * Math.pow(2, this.resumeAttempts - 1);
         
