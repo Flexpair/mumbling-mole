@@ -621,23 +621,59 @@ class GlobalBindings {
       // Stop beeping flag first
       this.isBeeping(false);
       
-      // Clean up oscillator and nodes
+      // PIANO-FADE: Natural fade-out like a piano key release (without sustain pedal)
+      // Instead of abrupt stop, fade out over ~1 second like acoustic piano
       try {
-        if (this._beepOscillator) {
-          this._beepOscillator.stop();
-          this._beepOscillator.disconnect();
-          this._beepOscillator = null;
+        if (this._beepGain && this._beepOscillator) {
+          const ac = this._beepGain.context;
+          const currentTime = ac.currentTime;
+          const fadeOutDuration = 1.0; // 1 second fade-out like piano
+          
+          // Exponential fade-out for natural piano-like decay
+          this._beepGain.gain.exponentialRampToValueAtTime(0.001, currentTime + fadeOutDuration);
+          
+          // Stop oscillator after fade completes
+          this._beepOscillator.stop(currentTime + fadeOutDuration);
+          
+          // Clean up after fade completes
+          setTimeout(() => {
+            try {
+              if (this._beepOscillator) {
+                this._beepOscillator.disconnect();
+                this._beepOscillator = null;
+              }
+              if (this._beepGain) {
+                this._beepGain.disconnect();
+                this._beepGain = null;
+              }
+              this._beepInjectionNode = null;
+            } catch (cleanupErr) {
+              console.error('[BEEP] Error in delayed cleanup:', cleanupErr);
+            }
+          }, fadeOutDuration * 1000 + 100); // Add small buffer
+          
+          console.log('[BEEP] Piano-style fade-out started');
         }
-        if (this._beepGain) {
-          this._beepGain.disconnect();
-          this._beepGain = null;
-        }
-        this._beepInjectionNode = null;
       } catch (err) {
-        console.error('[BEEP] Error cleaning up beep nodes:', err);
+        console.error('[BEEP] Error during piano fade-out:', err);
+        // Fallback to immediate cleanup if fade fails
+        try {
+          if (this._beepOscillator) {
+            this._beepOscillator.stop();
+            this._beepOscillator.disconnect();
+            this._beepOscillator = null;
+          }
+          if (this._beepGain) {
+            this._beepGain.disconnect();
+            this._beepGain = null;
+          }
+          this._beepInjectionNode = null;
+        } catch (fallbackErr) {
+          console.error('[BEEP] Fallback cleanup failed:', fallbackErr);
+        }
       }
       
-      console.log('[BEEP] Beep stopped and cleaned up');
+      console.log('[BEEP] Piano-style beep release initiated');
     };
     
     // Add method to retry microphone permission
