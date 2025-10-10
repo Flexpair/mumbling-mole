@@ -567,7 +567,7 @@ class GlobalBindings {
       }
     };
 
-    this.startBeep = () => {
+    this.startBeep = async () => {
       console.log('[BEEP] Start beep requested');
       
       if (!this.connected()) {
@@ -575,12 +575,14 @@ class GlobalBindings {
         return;
       }
       
-      // Initialize persistent beeper if needed
+      // Initialize persistent beeper if needed (and wait for it)
       if (!this._persistentBeeper) {
-        this._initializePersistentBeeper();
-        // If still not ready, ignore this beep request
+        console.log('[BEEP] Initializing beeper for first use...');
+        await this._initializePersistentBeeper();
+        
+        // If still not ready after initialization, abort
         if (!this._persistentBeeper) {
-          console.log('[BEEP] Persistent beeper not ready yet');
+          console.log('[BEEP] Failed to initialize beeper');
           return;
         }
       }
