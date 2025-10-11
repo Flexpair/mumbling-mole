@@ -137,7 +137,7 @@ async function testMumbleClientInstantiation() {
 async function testCodecs() {
   log('Test: Audio-Codecs');
   
-  const codecsPath = path.join(__dirname, '../app/codecs-browser.js');
+  const codecsPath = path.join(__dirname, '../app/audio/codecs-browser.js');
   
   if (!fs.existsSync(codecsPath)) {
     fail('Audio-Codecs', 'codecs-browser.js nicht gefunden');
@@ -168,9 +168,9 @@ async function testWorkerScripts() {
   const workerFiles = [
     '../app/worker.js',
     '../app/worker-client.js',
-    '../app/recorder-worker.js',
-    '../app/decode-worker.js',
-    '../app/encode-worker.js'
+    '../app/audio/recorder-worker.js',
+    '../app/audio/decode-worker.js',
+    '../app/audio/encode-worker.js'
   ];
   
   for (const file of workerFiles) {
@@ -233,8 +233,8 @@ async function testAudioModules() {
   log('Test: Audio-Module');
   
   const audioFiles = [
-    '../app/voice.js',
-    '../app/audio-context-manager.js',
+    '../app/audio/voice.js',
+    '../app/audio/audio-context-manager.js',
     '../app/mumble-websocket.js'
   ];
   
