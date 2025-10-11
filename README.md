@@ -358,7 +358,7 @@ mumbling-mole/
 - **[Copilot Instructions](.github/copilot-instructions.md)** – Essential patterns, architecture, workflows (start here!)
 
 ### Testing & Audio
-- **[Testing Guide](tests/README.md)** – Comprehensive testing documentation (German)
+- **[Testing Guide](tests/README.md)** – Comprehensive testing documentation
 - **[Loopback Test Coverage](tests/playwright/README.md)** – What loopback tests can and cannot detect
 - **[Audio Debug Guide](app/audio/README.md)** – Production audio debugging guide (client-to-client playback)
 

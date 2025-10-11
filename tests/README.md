@@ -1,40 +1,108 @@
-# 🧪 Testing Guide für Mumbling Mole
+# 🧪 Testing Guide for Mumbling Mole
 
-Umfassende Dokumentation für das Testing des Audio-Systems, sowohl in lokalen DevContainers als auch in GitHub Codespaces.
+Comprehensive documentation for testing the audio system, both in local DevContainers and in GitHub Codespaces.
 
-## 📋 Inhaltsverzeichnis
+## 📋 Table of Contents
 
-- [Schnellstart](#-schnellstart)
-- [Test-Übersicht](#-test-übersicht)
-- [Audio-System-Tests](#-audio-system-tests)
-- [Test-Szenarien](#-test-szenarien)
-- [Codespace-spezifische Anleitung](#-testing-in-github-codespaces)
+- [Quick Start](#-quick-start)
+- [Test Overview](#-test-overview)
+- [Audio System Tests](#-audio-system-tests)
+- [Test Scenarios](#-test-scenarios)
+- [Codespace-Specific Guide](#-testing-in-github-codespaces)
 - [CI/CD Integration](#-cicd-integration)
 - [Troubleshooting](#-troubleshooting)
 
 ---
 
-## 🚀 Schnellstart
+## 🚀 Quick Start
 
-### Minimaler Test (empfohlen)
+### Minimal Test (Recommended)
 
-Der schnellste Weg, um alle kritischen Audio-Komponenten zu testen:
+The fastest way to test all critical audio components:
 
 ```bash
-# Automatisierter Audio-System Test (kein Live-Server erforderlich)
+# Automated Audio System Test (no live server required)
 npm run test:audio:system
 
-# Vollständige Test-Suite
+# Full test suite
 npm run test:full
 ```
 
-### All-in-One Test mit Live-Server
+### All-in-One Test with Live Server
 
 ```bash
-# Startet automatisch einen Test-Server, führt Tests aus und räumt auf
+# Automatically starts a test server, runs tests, and cleans up
 ./scripts/quick-audio-test.sh
 ```
 
+---
+
+## 📊 Test Overview
+
+### Available NPM Scripts
+
+| Script | Description |
+|--------|--------------|
+| `npm run test` | E2E Tests + Security Audit |
+| `npm run test:full` | All Tests (E2E + Audio + Audit) |
+| `npm run test:audio:system` | Audio System Test (no server needed) |
+| `npm run test:audio` | Single Audio Roundtrip Test |
+| `npm run test:audio:suite` | Complete Audio Test Suite |
+| `npm run test:e2e` | WebSocket Smoke Test |
+| `npm run test:server:up` | Start Murmur Test Server |
+| `npm run test:server:down` | Stop Murmur Test Server |
+| `npm run test:server:logs` | Display Server Logs |
+
+### Test Scripts in Detail
+
+1. **`scripts/audio-system-test.cjs`** - Automated Component Test
+   - Checks mumble-client build
+   - Validates worker scripts
+   - Tests codec availability
+   - No server connection required
+
+2. **`scripts/audio-test.cjs`** - Live Audio Roundtrip Test
+   - Connects to Mumble server
+   - Sends test tones (440 Hz sine wave)
+   - Analyzes received audio packets
+   - Exit code 0 on success
+
+3. **`scripts/run-audio-tests.sh`** - Test Suite Runner
+   - Runs all audio tests sequentially
+   - Checks server availability
+   - Shows colored summary
+
+4. **`scripts/quick-audio-test.sh`** - All-in-One Wrapper
+   - Starts test server automatically
+   - Runs tests
+   - Cleans up automatically
+   - Ideal for CI/CD
+
+5. **`scripts/audio-monitor.cjs`** - Real-time Monitor
+   - VU-meter style visualization
+   - Shows active users and audio levels
+   - Packet statistics in real-time
+
+---
+
+## ✅ Audio System Tests
+
+### What is Being Tested?
+
+The automated test `npm run test:audio:system` checks **10 critical components**:
+
+1. ✅ **Mumble-Client Build** - Vendor library compiled correctly (≈30 KB)
+2. ✅ **Mumble-Client Import** - CommonJS/ESM export works
+3. ✅ **Mumble-Client Instantiation** - Class can be created
+4. ✅ **Audio Codecs** - Codec files present (Opus, etc.)
+5. ✅ **Worker Scripts** - All 5 worker files syntax-correct
+6. ✅ **Audio Dependencies** - Required NPM packages installed
+7. ✅ **Audio Modules** - voice.js, audio-context-manager.js, mumble-websocket.js OK
+8. ✅ **NPM Scripts** - Build scripts present
+9. ✅ **Webpack Build** - dist/ directory generated correctly
+10. ✅ **Audio Packet Generation** - 440Hz test tone can be generated
+
+### Expected Output (Success)
 ---
 
 ## 📊 Test-Übersicht
@@ -102,28 +170,271 @@ Der automatisierte Test `npm run test:audio:system` prüft **10 kritische Kompon
 9. ✅ **Webpack Build** - dist/ Verzeichnis korrekt generiert
 10. ✅ **Audio-Paket-Generierung** - 440Hz Testton kann generiert werden
 
-### Erwartete Ausgabe (Erfolg)
+### Expected Output (Success)
 
 ```
 ╔════════════════════════════════════════════════════════════╗
-║         Automatisierter Audio-System Test                 ║
-║         (Kein Live-Server erforderlich)                    ║
+║         Automated Audio System Test                       ║
+║         (No Live Server Required)                          ║
 ╚════════════════════════════════════════════════════════════╝
 
 [✅] Mumble-Client Build (30.5 KB)
 [✅] Mumble-Client Import
-[✅] Mumble-Client Instanziierung
-[✅] Audio-Codecs
-[✅] Worker-Scripts (5 Dateien)
-[✅] Audio-Dependencies
-[✅] Audio-Module
+[✅] Mumble-Client Instantiation
+[✅] Audio Codecs
+[✅] Worker Scripts (5 files)
+[✅] Audio Dependencies
+[✅] Audio Modules
 [✅] NPM Scripts
 [✅] Webpack Build
-[✅] Audio-Paket-Generierung (440 Hz)
+[✅] Audio Packet Generation (440 Hz)
 
-✅ ALLE TESTS BESTANDEN (10/10 in 0.3s)
-   Audio-System bereit für Produktion!
+✅ ALL TESTS PASSED (10/10 in 0.3s)
+   Audio system ready for production!
 ```
+
+### When Do Tests Fail?
+
+The test immediately detects problems after:
+
+- ❌ **Package updates** that break mumble-client
+- ❌ **Missing dependencies** after npm install
+- ❌ **Broken builds** after code changes
+- ❌ **Syntax errors** in worker scripts
+- ❌ **Missing files** after refactoring
+
+**Example Error Output:**
+
+```
+❌ TESTS FAILED
+   3 problem(s) found
+
+[❌] Mumble-Client Build - File not found
+[❌] Worker Scripts - Syntax error in recorder-worker.js
+[✅] Audio Codecs
+
+🔧 Fix:
+   - npm run build:vendor:mumble-client
+   - npm run build
+   - Check app/recorder-worker.js line 42
+```
+
+---
+
+## 🔬 Test Scenarios
+
+### Scenario 1: Automated Audio Roundtrip (with Server)
+
+Sends a synthetic test tone and checks if packets are transmitted correctly.
+
+```bash
+# Standard test (10 seconds, 440 Hz)
+MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+
+# Longer test with higher frequency
+TEST_DURATION=30 TONE_FREQUENCY=1000 MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+
+# Receive-only test (no sending)
+GENERATE_TONE=false TEST_DURATION=20 MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+```
+
+**Expected Output:**
+```
+✅ Connected as "AudioTestBot"
+🎵 Starting test signal (440 Hz)...
+📤 First audio packet sent
+📊 50 packets received (XX KB)
+✅ Test PASSED: Audio send and receive working!
+```
+
+### Scenario 2: Two-Client Test (Loopback)
+
+To test complete audio reception, you need a second client.
+
+#### Option A: Official Mumble Desktop Client
+
+1. Install the [Mumble Client](https://www.mumble.info/downloads/)
+2. Connect to `localhost:64738` (or port from `MURMUR_PORT`)
+3. Run the audio test:
+   ```bash
+   npm run test:audio:suite
+   ```
+4. You should hear the 440 Hz test tone in the desktop client
+
+#### Option B: Two Browser Instances
+
+1. Start the dev server:
+   ```bash
+   MUMBLE_SERVER=localhost:64738 ./start-dev-server.sh
+   ```
+2. Open two browser tabs with `http://local.flexpair.app`
+3. Log in to both tabs
+4. Speak in one tab, observe the voice indicator icon in the other
+
+#### Option C: Container-Based Test Server
+
+Your setup uses the official `goofball222/murmur` container:
+
+```bash
+# View server configuration
+ls -la .devcontainer/murmur_config/
+
+# Start server
+npm run test:server:up
+
+# Check status
+npm run test:server:logs
+
+# Access from outside the container
+# Port is mapped: ${MURMUR_PORT:-64738}:${MURMUR_PORT:-64738}
+```
+
+### Scenario 3: Real-time Monitoring
+
+Monitor audio streams in real-time with VU-meter display:
+
+```bash
+# Server must be running
+npm run test:server:up
+
+# Start monitor
+MUMBLE_SERVER=localhost:64738 node scripts/audio-monitor.cjs
+```
+
+**Display:**
+- ✅ Active users and their audio levels
+- 📊 Packet rate and bandwidth
+- 📈 Audio amplitude visualization
+- 🔗 Connection statistics
+
+### Scenario 4: Browser-Based Interactive Tests
+
+For manual end-to-end tests:
+
+1. **Start Test Server:**
+   ```bash
+   npm run test:server:up
+   ```
+
+2. **Start Dev Server:**
+   ```bash
+   MUMBLE_SERVER=localhost:64738 ./start-dev-server.sh
+   ```
+
+3. **Test in Browser:**
+   - Open `http://local.flexpair.app`
+   - Allow microphone access
+   - Connect to server
+   - Speak and check voice indicator
+   - Check console for errors
+
+4. **Verification:**
+   - Voice indicator turns green when speaking
+   - No console errors
+   - Audio packets are sent (see Dev Tools Network tab)
+
+---
+
+## 🌩️ Testing in GitHub Codespaces
+
+### Quick Start for Codespaces
+
+#### 1️⃣ Check Server Availability
+
+The Murmur container should start automatically. Check its status:
+
+```bash
+# In DevContainer terminal:
+timeout 1 bash -c "echo > /dev/tcp/localhost/64738" 2>/dev/null && echo "✅ Running" || echo "❌ Not available"
+```
+
+If not available, start the server:
+
+**Option A: Via Docker Extension (recommended)**
+1. Open the Docker extension in VS Code (left sidebar)
+2. Find "Containers" → locate `murmur`
+3. Right-click → "Start" (if not already green)
+
+**Option B: Via Terminal**
+```bash
+# Open a NEW terminal (outside the container)
+# Press: Ctrl+Shift+` or Terminal → New Terminal
+
+docker compose -f .devcontainer/docker-compose.yml up -d murmur
+
+# Check status:
+docker compose -f .devcontainer/docker-compose.yml ps murmur
+```
+
+#### 2️⃣ Run Tests
+
+**In DevContainer Terminal:**
+
+```bash
+# Recommended: Simple audio system test
+npm run test:audio:system
+
+# Optional: Test with live server connection
+./scripts/test-audio-simple.sh
+
+# Or directly:
+MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+```
+
+### Expected Output in Codespaces
+
+```
+╔════════════════════════════════════════════════════════════╗
+║         Audio Test (Codespace Edition)                    ║
+╚════════════════════════════════════════════════════════════╝
+
+Server: localhost:64738
+Checking server availability...
+✅ Server reachable at localhost:64738
+
+Running audio test (10s)...
+
+[0.1s] Connecting to localhost:64738...
+[0.5s] ✅ Connected as "AudioTestBot"
+[0.5s] 🎵 Starting test signal (440 Hz)...
+[0.6s] 📤 First audio packet sent
+[10.0s] ⏱️  Test duration reached, ending test...
+
+╔════════════════════════════════════════════════════════════╗
+║                    Test Results                            ║
+╚════════════════════════════════════════════════════════════╝
+Connected:           ✅ Yes
+Connection time:     450 ms
+
+Audio sent:
+  Packets:            500
+  Expected packets:  ~500
+  Success rate:       ✅ 100.0%
+
+✅ Test PASSED: Audio sending works!
+```
+
+### Codespace-Specific Test Commands
+
+```bash
+# Standard test (10 seconds)
+MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+
+# Longer test (30 seconds)
+TEST_DURATION=30 MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+
+# Different frequency
+TONE_FREQUENCY=1000 MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+
+# Receive only (no sending)
+GENERATE_TONE=false MUMBLE_SERVER=localhost:64738 node scripts/audio-test.cjs
+```
+
+---
+
+## 🔄 CI/CD Integration
+
+### GitHub Actions Workflow
 
 ### Wann schlagen Tests fehl?
 
@@ -399,6 +710,236 @@ jobs:
       - name: Security audit
         run: npm audit --production
 ```
+
+### Pre-Commit Hook
+
+Prevent broken commits with a Git hook:
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/bash
+
+echo "🧪 Running audio system tests..."
+
+if ! npm run test:audio:system; then
+  echo "❌ Audio system tests failed!"
+  echo "   Commit aborted."
+  exit 1
+fi
+
+echo "✅ Tests passed, continuing with commit..."
+```
+
+Enable the hook:
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+### Docker-based CI
+
+```yaml
+# .gitlab-ci.yml (example)
+test:audio:
+  image: node:22
+  services:
+    - name: goofball222/murmur:latest
+      alias: murmur
+  
+  variables:
+    MUMBLE_SERVER: "murmur:64738"
+  
+  script:
+    - npm ci
+    - npm run build
+    - npm run test:audio:system
+    - npm run test:audio
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Problem: Server not reachable
+
+```bash
+# Check if the container is running
+docker ps | grep murmur
+
+# Check port binding
+docker port <container-id> 64738
+
+# Check logs
+npm run test:server:logs
+
+# Test manual connection
+timeout 1 bash -c "echo > /dev/tcp/localhost/64738" && echo "OK" || echo "FAIL"
+```
+
+### Problem: Audio packets not being sent
+
+**Possible causes:**
+- AudioContext is suspended (browser policy)
+- Microphone permission missing
+- Worker script error
+
+**Solution:**
+```bash
+# 1. Check build
+npm run build:force
+
+# 2. Check worker scripts
+npm run test:audio:system
+
+# 3. Open browser console and check:
+#    - No errors in worker.js
+#    - AudioContext state = "running"
+#    - getUserMedia() successful
+```
+
+### Problem: Tests fail after npm install
+
+```bash
+# Rebuild vendored dependencies
+npm run build:vendor:mumble-client
+
+# Clean rebuild
+npm run build:force
+
+# Test again
+npm run test:audio:system
+```
+
+### Problem: Mumble-Client import fails
+
+```bash
+# Check if lib/ directory exists
+ls -la vendors/mumble-client/lib/
+
+# If not, start Babel compilation:
+cd vendors/mumble-client
+npm run build
+cd ../..
+
+# Or directly:
+npm run build:vendor:mumble-client
+```
+
+### Problem: Worker script error
+
+**Symptoms:**
+- Console error: "Failed to load worker script"
+- Audio doesn't work
+
+**Solution:**
+```bash
+# 1. Check syntax of all workers
+node -c app/worker.js
+node -c app/recorder-worker.js
+node -c app/encode-worker.js
+node -c app/decode-worker.js
+
+# 2. Rebuild
+npm run build
+
+# 3. System test
+npm run test:audio:system
+```
+
+### Problem: "AudioContext suspended"
+
+**Cause:** Browser requires user interaction before audio starts
+
+**Solution:**
+- Click "Connect" button in UI
+- Or: Call in browser console:
+  ```javascript
+  audioContextManager.ensureAudioContext().then(ctx => ctx.resume())
+  ```
+
+### Problem: Codespace container won't start
+
+```bash
+# Check Docker Compose configuration
+cd .devcontainer
+docker-compose config
+
+# Manual container management
+docker-compose up -d murmur
+
+# Check logs
+docker-compose logs murmur
+```
+
+---
+
+## 📈 Test Success Metrics
+
+### ✅ Successful tests should show:
+
+- **Connection:** WebSocket connection established
+- **Packet rate:** ~50 packets/second (20ms frames at 48kHz)
+- **Success rate:** > 95% of packets successful
+- **Latency:** < 100ms connection setup
+- **No errors:** No encoder/decoder errors
+
+### ⚠️ Normal warnings:
+
+- "No audio received" - Normal when no other clients are sending
+- "Partial test" - Expected in solo tests without second client
+- "AudioContext suspended" - Browser policy, resolved by user interaction
+
+### 📊 Performance Benchmarks
+
+Typical values for successful tests:
+
+| Metric | Expected Value |
+|--------|----------------|
+| Packet Rate | 48-52 packets/second |
+| Packet Size | ~100-200 bytes (Opus) |
+| Bandwidth | 5-10 KB/s |
+| Connection Time | < 500ms |
+| First-Packet Latency | < 100ms |
+
+---
+
+## 📚 Additional Resources
+
+- **Main README:** [README.md](./README.md) - Project overview and quick start
+- **Architecture:** [CLAUDE.md](./CLAUDE.md) - Detailed technical documentation
+- **Copilot Context:** [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+---
+
+## 🎯 Summary
+
+### For quick tests:
+```bash
+npm run test:audio:system  # No server needed
+```
+
+### For complete tests:
+```bash
+npm run test:full          # E2E + Audio + Security
+```
+
+### For development:
+```bash
+npm run test:server:up     # Start server
+npm run test:audio:suite   # Run tests
+npm run test:server:down   # Stop server
+```
+
+### For CI/CD:
+```bash
+npm run test:audio:system  # Include in pipeline
+```
+
+---
+
+<p align="center">
+  <strong>Happy Testing! 🎤</strong><br>
+  For problems see <a href="#-troubleshooting">Troubleshooting</a>
+</p>
 
 ### Pre-Commit Hook
 

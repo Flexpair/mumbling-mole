@@ -84,7 +84,7 @@ class GlobalBindings {
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `smart-build.sh` (incremental build logic), `webpack.config.js`, `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
 **Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner)  
-**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (German test guide), `app/auth/README.md` (auth abstraction)
+**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide), `app/auth/README.md` (auth abstraction)
 
 ## Known technical debt
 - **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
