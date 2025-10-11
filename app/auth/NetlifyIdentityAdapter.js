@@ -185,7 +185,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<string>}
    */
   async refreshToken() {
-    return this.netlifyIdentity.refresh().then(jwt => jwt);
+    return this.netlifyIdentity.refresh();
   }
 
   /**
