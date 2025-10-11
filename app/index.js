@@ -20,6 +20,38 @@ import {
   translate,
 } from "./localize";
 
+/**
+ * Utility function to wait for audio mixer to become available
+ * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
+ * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
+ * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout
+ */
+async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
+  const maxRetries = Math.floor(timeoutMs / checkIntervalMs);
+  let retries = maxRetries;
+  
+  while (retries > 0 && !window._audioMixer) {
+    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
+    retries--;
+  }
+  
+  return !!window._audioMixer;
+}
+
+// Debug flag for controlling verbose logging in voice handlers
+const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
+
+/**
+ * Debug logging function that respects the DEBUG_VOICE_LOGGING flag
+ * @param {string} tag - Log tag like '[VOICE]' 
+ * @param {...any} args - Arguments to log
+ */
+function debugLog(tag, ...args) {
+  if (DEBUG_VOICE_LOGGING) {
+    console.log(tag, ...args);
+  }
+}
+
 function GuacamoleFrame() {
   var self = this;
   // Start with null source to avoid the browser immediately requesting /guacamole/.
@@ -75,7 +107,8 @@ function ConnectDialog() {
   self.port = ko.observable("");
   self.username = ko.observable("");
   self.password = ko.observable("");
-  self.visible = ko.observable(true);
+  // Start hidden - will be shown after authentication
+  self.visible = ko.observable(false);
   // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
   self.isTestActive = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
@@ -118,6 +151,19 @@ function ConnectDialog() {
       
       // Mark test as active and connect in loopback mode
       self.isTestActive(true);
+      
+      // BEEPER-PREPARATION: Start beeper initialization immediately when test is activated
+      // This ensures the beeper is ready by the time the user wants to click the button
+      setTimeout(async () => {
+        // Wait for mixer to be available after loopback connection
+        const mixerAvailable = await waitForAudioMixer(5000, 50);
+        
+        if (mixerAvailable && !ui._persistentBeeper) {
+          debugLog('[BEEP]', 'Initializing beeper after loopback toggle...');
+          await ui._initializePersistentBeeper();
+          debugLog('[BEEP]', 'Beeper ready for immediate use');
+        }
+      }, 100); // Small delay to let loopback connection start
       
       // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
       // This allows user to see connection status and switch back to normal mode
@@ -518,8 +564,140 @@ class GlobalBindings {
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
+    this.isBeeping = ko.observable(false);
+    this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
     
-    // Add method to retry microphone permission
+    // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
+    
+    // PERSISTENT-BEEPER: Initialize permanent beep oscillator once, control via gain
+    this._initializePersistentBeeper = async () => {
+      if (this._persistentBeeper) return; // Already initialized
+      
+      try {
+        const mixer = window._audioMixer;
+        if (!mixer) {
+          debugLog('[BEEP]', 'Mixer not ready, will retry when available');
+          return;
+        }
+        
+        const ac = await window.audioContextManager.getAudioContext();
+        if (!ac || ac.state !== 'running') {
+          debugLog('[BEEP]', 'AudioContext not ready, will retry');
+          return;
+        }
+        
+        // Create permanent oscillator and gain for beep tone
+        const oscillator = ac.createOscillator();
+        const beepGain = ac.createGain();
+        
+        oscillator.frequency.setValueAtTime(440, ac.currentTime);
+        oscillator.type = 'sine';
+        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent
+        
+        // Connect: Oscillator -> Gain -> Mixer (permanent connection)
+        oscillator.connect(beepGain);
+        beepGain.connect(mixer);
+        
+        // Start oscillator permanently (it just runs silently at gain=0)
+        oscillator.start();
+        
+        // Store references
+        this._persistentBeeper = {
+          oscillator,
+          gain: beepGain,
+          isPlaying: false
+        };
+        
+        // BEEPER-READY: Mark beeper as ready for UI
+        this.beeperReady(true);
+        
+        debugLog('[BEEP]', 'Persistent beeper initialized and connected to mixer - UI button enabled');
+      } catch (err) {
+        console.error('[BEEP] Failed to initialize persistent beeper:', err);
+        this.beeperReady(false);
+      }
+    };
+
+    this.startBeep = () => {
+      debugLog('[BEEP]', 'Start beep requested');
+      
+      if (!this.connected()) {
+        debugLog('[BEEP]', 'Not connected, ignoring beep');
+        return;
+      }
+      
+      // INSTANT-RESPONSE: If beeper is ready, start immediately (no await, no delay)
+      if (this._persistentBeeper) {
+        try {
+          const beeper = this._persistentBeeper;
+          const ac = beeper.gain.context;
+          const currentTime = ac.currentTime;
+          
+          // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
+          const attackTime = 0.005; // 5ms attack to eliminate clicks
+          
+          beeper.gain.gain.cancelScheduledValues(currentTime);
+          beeper.gain.gain.setValueAtTime(0, currentTime); // Start from silence
+          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime); // Quick smooth ramp
+          
+          beeper.isPlaying = true;
+          this.isBeeping(true);
+          
+          debugLog('[BEEP]', 'INSTANT beep tone activated (no delay)');
+          return; // Exit immediately after successful beep
+        } catch (err) {
+          console.error('[BEEP] Error starting instant beep:', err);
+        }
+      }
+      
+      // FALLBACK-ASYNC: Only if beeper wasn't ready - this will have delay but is rare
+      if (window._audioMixer) {
+        debugLog('[BEEP]', 'Beeper not ready, initializing async (will have delay)...');
+        this._initializePersistentBeeper().then(() => {
+          if (this._persistentBeeper && this.connected()) {
+            this.startBeep(); // Retry immediately after initialization
+          }
+        });
+      } else {
+        console.error('[BEEP] Beeper not ready! Audio mixer not available');
+      }
+    };
+
+    this.stopBeep = () => {
+      debugLog('[BEEP]', 'Stop beep requested');
+      
+      if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
+        debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
+        return;
+      }
+      
+      try {
+        const beeper = this._persistentBeeper;
+        const ac = beeper.gain.context;
+        const currentTime = ac.currentTime;
+        
+        // PIANO-ENVELOPE: More realistic decay curve like acoustic piano
+        // Initial gentle decline, then stronger exponential decay
+        const initialDeclineTime = 0.3; // Gentle decline phase
+        const mainDecayTime = 1.0; // Main exponential decay
+        
+        beeper.gain.gain.cancelScheduledValues(currentTime);
+        beeper.gain.gain.setValueAtTime(0.4, currentTime); // Current level
+        
+        // PHASE 1: Gentle initial decline (like piano hammer release)
+        beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
+        
+        // PHASE 2: Natural exponential decay (like string resonance)
+        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
+        
+        beeper.isPlaying = false;
+        this.isBeeping(false);
+        
+        debugLog('[BEEP]', `Realistic piano envelope: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay`);
+      } catch (err) {
+        console.error('[BEEP] Error stopping beep:', err);
+      }
+    };    // Add method to retry microphone permission
     this._attemptMicrophonePermission = () => {
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
         return;
@@ -806,7 +984,7 @@ class GlobalBindings {
 
     // TEST-BUTTON: Wrapper function for the Test button - enables loopback on existing connection
     // This allows testing audio without reconnecting if already connected to server
-    this.startLoopbackTest = () => {
+    this.startLoopbackTest = async () => {
       if (this.connected()) {
         // ALREADY-CONNECTED: Switch existing connection to loopback mode
         // More efficient than disconnecting and reconnecting
@@ -822,6 +1000,22 @@ class GlobalBindings {
         
         // HANDLER-RECREATION: Create new voice handler with loopback target (31)
         this._updateVoiceHandler();
+        
+        // BEEPER-PREPARATION: Wait for mixer to be ready, then initialize beeper
+        // This ensures button responds instantly when user clicks
+        debugLog('[LOOPBACK]', 'Waiting for audio mixer to be ready...');
+        
+        // Wait up to 5 seconds for mixer to be available
+        const mixerAvailable = await waitForAudioMixer(5000, 100);
+        
+        if (mixerAvailable) {
+          debugLog('[LOOPBACK]', 'Mixer ready, initializing beeper...');
+          await this._initializePersistentBeeper();
+          debugLog('[LOOPBACK]', 'Beeper ready - button will respond instantly');
+        } else {
+          debugLog('[LOOPBACK]', 'Warning: Mixer not ready after 5 seconds, beeper will initialize on first click');
+        }
+        
       } else {
         // NOT-CONNECTED: Use default connection parameters for initial loopback connection
         const host = this.config.defaults.host || "localhost";
@@ -1056,15 +1250,34 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
+          debugLog('[VOICE]', 'Voice stream received for user:', user.username);
+          
           // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
             audioContext: this.audioContext,
           });
           
-          userNode.connect(this.audioContext.destination);
+          // Create a GainNode to control volume (for deafen functionality)
+          var gainNode = this.audioContext.createGain();
+          
+          // Set initial gain based on current deafen state
+          gainNode.gain.value = this.selfDeaf() ? 0 : 1;
+          debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value, '(selfDeaf:', this.selfDeaf(), ')');
+          
+          // Connect: userNode -> gainNode -> destination
+          userNode.connect(gainNode);
+          gainNode.connect(this.audioContext.destination);
+          
+          // Subscribe to selfDeaf changes to update gain
+          var deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
+            gainNode.gain.value = isDeaf ? 0 : 1;
+            debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value, '(deaf:', isDeaf, ')');
+          });
 
           stream
             .on("data", (data) => {
+              debugLog('[VOICE]', 'Audio data received, target:', data.target, 'buffer size:', data.buffer?.length);
+              
               if (data.target === "normal") {
                 ui.talking("on");
               } else if (data.target === "shout") {
@@ -1074,13 +1287,17 @@ class GlobalBindings {
               } else if (data.target === "loopback") {
                 // Server loopback - show talking status
                 ui.talking("on");
+                debugLog('[VOICE]', 'Loopback audio received!');
               }
               
               userNode.write(data.buffer);
             })
             .on("end", () => {
+              debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
               ui.talking("off");
               userNode.end();
+              // Clean up subscription when stream ends
+              deafSubscription.dispose();
             });
         });
     };
@@ -1149,12 +1366,14 @@ class GlobalBindings {
     };
 
     this.resetClient = () => {
+      this.stopBeep(); // Stop beep if active
       if (this.client) {
         this.client.disconnect();
       }
       this.client = null;
       this.selected(null).root(null).thisUser(null);
       this.isLoopbackMode(false); // Reset loopback mode on disconnect
+      this.beeperReady(false); // Reset beeper ready state on disconnect
       
       // Note: We don't automatically reset isTestActive here anymore
       // It's controlled manually by the toggle function
@@ -1215,6 +1434,17 @@ class GlobalBindings {
         this.settings.audioBitrate,
         this.settings.samplesPerPacket
       );
+      
+      // BEEPER-AUTO-INIT: Initialize beeper when voice handler is ready and test is active
+      // This ensures the button appears automatically once everything is set up
+      if (this.connectDialog.isTestActive()) {
+        setTimeout(async () => {
+          if (window._audioMixer && !this._persistentBeeper) {
+            debugLog('[BEEP]', 'Auto-initializing beeper for test mode...');
+            await this._initializePersistentBeeper();
+          }
+        }, 100); // Small delay to ensure mixer is fully ready
+      }
     };
 
     this.messageBoxHint = ko.pureComputed(() => {
@@ -1279,7 +1509,14 @@ class GlobalBindings {
 
     this.requestDeaf = (user) => {
       if (user !== this.thisUser()) return;
-      this.selfMute(true);
+      
+      // LOOPBACK-FEATURE: Allow deaf without mute in loopback test mode
+      // In normal mode, deaf automatically enables mute (standard Mumble behavior)
+      // In loopback mode, allow deaf without mute for testing purposes
+      if (!this.isLoopbackMode()) {
+        this.selfMute(true);
+      }
+      
       this.selfDeaf(true);
       if (this.connected()) {
         this.client.setSelfDeaf(true);
@@ -1394,19 +1631,34 @@ function initializeUI() {
       user.user_metadata.full_name.replace(/[\s]+/g, "_")
     );
     ui.netlifyIdentity.close();
+    // Show connect dialog after successful authentication
+    ui.connectDialog.show();
   });
 
   ui.netlifyIdentity.on("close", () => {
     if (!ui.connectDialog.username()) {
       ui.netlifyIdentity.open("login"); // open the modal to the login tab
+    } else {
+      // Show connect dialog when auth modal is closed and user is authenticated
+      ui.connectDialog.show();
     }
   });
 
+  ui.netlifyIdentity.on("error", (err) => {
+    console.warn("[Auth] Authentication error:", err);
+    // Show connect dialog even if auth fails to allow retry
+    ui.connectDialog.show();
+  });
+
   if (user == null) {
+    // Hide connect dialog when showing authentication modal
+    ui.connectDialog.hide();
     ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
   } else {
     const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
     ui.connectDialog.username(sanitized);
+    // User is already authenticated, show connect dialog
+    ui.connectDialog.show();
   }
 
   var queryParams = url.parse(document.location.href, true).query;

@@ -112,7 +112,7 @@
                   >Microphone</label
                 >
               </td>
-              <td><select id="audioSource"></select></td>
+              <td><select id="audioSource" style="width: 100%; box-sizing: border-box;"></select></td>
             </tr>
             <tr>
               <td></td>
@@ -125,18 +125,32 @@
             <div class="test-toggle-container">
               <div class="test-toggle-label" 
                    data-bind="click: toggleLoopback, 
-                              clickBubble: false">
-                <span class="test-toggle-text" data-bind="text: isTestActive() ? 'Audio Test (Active)' : 'Audio Test'"></span>
+                              clickBubble: false"
+                   style="height: 32px; display: inline-flex; align-items: center;">
+                <span class="test-toggle-text" style="font-size: 1em;">Audio Test</span>
                 <span class="test-toggle-slider" data-bind="css: { 'active': isTestActive() }"></span>
+              </div>
+              <div class="beep-button-placeholder" style="display: inline-block; width: 180px; margin-left: 10px;">
+                <button
+                  type="button"
+                  class="beep-test-button"
+                  title="Hold to send 440Hz test tone (bypasses mute, tests deafen)"
+                  data-bind="
+                    event: { mousedown: $root.startBeep, mouseup: $root.stopBeep, mouseleave: $root.stopBeep, touchstart: $root.startBeep, touchend: $root.stopBeep },
+                    css: { 'active': $root.isBeeping },
+                    visible: isTestActive() && $root.beeperReady()"
+                  style="height: 32px; padding: 4px 8px; white-space: nowrap; width: 100%; box-sizing: border-box; font-size: 1em;"
+                ><span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)</button>
               </div>
             </div>
             <div class="dialog-buttons">
-              <input class="dialog-close" type="button" value="Cancel" disabled />
+              <input class="dialog-close" type="button" value="Cancel" disabled style="height: 32px; font-size: 1em;" />
               <input
                 id="connect-dialog_controls_connect"
                 class="dialog-submit"
                 type="submit"
                 value="Connect"
+                style="height: 32px; font-size: 1em;"
               />
             </div>
           </div>
