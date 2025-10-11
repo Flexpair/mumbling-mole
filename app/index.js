@@ -480,13 +480,9 @@ class GlobalBindings {
     this.micPermissionRetryDelayMs = 1000;
     
     // Initialize auth abstraction layer
-    try {
-      this.auth = AuthFactory.create(window.mumbleWebConfig.auth || { provider: 'netlify' });
-    } catch (error) {
-      console.warn('[Auth] Failed to initialize auth provider:', error);
-      // Fallback to mock auth if initialization fails
-      this.auth = AuthFactory.create({ provider: 'mock' });
-    }
+    // Always default to netlify provider if config is missing or invalid
+    const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
+    this.auth = AuthFactory.create(authConfig);
     
     // Maintain backward compatibility - expose as netlifyIdentity
     this.netlifyIdentity = this.auth;

@@ -31,11 +31,11 @@ class AuthFactory {
     // Load config from global config if not provided
     let authConfig = config;
     if (!authConfig) {
-      try {
-        const globalConfig = require('../config.js');
-        authConfig = globalConfig.auth || { provider: 'netlify' };
-      } catch (err) {
-        console.warn('Could not load config.js, using default (netlify)');
+      // Try to read config from global window object
+      if (typeof window !== 'undefined' && window.mumbleWebConfig && window.mumbleWebConfig.auth) {
+        authConfig = window.mumbleWebConfig.auth;
+      } else {
+        console.warn('Could not find global auth config, using default (netlify)');
         authConfig = { provider: 'netlify' };
       }
     }
@@ -70,7 +70,7 @@ class AuthFactory {
       */
 
       default:
-        throw new Error(`Unknown auth provider: ${provider}. Supported: netlify, supabase, auth0, firebase`);
+        throw new Error(`Unknown auth provider: ${provider}. Supported: ${AuthFactory.getSupportedProviders().join(', ')}`);
     }
   }
 

@@ -21,8 +21,11 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Use workspace root from environment variable (set by bash script)
+const workspaceRoot = process.env.WORKSPACE_ROOT || '/home/node';
+
 // Dynamically import from the workspace
-const authPath = join('/home/node/app/auth/MockAuthAdapter.js');
+const authPath = join(workspaceRoot, 'app/auth/MockAuthAdapter.js');
 const { default: MockAuthAdapter } = await import(authPath);
 
 console.log('✅ Imports successful\n');
@@ -117,8 +120,12 @@ EOF
 echo "Running tests..."
 echo "─────────────────────────────────────────────"
 
-# Run the test
-node /tmp/auth-test.mjs
+# Get script directory and workspace root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+WORKSPACE_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+# Run the test with workspace root as environment variable
+WORKSPACE_ROOT="$WORKSPACE_ROOT" node /tmp/auth-test.mjs
 
 # Check exit code
 if [ $? -eq 0 ]; then

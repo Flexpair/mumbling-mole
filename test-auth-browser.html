@@ -79,7 +79,14 @@
             const output = document.getElementById('output');
             const timestamp = new Date().toLocaleTimeString();
             const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
-            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            
+            // Safely create elements to prevent XSS
+            const span = document.createElement('span');
+            span.className = className;
+            span.textContent = `[${timestamp}] ${message}`;
+            output.appendChild(span);
+            output.appendChild(document.createTextNode('\n'));
+            
             output.scrollTop = output.scrollHeight;
         }
 
