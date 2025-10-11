@@ -4,6 +4,7 @@
  */
 
 import { Writable } from 'stream';
+import performanceMonitor from '../performance-monitor';
 
 /**
  * Wrapper classes for different audio buffer formats
@@ -206,6 +207,9 @@ class BufferQueueNode extends Writable {
       return;
     }
 
+    // PERFORMANCE-MONITORING: Track buffer enqueue operations
+    performanceMonitor.mark('buffer.enqueue.start');
+
     try {
       let formatted;
       if (this._objectMode) {
@@ -229,8 +233,13 @@ class BufferQueueNode extends Writable {
         data: channelData
       });
       
+      // PERFORMANCE-MONITORING: Measure enqueue duration
+      performanceMonitor.mark('buffer.enqueue.end');
+      performanceMonitor.measure('buffer.enqueue', 'buffer.enqueue.start', 'buffer.enqueue.end');
+      
       callback();
     } catch (error) {
+      performanceMonitor.event('buffer.enqueue.error', { error: error.message });
       callback(error);
     }
   }

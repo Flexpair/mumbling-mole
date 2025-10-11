@@ -48,6 +48,7 @@ self.addEventListener("message", (e) => {
         target: data.target,
         buffer: buffer,
         position: data.position,
+        _encodeId: data._encodeId,  // Pass through for timing
       },
       [buffer]
     );

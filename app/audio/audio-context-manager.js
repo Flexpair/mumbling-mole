@@ -5,6 +5,8 @@
  * Provides unified audio context management across the application with automatic suspension/resumption.
  */
 
+import performanceMonitor from '../performance-monitor';
+
 const AUDIO_CONFIG = {
   SAMPLE_RATE: 48000,
   LATENCY_HINT: 'interactive',
@@ -149,9 +151,19 @@ class AudioContextManager {
           outputLatency: this.audioContext.outputLatency
         });
         
+        // PERFORMANCE-MONITORING: Track AudioContext state transitions
+        performanceMonitor.event('audiocontext.statechange', {
+          state: this.audioContext.state,
+          sampleRate: this.audioContext.sampleRate,
+          currentTime: this.audioContext.currentTime,
+          baseLatency: this.audioContext.baseLatency,
+          outputLatency: this.audioContext.outputLatency
+        });
+        
         // SUSPEND-CALLBACKS: Notify listeners when AudioContext is suspended
         // This allows components to pause audio-related operations
         if (this.audioContext.state === 'suspended') {
+          performanceMonitor.count('audiocontext.suspensions');
           this.onSuspendCallbacks.forEach(callback => {
             try {
               callback(this.audioContext);
@@ -163,6 +175,7 @@ class AudioContextManager {
         // RESUME-CALLBACKS: Notify listeners when AudioContext is running
         // This allows components to resume audio-related operations
         else if (this.audioContext.state === 'running') {
+          performanceMonitor.count('audiocontext.resumes');
           this.onResumeCallbacks.forEach(callback => {
             try {
               callback(this.audioContext);

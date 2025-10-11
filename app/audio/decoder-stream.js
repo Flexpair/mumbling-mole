@@ -1,6 +1,7 @@
 import { Transform } from "stream";
 import createPool from "reuse-pool";
 import toArrayBuffer from "to-arraybuffer";
+import performanceMonitor from '../performance-monitor';
 
 // Native Worker factory function (Webpack 5 compatible)
 function createDecodeWorker() {
@@ -23,6 +24,21 @@ class DecoderStream extends Transform {
 
   _onMessage(data) {
     if (data.action === "decoded") {
+      // PERFORMANCE-MONITORING: Track decoding completion
+      if (data._decodeId) {
+        performanceMonitor.mark(`${data._decodeId}.end`);
+        const duration = performanceMonitor.measure(
+          'decode.duration', 
+          `${data._decodeId}.start`, 
+          `${data._decodeId}.end`
+        );
+        
+        // Warn if decoding is slow (> 20ms is problematic for real-time audio)
+        if (duration > 20) {
+          console.warn(`[PERF] Slow decoding: ${duration.toFixed(2)}ms`);
+        }
+      }
+      
       const pcm = new Float32Array(data.buffer);
       
       this.push({
@@ -39,6 +55,10 @@ class DecoderStream extends Transform {
   }
 
   _transform(chunk, encoding, callback) {
+    // PERFORMANCE-MONITORING: Track decoding start
+    const decodeId = `decode.${Date.now()}.${Math.random()}`;
+    performanceMonitor.mark(`${decodeId}.start`);
+    
     if (chunk.frame) {
       const buffer = toArrayBuffer(chunk.frame);
       this._worker.postMessage(
@@ -47,6 +67,7 @@ class DecoderStream extends Transform {
           buffer: buffer,
           target: chunk.target,
           position: chunk.position,
+          _decodeId: decodeId,  // Pass ID for timing
         },
         [buffer]
       );
@@ -56,6 +77,7 @@ class DecoderStream extends Transform {
         buffer: null,
         target: chunk.target,
         position: chunk.position,
+        _decodeId: decodeId,
       });
     }
     callback();
