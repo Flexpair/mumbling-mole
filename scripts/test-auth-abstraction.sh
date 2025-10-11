@@ -5,15 +5,18 @@
 echo "🧪 Testing Auth Abstraction Layer..."
 echo ""
 
-# Create test file
-cat > /tmp/auth-test.mjs << 'EOF'
+# Create project-relative temp directory for test file
+TEST_TMP_DIR="${WORKSPACE_ROOT:-/home/node}/.tmp"
+mkdir -p "$TEST_TMP_DIR"
+
+cat > "$TEST_TMP_DIR/auth-test.mjs" << 'EOF'
 /**
  * Quick Test: Auth Abstraction Layer
  * Tests the mock adapter to verify the abstraction works
  */
 
 // Note: Run with Node.js ESM support
-// node --input-type=module /tmp/auth-test.mjs
+// node --input-type=module {workspace}/.tmp/auth-test.mjs
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -125,7 +128,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORKSPACE_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # Run the test with workspace root as environment variable
-WORKSPACE_ROOT="$WORKSPACE_ROOT" node /tmp/auth-test.mjs
+WORKSPACE_ROOT="$WORKSPACE_ROOT" node "$WORKSPACE_ROOT/.tmp/auth-test.mjs"
 
 # Check exit code
 if [ $? -eq 0 ]; then
