@@ -175,6 +175,8 @@ export function initVoice(onData, onUserMediaError) {
     audio: {
       deviceId: audioSource ? { exact: audioSource } : undefined,
       echoCancellation: true,
+      autoGainControl: true,  // Enable automatic gain control to boost quiet microphones
+      noiseSuppression: true,  // Also enable noise suppression for better quality
       channelCount: { ideal: 1 },
       sampleRate: { ideal: 48000 },
     },
@@ -201,6 +203,10 @@ export function initVoice(onData, onUserMediaError) {
       // AUDIO-SOURCE: Create audio source from microphone stream
       const src = ac.createMediaStreamSource(userMedia);
 
+      // BEEP-MIXER: Create a mixer node to combine microphone + beep signals
+      const mixer = ac.createGain();
+      mixer.gain.setValueAtTime(1.0, ac.currentTime);
+
       // WORKLET-NODE: Create AudioWorklet node for mono audio processing
       // Processes audio in audio thread, not main thread
       const node = new AudioWorkletNode(ac, "recorder-processor", {
@@ -214,15 +220,17 @@ export function initVoice(onData, onUserMediaError) {
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
-          // DEBUG-LOGGING: Commented out to avoid console spam during normal operation
-          // Uncomment for debugging audio capture issues:
-          // console.log("[VOICE] PCM data received, samples:", f32.length, "max amplitude:", Math.max(...f32.map(Math.abs)));
           onData(Buffer.from(f32.buffer));
         }
       };
 
-      // verbinden
-      src.connect(node);
+      // Connect microphone through mixer to AudioWorklet
+      src.connect(mixer);
+      mixer.connect(node);
+
+      // BEEP-INJECTION: Expose mixer for beep injection
+      // Global reference so the beep system can connect to it
+      window._audioMixer = mixer;
 
       // optional: aufräumen, wenn das mediastream endet
       userMedia.getTracks().forEach((t) =>
@@ -231,8 +239,13 @@ export function initVoice(onData, onUserMediaError) {
             node.disconnect();
           } catch {}
           try {
+            mixer.disconnect();
+          } catch {}
+          try {
             src.disconnect();
           } catch {}
+          // Clean up global reference
+          window._audioMixer = null;
           // Don't close the shared/global AudioContext here. Suspending saves power without
           // invalidating the shared instance held by the AudioContextManager.
           try {

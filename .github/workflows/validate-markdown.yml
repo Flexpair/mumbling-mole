@@ -1,0 +1,44 @@
+name: Validate Markdown Structure
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - '**.md'
+  push:
+    branches:
+      - lite
+      - main
+    paths:
+      - '**.md'
+
+jobs:
+  validate:
+    name: Check Markdown Structure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Make validation script executable
+        run: chmod +x scripts/validate-markdown-structure.sh
+      
+      - name: Run markdown structure validation
+        run: ./scripts/validate-markdown-structure.sh
+      
+      - name: Report success
+        if: success()
+        run: echo "✅ All markdown files comply with structure rules"
+      
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "❌ Markdown structure validation failed"
+          echo "Please ensure:"
+          echo "  1. Maximum ONE markdown file per directory"
+          echo "  2. Markdown files are named 'README.md'"
+          echo "  3. Exception: .github/copilot-instructions.md"
+          exit 1

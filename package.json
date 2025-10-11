@@ -19,6 +19,7 @@
     "test:server:up": "cd .devcontainer && docker-compose up -d murmur",
     "test:server:down": "cd .devcontainer && docker-compose stop murmur",
     "test:server:logs": "cd .devcontainer && docker-compose logs -f murmur",
+    "validate:markdown": "./scripts/validate-markdown-structure.sh",
     "check:deps": "npx depcheck --config .depcheckrc",
     "analyze": "npx webpack --config webpack.analyze.config.js --json > analyze-stats.json 2>/dev/null && npx webpack-bundle-analyzer analyze-stats.json dist --mode static --report dist/bundle-report.html --no-open && echo 'Bundle analysis report generated at dist/bundle-report.html'"
   },
@@ -61,7 +62,6 @@
     "to-arraybuffer": "1.0.1",
     "transform-loader": "0.2.4",
     "wait-port": "^1.1.0",
-    "web-audio-buffer-queue": "file:vendors/web-audio-buffer-queue",
     "webpack": "^5.102.1",
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^6.0.1",
