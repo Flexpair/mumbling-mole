@@ -7,6 +7,7 @@ import audioContextManager, { ensureAudioContext } from "./audio-context-manager
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import BufferQueueNode from "./buffer-queue-node";
+import AuthFactory from "./auth/AuthFactory";
 
 import {
   ContinuousVoiceHandler,
@@ -478,20 +479,18 @@ class GlobalBindings {
     this.maxMicPermissionRetryCount = 3;
     this.micPermissionRetryDelayMs = 1000;
     
-    // Use netlify-identity-widget from global scope (loaded via script tag)
-    if (window.netlifyIdentity && typeof window.netlifyIdentity.init === "function") {
-      this.netlifyIdentity = window.netlifyIdentity;
-    } else {
-      // Fallback implementation if widget fails to load
-      this.netlifyIdentity = {
-        init: () => {},
-        open: () => {},
-        on: () => {},
-        currentUser: () => null,
-        logout: () => {},
-        close: () => {},
-      };
+    // Initialize auth abstraction layer
+    try {
+      this.auth = AuthFactory.create(window.mumbleWebConfig.auth || { provider: 'netlify' });
+    } catch (error) {
+      console.warn('[Auth] Failed to initialize auth provider:', error);
+      // Fallback to mock auth if initialization fails
+      this.auth = AuthFactory.create({ provider: 'mock' });
     }
+    
+    // Maintain backward compatibility - expose as netlifyIdentity
+    this.netlifyIdentity = this.auth;
+    
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.sampleRateWarningDialog = new SampleRateWarningDialog(this);
@@ -1607,44 +1606,46 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 // Used only for debugging
 window.mumbleUi = ui;
 
-// Make netlify identity available globally
-if (ui.netlifyIdentity) {
-  window.netlifyIdentity = ui.netlifyIdentity;
+// Make auth available globally (backward compatibility)
+if (ui.auth) {
+  window.netlifyIdentity = ui.auth;
 }
 
-function initializeUI() {
-  // Guard identity init so offline/local dev without the proxy does not break UI
+async function initializeUI() {
+  // Initialize auth provider
   let user = null;
   try {
-    ui.netlifyIdentity.init({
+    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
       locale: "en",
       logo: false,
     });
-    user = ui.netlifyIdentity.currentUser();
+    user = ui.auth.currentUser();
   } catch (e) {
-    console.warn('[identity] initialization failed; continuing without identity integration', e);
+    console.warn('[Auth] Initialization failed; continuing without authentication', e);
   }
 
-  ui.netlifyIdentity.on("login", (user) => {
-    ui.connectDialog.username(
-      user.user_metadata.full_name.replace(/[\s]+/g, "_")
-    );
-    ui.netlifyIdentity.close();
+  ui.auth.on("login", (user) => {
+    if (user && user.user_metadata && user.user_metadata.full_name) {
+      ui.connectDialog.username(
+        user.user_metadata.full_name.replace(/[\s]+/g, "_")
+      );
+    }
+    ui.auth.close();
     // Show connect dialog after successful authentication
     ui.connectDialog.show();
   });
 
-  ui.netlifyIdentity.on("close", () => {
+  ui.auth.on("close", () => {
     if (!ui.connectDialog.username()) {
-      ui.netlifyIdentity.open("login"); // open the modal to the login tab
+      ui.auth.open("login"); // open the modal to the login tab
     } else {
       // Show connect dialog when auth modal is closed and user is authenticated
       ui.connectDialog.show();
     }
   });
 
-  ui.netlifyIdentity.on("error", (err) => {
+  ui.auth.on("error", (err) => {
     console.warn("[Auth] Authentication error:", err);
     // Show connect dialog even if auth fails to allow retry
     ui.connectDialog.show();
@@ -1653,10 +1654,12 @@ function initializeUI() {
   if (user == null) {
     // Hide connect dialog when showing authentication modal
     ui.connectDialog.hide();
-    ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
+    ui.auth.open("signup"); // open the modal to the signup tab
   } else {
-    const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
-    ui.connectDialog.username(sanitized);
+    if (user.user_metadata && user.user_metadata.full_name) {
+      const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+      ui.connectDialog.username(sanitized);
+    }
     // User is already authenticated, show connect dialog
     ui.connectDialog.show();
   }

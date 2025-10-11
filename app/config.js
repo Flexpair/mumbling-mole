@@ -31,4 +31,13 @@ window.mumbleWebConfig = {
     // General
     theme: "MetroMumbleLight",
   },
+  // Authentication provider configuration
+  auth: {
+    provider: "netlify", // one of 'netlify', 'mock' (for testing)
+    netlify: {
+      APIUrl: "https://welcome.flexpair.com/identity-proxy",
+      locale: "en",
+      logo: false,
+    },
+  },
 };

@@ -30,12 +30,13 @@ class NetlifyIdentityAdapter extends AuthProvider {
 
   /**
    * Initialize Netlify Identity
+   * @param {Object} config - Netlify Identity configuration
    * @returns {Promise<void>}
    */
-  async init() {
+  async init(config = {}) {
     return new Promise((resolve) => {
       if (this.netlifyIdentity.init) {
-        this.netlifyIdentity.init();
+        this.netlifyIdentity.init(config);
       }
       // Netlify Identity init is synchronous, resolve immediately
       resolve();
@@ -51,6 +52,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
   }
 
   /**
+   * Get currently authenticated user (synchronous, for backward compatibility)
+   * @returns {Object|null}
+   */
+  currentUser() {
+    return this.netlifyIdentity.currentUser();
+  }
+
+  /**
    * Open Netlify Identity modal
    * @param {string} view - 'login' or 'signup'
    * @returns {Promise<void>}
@@ -60,11 +69,26 @@ class NetlifyIdentityAdapter extends AuthProvider {
   }
 
   /**
+   * Open Netlify Identity modal (for backward compatibility)
+   * @param {string} view - 'login' or 'signup'
+   */
+  open(view = 'login') {
+    this.netlifyIdentity.open(view);
+  }
+
+  /**
    * Close Netlify Identity modal
    * @returns {Promise<void>}
    */
   async closeAuth() {
     return Promise.resolve(this.netlifyIdentity.close());
+  }
+
+  /**
+   * Close Netlify Identity modal (for backward compatibility)
+   */
+  close() {
+    this.netlifyIdentity.close();
   }
 
   /**

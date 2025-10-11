@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Abstraction Browser Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        #output {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Auth Abstraction Browser Test</h1>
+    
+    <div class="test-section">
+        <h3>Provider Selection</h3>
+        <label>
+            <input type="radio" name="provider" value="mock" checked> Mock Auth (Testing)
+        </label>
+        <label>
+            <input type="radio" name="provider" value="netlify"> Netlify Identity
+        </label>
+        <button onclick="initAuth()">Initialize Auth</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Authentication Tests</h3>
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="testLogout()">Test Logout</button>
+        <button onclick="testGetCurrentUser()">Get Current User</button>
+        <button onclick="testIsAuthenticated()">Check Auth Status</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Event Tests</h3>
+        <button onclick="testEvents()">Test Event System</button>
+        <button onclick="testErrorHandling()">Test Error Handling</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Output</h3>
+        <div id="output">Waiting for tests...</div>
+    </div>
+
+    <script type="module">
+        import AuthFactory from './app/auth/AuthFactory.js';
+        import MockAuthAdapter from './app/auth/MockAuthAdapter.js';
+        
+        let auth = null;
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        window.initAuth = async function() {
+            try {
+                const provider = document.querySelector('input[name="provider"]:checked').value;
+                log(`Initializing ${provider} provider...`, 'info');
+                
+                if (provider === 'mock') {
+                    auth = new MockAuthAdapter();
+                } else {
+                    const config = { provider: 'netlify' };
+                    auth = AuthFactory.create(config);
+                }
+                
+                await auth.init();
+                log('✅ Auth initialized successfully', 'success');
+            } catch (error) {
+                log(`❌ Init failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testLogin = async function() {
+            if (!auth) {
+                log('❌ Auth not initialized', 'error');
+                return;
+            }
+            
+            try {
+                log('Testing login...', 'info');
+                const user = await auth.login({ email: 'test@example.com', password: 'test123' });
+                log(`✅ Login successful: ${user.email} (${user.id})`, 'success');
+            } catch (error) {
+                log(`❌ Login failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testLogout = async function() {
+            if (!auth) {
+                log('❌ Auth not initialized', 'error');
+                return;
+            }
+            
+            try {
+                log('Testing logout...', 'info');
+                await auth.logout();
+                log('✅ Logout successful', 'success');
+            } catch (error) {
+                log(`❌ Logout failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testGetCurrentUser = async function() {
+            if (!auth) {
+                log('❌ Auth not initialized', 'error');
+                return;
+            }
+            
+            try {
+                const user = auth.getCurrentUser();
+                if (user) {
+                    log(`✅ Current user: ${user.email} (${user.id})`, 'success');
+                } else {
+                    log('ℹ️ No user logged in', 'info');
+                }
+            } catch (error) {
+                log(`❌ Get user failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testIsAuthenticated = function() {
+            if (!auth) {
+                log('❌ Auth not initialized', 'error');
+                return;
+            }
+            
+            try {
+                const isAuth = auth.isAuthenticated();
+                log(`✅ Authentication status: ${isAuth}`, 'success');
+            } catch (error) {
+                log(`❌ Check failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testEvents = function() {
+            if (!auth) {
+                log('❌ Auth not initialized', 'error');
+                return;
+            }
+            
+            try {
+                log('Setting up event listeners...', 'info');
+                
+                auth.on('login', (user) => {
+                    log(`📡 Event: User logged in - ${user.email}`, 'success');
+                });
+                
+                auth.on('logout', () => {
+                    log('📡 Event: User logged out', 'success');
+                });
+                
+                auth.on('error', (error) => {
+                    log(`📡 Event: Error - ${error.message}`, 'error');
+                });
+                
+                log('✅ Event listeners registered. Try login/logout to see events.', 'success');
+            } catch (error) {
+                log(`❌ Event setup failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testErrorHandling = async function() {
+            if (!auth) {
+                log('❌ Auth not initialized', 'error');
+                return;
+            }
+            
+            try {
+                log('Testing error handling with invalid credentials...', 'info');
+                await auth.login({ email: 'invalid@example.com', password: 'wrong' });
+            } catch (error) {
+                log(`✅ Error handled correctly: ${error.message}`, 'success');
+            }
+        };
+
+        // Auto-initialize with Mock on load
+        log('Page loaded. Click "Initialize Auth" to start.', 'info');
+    </script>
+</body>
+</html>
