@@ -32,7 +32,8 @@ Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a
   - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
 **E2E modes**: `node scripts/e2e-check.cjs` (local) vs `--mode=container` (CI); set `PLAIN_TARGET=1` for non-TLS echo servers  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
-**Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs
+**Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
+**Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
 
 ## Implementation conventions
 **UI state**: All observables live in `GlobalBindings` (never scattered); persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Example pattern:
@@ -51,8 +52,9 @@ class GlobalBindings {
 **AudioContext**: **Always** `ensureAudioContext()` from `audio-context-manager.js`; never `new AudioContext()` directly (breaks singleton pattern). Manager handles autoplay policies, state changes, resume retries with exponential backoff (MAX_RESUME_ATTEMPTS=5)  
 **AudioWorklet**: `recorder-worker.js` is AudioWorklet processor (not Web Worker); runs in audio thread; accumulates input blocks → posts 960-sample frames via `port.postMessage`. **Critical**: Can't use imports; must be vanilla ES5  
 **Sample-rate modal**: Blocks connection until acknowledged; `ui._performConnect({audioEnabled:false})` bypasses audio for "join without audio"  
-**Loopback testing**: `target=31` in `voice.js` creates server loopback streams (echoes audio back to sender); `isLoopbackMode` observable controls UI/behavior; Test button recreates voice handler with loopback target. **Warning**: loopback tests audio encode/decode but NOT client-to-client playback initialization (see `AUDIO_DEBUG_GUIDE.md`)  
-**User object migration**: When server assigns self ID, migrate `_users[undefined]` → `_users[actualID]` in `worker-client.js` `_setProp()` to preserve event listeners (critical for loopback voice events)
+**Loopback testing**: `target=31` in `voice.js` creates server loopback streams (echoes audio back to sender); `isLoopbackMode` observable controls UI/behavior; Test button recreates voice handler with loopback target. **Warning**: loopback tests audio encode/decode but NOT client-to-client playback initialization (see `app/audio/README.md`)  
+**User object migration**: When server assigns self ID, migrate `_users[undefined]` → `_users[actualID]` in `worker-client.js` `_setProp()` to preserve event listeners (critical for loopback voice events)  
+**Authentication**: Uses provider-agnostic abstraction layer (`app/auth/`); `AuthFactory` instantiates providers based on config. Current production: `NetlifyIdentityAdapter` (deprecated upstream, migrating to Supabase Auth in Q1 2026). See `app/auth/README.md` for migration roadmap. All UI code references `this.auth` (not `this.netlifyIdentity`)
 
 ## Vendored dependencies
 - `vendors/mumble-client` is `file:` protocol dep (not npm registry); after editing `src/`, run `npm run build:vendor:mumble-client` to refresh `lib/`
@@ -74,7 +76,7 @@ class GlobalBindings {
 **Container tests**: `node scripts/e2e-check.cjs --mode=container` validates inside CI; uses `docker exec` for connectivity checks  
 **Worker crashes**: Check browser DevTools → Sources → worker.js for exceptions; worker errors don't always surface in main console  
 **Console logging**: Production builds minimize logs; prefix debug logs with context tags like `[LOOPBACK]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[DEBUG-VOICE]`  
-**Known issue**: Loopback mode misleads debugging—tests same-client playback path, NOT cross-client network/audio playback (see `AUDIO_DEBUG_GUIDE.md` line 7-18)
+**Known issue**: Loopback mode misleads debugging—tests same-client playback path, NOT cross-client network/audio playback (see `app/audio/README.md` line 7-18)
 
 ## Key file map
 **UI/session**: `app/index.js` (GlobalBindings + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
@@ -82,10 +84,10 @@ class GlobalBindings {
 **Audio stack**: `app/audio-context-manager.js` (singleton + autoplay handling), `app/voice.js` (PTT/continuous + target param), `app/recorder-worker.js` (AudioWorklet processor), `app/decoder-stream.js` (worker pool), `app/encode-worker.js` + `app/decode-worker.js` (Opus codec workers), `app/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `smart-build.sh` (incremental build logic), `webpack.config.js`, `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
 **Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner)  
-**Documentation**: `AUDIO_DEBUG_GUIDE.md` (production debugging), `TESTING.md` (German test guide), `TECHNICAL_DEBT_ANALYSIS.md` (architectural issues), `RELEASE.md` (recent changes)
+**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (German test guide), `app/auth/README.md` (auth abstraction)
 
 ## Known technical debt
-- **No unit tests**: Zero test files for application code; only integration tests exist (see `TECHNICAL_DEBT_ANALYSIS.md` lines 68-99)
+- **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
 - **Build complexity**: `smart-build.sh` + webpack + vendor transpilation creates fragile incremental builds; consider consolidation
 - **GlobalBindings anti-pattern**: 1474-line god object centralizes all UI state; refactoring would improve maintainability
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
