@@ -3,10 +3,10 @@
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
-import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
+import audioContextManager, { ensureAudioContext } from "./audio/audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
-import BufferQueueNode from "./buffer-queue-node";
+import BufferQueueNode from "./audio/buffer-queue-node";
 import AuthFactory from "./auth/AuthFactory";
 
 import {
@@ -14,7 +14,7 @@ import {
   PushToTalkVoiceHandler,
   initVoice,
   enumMicrophones,
-} from "./voice";
+} from "./audio/voice";
 import {
   initialize as localizationInitialize,
   translateEverything,

@@ -352,7 +352,7 @@ function setupClient(id, client) {
 function onMessage(data) {
   let { reqId, method, payload } = data;
   if (method === "_connect") {
-    payload.args.codecs = require("./codecs-browser.js");
+    payload.args.codecs = require("./audio/codecs-browser.js");
     mumbleConnect(payload.host, payload.args)
       .then((client) => {
         let id = nextClientId++;

@@ -46,8 +46,8 @@ do_build() {
     WEBPACK_MODE="${MODE}" npx webpack --progress --mode "${MODE}"
     [[ -f dist/config.local.js ]] || cp app/config.local.js dist/
     # Copy AudioWorklet processors as-is (must not be transpiled)
-    cp app/recorder-worker.js dist/
-    cp app/playback-buffer-processor.js dist/
+    cp app/audio/recorder-worker.js dist/
+    cp app/audio/playback-buffer-processor.js dist/
     touch dist/.build-marker
     printf '%s' "${MODE}" > dist/.build-mode
     validate_artifacts
