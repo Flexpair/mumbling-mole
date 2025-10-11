@@ -159,9 +159,9 @@ function ConnectDialog() {
         const mixerAvailable = await waitForAudioMixer(5000, 50);
         
         if (mixerAvailable && !ui._persistentBeeper) {
-          console.log('[BEEP] Initializing beeper after loopback toggle...');
+          debugLog('[BEEP]', 'Initializing beeper after loopback toggle...');
           await ui._initializePersistentBeeper();
-          console.log('[BEEP] Beeper ready for immediate use');
+          debugLog('[BEEP]', 'Beeper ready for immediate use');
         }
       }, 100); // Small delay to let loopback connection start
       
@@ -576,13 +576,13 @@ class GlobalBindings {
       try {
         const mixer = window._audioMixer;
         if (!mixer) {
-          console.log('[BEEP] Mixer not ready, will retry when available');
+          debugLog('[BEEP]', 'Mixer not ready, will retry when available');
           return;
         }
         
         const ac = await window.audioContextManager.getAudioContext();
         if (!ac || ac.state !== 'running') {
-          console.log('[BEEP] AudioContext not ready, will retry');
+          debugLog('[BEEP]', 'AudioContext not ready, will retry');
           return;
         }
         
@@ -611,7 +611,7 @@ class GlobalBindings {
         // BEEPER-READY: Mark beeper as ready for UI
         this.beeperReady(true);
         
-        console.log('[BEEP] Persistent beeper initialized and connected to mixer - UI button enabled');
+        debugLog('[BEEP]', 'Persistent beeper initialized and connected to mixer - UI button enabled');
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
         this.beeperReady(false);
@@ -619,10 +619,10 @@ class GlobalBindings {
     };
 
     this.startBeep = () => {
-      console.log('[BEEP] Start beep requested');
+      debugLog('[BEEP]', 'Start beep requested');
       
       if (!this.connected()) {
-        console.log('[BEEP] Not connected, ignoring beep');
+        debugLog('[BEEP]', 'Not connected, ignoring beep');
         return;
       }
       
@@ -643,7 +643,7 @@ class GlobalBindings {
           beeper.isPlaying = true;
           this.isBeeping(true);
           
-          console.log('[BEEP] INSTANT beep tone activated (no delay)');
+          debugLog('[BEEP]', 'INSTANT beep tone activated (no delay)');
           return; // Exit immediately after successful beep
         } catch (err) {
           console.error('[BEEP] Error starting instant beep:', err);
@@ -652,7 +652,7 @@ class GlobalBindings {
       
       // FALLBACK-ASYNC: Only if beeper wasn't ready - this will have delay but is rare
       if (window._audioMixer) {
-        console.log('[BEEP] Beeper not ready, initializing async (will have delay)...');
+        debugLog('[BEEP]', 'Beeper not ready, initializing async (will have delay)...');
         this._initializePersistentBeeper().then(() => {
           if (this._persistentBeeper && this.connected()) {
             this.startBeep(); // Retry immediately after initialization
@@ -664,10 +664,10 @@ class GlobalBindings {
     };
 
     this.stopBeep = () => {
-      console.log('[BEEP] Stop beep requested');
+      debugLog('[BEEP]', 'Stop beep requested');
       
       if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
-        console.log('[BEEP] Beeper not playing, ignoring stop');
+        debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
         return;
       }
       
@@ -693,7 +693,7 @@ class GlobalBindings {
         beeper.isPlaying = false;
         this.isBeeping(false);
         
-        console.log(`[BEEP] Realistic piano envelope: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay`);
+        debugLog('[BEEP]', `Realistic piano envelope: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay`);
       } catch (err) {
         console.error('[BEEP] Error stopping beep:', err);
       }
@@ -1003,17 +1003,17 @@ class GlobalBindings {
         
         // BEEPER-PREPARATION: Wait for mixer to be ready, then initialize beeper
         // This ensures button responds instantly when user clicks
-        console.log('[LOOPBACK] Waiting for audio mixer to be ready...');
+        debugLog('[LOOPBACK]', 'Waiting for audio mixer to be ready...');
         
         // Wait up to 5 seconds for mixer to be available
         const mixerAvailable = await waitForAudioMixer(5000, 100);
         
         if (mixerAvailable) {
-          console.log('[LOOPBACK] Mixer ready, initializing beeper...');
+          debugLog('[LOOPBACK]', 'Mixer ready, initializing beeper...');
           await this._initializePersistentBeeper();
-          console.log('[LOOPBACK] Beeper ready - button will respond instantly');
+          debugLog('[LOOPBACK]', 'Beeper ready - button will respond instantly');
         } else {
-          console.log('[LOOPBACK] Warning: Mixer not ready after 5 seconds, beeper will initialize on first click');
+          debugLog('[LOOPBACK]', 'Warning: Mixer not ready after 5 seconds, beeper will initialize on first click');
         }
         
       } else {
@@ -1440,7 +1440,7 @@ class GlobalBindings {
       if (this.connectDialog.isTestActive()) {
         setTimeout(async () => {
           if (window._audioMixer && !this._persistentBeeper) {
-            console.log('[BEEP] Auto-initializing beeper for test mode...');
+            debugLog('[BEEP]', 'Auto-initializing beeper for test mode...');
             await this._initializePersistentBeeper();
           }
         }, 100); // Small delay to ensure mixer is fully ready
