@@ -148,7 +148,7 @@ Der Test erkennt sofort Probleme nach:
 🔧 Behebung:
    - npm run build:vendor:mumble-client
    - npm run build
-   - Prüfe app/recorder-worker.js Zeile 42
+   - Prüfe app/audio/recorder-worker.js Zeile 42
 ```
 
 ---
@@ -523,9 +523,9 @@ npm run build:vendor:mumble-client
 ```bash
 # 1. Prüfe Syntax aller Worker
 node -c app/worker.js
-node -c app/recorder-worker.js
-node -c app/encode-worker.js
-node -c app/decode-worker.js
+node -c app/audio/recorder-worker.js
+node -c app/audio/encode-worker.js
+node -c app/audio/decode-worker.js
 
 # 2. Rebuild
 npm run build

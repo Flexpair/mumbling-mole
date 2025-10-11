@@ -60,7 +60,7 @@ class GlobalBindings {
 - `vendors/mumble-client` is `file:` protocol dep (not npm registry); after editing `src/`, run `npm run build:vendor:mumble-client` to refresh `lib/`
 - `vendors/netlify-identity-widget` ships as-is; UI expects `window.netlifyIdentity` global before auth flows
 - `vendors/mumble-streams` used internally by mumble-client
-- **Deprecated**: `vendors/web-audio-buffer-queue` (replaced by native `app/buffer-queue-node.js` using AudioWorklet instead of deprecated ScriptProcessorNode)
+- **Deprecated**: `vendors/web-audio-buffer-queue` (replaced by native `app/audio/buffer-queue-node.js` using AudioWorklet instead of deprecated ScriptProcessorNode)
 
 ## Config, localization, theming
 **Config**: Source defaults in `app/config.js`; runtime overrides in generated `dist/config.local.js` (back up before clean builds!)  
@@ -81,7 +81,7 @@ class GlobalBindings {
 ## Key file map
 **UI/session**: `app/index.js` (GlobalBindings + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
-**Audio stack**: `app/audio-context-manager.js` (singleton + autoplay handling), `app/voice.js` (PTT/continuous + target param), `app/recorder-worker.js` (AudioWorklet processor), `app/decoder-stream.js` (worker pool), `app/encode-worker.js` + `app/decode-worker.js` (Opus codec workers), `app/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
+**Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `smart-build.sh` (incremental build logic), `webpack.config.js`, `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
 **Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner)  
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (German test guide), `app/auth/README.md` (auth abstraction)
