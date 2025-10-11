@@ -184,6 +184,7 @@ Create custom themes by extending existing ones in `themes/` directory.
 |---------|-------------|
 | `npm run analyze` | Generate bundle analysis report |
 | `npm run check:deps` | Find unused dependencies |
+| `npm run validate:markdown` | Validate markdown structure rules |
 
 ### Maintenance
 
@@ -365,6 +366,30 @@ mumbling-mole/
 - **[Webpack Config](webpack.config.js)** – Build configuration (Webpack 5)
 - **[Smart Build Script](smart-build.sh)** – Incremental build logic
 - **[Docker Entrypoint](docker-entrypoint.sh)** – Websockify tunnel setup
+
+### Markdown Structure Rules
+
+This project enforces strict markdown organization:
+
+**Rules:**
+1. ✅ Maximum **ONE** markdown file per directory
+2. ✅ Must be named `README.md` (except `.github/copilot-instructions.md`)
+3. ✅ Automatically validated via Git pre-commit hook
+
+**Validation:**
+```bash
+# Manual validation
+npm run validate:markdown
+
+# Automatically runs on git commit
+git commit -m "Your message"
+```
+
+**Why these rules?**
+- Consistent documentation structure
+- Easy navigation (always README.md)
+- No confusion about which doc to read
+- Enforced via automation (can't commit violations)
 
 ## 🔐 Security
 
