@@ -11,10 +11,10 @@ NC='\033[0m' # No Color
 
 echo "🔍 Validating markdown file structure..."
 
-# Find all markdown files excluding node_modules, vendors, and vscode artifacts
+# Find all markdown files excluding node_modules and vscode artifacts
+# Include vendors/ since we maintain those packages
 MARKDOWN_FILES=$(find . -name "*.md" -type f \
     -not -path "*/node_modules/*" \
-    -not -path "*/vendors/*" \
     -not -path "*/.git/*" \
     -not -path "*/.vscode-remote/*" \
     -not -path "*/.vscode/*" \
@@ -27,7 +27,8 @@ WARNINGS=0
 declare -A DIR_MD_COUNT
 declare -A DIR_MD_FILES
 
-# Special allowed files (not README.md)
+# Special allowed files (not README.md or LICENSE.md)
+# These are exceptions to the "one README.md per folder" rule
 ALLOWED_SPECIAL_FILES=(
     "./.github/copilot-instructions.md"
 )
@@ -59,12 +60,12 @@ while IFS= read -r md_file; do
     DIR_MD_COUNT[$dir]=$((DIR_MD_COUNT[$dir] + 1))
     DIR_MD_FILES[$dir]="${DIR_MD_FILES[$dir]}$md_file\n"
     
-    # Check filename (must be README.md unless it's a special allowed file)
+    # Check filename (must be README.md or LICENSE.md unless it's a special allowed file)
     if ! is_allowed_special_file "$md_file"; then
-        if [[ "$filename" != "README.md" ]]; then
-            echo -e "${RED}✗ Error: Markdown file not named README.md${NC}"
+        if [[ "$filename" != "README.md" && "$filename" != "LICENSE.md" ]]; then
+            echo -e "${RED}✗ Error: Markdown file must be README.md or LICENSE.md${NC}"
             echo -e "  File: ${YELLOW}$md_file${NC}"
-            echo -e "  Expected: ${GREEN}${dir}/README.md${NC}"
+            echo -e "  Allowed: ${GREEN}${dir}/README.md${NC} or ${GREEN}${dir}/LICENSE.md${NC}"
             ERRORS=$((ERRORS + 1))
         fi
     fi
@@ -72,17 +73,53 @@ while IFS= read -r md_file; do
 done <<< "$MARKDOWN_FILES"
 
 # Check for multiple markdown files in same directory
+# Allow: README.md + LICENSE.md together, or special allowed files
 for dir in "${!DIR_MD_COUNT[@]}"; do
     count=${DIR_MD_COUNT[$dir]}
     if [[ $count -gt 1 ]]; then
-        echo -e "${RED}✗ Error: Multiple markdown files in same directory${NC}"
-        echo -e "  Directory: ${YELLOW}$dir${NC}"
-        echo -e "  Count: $count files"
-        echo -e "  Files:"
-        echo -e "${DIR_MD_FILES[$dir]}" | while read -r file; do
-            [[ -n "$file" ]] && echo -e "    - $file"
-        done
-        ERRORS=$((ERRORS + 1))
+        # Check if files are valid combinations (README + LICENSE, or allowed special files)
+        files_in_dir=$(echo -e "${DIR_MD_FILES[$dir]}" | grep -v "^$")
+        
+        # Count non-allowed files
+        invalid_combo=false
+        readme_count=0
+        license_count=0
+        special_count=0
+        
+        while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            filename=$(basename "$file")
+            
+            if is_allowed_special_file "$file"; then
+                special_count=$((special_count + 1))
+            elif [[ "$filename" == "README.md" ]]; then
+                readme_count=$((readme_count + 1))
+            elif [[ "$filename" == "LICENSE.md" ]]; then
+                license_count=$((license_count + 1))
+            fi
+        done <<< "$files_in_dir"
+        
+        # Valid combinations:
+        # - 1 README.md + 1 LICENSE.md
+        # - 1 README.md + N special files
+        # - 1 LICENSE.md + N special files
+        # - N special files
+        total_standard=$((readme_count + license_count))
+        
+        if [[ $readme_count -gt 1 ]] || [[ $license_count -gt 1 ]] || [[ $total_standard -gt 2 ]]; then
+            invalid_combo=true
+        fi
+        
+        if $invalid_combo; then
+            echo -e "${RED}✗ Error: Invalid markdown file combination in directory${NC}"
+            echo -e "  Directory: ${YELLOW}$dir${NC}"
+            echo -e "  Count: $count files (README: $readme_count, LICENSE: $license_count, Special: $special_count)"
+            echo -e "  Files:"
+            echo -e "${DIR_MD_FILES[$dir]}" | while read -r file; do
+                [[ -n "$file" ]] && echo -e "    - $file"
+            done
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 done
 
