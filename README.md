@@ -68,7 +68,7 @@ Once connected to a Mumble server, you can test your audio setup using the built
 
 This allows you to verify your microphone and audio encoding/decoding without needing a second client.
 
-> **⚠️ Important:** Loopback mode tests same-client playback, NOT cross-client network/audio initialization. For production debugging, see [AUDIO_DEBUG_GUIDE.md](./AUDIO_DEBUG_GUIDE.md).
+> **⚠️ Important:** Loopback mode tests same-client playback, NOT cross-client network/audio initialization. For production debugging, see [app/audio/README.md](./app/audio/README.md).
 
 ## 🏗️ Architecture
 
@@ -176,7 +176,7 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run test:server:logs` | View test server logs |
 | `./scripts/quick-audio-test.sh` | All-in-one: start server, test, cleanup |
 
-> **📘 Note:** This project has **zero unit tests** (only integration/E2E tests). See **[TESTING.md](./TESTING.md)** for comprehensive testing documentation and **[TECHNICAL_DEBT_ANALYSIS.md](./TECHNICAL_DEBT_ANALYSIS.md)** for known limitations.
+> **📘 Note:** This project has **zero unit tests** (only integration/E2E tests). See **[tests/README.md](./tests/README.md)** for comprehensive testing documentation.
 
 ### Development & Analysis
 
@@ -194,7 +194,7 @@ Create custom themes by extending existing ones in `themes/` directory.
 
 ## 🧪 Testing
 
-Umfassende Dokumentation für alle Test-Szenarien findest du in **[TESTING.md](./TESTING.md)**.
+Umfassende Dokumentation für alle Test-Szenarien findest du in **[tests/README.md](./tests/README.md)**.
 
 ### Schnelltest
 
@@ -215,7 +215,7 @@ npm run test:full
 | `npm run test:audio:suite` | Vollständige Audio-Test-Suite mit Server |
 | `./scripts/quick-audio-test.sh` | All-in-One Test inkl. Server-Setup |
 
-Für detaillierte Informationen zu Test-Szenarien, CI/CD-Integration, Troubleshooting und Codespace-spezifischen Anleitungen, siehe **[TESTING.md](./TESTING.md)**.
+Für detaillierte Informationen zu Test-Szenarien, CI/CD-Integration, Troubleshooting und Codespace-spezifischen Anleitungen, siehe **[tests/README.md](./tests/README.md)**.
 
 ## 🐛 Troubleshooting
 
@@ -353,14 +353,13 @@ mumbling-mole/
 ### For AI Assistants
 - **[Copilot Instructions](.github/copilot-instructions.md)** – Essential patterns, architecture, workflows (start here!)
 
-### General Documentation
-- **[Testing Guide](TESTING.md)** – Comprehensive testing documentation (German)
-- **[Technical Debt Analysis](TECHNICAL_DEBT_ANALYSIS.md)** – Known issues, limitations, refactoring opportunities
-- **[Release Notes](RELEASE.md)** – Recent changes and PRs
+### Testing & Audio
+- **[Testing Guide](tests/README.md)** – Comprehensive testing documentation (German)
+- **[Loopback Test Coverage](tests/playwright/README.md)** – What loopback tests can and cannot detect
+- **[Audio Debug Guide](app/audio/README.md)** – Production audio debugging guide (client-to-client playback)
 
-### Audio & Debugging
-- **[Audio Debug Guide](AUDIO_DEBUG_GUIDE.md)** – Production audio debugging guide (client-to-client playback)
-- **[Loopback Test Coverage](LOOPBACK_TEST_COVERAGE.md)** – What loopback tests can and cannot detect
+### Authentication
+- **[Auth Abstraction Layer](app/auth/README.md)** – Authentication system architecture and migration guide
 
 ### Build & Configuration
 - **[Webpack Config](webpack.config.js)** – Build configuration (Webpack 5)
@@ -378,7 +377,7 @@ mumbling-mole/
 
 ## ⚠️ Known Limitations
 
-- **No unit tests**: Only integration/E2E tests exist (see [TECHNICAL_DEBT_ANALYSIS.md](./TECHNICAL_DEBT_ANALYSIS.md))
+- **No unit tests**: Only integration/E2E tests exist (see [tests/README.md](./tests/README.md))
 - **Build complexity**: Multi-stage build with vendor transpilation can be fragile
 - **GlobalBindings anti-pattern**: 1474-line god object centralizes all UI state
 - **AudioWorklet constraints**: Processors can't use imports, must be ES5-compatible
