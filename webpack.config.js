@@ -176,7 +176,8 @@ const config = {
       patterns: [
         { from: 'app/favicons', to: 'favicons' },
         { from: 'themes/MetroMumbleLight/svg', to: 'svg' },
-        { from: 'themes/MetroMumbleLight/img', to: 'img' }
+        { from: 'themes/MetroMumbleLight/img', to: 'img' },
+        { from: 'app/performance-dashboard.html', to: 'performance-dashboard.html' }
         // AudioWorklet processors copied by smart-build.sh (must not be transpiled)
       ]
     }),

@@ -25,11 +25,11 @@ const PERF_CONFIG = {
 };
 
 class PerformanceMonitor {
-  constructor(maxEntries = PERF_CONFIG.MAX_ENTRIES, maxMeasures = PERF_CONFIG.MAX_MEASURES) {
-    this.metrics = [];           // Time-series events (marks, warnings, events)
-    this.measures = [];          // Duration measurements
-    this.maxEntries = maxEntries;
-    this.maxMeasures = maxMeasures;
+  constructor() {
+    this.metrics = [];
+    this.measures = [];
+    this.maxMetrics = 1000; // Ring buffer size for metrics
+    this.maxMeasures = 10000; // Ring buffer size for measures (increased to capture all metric types)
     this.counters = {};          // Event counters (buffer underruns, etc.)
     this.enabled = true;
     
@@ -74,11 +74,14 @@ class PerformanceMonitor {
   measure(name, startMark, endMark) {
     if (!this.enabled) return 0;
     
+    console.log(`[PERF-MEASURE] Called measure('${name}', '${startMark}', '${endMark}')`);
+    
     let duration = 0;
     
     try {
       const measure = performance.measure(name, startMark, endMark);
       duration = measure.duration;
+      console.log(`[PERF-MEASURE] Performance.measure succeeded: ${duration.toFixed(2)}ms`);
     } catch (e) {
       // Fallback: manual calculation if Performance API fails
       const marks = this.metrics.filter(m => m.type === 'mark');
@@ -87,7 +90,11 @@ class PerformanceMonitor {
       
       if (start && end) {
         duration = end.timestamp - start.timestamp;
+        console.log(`[PERF-MEASURE] Fallback calculation: ${duration.toFixed(2)}ms`);
+      } else {
+        console.error(`[PERF-MEASURE] Fallback failed - start: ${!!start}, end: ${!!end}`);
       }
+      console.error('[PERF] Performance.measure failed, used fallback:', e.message);
     }
     
     this.measures.push({
@@ -95,6 +102,11 @@ class PerformanceMonitor {
       duration,
       timestamp: performance.now()
     });
+    
+    // Debug: log first few encode/decode measurements
+    if ((name === 'encode.duration' || name === 'decode.duration') && this.measures.filter(m => m.name === name).length <= 3) {
+      console.log(`[PERF-DEBUG] Added ${name} measure #${this.measures.filter(m => m.name === name).length}: ${duration.toFixed(2)}ms`);
+    }
     
     this._trimMeasures();
     
@@ -149,6 +161,12 @@ class PerformanceMonitor {
    * @private
    */
   _checkThresholds(name, duration) {
+    // Thresholds disabled - use Dashboard for performance analysis
+    // Automatic console warnings create noise and are often false positives
+    // during codec warmup or system load.
+    return;
+    
+    /* Original threshold checking code (disabled):
     let threshold = null;
     
     if (name.includes('encode')) {
@@ -162,6 +180,7 @@ class PerformanceMonitor {
     if (threshold && duration > threshold) {
       console.warn(`[PERF] Slow ${name}: ${duration.toFixed(2)}ms (threshold: ${threshold}ms)`);
     }
+    */
   }
 
   /**

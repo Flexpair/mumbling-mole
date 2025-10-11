@@ -27,16 +27,12 @@ class DecoderStream extends Transform {
       // PERFORMANCE-MONITORING: Track decoding completion
       if (data._decodeId) {
         performanceMonitor.mark(`${data._decodeId}.end`);
-        const duration = performanceMonitor.measure(
+        performanceMonitor.measure(
           'decode.duration', 
           `${data._decodeId}.start`, 
           `${data._decodeId}.end`
         );
-        
-        // Warn if decoding is slow (> 20ms is problematic for real-time audio)
-        if (duration > 20) {
-          console.warn(`[PERF] Slow decoding: ${duration.toFixed(2)}ms`);
-        }
+        // Note: Warnings removed - use Dashboard for performance analysis
       }
       
       const pcm = new Float32Array(data.buffer);

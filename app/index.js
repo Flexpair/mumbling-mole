@@ -822,6 +822,19 @@ class GlobalBindings {
       this.currentOpenModal('settings');
     };
 
+    this.openPerformanceDashboard = () => {
+      // Open performance dashboard in new window
+      const width = 1200;
+      const height = 800;
+      const left = (screen.width - width) / 2;
+      const top = (screen.height - height) / 2;
+      window.open(
+        'performance-dashboard.html',
+        'Performance Dashboard',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      );
+    };
+
     this.logoutUser = () => {
       this.netlifyIdentity.logout();
       location.reload()

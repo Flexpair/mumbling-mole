@@ -28,19 +28,20 @@ class EncoderStream extends Transform {
       pool.recycle(this._worker);
       this._finalCallback();
     } else {
-      // PERFORMANCE-MONITORING: Track encoding completion
+      // PERFORMANCE-MONITORING: Track encoding end
       if (data._encodeId) {
+        console.log('[ENCODER] Finished encode:', data._encodeId);
         performanceMonitor.mark(`${data._encodeId}.end`);
-        const duration = performanceMonitor.measure(
+        console.log('[ENCODER] About to call measure for:', data._encodeId);
+        performanceMonitor.measure(
           'encode.duration', 
           `${data._encodeId}.start`, 
           `${data._encodeId}.end`
         );
-        
-        // Warn if encoding is slow (> 20ms is problematic for real-time audio)
-        if (duration > 20) {
-          console.warn(`[PERF] Slow encoding: ${duration.toFixed(2)}ms`);
-        }
+        console.log('[ENCODER] Measure called for:', data._encodeId);
+        // Note: Warnings removed - use Dashboard for performance analysis
+      } else {
+        console.warn('[ENCODER] No _encodeId in data:', data);
       }
       
       this.push({
@@ -57,6 +58,7 @@ class EncoderStream extends Transform {
     const encodeId = `encode.${Date.now()}.${Math.random()}`;
     chunk._encodeId = encodeId;
     performanceMonitor.mark(`${encodeId}.start`);
+    console.log('[ENCODER] Starting encode:', encodeId);
     
     var buffer = chunk.pcm.slice().buffer;
     this._worker.postMessage(

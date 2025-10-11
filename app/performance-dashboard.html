@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        button.refresh {
+            background: #667eea;
+            color: white;
+        }
+
+        button.clear {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h2 {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-card h2::before {
+            content: '📊';
+            font-size: 24px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stat-value.good {
+            color: #27ae60;
+        }
+
+        .stat-value.warning {
+            color: #f39c12;
+        }
+
+        .stat-value.bad {
+            color: #e74c3c;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .events-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .events-section h2 {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .event-item {
+            padding: 10px;
+            background: #f8f9fa;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .event-time {
+            color: #666;
+            font-size: 11px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge.info {
+            background: #3498db;
+            color: white;
+        }
+
+        .badge.success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .badge.warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .last-update {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .auto-refresh input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .auto-refresh label {
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 Mumble Performance Dashboard</h1>
+            <p class="subtitle">Real-time audio encoding/decoding metrics</p>
+        </header>
+
+        <div class="controls">
+            <button class="refresh" onclick="loadStats()">🔄 Refresh Now</button>
+            <button class="clear" onclick="clearStats()">🗑️ Clear All Data</button>
+            <div class="auto-refresh">
+                <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
+                <label for="autoRefresh">Auto-refresh (5s)</label>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="no-data">Loading statistics...</div>
+            </div>
+        </div>
+
+        <div class="events-section">
+            <h2>📋 Recent Events</h2>
+            <div id="eventsList">
+                <div class="no-data">Loading events...</div>
+            </div>
+        </div>
+
+        <div class="last-update" id="lastUpdate">
+            Last updated: Never
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+
+        function getPerformanceMonitor() {
+            // ALWAYS try opener first (this is a popup window)
+            if (window.opener && window.opener._performanceMonitor) {
+                console.log('[Dashboard] Found performance monitor in opener window');
+                return window.opener._performanceMonitor;
+            }
+            // Fallback to current window
+            if (window._performanceMonitor) {
+                console.log('[Dashboard] Using current window performance monitor');
+                return window._performanceMonitor;
+            }
+            console.error('[Dashboard] Performance monitor not found!');
+            return null;
+        }
+
+        function formatDuration(ms) {
+            if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
+            if (ms < 1000) return `${ms.toFixed(2)}ms`;
+            return `${(ms / 1000).toFixed(2)}s`;
+        }
+
+        function getColorClass(value, threshold) {
+            if (value < threshold * 0.5) return 'good';
+            if (value < threshold) return 'warning';
+            return 'bad';
+        }
+
+        function createStatCard(title, stats, threshold = 20) {
+            if (!stats || stats.count === 0) {
+                return `
+                    <div class="stat-card">
+                        <h2>${title}</h2>
+                        <div class="no-data">No data yet</div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="stat-card">
+                    <h2>${title}</h2>
+                    <div class="stat-row">
+                        <span class="stat-label">Count</span>
+                        <span class="stat-value">${stats.count}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Average</span>
+                        <span class="stat-value ${getColorClass(stats.avg, threshold)}">${formatDuration(stats.avg)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Min / Max</span>
+                        <span class="stat-value">${formatDuration(stats.min)} / ${formatDuration(stats.max)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Median (p50)</span>
+                        <span class="stat-value ${getColorClass(stats.p50, threshold)}">${formatDuration(stats.p50)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">95th percentile</span>
+                        <span class="stat-value ${getColorClass(stats.p95, threshold)}">${formatDuration(stats.p95)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">99th percentile</span>
+                        <span class="stat-value ${getColorClass(stats.p99, threshold)}">${formatDuration(stats.p99)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadStats() {
+            const monitor = getPerformanceMonitor();
+            
+            if (!monitor) {
+                document.getElementById('statsGrid').innerHTML = `
+                    <div class="stat-card">
+                        <div class="no-data">⚠️ Performance Monitor not found. Make sure the main application is running.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            console.log('[Dashboard] Loading stats from monitor:', monitor);
+            console.log('[Dashboard] Measures array length:', monitor.measures ? monitor.measures.length : 'N/A');
+
+            const statsGrid = document.getElementById('statsGrid');
+            const encodeStats = monitor.getMeasureStats('encode.duration');
+            const decodeStats = monitor.getMeasureStats('decode.duration');
+            const bufferStats = monitor.getMeasureStats('buffer.enqueue');
+            
+            console.log('[Dashboard] Encode stats:', encodeStats);
+            console.log('[Dashboard] Decode stats:', decodeStats);
+            console.log('[Dashboard] Buffer stats:', bufferStats);
+            
+            statsGrid.innerHTML = 
+                createStatCard('🎙️ Encoding Performance', encodeStats) +
+                createStatCard('🔊 Decoding Performance', decodeStats) +
+                createStatCard('📦 Buffer Queue', bufferStats, 10);
+
+            // Load events
+            const events = monitor.getEvents();
+            const counters = monitor.getCounters();
+            const eventsList = document.getElementById('eventsList');
+            
+            if (events.length === 0) {
+                eventsList.innerHTML = '<div class="no-data">No events logged</div>';
+            } else {
+                eventsList.innerHTML = events.slice(-10).reverse().map(event => {
+                    const time = new Date(event.timestamp).toLocaleTimeString();
+                    const badge = event.type === 'error' ? 'warning' : 'info';
+                    return `
+                        <div class="event-item">
+                            <strong>${event.name}</strong>
+                            <span class="badge ${badge}">${event.type}</span>
+                            <div class="event-time">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Update timestamp
+            document.getElementById('lastUpdate').textContent = 
+                `Last updated: ${new Date().toLocaleTimeString()}`;
+        }
+
+        function clearStats() {
+            const monitor = getPerformanceMonitor();
+            if (monitor && confirm('Clear all performance data?')) {
+                monitor.clear();
+                loadStats();
+            }
+        }
+
+        function toggleAutoRefresh() {
+            const enabled = document.getElementById('autoRefresh').checked;
+            
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            
+            if (enabled) {
+                autoRefreshInterval = setInterval(loadStats, 5000);
+            }
+        }
+
+        // Initial load
+        loadStats();
+        toggleAutoRefresh();
+    </script>
+</body>
+</html>
