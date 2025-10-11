@@ -53,6 +53,19 @@ function debugLog(tag, ...args) {
   }
 }
 
+/**
+ * Safely extracts and sanitizes username from user metadata
+ * @param {Object} user - User object from auth provider
+ * @returns {string|null} - Sanitized username or null if not available
+ */
+function getUsernameFromMetadata(user) {
+  if (!user || !user.user_metadata || !user.user_metadata.full_name) {
+    return null;
+  }
+  // Consistent sanitization: replace non-alphanumeric characters with underscore
+  return user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+}
+
 function GuacamoleFrame() {
   var self = this;
   // Start with null source to avoid the browser immediately requesting /guacamole/.
@@ -1622,10 +1635,9 @@ async function initializeUI() {
   }
 
   ui.auth.on("login", (user) => {
-    if (user && user.user_metadata && user.user_metadata.full_name) {
-      ui.connectDialog.username(
-        user.user_metadata.full_name.replace(/[\s]+/g, "_")
-      );
+    const username = getUsernameFromMetadata(user);
+    if (username) {
+      ui.connectDialog.username(username);
     }
     ui.auth.close();
     // Show connect dialog after successful authentication
@@ -1652,9 +1664,9 @@ async function initializeUI() {
     ui.connectDialog.hide();
     ui.auth.open("signup"); // open the modal to the signup tab
   } else {
-    if (user.user_metadata && user.user_metadata.full_name) {
-      const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
-      ui.connectDialog.username(sanitized);
+    const username = getUsernameFromMetadata(user);
+    if (username) {
+      ui.connectDialog.username(username);
     }
     // User is already authenticated, show connect dialog
     ui.connectDialog.show();
