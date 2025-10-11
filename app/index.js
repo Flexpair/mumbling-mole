@@ -107,7 +107,8 @@ function ConnectDialog() {
   self.port = ko.observable("");
   self.username = ko.observable("");
   self.password = ko.observable("");
-  self.visible = ko.observable(true);
+  // Start hidden - will be shown after authentication
+  self.visible = ko.observable(false);
   // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
   self.isTestActive = ko.observable(false);
   self.show = self.visible.bind(self.visible, true);
@@ -1630,19 +1631,34 @@ function initializeUI() {
       user.user_metadata.full_name.replace(/[\s]+/g, "_")
     );
     ui.netlifyIdentity.close();
+    // Show connect dialog after successful authentication
+    ui.connectDialog.show();
   });
 
   ui.netlifyIdentity.on("close", () => {
     if (!ui.connectDialog.username()) {
       ui.netlifyIdentity.open("login"); // open the modal to the login tab
+    } else {
+      // Show connect dialog when auth modal is closed and user is authenticated
+      ui.connectDialog.show();
     }
   });
 
+  ui.netlifyIdentity.on("error", (err) => {
+    console.warn("[Auth] Authentication error:", err);
+    // Show connect dialog even if auth fails to allow retry
+    ui.connectDialog.show();
+  });
+
   if (user == null) {
+    // Hide connect dialog when showing authentication modal
+    ui.connectDialog.hide();
     ui.netlifyIdentity.open("signup"); // open the modal to the signup tab
   } else {
     const sanitized = user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
     ui.connectDialog.username(sanitized);
+    // User is already authenticated, show connect dialog
+    ui.connectDialog.show();
   }
 
   var queryParams = url.parse(document.location.href, true).query;
