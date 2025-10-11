@@ -34,6 +34,9 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 git clone https://github.com/Flexpair/mumbling-mole.git
 cd mumbling-mole
 npm install
+
+# Setup Git hooks (includes markdown structure validation)
+./scripts/setup-git-hooks.sh
 ```
 
 > **Note:** The `prepare` script automatically runs `smart-build.sh` during installation to generate the `dist/` directory.
