@@ -34,7 +34,7 @@ The server loopback (target=31) tests:
 [DEBUG-VOICE] Write completed
 ```
 
-### 2. Decoder Stream (app/decoder-stream.js)
+### 2. Decoder Stream (app/audio/decoder-stream.js)
 ```
 [DEBUG-DECODER] Transform called - codec: Opus
 [DEBUG-DECODER] Posting message to worker
@@ -50,7 +50,7 @@ The server loopback (target=31) tests:
 [DEBUG-WORKER] Posted message to UI thread
 ```
 
-### 4. AudioContext State (app/audio-context-manager.js)
+### 4. AudioContext State (app/audio/audio-context-manager.js)
 ```
 [AudioContext] State changed to: running/suspended
 [AudioContext] Full state: {state, sampleRate, currentTime, etc}
