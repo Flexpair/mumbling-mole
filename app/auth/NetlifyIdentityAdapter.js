@@ -160,7 +160,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    */
   async updateUser(updates) {
     // This is a limitation of the widget - would need gotrue client access
-    console.warn('NetlifyIdentityAdapter: updateUser not fully implemented');
+    console.warn('NetlifyIdentityAdapter: updateUser not fully implemented. The Netlify Identity widget does not support direct user metadata updates; updates will NOT be applied. Only the current user object will be returned.');
     const user = await this.getCurrentUser();
     if (!user) {
       throw new Error('No user logged in');
