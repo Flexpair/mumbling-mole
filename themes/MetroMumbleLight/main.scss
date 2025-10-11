@@ -421,3 +421,29 @@ select {
     min-width: 350px;
   }
 }
+
+/* Corporate branding and UI enhancements */
+
+// Corporate teal color
+$corporate-teal: #157878;
+
+.test-toggle-slider.active {
+  background-color: $corporate-teal;
+  
+  &::before {
+    background-color: white;
+  }
+}
+
+.beep-test-button.active {
+  background-color: cyan;
+  color: black;
+}
+
+.dialog-submit {
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.4), inset 0 0 0 1px rgba(0, 255, 255, 0.3);
+  
+  &:hover {
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.6), inset 0 0 0 1px rgba(0, 255, 255, 0.5);
+  }
+}

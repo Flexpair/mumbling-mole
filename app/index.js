@@ -20,6 +20,38 @@ import {
   translate,
 } from "./localize";
 
+/**
+ * Utility function to wait for audio mixer to become available
+ * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
+ * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
+ * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout
+ */
+async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
+  const maxRetries = Math.floor(timeoutMs / checkIntervalMs);
+  let retries = maxRetries;
+  
+  while (retries > 0 && !window._audioMixer) {
+    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
+    retries--;
+  }
+  
+  return !!window._audioMixer;
+}
+
+// Debug flag for controlling verbose logging in voice handlers
+const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
+
+/**
+ * Debug logging function that respects the DEBUG_VOICE_LOGGING flag
+ * @param {string} tag - Log tag like '[VOICE]' 
+ * @param {...any} args - Arguments to log
+ */
+function debugLog(tag, ...args) {
+  if (DEBUG_VOICE_LOGGING) {
+    console.log(tag, ...args);
+  }
+}
+
 function GuacamoleFrame() {
   var self = this;
   // Start with null source to avoid the browser immediately requesting /guacamole/.
@@ -123,13 +155,9 @@ function ConnectDialog() {
       // This ensures the beeper is ready by the time the user wants to click the button
       setTimeout(async () => {
         // Wait for mixer to be available after loopback connection
-        let retries = 100; // 100 * 50ms = 5 seconds
-        while (retries > 0 && !window._audioMixer) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-          retries--;
-        }
+        const mixerAvailable = await waitForAudioMixer(5000, 50);
         
-        if (window._audioMixer && !ui._persistentBeeper) {
+        if (mixerAvailable && !ui._persistentBeeper) {
           console.log('[BEEP] Initializing beeper after loopback toggle...');
           await ui._initializePersistentBeeper();
           console.log('[BEEP] Beeper ready for immediate use');
@@ -977,13 +1005,9 @@ class GlobalBindings {
         console.log('[LOOPBACK] Waiting for audio mixer to be ready...');
         
         // Wait up to 5 seconds for mixer to be available
-        let retries = 50; // 50 * 100ms = 5 seconds
-        while (retries > 0 && !window._audioMixer) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          retries--;
-        }
+        const mixerAvailable = await waitForAudioMixer(5000, 100);
         
-        if (window._audioMixer) {
+        if (mixerAvailable) {
           console.log('[LOOPBACK] Mixer ready, initializing beeper...');
           await this._initializePersistentBeeper();
           console.log('[LOOPBACK] Beeper ready - button will respond instantly');
@@ -1225,7 +1249,7 @@ class GlobalBindings {
           }
         })
         .on("voice", (stream) => {
-          console.log('[VOICE] Voice stream received for user:', user.username);
+          debugLog('[VOICE]', 'Voice stream received for user:', user.username);
           
           // Create audio node for playing back received voice
           var userNode = new BufferQueueNode({
@@ -1237,7 +1261,7 @@ class GlobalBindings {
           
           // Set initial gain based on current deafen state
           gainNode.gain.value = this.selfDeaf() ? 0 : 1;
-          console.log('[VOICE] Initial gain set to:', gainNode.gain.value, '(selfDeaf:', this.selfDeaf(), ')');
+          debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value, '(selfDeaf:', this.selfDeaf(), ')');
           
           // Connect: userNode -> gainNode -> destination
           userNode.connect(gainNode);
@@ -1246,12 +1270,12 @@ class GlobalBindings {
           // Subscribe to selfDeaf changes to update gain
           var deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
             gainNode.gain.value = isDeaf ? 0 : 1;
-            console.log('[VOICE] Gain updated to:', gainNode.gain.value, '(deaf:', isDeaf, ')');
+            debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value, '(deaf:', isDeaf, ')');
           });
 
           stream
             .on("data", (data) => {
-              console.log('[VOICE] Audio data received, target:', data.target, 'buffer size:', data.buffer?.length);
+              debugLog('[VOICE]', 'Audio data received, target:', data.target, 'buffer size:', data.buffer?.length);
               
               if (data.target === "normal") {
                 ui.talking("on");
@@ -1262,13 +1286,13 @@ class GlobalBindings {
               } else if (data.target === "loopback") {
                 // Server loopback - show talking status
                 ui.talking("on");
-                console.log('[VOICE] Loopback audio received!');
+                debugLog('[VOICE]', 'Loopback audio received!');
               }
               
               userNode.write(data.buffer);
             })
             .on("end", () => {
-              console.log('[VOICE] Voice stream ended for user:', user.username);
+              debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
               ui.talking("off");
               userNode.end();
               // Clean up subscription when stream ends
