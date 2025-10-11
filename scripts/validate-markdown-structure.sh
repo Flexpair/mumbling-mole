@@ -89,7 +89,7 @@ done
 # Summary
 echo ""
 echo "📊 Validation Summary:"
-echo "  Total markdown files found: $(echo "$MARKDOWN_FILES" | grep -c "^" || echo 0)"
+echo "  Total markdown files found: $(echo "$MARKDOWN_FILES" | grep -c "^")"
 echo "  Directories with markdown: ${#DIR_MD_COUNT[@]}"
 
 if [[ $ERRORS -gt 0 ]]; then

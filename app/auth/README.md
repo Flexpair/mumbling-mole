@@ -789,8 +789,7 @@ Look at these for inspiration:
 ## 🔗 Related Documentation
 
 - **[Migration Plan](../docs/NETLIFY_IDENTITY_MIGRATION_PLAN.md)** - Complete 15-week migration strategy
-- **[Auth README](../app/auth/README.md)** - Detailed auth abstraction docs
-- **[Technical Debt #19](../TECHNICAL_DEBT_ANALYSIS.md#19)** - Original problem statement
+- **This document** - Detailed auth abstraction documentation
 
 ---
 

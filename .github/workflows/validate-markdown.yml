@@ -1,5 +1,8 @@
 name: Validate Markdown Structure
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
