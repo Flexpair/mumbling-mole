@@ -484,6 +484,7 @@ ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
 ui.guacamoleFrame = new GuacamoleFrame();
 ui.connectionInfo = new ConnectionInfo(ui);
 ui.settings = new Settings(window.mumbleWebConfig.settings);
+ui.settingsDialogInstance = new SettingsDialog(ui.settings);
 
 // Initialize auth
 const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
@@ -493,6 +494,18 @@ ui.netlifyIdentity = ui.auth; // Backward compatibility
 // Add context menu references (will be set up in initializeUI)
 ui.userContextMenu = null;
 ui.channelContextMenu = null;
+
+// Override openSettings to create new SettingsDialog instance
+const originalOpenSettings = ui.openSettings;
+ui.openSettings = (SettingsDialogClass) => {
+  // Create a new instance and pass it
+  const dialogInstance = new SettingsDialog(ui.settings);
+  // Manually call UIState.openSettings with settings and the constructor
+  if (ui.ui.currentOpenModal() === null) {
+    ui.ui.settingsDialog(dialogInstance);
+    ui.ui.currentOpenModal('settings');
+  }
+};
 
 // Used only for debugging
 window.mumbleUi = ui;
