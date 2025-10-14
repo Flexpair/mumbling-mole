@@ -84,7 +84,7 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 │  │     Main Thread (UI)         │  │    Web Worker        │ │
 │  │                              │  │                      │ │
 │  │  • Knockout.js MVVM          │◄─┤  • mumble-client     │ │
-│  │  • GlobalBindings state      │  │  • Audio resampling  │ │
+│  │  • Modular UI managers       │  │  • Audio resampling  │ │
 │  │  • Localization              │  │  • Opus encoding     │ │
 │  │  • Theme management          │  │  • Event dispatch    │ │
 │  └──────────┬──────────────────┘  └──────────┬───────────┘ │
@@ -301,7 +301,7 @@ We welcome contributions! Please follow these guidelines:
 - **Worker protocol**: Update both `_setProp` (worker-client.js) AND `pushProp` (worker.js) when adding properties
 - **Never serialize objects** across worker boundary—only pass numeric IDs
 - **AudioContext**: Always use `ensureAudioContext()` from `audio-context-manager.js`, never `new AudioContext()` directly
-- **UI state**: All observables must live in `GlobalBindings` class (centralized pattern)
+- **UI state**: Managed via modular manager classes (AudioManager, ConnectionManager, UserChannelManager, UIStateManager, MessageManager)
 - **Localization**: Add strings to `localize/en.json` (multilanguage support is disabled)
 - **Console logging**: Prefix debug logs with context tags: `[LOOPBACK]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[DEBUG-VOICE]`, `[AudioContext]`
 - **Documentation**: Update `.github/copilot-instructions.md` for architectural changes
@@ -312,7 +312,13 @@ We welcome contributions! Please follow these guidelines:
 ```
 mumbling-mole/
 ├── app/                           # Application source
-│   ├── index.js                   # UI entry point (GlobalBindings + Knockout)
+│   ├── index.js                   # UI entry point (coordinator for managers)
+│   ├── ui/                        # Modular UI management classes
+│   │   ├── AudioManager.js        # Audio, voice, beeper management
+│   │   ├── ConnectionManager.js   # Connection lifecycle, client state
+│   │   ├── UserChannelManager.js  # User/channel bindings and events
+│   │   ├── UIStateManager.js      # UI state, dialogs, modals
+│   │   └── MessageManager.js      # Messaging functionality
 │   ├── worker.js                  # Web Worker (registerEventProxy + pushProp)
 │   ├── worker-client.js           # Worker bridge (_dispatchEvent + _setProp)
 │   ├── voice.js                   # Voice handlers (PTT/continuous + loopback)
@@ -407,7 +413,6 @@ git commit -m "Your message"
 
 - **No unit tests**: Only integration/E2E tests exist (see [tests/README.md](./tests/README.md))
 - **Build complexity**: Multi-stage build with vendor transpilation can be fragile
-- **GlobalBindings anti-pattern**: 1474-line god object centralizes all UI state
 - **AudioWorklet constraints**: Processors can't use imports, must be ES5-compatible
 - **Loopback test limitations**: Tests encode/decode but NOT cross-client playback initialization
 
