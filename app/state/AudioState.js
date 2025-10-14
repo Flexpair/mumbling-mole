@@ -307,21 +307,26 @@ export default class AudioState {
       
       const initialDeclineTime = 0.3;
       const mainDecayTime = 1.0;
+      const totalFadeTime = initialDeclineTime + mainDecayTime;
       
       beeper.gain.gain.cancelScheduledValues(currentTime);
       beeper.gain.gain.setValueAtTime(0.4, currentTime);
       beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
-      beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
+      beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + totalFadeTime);
+      // Ensure complete silence after fade
+      beeper.gain.gain.setValueAtTime(0, currentTime + totalFadeTime);
       
       beeper.localGain.gain.cancelScheduledValues(currentTime);
       beeper.localGain.gain.setValueAtTime(0.3, currentTime);
       beeper.localGain.gain.linearRampToValueAtTime(0.18, currentTime + initialDeclineTime);
-      beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
+      beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + totalFadeTime);
+      // Ensure complete silence after fade
+      beeper.localGain.gain.setValueAtTime(0, currentTime + totalFadeTime);
       
       beeper.isPlaying = false;
       this.isBeeping(false);
       
-      debugLog('[BEEP]', `Dual fadeout complete`);
+      debugLog('[BEEP]', `Dual fadeout complete with final silence at ${currentTime + totalFadeTime}`);
     } catch (err) {
       console.error('[BEEP] Error stopping beep:', err);
     }
