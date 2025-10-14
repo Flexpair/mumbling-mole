@@ -8,6 +8,13 @@ import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import BufferQueueNode from "./audio/buffer-queue-node";
 import AuthFactory from "./auth/AuthFactory";
+import AppState from "./state/AppState";
+
+// FEATURE-FLAG: Toggle between old GlobalBindings and new modular AppState
+// Set USE_NEW_STATE_ARCHITECTURE=true in environment or window to use new architecture
+const USE_NEW_STATE_ARCHITECTURE = 
+  (typeof process !== 'undefined' && process.env.USE_NEW_STATE_ARCHITECTURE === 'true') ||
+  (typeof window !== 'undefined' && window.USE_NEW_STATE_ARCHITECTURE === true);
 
 import {
   ContinuousVoiceHandler,
@@ -1661,7 +1668,34 @@ class GlobalBindings {
     };
   }
 }
-var ui = new GlobalBindings(window.mumbleWebConfig);
+
+// FEATURE-FLAG: Instantiate either new AppState or old GlobalBindings
+// To use new architecture, set USE_NEW_STATE_ARCHITECTURE=true
+var ui;
+if (USE_NEW_STATE_ARCHITECTURE) {
+  console.log('[STATE] Using new modular AppState architecture');
+  ui = new AppState(window.mumbleWebConfig, log);
+  
+  // Wire up dependencies that AppState expects
+  ui.connectDialog = new ConnectDialog();
+  ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
+  ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
+  ui.guacamoleFrame = new GuacamoleFrame();
+  ui.connectionInfo = new ConnectionInfo(ui);
+  ui.settings = new Settings(window.mumbleWebConfig.settings);
+  
+  // Initialize auth
+  const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
+  ui.auth = AuthFactory.create(authConfig);
+  ui.netlifyIdentity = ui.auth; // Backward compatibility
+  
+  // Add context menu references (will be set up in initializeUI)
+  ui.userContextMenu = null;
+  ui.channelContextMenu = null;
+} else {
+  console.log('[STATE] Using legacy GlobalBindings architecture');
+  ui = new GlobalBindings(window.mumbleWebConfig);
+}
 
 // Used only for debugging
 window.mumbleUi = ui;

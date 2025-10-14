@@ -1,0 +1,333 @@
+import ko from "knockout";
+import audioContextManager, { ensureAudioContext } from "../audio/audio-context-manager";
+
+const DEBUG_VOICE_LOGGING = false;
+
+function debugLog(tag, ...args) {
+  if (DEBUG_VOICE_LOGGING) {
+    console.log(tag, ...args);
+  }
+}
+
+/**
+ * Utility function to wait for audio mixer to become available
+ * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
+ * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
+ * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout
+ */
+async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
+  const maxRetries = Math.floor(timeoutMs / checkIntervalMs);
+  let retries = maxRetries;
+  
+  while (retries > 0 && !window._audioMixer) {
+    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
+    retries--;
+  }
+  
+  return !!window._audioMixer;
+}
+
+/**
+ * AudioState - manages audio context, permissions, and beeper functionality
+ * 
+ * Responsibilities:
+ * - AudioContext lifecycle management
+ * - Audio lock state (sample rate warnings)
+ * - Microphone permission handling
+ * - Beeper/tone generator for latency testing
+ */
+export default class AudioState {
+  constructor() {
+    // Audio context
+    this.audioContext = null;
+    
+    // Audio lock state
+    this.audioLockActive = ko.observable(false);
+    this.audioLockReason = ko.observable(null);
+    this.audioLockDetails = ko.observable(null);
+    
+    // Microphone permission state
+    this.micPermissionDenied = ko.observable(false);
+    this.micPermissionErrorMessage = ko.observable("");
+    this.micPermissionRetryCount = 0;
+    this.maxMicPermissionRetryCount = 3;
+    this.micPermissionRetryDelayMs = 1000;
+    
+    // Beeper state
+    this.isBeeping = ko.observable(false);
+    this.beeperReady = ko.observable(false);
+    this._persistentBeeper = null;
+    
+    // Initialize audio context
+    this.initializeAudioContext();
+  }
+
+  /**
+   * Initialize managed AudioContext with autoplay policy handling
+   */
+  async initializeAudioContext() {
+    // Prevent duplicate initialization - reuse existing instance
+    if (this.audioContext) {
+      return;
+    }
+    
+    try {
+      // Use managed AudioContext that handles browser autoplay restrictions
+      this.audioContext = await ensureAudioContext({ 
+        latencyHint: "interactive" 
+      });
+
+      // Set up event handlers for audio context state changes
+      audioContextManager.onSuspend(() => {
+        // AudioContext suspended - audio features may be limited
+      });
+
+      audioContextManager.onResume(() => {
+        // AudioContext resumed - audio features restored
+      });
+
+    } catch (error) {
+      console.error('Failed to initialize AudioContext:', error);
+      
+      // Fallback: Try legacy AudioContext creation
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          throw new Error("AudioContext is not supported in this browser");
+        }
+        this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
+      } catch (fallbackError) {
+        console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
+      }
+    }
+  }
+
+  /**
+   * Resume AudioContext if suspended
+   */
+  async resumeAudioContext() {
+    if (this.audioContext && this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    } else if (!this.audioContext) {
+      await this.initializeAudioContext();
+    }
+  }
+
+  /**
+   * Activate audio lock (disable audio features)
+   * @param {string} reason - Lock reason (e.g., 'sample-rate')
+   * @param {object} details - Additional details (e.g., {sampleRate: 44100})
+   */
+  activateAudioLock(reason, details = {}) {
+    this.audioLockReason(reason);
+    this.audioLockDetails(details);
+    this.audioLockActive(true);
+  }
+
+  /**
+   * Clear audio lock
+   * @param {object} options - Options {resetStates: boolean}
+   */
+  clearAudioLock({ resetStates = false } = {}) {
+    this.audioLockActive(false);
+    this.audioLockReason(null);
+    this.audioLockDetails(null);
+  }
+
+  /**
+   * Attempt to get microphone permission
+   */
+  attemptMicrophonePermission() {
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+      return;
+    }
+
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        this.micPermissionRetryCount = 0;
+        this.micPermissionDenied(false);
+        this.micPermissionErrorMessage("");
+        stream.getTracks().forEach((track) => track.stop());
+      })
+      .catch((err) => {
+        console.error("Microphone permission denied on retry:", err);
+        this.micPermissionRetryCount += 1;
+        const isPermissionBlocked =
+          err &&
+          (err.name === "NotAllowedError" ||
+            err.name === "SecurityError" ||
+            (typeof err.message === "string" &&
+              err.message.toLowerCase().includes("denied")));
+
+        if (isPermissionBlocked) {
+          this.micPermissionErrorMessage(
+            "Microphone access is blocked by the browser. Please allow it in the address bar or system settings, then try again."
+          );
+        }
+
+        if (this.micPermissionRetryCount >= this.maxMicPermissionRetryCount) {
+          return;
+        }
+        if (isPermissionBlocked) {
+          return;
+        }
+        setTimeout(() => this.attemptMicrophonePermission(), this.micPermissionRetryDelayMs);
+      });
+  }
+
+  /**
+   * Retry microphone permission request
+   */
+  retryMicrophonePermission() {
+    this.micPermissionRetryCount = 0;
+    this.micPermissionErrorMessage("");
+    this.attemptMicrophonePermission();
+  }
+
+  /**
+   * Initialize persistent beeper for latency testing
+   */
+  async initializePersistentBeeper() {
+    if (this._persistentBeeper) return; // Already initialized
+    
+    try {
+      // Wait for audio mixer to become available
+      debugLog('[BEEP]', 'Waiting for audio mixer...');
+      const mixerAvailable = await waitForAudioMixer(5000, 50);
+      
+      if (!mixerAvailable) {
+        debugLog('[BEEP]', 'Mixer not ready after timeout');
+        this.beeperReady(false);
+        return;
+      }
+      
+      const mixer = window._audioMixer;
+      const ac = await window.audioContextManager.getAudioContext();
+      if (!ac || ac.state !== 'running') {
+        debugLog('[BEEP]', 'AudioContext not ready', ac ? { state: ac.state } : { ac: null });
+        this.beeperReady(false);
+        return;
+      }
+      
+      // Create permanent oscillator with split output for local+remote playback
+      const oscillator = ac.createOscillator();
+      const beepGain = ac.createGain();
+      const localGain = ac.createGain();
+      
+      oscillator.frequency.setValueAtTime(440, ac.currentTime);
+      oscillator.type = 'sine';
+      beepGain.gain.setValueAtTime(0, ac.currentTime);
+      localGain.gain.setValueAtTime(0, ac.currentTime);
+      
+      // Split signal for local and remote paths
+      oscillator.connect(beepGain);
+      beepGain.connect(mixer);
+      
+      oscillator.connect(localGain);
+      localGain.connect(ac.destination);
+      
+      oscillator.start();
+      
+      this._persistentBeeper = {
+        oscillator,
+        gain: beepGain,
+        localGain: localGain,
+        isPlaying: false
+      };
+      
+      this.beeperReady(true);
+      debugLog('[BEEP]', 'Persistent beeper initialized with dual output');
+    } catch (err) {
+      console.error('[BEEP] Failed to initialize persistent beeper:', err);
+      this.beeperReady(false);
+    }
+  }
+
+  /**
+   * Start beeping
+   */
+  startBeep() {
+    debugLog('[BEEP]', 'Start beep requested');
+    
+    if (this._persistentBeeper) {
+      try {
+        const beeper = this._persistentBeeper;
+        const ac = beeper.gain.context;
+        const currentTime = ac.currentTime;
+        const attackTime = 0.005;
+        
+        beeper.gain.gain.cancelScheduledValues(currentTime);
+        beeper.gain.gain.setValueAtTime(0, currentTime);
+        beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
+        
+        beeper.localGain.gain.cancelScheduledValues(currentTime);
+        beeper.localGain.gain.setValueAtTime(0, currentTime);
+        beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime);
+        
+        beeper.isPlaying = true;
+        this.isBeeping(true);
+        
+        debugLog('[BEEP]', 'DUAL beep activated');
+        return;
+      } catch (err) {
+        console.error('[BEEP] Error starting instant beep:', err);
+      }
+    }
+    
+    // Fallback: initialize and retry
+    debugLog('[BEEP]', 'Beeper not ready, initializing...');
+    this.initializePersistentBeeper().then(() => {
+      if (this._persistentBeeper) {
+        this.startBeep();
+      }
+    });
+  }
+
+  /**
+   * Stop beeping
+   */
+  stopBeep() {
+    debugLog('[BEEP]', 'Stop beep requested');
+    
+    if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
+      debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
+      return;
+    }
+    
+    try {
+      const beeper = this._persistentBeeper;
+      const ac = beeper.gain.context;
+      const currentTime = ac.currentTime;
+      
+      const initialDeclineTime = 0.3;
+      const mainDecayTime = 1.0;
+      
+      beeper.gain.gain.cancelScheduledValues(currentTime);
+      beeper.gain.gain.setValueAtTime(0.4, currentTime);
+      beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
+      beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
+      
+      beeper.localGain.gain.cancelScheduledValues(currentTime);
+      beeper.localGain.gain.setValueAtTime(0.3, currentTime);
+      beeper.localGain.gain.linearRampToValueAtTime(0.18, currentTime + initialDeclineTime);
+      beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
+      
+      beeper.isPlaying = false;
+      this.isBeeping(false);
+      
+      debugLog('[BEEP]', `Dual fadeout complete`);
+    } catch (err) {
+      console.error('[BEEP] Error stopping beep:', err);
+    }
+  }
+
+  /**
+   * Reset beeper state
+   */
+  resetBeeper() {
+    this.stopBeep();
+    this.beeperReady(false);
+    // Note: we don't destroy _persistentBeeper, it can be reused
+  }
+}
