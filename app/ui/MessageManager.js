@@ -5,9 +5,9 @@ import { translate } from "../localize";
  * Manages messaging functionality
  */
 export default class MessageManager {
-  constructor(thisUser, selected) {
-    this.thisUser = thisUser;
-    this.selected = selected;
+  constructor(getThisUser, getSelected) {
+    this.getThisUser = getThisUser;
+    this.getSelected = getSelected;
     this.messageBox = ko.observable("");
     
     this.mailToDesktop = ko.observable(
@@ -22,14 +22,15 @@ export default class MessageManager {
    */
   get messageBoxHint() {
     return ko.pureComputed(() => {
-      if (!this.thisUser()) {
+      const thisUser = this.getThisUser();
+      if (!thisUser) {
         return ""; // Not yet connected
       }
-      var target = this.selected();
+      let target = this.getSelected();
       if (!target) {
-        target = this.thisUser();
+        target = thisUser;
       }
-      if (target === this.thisUser()) {
+      if (target === thisUser) {
         target = target.channel();
       }
       if (target.users) {
@@ -52,7 +53,7 @@ export default class MessageManager {
    * Submit message box
    */
   submitMessageBox() {
-    this.sendMessage(this.selected(), this.messageBox());
+    this.sendMessage(this.getSelected(), this.messageBox());
     this.messageBox("");
   }
 
@@ -61,12 +62,13 @@ export default class MessageManager {
    */
   sendMessage(target, message, isConnected) {
     if (isConnected) {
+      const thisUser = this.getThisUser();
       // If no target is selected, choose our own user
       if (!target) {
-        target = this.thisUser();
+        target = thisUser;
       }
       // If target is our own user, send to our channel
-      if (target === this.thisUser()) {
+      if (target === thisUser) {
         target = target.channel();
       }
       // Send message

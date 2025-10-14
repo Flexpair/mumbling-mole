@@ -8,6 +8,11 @@ import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import BufferQueueNode from "./audio/buffer-queue-node";
 import AuthFactory from "./auth/AuthFactory";
+import AudioManager from "./ui/AudioManager";
+import ConnectionManager from "./ui/ConnectionManager";
+import UserChannelManager from "./ui/UserChannelManager";
+import UIStateManager from "./ui/UIStateManager";
+import MessageManager from "./ui/MessageManager";
 
 import {
   ContinuousVoiceHandler,
@@ -471,19 +476,16 @@ class Settings {
   }
 }
 
+// Stub function for context menu (to be implemented if needed)
+function openContextMenu(event, menu, target) {
+  // Context menu functionality not yet implemented
+  event.preventDefault();
+}
+
 class GlobalBindings {
   constructor(config) {
     this.config = config;
     this.settings = new Settings(config.settings);
-    this.connector = new WorkerBasedMumbleConnector();
-    this.client = null;
-    
-    // Add microphone permission state observable
-  this.micPermissionDenied = ko.observable(false);
-  this.micPermissionErrorMessage = ko.observable("");
-    this.micPermissionRetryCount = 0;
-    this.maxMicPermissionRetryCount = 3;
-    this.micPermissionRetryDelayMs = 1000;
     
     // Initialize auth abstraction layer
     // Always default to netlify provider if config is missing or invalid
@@ -493,53 +495,104 @@ class GlobalBindings {
     // Maintain backward compatibility - expose as netlifyIdentity
     this.netlifyIdentity = this.auth;
     
+    // UI state observables needed before managers
+    this.selfMute = ko.observable();
+    this.selfDeaf = ko.observable();
+    
+    // Initialize managers
+    this.audioManager = new AudioManager(
+      this.settings,
+      () => this.isLoopbackMode(),
+      this.selfMute,
+      this.selfDeaf
+    );
+    this.connectionManager = new ConnectionManager(
+      new WorkerBasedMumbleConnector(),
+      this.audioManager
+    );
+    this.uiStateManager = new UIStateManager();
+    this.userChannelManager = new UserChannelManager(
+      () => this.audioManager.audioContext,
+      this.selfDeaf,
+      compareUsers,
+      compareChannels,
+      userToState,
+      openContextMenu,
+      null, // userContextMenu - will be set later
+      null  // channelContextMenu - will be set later
+    );
+    this.messageManager = new MessageManager(
+      () => this.userChannelManager.thisUser(),
+      () => this.uiStateManager.selected()
+    );
+    
+    // Dialogs
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.sampleRateWarningDialog = new SampleRateWarningDialog(this);
     this.guacamoleFrame = new GuacamoleFrame();
     this.connectionInfo = new ConnectionInfo(this);
-    this.settingsDialog = ko.observable();
-
-    this.audioLockActive = ko.observable(false);
-    this.audioLockReason = ko.observable(null);
-    this.audioLockDetails = ko.observable(null);
     
-    // LOOPBACK-FEATURE: Track whether client is in loopback test mode
-    // When true, voice is routed to server loopback (target=31) for echo testing
-    this.isLoopbackMode = ko.observable(false);
+    // Delegate properties from managers (for backward compatibility)
+    this.micPermissionDenied = this.audioManager.micPermissionDenied;
+    this.micPermissionErrorMessage = this.audioManager.micPermissionErrorMessage;
+    this.audioLockActive = this.audioManager.audioLockActive;
+    this.audioLockReason = this.audioManager.audioLockReason;
+    this.audioLockDetails = this.audioManager.audioLockDetails;
+    this.isBeeping = this.audioManager.isBeeping;
+    this.beeperReady = this.audioManager.beeperReady;
+    this.voiceHandlerReady = this.audioManager.voiceHandlerReady;
+    this.isLoopbackMode = this.connectionManager.isLoopbackMode;
+    this.remoteHost = this.connectionManager.remoteHost;
+    this.remotePort = this.connectionManager.remotePort;
+    this.thisUser = this.userChannelManager.thisUser;
+    this.root = this.userChannelManager.root;
+    this.selected = this.uiStateManager.selected;
+    this.settingsDialog = this.uiStateManager.settingsDialog;
+    this.currentOpenModal = this.uiStateManager.currentOpenModal;
+    this.messageBox = this.messageManager.messageBox;
     
-    // GUACAMOLE-INTEGRATION: Store credentials for later use when switching from test to normal mode
-    // Allows seamless transition to Guacamole desktop without re-authentication
+    // Expose client property for backward compatibility
+    Object.defineProperty(this, 'client', {
+      get: () => this.connectionManager.client,
+      set: (value) => { this.connectionManager.client = value; }
+    });
+    
+    // Expose audioContext property for backward compatibility  
+    Object.defineProperty(this, 'audioContext', {
+      get: () => this.audioManager.audioContext,
+      set: (value) => { this.audioManager.audioContext = value; }
+    });
+    
+    // GUACAMOLE-INTEGRATION: Store credentials for later use
     this._guacLogin = null; 
     this._guacPassword = null;
+    
+    // Context menu stubs (would be implemented if context menu functionality is added)
+    this.userContextMenu = null;
+    this.channelContextMenu = null;
+    
+    // Update context menus in userChannelManager
+    this.userChannelManager.userContextMenu = this.userContextMenu;
+    this.userChannelManager.channelContextMenu = this.channelContextMenu;
+
+    // Setup callbacks for user/channel manager
+    this.userChannelManager.onRequestMute = (user) => this.requestMute(user);
+    this.userChannelManager.onRequestDeaf = (user) => this.requestDeaf(user);
+    this.userChannelManager.onRequestUnmute = (user) => this.requestUnmute(user);
+    this.userChannelManager.onRequestUndeaf = (user) => this.requestUndeaf(user);
+    this.userChannelManager.onUpdateLinks = () => this._updateLinks();
 
     this._activateAudioLock = (reason, details = {}) => {
-      this.audioLockReason(reason);
-      this.audioLockDetails(details);
-      this.audioLockActive(true);
-      this.selfMute(true);
-      this.selfDeaf(true);
-      if (voiceHandler) {
-        voiceHandler.setMute(true);
-      }
+      this.audioManager.activateAudioLock(reason, details);
     };
 
     this._clearAudioLock = ({ resetStates = false } = {}) => {
-      if (resetStates && this.audioLockActive()) {
-        this.selfMute(false);
-        this.selfDeaf(false);
-      }
-      this.audioLockActive(false);
-      this.audioLockReason(null);
-      this.audioLockDetails(null);
+      this.audioManager.clearAudioLock({ resetStates });
     };
 
     this.notifyAudioLock = () => {
-      const details = this.audioLockDetails() || {};
-      const sr =
-        details.sampleRate !== undefined
-          ? details.sampleRate
-          : this.audioContext && this.audioContext.sampleRate;
+      const sr = this.audioManager.getAudioLockInfo();
       this.sampleRateWarningDialog.showInfo(sr);
     };
 
@@ -555,291 +608,35 @@ class GlobalBindings {
       }
     };
     
-    // Modal management - track currently open modal to prevent multiple modals
-    this.currentOpenModal = ko.observable(null);
-    this.remoteHost = ko.observable();
-    this.remotePort = ko.observable();
-    this.thisUser = ko.observable();
-    this.root = ko.observable();
-    this.messageBox = ko.observable("");
-    this.selected = ko.observable();
-    this.selfMute = ko.observable();
-    this.selfDeaf = ko.observable();
-    this.isBeeping = ko.observable(false);
-    this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
-    this.voiceHandlerReady = ko.observable(false); // Track when voice handler is fully initialized
-    
-    // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
-    
-    // PERSISTENT-BEEPER: Initialize permanent beep oscillator once, control via gain
     this._initializePersistentBeeper = async () => {
-      if (this._persistentBeeper) return; // Already initialized
-      
-      try {
-        // MIXER-WAIT: Wait for audio mixer to become available (handles delayed getUserMedia)
-        debugLog('[BEEP]', 'Waiting for audio mixer...');
-        const mixerAvailable = await waitForAudioMixer(5000, 50);
-        
-        if (!mixerAvailable) {
-          debugLog('[BEEP]', 'Mixer not ready after timeout');
-          this.beeperReady(false);
-          return;
-        }
-        
-        const mixer = window._audioMixer;
-        const ac = await window.audioContextManager.getAudioContext();
-        if (!ac || ac.state !== 'running') {
-          debugLog(
-            '[BEEP]',
-            'AudioContext not ready',
-            ac ? { state: ac.state, currentTime: ac.currentTime } : { ac: null }
-          );
-          this.beeperReady(false);
-          return;
-        }
-        
-        // DUAL-OUTPUT: Create permanent oscillator with split output for local+remote playback
-        const oscillator = ac.createOscillator();
-        const beepGain = ac.createGain();
-        const localGain = ac.createGain(); // Separate gain for local playback
-        
-        oscillator.frequency.setValueAtTime(440, ac.currentTime);
-        oscillator.type = 'sine';
-        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (remote path)
-        localGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (local path)
-        
-        // LATENCY-TEST: Split signal to hear both immediate local and delayed server echo
-        // Path 1: Oscillator -> beepGain -> Mixer -> Server -> Back (with latency)
-        // Path 2: Oscillator -> localGain -> Destination (immediate local playback)
-        oscillator.connect(beepGain);
-        beepGain.connect(mixer);
-        
-        oscillator.connect(localGain);
-        localGain.connect(ac.destination);
-        
-        // Start oscillator permanently (it just runs silently at gain=0)
-        oscillator.start();
-        
-        // Store references
-        this._persistentBeeper = {
-          oscillator,
-          gain: beepGain,        // Remote (server echo) gain
-          localGain: localGain,  // Local (immediate) gain
-          isPlaying: false
-        };
-        
-        // BEEPER-READY: Mark beeper as ready for UI
-        this.beeperReady(true);
-        
-        debugLog('[BEEP]', 'Persistent beeper initialized with dual output (local + server echo) for latency testing');
-        
-        // VOICE-HANDLER-CHECK: Verify voice handler is also ready before showing button
-        // This prevents showing the button too early when voice path isn't established yet
-        this._checkFullBeepReadiness();
-      } catch (err) {
-        console.error('[BEEP] Failed to initialize persistent beeper:', err);
-        this.beeperReady(false);
-      }
+      await this.audioManager.initializePersistentBeeper();
     };
     
-    // FULL-READINESS-CHECK: Verify both beeper AND voice handler are ready
     this._checkFullBeepReadiness = () => {
-      const beeperOk = this.beeperReady();
-      const voiceOk = this.voiceHandlerReady();
-      
-      debugLog('[BEEP-READY]', `Beeper: ${beeperOk}, Voice: ${voiceOk}`);
-      
-      // Only mark as truly ready when BOTH are available
-      // This prevents the UI button from appearing before the voice path is established
-      if (beeperOk && voiceOk) {
-        debugLog('[BEEP-READY]', '✅ Full beep system ready!');
-      } else {
-        debugLog('[BEEP-READY]', '⏳ Waiting for full initialization...');
-      }
+      this.audioManager.checkFullBeepReadiness();
     };
 
     this.startBeep = () => {
-      debugLog('[BEEP]', 'Start beep requested');
-      
-      if (!this.connected()) {
-        debugLog('[BEEP]', 'Not connected, ignoring beep');
-        return;
-      }
-      
-      // INSTANT-RESPONSE: If beeper is ready, start immediately (no await, no delay)
-      if (this._persistentBeeper) {
-        try {
-          const beeper = this._persistentBeeper;
-          const ac = beeper.gain.context;
-          const currentTime = ac.currentTime;
-          
-          // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
-          const attackTime = 0.005; // 5ms attack to eliminate clicks
-          
-          // LATENCY-TEST: Activate both local and remote paths simultaneously
-          // Remote path (via mixer -> server -> back): You'll hear the echo with network latency
-          beeper.gain.gain.cancelScheduledValues(currentTime);
-          beeper.gain.gain.setValueAtTime(0, currentTime);
-          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
-          
-          // Local path (direct to destination): You'll hear immediately
-          beeper.localGain.gain.cancelScheduledValues(currentTime);
-          beeper.localGain.gain.setValueAtTime(0, currentTime);
-          beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime); // Slightly quieter to distinguish from echo
-          
-          beeper.isPlaying = true;
-          this.isBeeping(true);
-          
-          debugLog('[BEEP]', 'DUAL beep activated: local (immediate) + server echo (delayed) - listen for latency!');
-          return; // Exit immediately after successful beep
-        } catch (err) {
-          console.error('[BEEP] Error starting instant beep:', err);
-        }
-      }
-      
-      // FALLBACK-ASYNC: Only if beeper wasn't ready - initialize and retry
-      debugLog('[BEEP]', 'Beeper not ready, initializing...');
-      this._initializePersistentBeeper().then(() => {
-        if (this._persistentBeeper && this.connected()) {
-          this.startBeep(); // Retry immediately after initialization
-        }
-      });
+      this.audioManager.startBeep(this.connected());
     };
 
     this.stopBeep = () => {
-      debugLog('[BEEP]', 'Stop beep requested');
-      
-      if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
-        debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
-        return;
-      }
-      
-      try {
-        const beeper = this._persistentBeeper;
-        const ac = beeper.gain.context;
-        const currentTime = ac.currentTime;
-        
-        // PIANO-ENVELOPE: More realistic decay curve like acoustic piano
-        // Initial gentle decline, then stronger exponential decay
-        const initialDeclineTime = 0.3; // Gentle decline phase
-        const mainDecayTime = 1.0; // Main exponential decay
-        
-        // DUAL-FADEOUT: Fade out both local and remote paths with piano envelope
-        // Remote path (server echo)
-        beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0.4, currentTime);
-        beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
-        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
-        
-        // Local path (immediate playback)
-        beeper.localGain.gain.cancelScheduledValues(currentTime);
-        beeper.localGain.gain.setValueAtTime(0.3, currentTime);
-        beeper.localGain.gain.linearRampToValueAtTime(0.18, currentTime + initialDeclineTime);
-        beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
-        
-        beeper.isPlaying = false;
-        this.isBeeping(false);
-        
-        debugLog('[BEEP]', `Dual fadeout: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay (local + echo)`);
-      } catch (err) {
-        console.error('[BEEP] Error stopping beep:', err);
-      }
-    };    // Add method to retry microphone permission
+      this.audioManager.stopBeep();
+    };
+
     this._attemptMicrophonePermission = () => {
-      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-        return;
-      }
-
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          this.micPermissionRetryCount = 0;
-          this.micPermissionDenied(false);
-          this.micPermissionErrorMessage("");
-          stream.getTracks().forEach((track) => track.stop());
-          // Reinitialize voice if needed
-          if (this.client && !voiceHandler) {
-            this._updateVoiceHandler();
-          }
-        })
-        .catch((err) => {
-          console.error("Microphone permission denied on retry:", err);
-          this.micPermissionRetryCount += 1;
-          const isPermissionBlocked =
-            err &&
-            (err.name === "NotAllowedError" ||
-              err.name === "SecurityError" ||
-              (typeof err.message === "string" &&
-                err.message.toLowerCase().includes("denied")));
-
-          if (isPermissionBlocked) {
-            this.micPermissionErrorMessage(
-              "Microphone access is blocked by the browser. Please allow it in the address bar or system settings, then try again."
-            );
-          }
-
-          if (this.micPermissionRetryCount >= this.maxMicPermissionRetryCount) {
-            return;
-          }
-          if (isPermissionBlocked) {
-            return;
-          }
-          setTimeout(() => this._attemptMicrophonePermission(), this.micPermissionRetryDelayMs);
-        });
+      this.audioManager.attemptMicrophonePermission();
     };
 
     this.retryMicrophonePermission = () => {
-      this.micPermissionRetryCount = 0;
-      this.micPermissionErrorMessage("");
-      this._attemptMicrophonePermission();
+      this.audioManager.retryMicrophonePermission();
     };
     
-    // AUDIO-CONTEXT: Initialize managed AudioContext with autoplay policy handling
-    // This method ensures singleton pattern and handles browser autoplay restrictions
     this.initializeAudioContext = async () => {
-      // SINGLETON-PATTERN: Prevent duplicate initialization - reuse existing instance
-      if (this.audioContext) {
-        // AudioContext already exists, reusing singleton instance
-        return;
-      }
-      
-      try {
-        // AUTOPLAY-POLICY: Use managed AudioContext that handles browser autoplay restrictions
-        // Waits for user interaction before allowing audio playback
-        this.audioContext = await ensureAudioContext({ 
-          latencyHint: "interactive" 
-        });
-
-        // STATE-MONITORING: Set up event handlers for audio context state changes
-        // These help diagnose audio issues by tracking suspend/resume cycles
-        audioContextManager.onSuspend(() => {
-          // AudioContext suspended - audio features may be limited until user interaction
-        });
-
-        audioContextManager.onResume(() => {
-          // AudioContext resumed - audio features restored
-        });
-
-      } catch (error) {
-        console.error('Failed to initialize AudioContext:', error);
-        
-        // FALLBACK-STRATEGY: Try legacy AudioContext creation if managed approach fails
-        // Some older browsers or restricted environments may not support managed approach
-        try {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContextClass) {
-            throw new Error("AudioContext is not supported in this browser");
-          }
-          this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
-        } catch (fallbackError) {
-          console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
-          // DEGRADED-MODE: AudioContext remains null, audio features will be disabled
-        }
-      }
+      await this.audioManager.initializeAudioContext();
     };
     
     // Use managed AudioContext with autoplay policy handling
-    this.audioContext = null;
     this.initializeAudioContext();
 
     this.selfMute.subscribe((mute) => {
@@ -849,16 +646,11 @@ class GlobalBindings {
     });
 
     this.select = (element) => {
-      this.selected(element);
+      this.uiStateManager.select(element);
     };
 
     this.openSettings = () => {
-      // Prevent opening settings if another modal is already open
-      if (this.currentOpenModal() !== null) {
-        return;
-      }
-      this.settingsDialog(new SettingsDialog(this.settings));
-      this.currentOpenModal('settings');
+      this.uiStateManager.openSettings(SettingsDialog, this.settings);
     };
 
     this.logoutUser = () => {
@@ -878,14 +670,7 @@ class GlobalBindings {
     };
 
     this.closeSettings = () => {
-      if (this.settingsDialog()) {
-        this.settingsDialog().end();
-      }
-      this.settingsDialog(null);
-      // Clear the modal state when settings dialog is closed
-      if (this.currentOpenModal() === 'settings') {
-        this.currentOpenModal(null);
-      }
+      this.uiStateManager.closeSettings();
     };
 
     this.connect = async (
@@ -1067,81 +852,20 @@ class GlobalBindings {
       connectionParams,
       { audioEnabled = true, sampleRate = null } = {}
     ) => {
-      const {
-        host,
-        port,
-        username,
-        password,
-        tokens = [],
-        channelName: targetChannel = "",
-      } = connectionParams;
-
-      let channelName = targetChannel;
-
-      if (audioEnabled) {
-        initVoice(
-          (data) => {
-            if (!ui.client) {
-              if (voiceHandler) {
-                voiceHandler.end();
-              }
-              voiceHandler = null;
-            } else if (voiceHandler) {
-              voiceHandler.write(data);
-            }
-          },
+      try {
+        const result = await this.connectionManager.performConnect(
+          connectionParams,
+          { audioEnabled, sampleRate },
+          null,
           (err) => {
-            log(translate("logentry.mic_init_error"), err);
+            // Error handler - will show dialog if needed
           }
         );
-      } else {
-        this._activateAudioLock("sample-rate", { sampleRate });
-        if (voiceHandler) {
-          voiceHandler.end();
-          voiceHandler = null;
-        }
-      }
 
-      this.resetClient();
-      
-      // Set loopback mode after resetClient (which resets it to false)
-      if (connectionParams.isLoopback) {
-        this.isLoopbackMode(true);
-      }
+        if (!result) return;
 
-      this.remoteHost(host);
-      this.remotePort(port);
-
-      log(translate("logentry.connecting"), host);
-
-      try {
-        if (this.audioContext && this.audioContext.state === "suspended") {
-          await this.audioContext.resume();
-        } else if (!this.audioContext) {
-          await this.initializeAudioContext();
-        }
+        const { client, channelName } = result;
         
-        // WARM-UP: Pre-load AudioWorklet module to reduce first-playback latency
-        // BufferQueueNode loads this on-demand, but pre-loading eliminates ~50-100ms delay
-        try {
-          await this.audioContext.audioWorklet.addModule('playback-buffer-processor.js');
-          debugLog('[AUDIO-INIT]', 'Playback AudioWorklet pre-warmed successfully');
-        } catch (err) {
-          // Ignore if already loaded (will happen on reconnect)
-          if (err.name !== 'InvalidStateError') {
-            console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
-          }
-        }
-      } catch (error) {
-        console.warn("AudioContext resume failed, continuing anyway:", error);
-      }
-
-      try {
-        const client = await this.connector.connect(`wss://${host}:${port}`, {
-          username: username,
-          password: password,
-          tokens: tokens,
-        });
         var user_roles =
           (this.netlifyIdentity.currentUser()?.app_metadata?.roles) || [];
         let guac_login = false;
@@ -1153,7 +877,7 @@ class GlobalBindings {
           guac_login = "watcher";
         }
         
-        // Store Guacamole credentials for later use (e.g., when switching from loopback to normal)
+        // Store Guacamole credentials for later use
         this._guacLogin = guac_login;
         this._guacPassword = this.connectDialog.password();
         
@@ -1167,22 +891,7 @@ class GlobalBindings {
         } else if (!guac_login && !this.isLoopbackMode()) {
           alert("For visual access please ask your administrator.");
         }
-        
-        if (this.isLoopbackMode()) {
-          log(translate("logentry.connected_loopback"));
-        } else {
-          log(translate("logentry.connected"));
-        }
 
-        this.client = client;
-        client.on("error", (err) => {
-          log(translate("logentry.connection_error"), err);
-          this.resetClient();
-        });
-
-        if (channelName.indexOf("/") != 0) {
-          channelName = "/" + channelName;
-        }
         const registerChannel = (channel, channelPath) => {
           this._newChannel(channel);
           if (channelPath === channelName) {
@@ -1211,12 +920,12 @@ class GlobalBindings {
         this._updateVoiceHandler();
 
         if (this.audioLockActive()) {
-          this.client.setSelfMute(true);
-          this.client.setSelfDeaf(true);
+          this.connectionManager.setSelfMute(true);
+          this.connectionManager.setSelfDeaf(true);
         } else if (this.selfDeaf()) {
-          this.client.setSelfDeaf(true);
+          this.connectionManager.setSelfDeaf(true);
         } else if (this.selfMute()) {
-          this.client.setSelfMute(true);
+          this.connectionManager.setSelfMute(true);
         }
       } catch (err) {
         if (err.$type && err.$type.name === "Reject") {
@@ -1230,206 +939,21 @@ class GlobalBindings {
     };
 
     this._newUser = (user) => {
-      // Skip if UI already initialized (prevents duplicate event handlers)
-      if (user.__ui) {
-        return;
-      }
-      
-      const simpleProperties = {
-        uniqueId: "uid",
-        username: "name",
-        mute: "mute",
-        deaf: "deaf",
-        suppress: "suppress",
-        selfMute: "selfMute",
-        selfDeaf: "selfDeaf",
-      };
-      var ui = (user.__ui = {
-        model: user,
-        talking: ko.observable("off"),
-        channel: ko.observable(),
-      });
-      ui.openContextMenu = (_, event) =>
-        openContextMenu(event, this.userContextMenu, ui);
-
-      ui.toggleMute = () => {
-        if (ui.selfMute()) {
-          this.requestUnmute(ui);
-        } else {
-          this.requestMute(ui);
-        }
-      };
-      ui.toggleDeaf = () => {
-        if (ui.selfDeaf()) {
-          this.requestUndeaf(ui);
-        } else {
-          this.requestDeaf(ui);
-        }
-      };
-      Object.entries(simpleProperties).forEach((key) => {
-        ui[key[1]] = ko.observable(user[key[0]]);
-      });
-      ui.state = ko.pureComputed(userToState, ui);
-      if (user.channel) {
-        ui.channel(user.channel.__ui);
-        ui.channel().users.push(ui);
-        ui.channel().users.sort(compareUsers);
-      }
-
-      user
-        .on("update", (actor, properties) => {
-          Object.entries(simpleProperties).forEach((key) => {
-            if (properties[key[0]] !== undefined) {
-              ui[key[1]](properties[key[0]]);
-            }
-          });
-          if (properties.channel !== undefined) {
-            if (ui.channel()) {
-              ui.channel().users.remove(ui);
-            }
-            ui.channel(properties.channel.__ui);
-            ui.channel().users.push(ui);
-            ui.channel().users.sort(compareUsers);
-            this._updateLinks();
-          }
-        })
-        .on("remove", () => {
-          if (ui.channel()) {
-            ui.channel().users.remove(ui);
-          }
-        })
-        .on("voice", (stream) => {
-          debugLog('[VOICE]', 'Voice stream received for user:', user.username);
-          
-          // Create audio node for playing back received voice
-          var userNode = new BufferQueueNode({
-            audioContext: this.audioContext,
-          });
-          
-          // Create a GainNode to control volume (for deafen functionality)
-          var gainNode = this.audioContext.createGain();
-          
-          // Set initial gain based on current deafen state
-          gainNode.gain.value = this.selfDeaf() ? 0 : 1;
-          debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value, '(selfDeaf:', this.selfDeaf(), ')');
-          
-          // Connect: userNode -> gainNode -> destination
-          userNode.connect(gainNode);
-          gainNode.connect(this.audioContext.destination);
-          
-          // Subscribe to selfDeaf changes to update gain
-          var deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
-            gainNode.gain.value = isDeaf ? 0 : 1;
-            debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value, '(deaf:', isDeaf, ')');
-          });
-
-          stream
-            .on("data", (data) => {
-              debugLog('[VOICE]', 'Audio data received, target:', data.target, 'buffer size:', data.buffer?.length);
-              
-              if (data.target === "normal") {
-                ui.talking("on");
-              } else if (data.target === "shout") {
-                ui.talking("shout");
-              } else if (data.target === "whisper") {
-                ui.talking("whisper");
-              } else if (data.target === "loopback") {
-                // Server loopback - show talking status
-                ui.talking("on");
-                debugLog('[VOICE]', 'Loopback audio received!');
-              }
-              
-              userNode.write(data.buffer);
-            })
-            .on("end", () => {
-              debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
-              ui.talking("off");
-              userNode.end();
-              // Clean up subscription when stream ends
-              deafSubscription.dispose();
-            });
-        });
+      this.userChannelManager.createUser(user);
     };
 
     this._newChannel = (channel) => {
-      // Skip if UI already initialized (prevents duplicate event handlers)
-      if (channel.__ui) {
-        return;
-      }
-      
-      const simpleProperties = {
-        position: "position",
-        name: "name",
-        description: "description",
-      };
-      var ui = (channel.__ui = {
-        model: channel,
-        expanded: ko.observable(true),
-        parent: ko.observable(),
-        channels: ko.observableArray(),
-        users: ko.observableArray(),
-        linked: ko.observable(false),
-      });
-      ui.userCount = () => {
-        return ui
-          .channels()
-          .reduce((acc, c) => acc + c.userCount(), ui.users().length);
-      };
-      ui.openContextMenu = (_, event) =>
-        openContextMenu(event, this.channelContextMenu, ui);
-      Object.entries(simpleProperties).forEach((key) => {
-        ui[key[1]] = ko.observable(channel[key[0]]);
-      });
-      if (channel.parent) {
-        ui.parent(channel.parent.__ui);
-        ui.parent().channels.push(ui);
-        ui.parent().channels.sort(compareChannels);
-      }
-      this._updateLinks();
-
-      channel
-        .on("update", (properties) => {
-          Object.entries(simpleProperties).forEach((key) => {
-            if (properties[key[0]] !== undefined) {
-              ui[key[1]](properties[key[0]]);
-            }
-          });
-          if (properties.parent !== undefined) {
-            if (ui.parent()) {
-              ui.parent().channel.remove(ui);
-            }
-            ui.parent(properties.parent.__ui);
-            ui.parent().channels.push(ui);
-            ui.parent().channels.sort(compareChannels);
-          }
-          if (properties.links !== undefined) {
-            this._updateLinks();
-          }
-        })
-        .on("remove", () => {
-          if (ui.parent()) {
-            ui.parent().channels.remove(ui);
-          }
-          this._updateLinks();
-        });
+      this.userChannelManager.createChannel(channel);
     };
 
     this.resetClient = () => {
-      this.stopBeep(); // Stop beep if active
-      if (this.client) {
-        this.client.disconnect();
-      }
-      this.client = null;
+      this.connectionManager.resetClient();
       this.selected(null).root(null).thisUser(null);
-      this.isLoopbackMode(false); // Reset loopback mode on disconnect
-      this.beeperReady(false); // Reset beeper ready state on disconnect
-      this.voiceHandlerReady(false); // Reset voice handler ready state on disconnect
-      
       // Note: We don't automatically reset isTestActive here anymore
       // It's controlled manually by the toggle function
     };
 
-    this.connected = () => this.thisUser() != null;
+    this.connected = () => this.connectionManager.isConnected() && this.thisUser() != null;
 
     // VOICE-HANDLER-UPDATE: Recreate voice handler when mode or target changes
     // Called when switching between normal/loopback mode or changing PTT/continuous settings
@@ -1438,16 +962,6 @@ class GlobalBindings {
         return;
       }
       
-      // CLEANUP: Destroy existing handler before creating new one
-      if (voiceHandler) {
-        voiceHandler.end();
-        voiceHandler = null;
-      }
-      
-      // RESET-READY: Mark voice handler as not ready during recreation
-      this.voiceHandlerReady(false);
-      debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
-      
       let mode = this.settings.voiceMode;
       
       // TARGET-ROUTING: Determine voice routing target based on mode
@@ -1455,15 +969,10 @@ class GlobalBindings {
       // target=0 routes normally to channel/user (normal mode)
       let target = this.isLoopbackMode() ? 31 : 0;
       
-      // HANDLER-CREATION: Create appropriate handler based on voice activation mode
-      if (mode === "cont") {
-        // Continuous transmission - always sending audio
-        voiceHandler = new ContinuousVoiceHandler(this.client, this.settings, target);
-      } else if (mode === "ptt") {
-        // Push-to-talk - only sending when key is pressed
-        voiceHandler = new PushToTalkVoiceHandler(this.client, this.settings, target);
-      } else {
-        log(translate("logentry.unknown_voice_mode"), mode);
+      // Create voice handler via AudioManager
+      voiceHandler = this.audioManager.createVoiceHandler(this.client, mode, target);
+      
+      if (!voiceHandler) {
         return;
       }
       
@@ -1478,84 +987,30 @@ class GlobalBindings {
           this.thisUser().talking("off");
         }
       });
-      
-      // MUTE-STATE: Apply current mute state to new handler
-      if (this.audioLockActive() || this.selfMute()) {
-        voiceHandler.setMute(true);
-      }
 
-      this.client.setAudioQuality(
+      this.connectionManager.setAudioQuality(
         this.settings.audioBitrate,
         this.settings.samplesPerPacket
       );
       
-      // VOICE-HANDLER-READY: Mark voice handler as initialized
-      // This signals that the voice path to server is established
-      this.voiceHandlerReady(true);
-      debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
-      
-      // Check if both beeper and voice handler are now ready
-      this._checkFullBeepReadiness();
-      
       // BEEPER-AUTO-INIT: Initialize beeper when voice handler is ready and test is active
-      // This ensures the button appears automatically once everything is set up
       if (this.connectDialog.isTestActive()) {
         setTimeout(async () => {
           await this._initializePersistentBeeper();
-        }, 100); // Small delay to ensure mixer is fully ready
+        }, 100);
       }
     };
 
-    this.messageBoxHint = ko.pureComputed(() => {
-      if (!this.thisUser()) {
-        return ""; // Not yet connected
-      }
-      var target = this.selected();
-      if (!target) {
-        target = this.thisUser();
-      }
-      if (target === this.thisUser()) {
-        target = target.channel();
-      }
-      if (target.users) {
-        // Channel
-        return translate("chat.channel_message_placeholder").replace(
-          "%1",
-          target.name()
-        );
-      } else {
-        // User
-        return translate("chat.user_message_placeholder").replace(
-          "%1",
-          target.name()
-        );
-      }
-    });
+    this.messageBoxHint = this.messageManager.messageBoxHint;
 
     this.submitMessageBox = () => {
-      this.sendMessage(this.selected(), this.messageBox());
-      this.messageBox("");
+      this.messageManager.submitMessageBox();
     };
 
-    this.mailToDesktop = ko.observable(
-      "mailto:mail@" +
-      window.location.hostname +
-      "?subject=Send%20attachment%20to%20desktop"
-    );
+    this.mailToDesktop = this.messageManager.mailToDesktop;
 
     this.sendMessage = (target, message) => {
-      if (this.connected()) {
-        // If no target is selected, choose our own user
-        if (!target) {
-          target = this.thisUser();
-        }
-        // If target is our own user, send to our channel
-        if (target === this.thisUser()) {
-          target = target.channel();
-        }
-        // Send message
-        target.model.sendMessage(message);
-      }
+      this.messageManager.sendMessage(target, message, this.connected());
     };
 
     this.requestMute = (user) => {
@@ -1613,51 +1068,11 @@ class GlobalBindings {
     };
 
     this._updateLinks = () => {
-      if (!this.thisUser() || !this.thisUser().channel()) {
-        return;
-      }
-
-      var allChannels = getAllChannels(this.root(), []);
-      var ownChannel = this.thisUser().channel().model;
-      var allLinked = findLinks(ownChannel, []);
-      allChannels.forEach((channel) => {
-        channel.linked(allLinked.indexOf(channel.model) !== -1);
-      });
-
-      function findLinks(channel, knownLinks) {
-        knownLinks.push(channel);
-        if (channel.links) {
-          channel.links.forEach((next) => {
-            if (next && knownLinks.indexOf(next) === -1) {
-              findLinks(next, knownLinks);
-            }
-          });
-        }
-        allChannels
-          .map((c) => c.model)
-          .forEach((next) => {
-            if (
-              next &&
-              next.links &&
-              knownLinks.indexOf(next) === -1 &&
-              next.links.indexOf(channel) !== -1
-            ) {
-              findLinks(next, knownLinks);
-            }
-          });
-        return knownLinks;
-      }
-
-      function getAllChannels(channel, channels) {
-        channels.push(channel);
-        channel.channels().forEach((next) => getAllChannels(next, channels));
-        return channels;
-      }
+      this.userChannelManager.updateLinks();
     };
 
     this.openSourceCode = () => {
-      var homepage = require("../package.json").homepage;
-      window.open(homepage, "_blank").focus();
+      this.uiStateManager.openSourceCode();
     };
   }
 }
