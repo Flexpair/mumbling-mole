@@ -4,7 +4,8 @@
 Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet; UI also gates Guacamole iframe after Netlify Identity auth.
 
 ## Architecture & threading
-**Main thread** (`app/index.js`): Bootstraps `GlobalBindings` observables (1785 lines, god object pattern—all UI state centralized here), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**Main thread** (`app/index.js`): Bootstraps state via `AppState` (modular architecture replacing `GlobalBindings` god object), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**State architecture transition**: Code is migrating from monolithic `GlobalBindings` (1785-line god object, deprecated) to modular `AppState` composed of 6 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ChannelState`. See `app/state/README.md` for detailed architecture diagrams and migration guide. `AppState` maintains backward compatibility via delegation getters  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **Worker instantiation**: Use native `new Worker(new URL('./worker.js', import.meta.url), {type: 'classic'})` syntax (Webpack 5 compatible); avoid worker-loader wrappers  
@@ -37,17 +38,24 @@ Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
 
 ## Implementation conventions
-**UI state**: All observables live in `GlobalBindings` (never scattered); persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Example pattern:
+**UI state**: Observables live in modular state classes under `app/state/` (6 modules: Connection, Audio, Voice, UI, User, Channel). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
 ```javascript
-// GlobalBindings centralization (index.js line 421+)
-class GlobalBindings {
+// Modular state (app/state/AppState.js)
+class AppState {
   constructor() {
-    this.connected = ko.observable(false);
-    this.isLoopbackMode = ko.observable(false);
-    // ... 100+ more observables
+    this.connection = new ConnectionState();
+    this.audio = new AudioState();
+    this.voice = new VoiceState();
+    this.ui = new UIState();
+    this.user = new UserState();
+    this.channel = new ChannelState();
   }
 }
+// Backward compatibility via delegation
+get connected() { return this.user.thisUser() != null; }
+get audioContext() { return this.audio.audioContext; }
 ```
+**State module dependencies**: `UserState` depends on `ChannelState`; `UserState` receives `AudioState` in constructor for cross-module subscriptions (e.g., selfMute → VoiceState.setMute). See `app/state/README.md` diagrams for data flow  
 **Worker events**: Must update both `_dispatchEvent` in `worker-client.js` AND `registerEventProxy` in `worker.js`; only pass numeric IDs across thread boundary (never serialize full objects)  
 **Audio invariants**: 48 kHz mono, 960-sample frames (20ms @ 48 kHz), `samplesPerPacket` in settings—changing requires coordinated updates to `voice.js`, worker resampler, `Settings` serialization  
 **AudioContext**: **Always** `ensureAudioContext()` from `audio-context-manager.js`; never `new AudioContext()` directly (breaks singleton pattern). Manager handles autoplay policies, state changes, resume retries with exponential backoff (MAX_RESUME_ATTEMPTS=5)  
@@ -80,15 +88,16 @@ class GlobalBindings {
 **Known issue**: Loopback mode misleads debugging—tests same-client playback path, NOT cross-client network/audio playback (see `app/audio/README.md` line 7-18)
 
 ## Key file map
-**UI/session**: `app/index.js` (GlobalBindings + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
+**UI/session**: `app/index.js` (AppState initialization + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
+**State modules**: `app/state/AppState.js` (coordinator), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/selections), `app/state/UserState.js` (thisUser/mute/deaf), `app/state/ChannelState.js` (root channel/links)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `smart-build.sh` (incremental build logic), `webpack.config.js`, `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
 **Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner)  
-**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide), `app/auth/README.md` (auth abstraction)
+**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Known technical debt
 - **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
 - **Build complexity**: `smart-build.sh` + webpack + vendor transpilation creates fragile incremental builds; consider consolidation
-- **GlobalBindings anti-pattern**: 1785-line god object centralizes all UI state; refactoring would improve maintainability
+- **State architecture migration in progress**: Transitioning from `GlobalBindings` god object to modular `AppState`; both coexist during migration (see `app/state/README.md` for status)
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
