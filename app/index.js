@@ -1494,6 +1494,9 @@ class GlobalBindings {
       this.voiceHandlerReady(true);
       debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
       
+      // Check if both beeper and voice handler are now ready
+      this._checkFullBeepReadiness();
+      
       // BEEPER-AUTO-INIT: Initialize beeper when voice handler is ready and test is active
       // This ensures the button appears automatically once everything is set up
       if (this.connectDialog.isTestActive()) {
