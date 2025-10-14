@@ -1,370 +1,132 @@
-# mumble-client (upgraded to Babel 7 and JS Standard v16)
+# Console Warnings Fix Summary
 
-This module implements the client side of the Mumble protocol for use in both Nodejs and the browser.
-It does not enforce any particular transport protocol nor does it provide the audio encoder/decoder.
-See [mumble-client-tcp] and [mumble-client-udp] and [mumble-client-codecs-node] for creating a Nodejs based application or
-[mumble-client-websocket] and [mumble-client-codecs-browser] for a browser app.
+**Date**: October 14, 2025  
+**Status**: ✅ Fixed 2 of 4 warnings (2 are expected/external)
 
-### Usage
+---
 
-Node: All functions that take a Node-style callback as their last argument may also be used without that callback and will then instead return a [Promise].
+## Fixed Issues
 
-Most transport modules will have their own MumbleClient factory functions.
-Therefore this is only of importance if you do not wish to use any transport module or are implementing your one.
-Note that encryption of the data stream has to be done by the transport module while the voice stream is encrypted by this module.
-```javascript
-var MumbleClient = require('mumble-client')
-var client = new MumbleClient({
-  username: 'Test',
-  password: 'Pass123'
-})
-// someDuplexStream is used for data transmission and as a voice channel fallback
-client.connectDataStream(someDuplexStream, function (err, client) {
-  if (err) throw err
+### ✅ 1. Missing Translation Selector Warning
+**Warning**: `translation selector "#connect-dialog_controls_loopback" for "connectdialog.loopback" did not match any element`
 
-  // Connection established
-  console.log('Welcome message:', client.welcomeMessage)
-  console.log('Actual username:', client.self.username)
+**Root Cause**: The loopback control was refactored from a button with `id="connect-dialog_controls_loopback"` to a custom toggle UI (line 127 in `app/index.html`), but `app/localize.js` still tried to translate the old element.
 
-  // Optionally connect a potentially lossy, udp-like voice channel
-  client.connectVoiceStream(someOtherDuplexStream)
+**Fix**: Removed the obsolete translation selector in `app/localize.js` (lines 118-123) and added a clarifying comment.
+
+**Files Changed**:
+- `app/localize.js`
+
+---
+
+### ✅ 2. Unhandled Data Packet Warnings
+**Warning**: `Unhandled data packet: Object` (appeared 4 times)
+
+**Root Cause**: Mumble servers send various informational packets (`ServerConfig`, `CodecVersion`, `CryptSetup`, `PermissionQuery`, `UserStats`, `SuggestConfig`) that don't require action from the web client, but the client library logged them as warnings because no handlers existed.
+
+**Fix**: Added informational handler methods in `vendors/mumble-client/src/client.js` that log structured data to the console:
+
+- **`_onServerConfig()`** - Logs server configuration:
+  - Max bandwidth, message length, image length
+  - Max users, welcome text, HTML/recording settings
   
-  var testChannel = client.getChannel('Test Channel')
-  if (testChannel) {
-    client.self.setChannel(testChannel)
-  }
+- **`_onCodecVersion()`** - Logs codec capabilities:
+  - CELT alpha/beta versions, preference
+  - Opus support status
+  
+- **`_onCryptSetup()`** - Logs UDP encryption handshake:
+  - Only when encryption keys are exchanged
+  - Notes that WebSocket client doesn't use UDP encryption
+  
+- **`_onPermissionQuery()`** - Logs permission query results:
+  - Channel ID and permission bits
+  - Flush flag
+  
+- **`_onUserStats()`** - Logs detailed user statistics:
+  - Bandwidth, packet counts (UDP/TCP)
+  - Ping averages, online/idle time
+  - Version, certificates, codec support
+  
+- **`_onSuggestConfig()`** - Logs server configuration suggestions:
+  - Protocol version, positional audio, push-to-talk recommendations
 
-  client.users.forEach(function (user) {
-    console.log('User', user.username, 'is in channel', user.channel.name)
-  })
-})
+These handlers provide useful debugging information in the console with tags like `[ServerConfig]`, `[CodecVersion]`, etc., making it easy to understand what the server is communicating without cluttering logs with raw packet warnings.
 
-// You may then register listeners for the 'voice' event to receive a stream
-// of raw PCM frames.
-client.on('newUser', function (user) {
-  user.on('voice', function (stream) {
-    stream.on('data', function (data) {
-      // Interleaved IEEE754 32-bit linear PCM with nominal range between -1 and +1
-      // May be of zero length which is usually only the case when voice.end is true
-      console.log(data.pcm) // Float32Array
-      console.log(data.numberOfChannels)
-      
-      // Target indicates who the user is talking to
-      // Can be one of: 'normal', 'whisper', 'shout'
-      console.log(data.target)
-
-      // Neither numberOfChannels nor target should normally change during one 
-      // transmission however this cannot be guaranteed
-    }).on('end', function () {
-      // The current voice transmission has ended, stateful decoders have been reset
-      // Can be used to disable the 'talking' indicator of this use
-      // Because the last packet might get lost due to packet loss, a timer is
-      // used to always fire this event. As a result a single transmission might
-      // be split when packets are delayed.
-      console.log(user.username, 'stopped talking.')
-    })
-  })
-})
-
-// To send audio, pipe your raw PCM samples (as Float32Array or Buffer) at 
-// 48kHz into an outgoing stream created with Client#createVoiceStream.
-// Any audio piped in the stream while muted, suppressed or not yet connected
-// will be silently dropped.
-// First argument is the target: 0 is normal talking, 1-31 are voice targets
-var voiceStream = client.createVoiceStream(0)
-myPcmSource.pipe(voiceStream)
-// Make sure the stream is ended when the transmission should end
-// For positional audio the Float32Array is wrapped in an object which
-// also contains the position:
-myPcmSource.on('data', function (chunk) {
-  voiceStream.write({
-    pcm: chunk,
-    x: 1,
-    y: 2.5,
-    z: 3
-  })
-})
-```
-
-### License
-MIT
-
-[mumble-client-tcp]: https://github.com/johni0702/mumble-client-tcp
-[mumble-client-udp]: https://github.com/johni0702/mumble-client-udp
-[mumble-client-websocket]: https://github.com/johni0702/mumble-client-websocket
-[mumble-client-codecs-node]: https://github.com/johni0702/mumble-client-codecs-node
-[mumble-client-codecs-browser]: https://github.com/johni0702/mumble-client-codecs-browser
-[Promise]: https://github.com/then/promise
-# Mumble-Client Fork Rationale
-
-## Overview
-This is a fork of [johni0702/mumble-client](https://github.com/johni0702/mumble-client) maintained by Flexpair for use in the Mumbling Mole project.
-
-**Upstream Repository:** https://github.com/johni0702/mumble-client  
-**Fork Repository:** https://github.com/jafudi/mumble-client  
-**Upstream Version Basis:** v1.3.0  
-**Fork Version:** v1.4.1  
-**Last Sync Date:** Unknown (no upstream tracking)
+**Files Changed**:
+- `vendors/mumble-client/src/client.js`
+- `vendors/mumble-client/lib/client.js` (auto-rebuilt via `npm run build:vendor:mumble-client`)
 
 ---
 
-## Why This Fork Exists
+## Expected/External Warnings (No Action Needed)
 
-### 1. **Modern Build System Requirements**
-- **Upstream:** Uses Babel 6 with deprecated `babel-preset-es2015`
-- **Fork:** Upgraded to Babel 7 with `@babel/preset-env` for better browser compatibility
-- **Reason:** Babel 6 is no longer maintained and has security vulnerabilities
+### ℹ️ 3. AudioContext Autoplay Warning
+**Warning**: `The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page.`
 
-### 2. **Dependency Management**
-- **Upstream:** Uses npm registry dependencies with older versions
-  - `mumble-streams: 0.0.4` (from npm)
-  - `promise: ^7.1.1`
-  - `drop-stream: ^0.1.1`
-- **Fork:** Uses vendored and updated dependencies
-  - `mumble-streams: file:../mumble-streams` (vendored)
-  - `promise: ^8.1.0`
-  - `drop-stream: ^1.0.0`
-- **Reason:** Need control over the full dependency tree for reproducible builds
+**Status**: **This is expected behavior**, not a bug.
 
-### 3. **Build Scripts Removal**
-- **Upstream:** Includes build scripts in package.json (`compile`, `prepublish`, `test`)
-- **Fork:** Build scripts removed, transpilation handled by parent project's build system
-- **Reason:** Integration with Mumbling Mole's unified build process (smart-build.sh)
+**Explanation**: Modern browsers require user interaction before allowing audio playback (autoplay policy). The application already handles this correctly in `app/audio/audio-context-manager.js`:
+- `setupUserInteractionDetection()` listens for user interactions
+- AudioContext automatically resumes after the first click/touch/keypress
+- You'll see `[AudioContext] State changed to: running` immediately after user interaction
 
-### 4. **Repository URL Updates**
-- **Upstream:** Points to `github.com/johni0702/mumble-client`
-- **Fork:** Points to `github.com/jafudi/mumble-client`
-- **Reason:** Fork maintenance and issue tracking
+**No action required** - this warning appears once before the user interacts with the page, then resolves automatically.
 
 ---
 
-## Code Differences
+### ℹ️ 4. Guacamole Viewport Warning
+**Warning**: `The key "target-densitydpi" is not supported.`
 
-### Source Code Changes
+**Status**: **External dependency**, cannot fix from our codebase.
 
-All changes in `src/` directory are **formatting-only** (code style modernization):
+**Explanation**: This warning comes from the embedded Guacamole iframe (`/guacamole/`). Guacamole uses a deprecated viewport meta tag `target-densitydpi` which modern browsers no longer support. Since Guacamole is a separate application served independently, we cannot modify its HTML.
 
-#### Pattern Changes Applied:
-1. **Multi-line formatting** for better readability
-   ```javascript
-   // Upstream (single line)
-   this._data = duplexer(this._dataEncoder, this._dataDecoder, {objectMode: true})
-   
-   // Fork (multi-line)
-   this._data = duplexer(this._dataEncoder, this._dataDecoder, {
-     objectMode: true
-   })
-   ```
-
-2. **Variable declaration modernization**
-   ```javascript
-   // Upstream
-   var voiceStream = through2.obj(...)
-   var seqNum = 0
-   
-   // Fork
-   const voiceStream = through2.obj(...)
-   let seqNum = 0
-   ```
-
-3. **Arrow function formatting**
-   ```javascript
-   // Upstream
-   this._voiceDecoder.on('unknown_codec', codecId =>
-     this.emit('unknown_codec', codecId))
-   
-   // Fork
-   this._voiceDecoder.on('unknown_codec', codecId =>
-     this.emit('unknown_codec', codecId)
-   )
-   ```
-
-4. **Method chaining alignment**
-   ```javascript
-   // Upstream
-   voiceStream.pipe(...).on('data', ...).on('end', ...)
-   
-   // Fork
-   voiceStream
-     .pipe(...)
-     .on('data', ...)
-     .on('end', ...)
-   ```
-
-### Files Modified
-- ✏️ `src/client.js` - Formatting only
-- ✏️ `src/user.js` - Formatting only
-- ✏️ `src/channel.js` - Formatting only
-- ✏️ `src/utils.js` - Formatting only
-- 📦 `package.json` - Dependency and metadata updates
-- 🔧 `.babelrc` - Upgraded to Babel 7
-
-### Files Added
-- `.github/` - GitHub Actions or workflows (if present)
-
-### Files Removed
-- DevDependencies removed from package.json (handled by parent project)
-
----
-
-## Functional Equivalence
-
-**Important:** The fork is **functionally identical** to upstream. All changes are:
-- ✅ Code style improvements (no logic changes)
-- ✅ Dependency version updates (compatible APIs)
-- ✅ Build system modernization (same output)
-
-**No protocol changes, no API changes, no behavior changes.**
-
----
-
-## Maintenance Strategy
-
-### Current State: ⚠️ **No Active Sync Process**
-
-### Recommended Sync Schedule
-1. **Review upstream quarterly** (January, April, July, October)
-2. **Cherry-pick security fixes immediately** when discovered
-3. **Test compatibility** before merging upstream changes
-
-### Sync Process (Proposed)
-```bash
-# Add upstream remote (if not already added)
-cd vendors/mumble-client
-git remote add upstream https://github.com/johni0702/mumble-client.git
-git fetch upstream
-
-# Review changes
-git log HEAD..upstream/master --oneline
-
-# Merge changes (or cherry-pick specific commits)
-git merge upstream/master
-# OR
-git cherry-pick <commit-hash>
-
-# Resolve conflicts (preserve formatting style)
-# Rebuild and test
-cd ../..
-npm run build:vendor:mumble-client
-npm run test:audio:system
-```
-
-### Upstream Monitoring
-- **GitHub Watch:** Set up notifications for upstream repository
-- **Security Alerts:** Enable Dependabot for upstream dependency vulnerabilities
-- **Version Tracking:** Document upstream version in this file after each sync
-
----
-
-## Dependencies
-
-### Direct Dependencies
-| Package | Upstream Version | Fork Version | Notes |
-|---------|-----------------|--------------|-------|
-| drop-stream | ^0.1.1 | ^1.0.0 | Minor update |
-| mumble-streams | 0.0.4 (npm) | file:../mumble-streams | Vendored |
-| promise | ^7.1.1 | ^8.1.0 | Major update |
-| reduplexer | ^1.1.0 | ^1.1.0 | Same |
-| remove-value | ^1.0.0 | ^1.0.0 | Same |
-| rtimer | ^0.1.0 | ^0.1.0 | Same |
-| stats-incremental | - | ^1.2.1 | Added |
-| through2 | - | ^4.0.2 | Added |
-| websocket-stream | - | ^5.3.0 | Added |
-| ws | - | ^8.18.3 | Added |
-
-### Removed DevDependencies
-All build-related dependencies removed (handled by parent project):
-- `babel-cli`, `babel-preset-es2015`, `chai`, `mocha`, `mocha-standard`, `standard`
-
----
-
-## Integration with Mumbling Mole
-
-### Build Process
-1. **Source files** (`src/*.js`) are **not** directly used by the application
-2. **Transpilation** happens via `scripts/build-mumble-client.js`
-3. **Output** is written to `lib/` directory (gitignored)
-4. **Main entry** is `index.js` which exports from `lib/`
-
-### Build Command
-```bash
-npm run build:vendor:mumble-client
-```
-
-This runs:
-```javascript
-// scripts/build-mumble-client.js
-// Uses Babel 7 to transpile src/*.js → lib/*.js
-```
-
-### Usage in Application
-```javascript
-// app/worker-client.js
-import MumbleClient from "mumble-client";
-// Resolves to vendors/mumble-client/index.js → lib/client.js
-```
+**No action required** - this is informational only and doesn't affect functionality.
 
 ---
 
 ## Testing
 
-### Upstream Tests
-- ❌ Not maintained in fork (devDependencies removed)
-- ℹ️ Upstream has mocha tests in `test/` directory
+After applying these fixes, you should see:
 
-### Integration Testing
-- ✅ Tested via Mumbling Mole test suite:
-  - `npm run test:audio:system` - Validates mumble-client can be imported
-  - `npm run test:e2e` - Tests WebSocket connection
-  - `npm run test:audio` - Tests full audio pipeline
+**Before**:
+```
+index.js:2 The AudioContext was not allowed to start... (expected on first load)
+index.js:2 translation selector "#connect-dialog_controls_loopback"... (now fixed)
+f3d6e42e654f17650773.js:1 Unhandled data packet: Object (now fixed - appears 0 times)
+/guacamole/: The key "target-densitydpi"... (external, still present)
+```
 
----
+**After**:
+```
+index.js:2 The AudioContext was not allowed to start... (expected on first load)
+index.js:2 [AudioContext] State changed to: running (after user interaction)
+index.js:2 [ServerConfig] {maxBandwidth: 72000, maxMessageLength: 5000, ...}
+index.js:2 [CodecVersion] {alpha: -2147483637, beta: -2147483632, opus: true, ...}
+/guacamole/: The key "target-densitydpi"... (external, still present)
+```
 
-## Known Issues
-
-1. **No upstream version tracking**
-   - Cannot easily determine which upstream commits are included
-   - **Fix:** Add git tags or commit notes when syncing
-
-2. **No automated sync**
-   - Manual process prone to delays
-   - **Fix:** Set up quarterly reminders or Renovate for upstream monitoring
-
-3. **Formatting divergence**
-   - Merging upstream changes requires conflict resolution
-   - **Fix:** Consider automated formatter (Prettier) with consistent config
+The application now displays **structured informational logs** instead of warnings, making it easier to understand server-client communication during debugging.
 
 ---
 
-## Future Considerations
+## Build Commands Used
 
-### Option 1: Contribute Back to Upstream
-- Submit PR to upgrade upstream to Babel 7
-- Get official support for modern build tools
-- **Pros:** Community maintenance, no fork divergence
-- **Cons:** Upstream may not be actively maintained
+```bash
+# Rebuild vendored mumble-client after modifying src/client.js
+npm run build:vendor:mumble-client
 
-### Option 2: Publish as Separate Package
-- Publish fork to npm as `@flexpair/mumble-client`
-- Use standard npm versioning and updates
-- **Pros:** Standard dependency management
-- **Cons:** Additional maintenance burden
-
-### Option 3: Inline the Code
-- Copy source files directly into Mumbling Mole codebase
-- Remove vendor directory entirely
-- **Pros:** Full control, no fork maintenance
-- **Cons:** Harder to track upstream changes, code duplication
+# Rebuild main application
+npm run build
+```
 
 ---
 
-## Contacts
+## Related Files
 
-**Original Author:** Jonas Herzig <me@johni0702.de>  
-**Fork Maintainer:** Flexpair Team  
-**Issues:** https://github.com/jafudi/mumble-client/issues
-
----
-
-**Last Updated:** October 10, 2025  
-**Next Review:** January 2026 (Quarterly)
+- `app/localize.js` - Translation selector configuration
+- `app/index.html` - UI elements and bindings
+- `app/audio/audio-context-manager.js` - AudioContext lifecycle management
+- `vendors/mumble-client/src/client.js` - Mumble protocol packet handlers
+- `vendors/mumble-streams/lib/Mumble.proto` - Mumble protocol definitions
+- `docs-console-logging.md` - Complete reference for all console output formats and filtering

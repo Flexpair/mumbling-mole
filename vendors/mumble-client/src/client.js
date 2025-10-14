@@ -424,6 +424,82 @@ class MumbleClient extends EventEmitter {
     this.emit('dataPing', duration)
   }
 
+  // Handlers for server-sent informational packets
+  // These packets don't require action but we log their contents for debugging
+  
+  _onServerConfig (payload) {
+    // Server configuration (max message length, max bandwidth, etc.)
+    console.log('[ServerConfig]', {
+      maxBandwidth: payload.max_bandwidth || payload.maxBandwidth,
+      maxMessageLength: payload.message_length || payload.messageLength,
+      maxImageLength: payload.image_message_length || payload.imageMessageLength,
+      maxUsers: payload.max_users || payload.maxUsers,
+      welcomeText: payload.welcome_text || payload.welcomeText,
+      allowHtml: payload.allow_html || payload.allowHtml,
+      recordingAllowed: payload.recording_allowed || payload.recordingAllowed
+    })
+  }
+
+  _onCodecVersion (payload) {
+    // Server codec capabilities announcement
+    console.log('[CodecVersion]', {
+      alpha: payload.alpha,
+      beta: payload.beta,
+      preferAlpha: payload.prefer_alpha || payload.preferAlpha,
+      opus: payload.opus
+    })
+  }
+
+  _onCryptSetup (payload) {
+    // UDP encryption setup (not used by WebSocket-based client)
+    // Only log if client/server nonce present (indicates encryption handshake)
+    if (payload.client_nonce || payload.server_nonce || payload.key) {
+      console.log('[CryptSetup] UDP encryption keys exchanged (not used by WebSocket client)')
+    }
+  }
+
+  _onPermissionQuery (payload) {
+    // Server response to permission queries
+    console.log('[PermissionQuery]', {
+      channelId: payload.channel_id || payload.channelId,
+      permissions: payload.permissions,
+      flush: payload.flush
+    })
+  }
+
+  _onUserStats (payload) {
+    // Detailed user statistics (bandwidth, packets, etc.)
+    const session = payload.session
+    const user = this._userById[session]
+    console.log('[UserStats]', {
+      user: user ? user.name : `session ${session}`,
+      version: payload.version,
+      certificates: payload.certificates?.length || 0,
+      fromClient: payload.from_client || payload.fromClient,
+      fromServer: payload.from_server || payload.fromServer,
+      udpPackets: payload.udp_packets || payload.udpPackets,
+      tcpPackets: payload.tcp_packets || payload.tcpPackets,
+      udpPingAvg: payload.udp_ping_avg || payload.udpPingAvg,
+      tcpPingAvg: payload.tcp_ping_avg || payload.tcpPingAvg,
+      onlineSeconds: payload.onlinesecs || payload.onlineSeconds,
+      idleSeconds: payload.idlesecs || payload.idleSeconds,
+      bandwidth: payload.bandwidth,
+      celtVersions: payload.celt_versions || payload.celtVersions,
+      opus: payload.opus,
+      strongCertificate: payload.strong_certificate || payload.strongCertificate
+    })
+  }
+
+  _onSuggestConfig (payload) {
+    // Server suggestions for client configuration
+    console.log('[SuggestConfig]', {
+      version: payload.version,
+      positional: payload.positional,
+      pushToTalk: payload.push_to_talk || payload.pushToTalk
+    })
+  }
+
+
   _onReject (payload) {
     // We got rejected from the server for some reason.
     this.emit('reject', payload)
