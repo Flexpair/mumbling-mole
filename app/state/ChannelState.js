@@ -81,7 +81,7 @@ export default class ChannelState {
         });
         if (properties.parent !== undefined) {
           if (ui.parent()) {
-            ui.parent().channel.remove(ui);
+            ui.parent().channels.remove(ui);
           }
           ui.parent(properties.parent.__ui);
           ui.parent().channels.push(ui);
