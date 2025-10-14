@@ -11,10 +11,9 @@ import AuthFactory from "./auth/AuthFactory";
 import ModalManager from "./managers/ModalManager";
 import AudioLockManager from "./managers/AudioLockManager";
 import BeeperManager from "./managers/BeeperManager";
+import VoiceManager from "./managers/VoiceManager";
 
 import {
-  ContinuousVoiceHandler,
-  PushToTalkVoiceHandler,
   initVoice,
   enumMicrophones,
 } from "./audio/voice";
@@ -503,6 +502,7 @@ class GlobalBindings {
     this.modalManager = new ModalManager();
     this.audioLockManager = new AudioLockManager();
     this.beeperManager = new BeeperManager(debugLog);
+    this.voiceManager = new VoiceManager(debugLog, translate, log);
 
     // Expose manager observables for backward compatibility
     this.currentOpenModal = this.modalManager.currentOpenModal;
@@ -511,7 +511,7 @@ class GlobalBindings {
     this.audioLockDetails = this.audioLockManager.audioLockDetails;
     this.isBeeping = this.beeperManager.isBeeping;
     this.beeperReady = this.beeperManager.beeperReady;
-    this.voiceHandlerReady = this.beeperManager.voiceHandlerReady;
+    this.voiceHandlerReady = this.voiceManager.voiceHandlerReady;
     
     // LOOPBACK-FEATURE: Track whether client is in loopback test mode
     // When true, voice is routed to server loopback (target=31) for echo testing
@@ -526,9 +526,7 @@ class GlobalBindings {
       this.audioLockManager.activate(reason, details);
       this.selfMute(true);
       this.selfDeaf(true);
-      if (voiceHandler) {
-        voiceHandler.setMute(true);
-      }
+      this.voiceManager.setMute(true);
     };
 
     this._clearAudioLock = ({ resetStates = false } = {}) => {
@@ -601,7 +599,7 @@ class GlobalBindings {
           this.micPermissionErrorMessage("");
           stream.getTracks().forEach((track) => track.stop());
           // Reinitialize voice if needed
-          if (this.client && !voiceHandler) {
+          if (this.client && !this.voiceManager.getHandler()) {
             this._updateVoiceHandler();
           }
         })
@@ -686,9 +684,7 @@ class GlobalBindings {
     this.initializeAudioContext();
 
     this.selfMute.subscribe((mute) => {
-      if (voiceHandler) {
-        voiceHandler.setMute(mute);
-      }
+      this.voiceManager.setMute(mute);
     });
 
     this.select = (element) => {
@@ -880,11 +876,8 @@ class GlobalBindings {
         
         // VOICE-HANDLER-RESET: Force recreation of voice handler with new loopback target
         // Old handler uses normal routing, new one will use target=31 for loopback
-        if (this.voiceHandler) {
-          this.voiceHandler.setMute(true);
-          this.voiceHandler.end();
-          this.voiceHandler = null;
-        }
+        this.voiceManager.setMute(true);
+        this.voiceManager.end();
         
         // HANDLER-RECREATION: Create new voice handler with loopback target (31)
         this._updateVoiceHandler();
@@ -923,12 +916,12 @@ class GlobalBindings {
         initVoice(
           (data) => {
             if (!ui.client) {
-              if (voiceHandler) {
-                voiceHandler.end();
+              ui.voiceManager.end();
+            } else {
+              const handler = ui.voiceManager.getHandler();
+              if (handler) {
+                handler.write(data);
               }
-              voiceHandler = null;
-            } else if (voiceHandler) {
-              voiceHandler.write(data);
             }
           },
           (err) => {
@@ -937,10 +930,7 @@ class GlobalBindings {
         );
       } else {
         this._activateAudioLock("sample-rate", { sampleRate });
-        if (voiceHandler) {
-          voiceHandler.end();
-          voiceHandler = null;
-        }
+        this.voiceManager.end();
       }
 
       this.resetClient();
@@ -1278,62 +1268,24 @@ class GlobalBindings {
       if (!this.client) {
         return;
       }
-      
-      // CLEANUP: Destroy existing handler before creating new one
-      if (voiceHandler) {
-        voiceHandler.end();
-        voiceHandler = null;
-      }
-      
-      // RESET-READY: Mark voice handler as not ready during recreation
-      this.voiceHandlerReady(false);
-      debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
-      
-      let mode = this.settings.voiceMode;
-      
-      // TARGET-ROUTING: Determine voice routing target based on mode
-      // target=31 routes to server loopback for echo testing (loopback mode)
-      // target=0 routes normally to channel/user (normal mode)
-      let target = this.isLoopbackMode() ? 31 : 0;
-      
-      // HANDLER-CREATION: Create appropriate handler based on voice activation mode
-      if (mode === "cont") {
-        // Continuous transmission - always sending audio
-        voiceHandler = new ContinuousVoiceHandler(this.client, this.settings, target);
-      } else if (mode === "ptt") {
-        // Push-to-talk - only sending when key is pressed
-        voiceHandler = new PushToTalkVoiceHandler(this.client, this.settings, target);
-      } else {
-        log(translate("logentry.unknown_voice_mode"), mode);
-        return;
-      }
-      
-      // UI-BINDING: Connect voice handler events to UI talking indicators
-      voiceHandler.on("started_talking", () => {
-        if (this.thisUser()) {
-          this.thisUser().talking("on");
-        }
-      });
-      voiceHandler.on("stopped_talking", () => {
-        if (this.thisUser()) {
-          this.thisUser().talking("off");
-        }
-      });
-      
-      // MUTE-STATE: Apply current mute state to new handler
-      if (this.audioLockActive() || this.selfMute()) {
-        voiceHandler.setMute(true);
-      }
 
-      this.client.setAudioQuality(
-        this.settings.audioBitrate,
-        this.settings.samplesPerPacket
+      this.voiceManager.updateVoiceHandler(
+        this.client,
+        this.settings,
+        this.isLoopbackMode(),
+        this.audioLockActive(),
+        this.selfMute(),
+        () => {
+          if (this.thisUser()) {
+            this.thisUser().talking("on");
+          }
+        },
+        () => {
+          if (this.thisUser()) {
+            this.thisUser().talking("off");
+          }
+        }
       );
-      
-      // VOICE-HANDLER-READY: Mark voice handler as initialized
-      // This signals that the voice path to server is established
-      this.voiceHandlerReady(true);
-      debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
       
       // Check if both beeper and voice handler are now ready
       this._checkFullBeepReadiness();
@@ -1612,8 +1564,6 @@ function userToState() {
   }
   return flags.join(", ");
 }
-
-var voiceHandler;
 
 async function main() {
   document.title = window.location.hostname;
