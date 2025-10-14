@@ -313,6 +313,12 @@ We welcome contributions! Please follow these guidelines:
 mumbling-mole/
 ├── app/                           # Application source
 │   ├── index.js                   # UI entry point (GlobalBindings + Knockout)
+│   ├── managers/                  # Manager classes (extracted from GlobalBindings)
+│   │   ├── ModalManager.js        # Modal state management
+│   │   ├── AudioLockManager.js    # Audio lock state
+│   │   ├── BeeperManager.js       # Beeper/test tone functionality
+│   │   ├── VoiceManager.js        # Voice handler lifecycle
+│   │   └── README.md              # Manager architecture documentation
 │   ├── worker.js                  # Web Worker (registerEventProxy + pushProp)
 │   ├── worker-client.js           # Worker bridge (_dispatchEvent + _setProp)
 │   ├── voice.js                   # Voice handlers (PTT/continuous + loopback)
@@ -351,6 +357,8 @@ mumbling-mole/
 ├── docker-entrypoint.sh           # Websockify tunnel launcher
 └── *.md                           # Documentation files
 ```
+
+> **🏗️ Refactoring Note:** The `GlobalBindings` god object has been refactored using the manager pattern. See [app/managers/README.md](./app/managers/README.md) for details on the new architecture.
 
 ## 📚 Documentation
 

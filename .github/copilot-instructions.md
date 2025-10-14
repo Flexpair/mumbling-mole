@@ -4,7 +4,8 @@
 Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet; UI also gates Guacamole iframe after Netlify Identity auth.
 
 ## Architecture & threading
-**Main thread** (`app/index.js`): Bootstraps `GlobalBindings` observables (1785 lines, god object pattern—all UI state centralized here), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**Main thread** (`app/index.js`): Bootstraps `GlobalBindings` observables (1576 lines after manager refactoring, down from 1785), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**Manager pattern**: Extracted focused manager classes (`app/managers/`) for modal state, audio lock, beeper, and voice handler management; see `app/managers/README.md` for architecture details  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **Worker instantiation**: Use native `new Worker(new URL('./worker.js', import.meta.url), {type: 'classic'})` syntax (Webpack 5 compatible); avoid worker-loader wrappers  
@@ -37,14 +38,18 @@ Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
 
 ## Implementation conventions
-**UI state**: All observables live in `GlobalBindings` (never scattered); persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Example pattern:
+**UI state**: Observables live in `GlobalBindings` or delegated to manager classes in `app/managers/`; persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Manager pattern extracts modal, audio lock, beeper, and voice handler state. Example pattern:
 ```javascript
-// GlobalBindings centralization (index.js line 421+)
+// GlobalBindings with managers (index.js)
 class GlobalBindings {
   constructor() {
-    this.connected = ko.observable(false);
-    this.isLoopbackMode = ko.observable(false);
-    // ... 100+ more observables
+    this.modalManager = new ModalManager();
+    this.audioLockManager = new AudioLockManager();
+    this.beeperManager = new BeeperManager(debugLog);
+    this.voiceManager = new VoiceManager(debugLog, translate, log);
+    // Expose manager observables for compatibility
+    this.currentOpenModal = this.modalManager.currentOpenModal;
+    // ... other properties
   }
 }
 ```
