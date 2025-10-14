@@ -567,6 +567,7 @@ class GlobalBindings {
     this.selfDeaf = ko.observable();
     this.isBeeping = ko.observable(false);
     this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
+    this.voiceHandlerReady = ko.observable(false); // Track when voice handler is fully initialized
     
     // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
     
@@ -631,9 +632,29 @@ class GlobalBindings {
         this.beeperReady(true);
         
         debugLog('[BEEP]', 'Persistent beeper initialized with dual output (local + server echo) for latency testing');
+        
+        // VOICE-HANDLER-CHECK: Verify voice handler is also ready before showing button
+        // This prevents showing the button too early when voice path isn't established yet
+        this._checkFullBeepReadiness();
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
         this.beeperReady(false);
+      }
+    };
+    
+    // FULL-READINESS-CHECK: Verify both beeper AND voice handler are ready
+    this._checkFullBeepReadiness = () => {
+      const beeperOk = this.beeperReady();
+      const voiceOk = this.voiceHandlerReady();
+      
+      debugLog('[BEEP-READY]', `Beeper: ${beeperOk}, Voice: ${voiceOk}`);
+      
+      // Only mark as truly ready when BOTH are available
+      // This prevents the UI button from appearing before the voice path is established
+      if (beeperOk && voiceOk) {
+        debugLog('[BEEP-READY]', '✅ Full beep system ready!');
+      } else {
+        debugLog('[BEEP-READY]', '⏳ Waiting for full initialization...');
       }
     };
 
@@ -1402,6 +1423,7 @@ class GlobalBindings {
       this.selected(null).root(null).thisUser(null);
       this.isLoopbackMode(false); // Reset loopback mode on disconnect
       this.beeperReady(false); // Reset beeper ready state on disconnect
+      this.voiceHandlerReady(false); // Reset voice handler ready state on disconnect
       
       // Note: We don't automatically reset isTestActive here anymore
       // It's controlled manually by the toggle function
@@ -1421,6 +1443,10 @@ class GlobalBindings {
         voiceHandler.end();
         voiceHandler = null;
       }
+      
+      // RESET-READY: Mark voice handler as not ready during recreation
+      this.voiceHandlerReady(false);
+      debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
       
       let mode = this.settings.voiceMode;
       
@@ -1462,6 +1488,11 @@ class GlobalBindings {
         this.settings.audioBitrate,
         this.settings.samplesPerPacket
       );
+      
+      // VOICE-HANDLER-READY: Mark voice handler as initialized
+      // This signals that the voice path to server is established
+      this.voiceHandlerReady(true);
+      debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
       
       // BEEPER-AUTO-INIT: Initialize beeper when voice handler is ready and test is active
       // This ensures the button appears automatically once everything is set up
