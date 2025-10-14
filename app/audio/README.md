@@ -148,3 +148,93 @@ The build changes (file-loader → asset/resource) are **NOT the issue** because
 - The issue is runtime audio playback, not build process
 
 This is a **production runtime issue**, not a build issue.
+
+---
+
+## Test Tone Button (Beeper) Initialization Issue
+
+### Problem
+The test tone button ("Play an A (440 Hz)") does not appear when:
+- The URL is visited for the first time on a device
+- Microphone permission needs to be requested
+- Audio test mode is activated
+
+Voice echo works correctly, but the test tone button remains invisible.
+
+### Root Cause
+1. `_performConnect()` calls `initVoice()`
+2. `getUserMedia()` requests microphone permission (asynchronous)
+3. User grants permission
+4. `getUserMedia` callback sets `window._audioMixer`
+5. **BUT**: `_initializePersistentBeeper()` was called before mixer existed
+6. Function returned early without waiting
+7. `beeperReady()` stays false → button hidden
+
+### Solution
+Made `_initializePersistentBeeper()` wait for audio mixer internally using `waitForAudioMixer()` helper:
+
+```javascript
+this._initializePersistentBeeper = async () => {
+  if (this._persistentBeeper) return;
+  
+  // Wait for audio mixer to become available (handles delayed getUserMedia)
+  const mixerAvailable = await waitForAudioMixer(5000, 50);
+  if (!mixerAvailable) {
+    this.beeperReady(false);
+    return;
+  }
+  
+  const mixer = window._audioMixer;
+  // ... initialization continues
+}
+```
+
+**Benefits**:
+- Works automatically wherever `_initializePersistentBeeper()` is called
+- No redundant waiting logic at call sites
+- One central, robust implementation
+
+### Test Scenarios
+
+#### Scenario 1: First Visit (Microphone Permission Required)
+1. Clear browser cache/cookies or use incognito mode
+2. Navigate to URL
+3. Activate "Audio Test" toggle
+4. Click "Connect"
+5. Browser requests microphone permission
+6. Grant permission
+7. **Expected**: Test tone button appears automatically (max 5 seconds)
+8. Click button → tone plays
+
+#### Scenario 2: Repeat Visit (Permission Already Granted)
+1. Navigate to URL (permission cached)
+2. Activate "Audio Test" toggle
+3. Click "Connect"
+4. **Expected**: Test tone button appears immediately
+5. Click button → tone plays
+
+#### Scenario 3: Test Button While Connected
+1. Already connected (normal mode)
+2. Click "Test" button
+3. **Expected**: Switches to loopback mode, test tone button appears
+4. Voice echo works
+5. Test tone works
+
+### Debugging
+Console logs for successful initialization:
+```
+[BEEP] Waiting for audio mixer...
+[BEEP] Persistent beeper initialized and ready
+```
+
+If timeout occurs:
+```
+[BEEP] Mixer not ready after timeout
+```
+→ Check AudioWorklet initialization or getUserMedia issues
+
+### Related Files
+- `app/index.js`: `_initializePersistentBeeper()` with automatic mixer waiting
+- `app/index.html`: Button visibility bound to `beeperReady()` observable
+- `app/audio/voice.js`: Sets `window._audioMixer` after getUserMedia callback
+
