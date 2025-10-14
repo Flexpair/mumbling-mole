@@ -1376,46 +1376,7 @@ class GlobalBindings {
     };
 
     this._updateLinks = () => {
-      if (!this.thisUser() || !this.thisUser().channel()) {
-        return;
-      }
-
-      var allChannels = getAllChannels(this.root(), []);
-      var ownChannel = this.thisUser().channel().model;
-      var allLinked = findLinks(ownChannel, []);
-      allChannels.forEach((channel) => {
-        channel.linked(allLinked.indexOf(channel.model) !== -1);
-      });
-
-      function findLinks(channel, knownLinks) {
-        knownLinks.push(channel);
-        if (channel.links) {
-          channel.links.forEach((next) => {
-            if (next && knownLinks.indexOf(next) === -1) {
-              findLinks(next, knownLinks);
-            }
-          });
-        }
-        allChannels
-          .map((c) => c.model)
-          .forEach((next) => {
-            if (
-              next &&
-              next.links &&
-              knownLinks.indexOf(next) === -1 &&
-              next.links.indexOf(channel) !== -1
-            ) {
-              findLinks(next, knownLinks);
-            }
-          });
-        return knownLinks;
-      }
-
-      function getAllChannels(channel, channels) {
-        channels.push(channel);
-        channel.channels().forEach((next) => getAllChannels(next, channels));
-        return channels;
-      }
+      this.channelManager.updateLinks(this.root, this.thisUser);
     };
 
     this.openSourceCode = () => {

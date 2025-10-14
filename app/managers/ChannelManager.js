@@ -209,11 +209,16 @@ export class ChannelManager {
   /**
    * Update channel links
    */
-  updateLinks(root) {
+  updateLinks(rootObservable, thisUserObservable) {
+    if (!thisUserObservable() || !thisUserObservable().channel()) {
+      return;
+    }
+
     let allChannels = [];
-    let ownChannel = root();
+    let root = rootObservable();
+    let ownChannel = thisUserObservable().channel().model;
     
-    if (!ownChannel) {
+    if (!root) {
       return;
     }
 
@@ -223,7 +228,7 @@ export class ChannelManager {
       return channels;
     };
 
-    getAllChannels(ownChannel, allChannels);
+    getAllChannels(root, allChannels);
     
     var findLinks = function (channel, knownLinks) {
       knownLinks.push(channel);

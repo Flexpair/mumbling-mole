@@ -84,9 +84,13 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 │  │     Main Thread (UI)         │  │    Web Worker        │ │
 │  │                              │  │                      │ │
 │  │  • Knockout.js MVVM          │◄─┤  • mumble-client     │ │
-│  │  • GlobalBindings state      │  │  • Audio resampling  │ │
-│  │  • Localization              │  │  • Opus encoding     │ │
-│  │  • Theme management          │  │  • Event dispatch    │ │
+│  │  • GlobalBindings facade     │  │  • Audio resampling  │ │
+│  │    - AudioManager            │  │  • Opus encoding     │ │
+│  │    - ConnectionManager       │  │  • Event dispatch    │ │
+│  │    - ChannelManager          │  │                      │ │
+│  │    - UIStateManager          │  │                      │ │
+│  │  • Localization              │  │                      │ │
+│  │  • Theme management          │  │                      │ │
 │  └──────────┬──────────────────┘  └──────────┬───────────┘ │
 │             │                                 │             │
 │  ┌──────────▼──────────────────────────────────┐           │
@@ -301,7 +305,8 @@ We welcome contributions! Please follow these guidelines:
 - **Worker protocol**: Update both `_setProp` (worker-client.js) AND `pushProp` (worker.js) when adding properties
 - **Never serialize objects** across worker boundary—only pass numeric IDs
 - **AudioContext**: Always use `ensureAudioContext()` from `audio-context-manager.js`, never `new AudioContext()` directly
-- **UI state**: All observables must live in `GlobalBindings` class (centralized pattern)
+- **Manager pattern**: New functionality should be added to appropriate managers (`app/managers/`) instead of GlobalBindings
+- **UI state**: Observables should be owned by managers but exposed via GlobalBindings for Knockout bindings
 - **Localization**: Add strings to `localize/en.json` (multilanguage support is disabled)
 - **Console logging**: Prefix debug logs with context tags: `[LOOPBACK]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[DEBUG-VOICE]`, `[AudioContext]`
 - **Documentation**: Update `.github/copilot-instructions.md` for architectural changes
@@ -312,17 +317,28 @@ We welcome contributions! Please follow these guidelines:
 ```
 mumbling-mole/
 ├── app/                           # Application source
-│   ├── index.js                   # UI entry point (GlobalBindings + Knockout)
+│   ├── index.js                   # UI entry point (GlobalBindings facade)
+│   ├── managers/                  # Manager classes (extracted from GlobalBindings)
+│   │   ├── AudioManager.js        # Audio, beeper, mic permissions (386 lines)
+│   │   ├── ConnectionManager.js   # Connection state, client (50 lines)
+│   │   ├── ChannelManager.js      # Channel/user tree, context menus (273 lines)
+│   │   ├── UIStateManager.js      # UI state, dialogs, modals (43 lines)
+│   │   └── README.md              # Manager architecture documentation
 │   ├── worker.js                  # Web Worker (registerEventProxy + pushProp)
 │   ├── worker-client.js           # Worker bridge (_dispatchEvent + _setProp)
-│   ├── voice.js                   # Voice handlers (PTT/continuous + loopback)
-│   ├── audio-context-manager.js   # AudioContext singleton (autoplay handling)
-│   ├── recorder-worker.js         # AudioWorklet processor (ES5 only!)
-│   ├── playback-buffer-processor.js # AudioWorklet processor (ES5 only!)
-│   ├── decoder-stream.js          # Decoder worker pool
-│   ├── encode-worker.js           # Opus encoder worker
-│   ├── decode-worker.js           # Opus decoder worker
-│   ├── buffer-queue-node.js       # Audio playback buffer
+│   ├── audio/                     # Audio subsystem
+│   │   ├── voice.js               # Voice handlers (PTT/continuous + loopback)
+│   │   ├── audio-context-manager.js # AudioContext singleton (autoplay handling)
+│   │   ├── recorder-worker.js     # AudioWorklet processor (ES5 only!)
+│   │   ├── playback-buffer-processor.js # AudioWorklet processor (ES5 only!)
+│   │   ├── decoder-stream.js      # Decoder worker pool
+│   │   ├── encode-worker.js       # Opus encoder worker
+│   │   ├── decode-worker.js       # Opus decoder worker
+│   │   └── buffer-queue-node.js   # Audio playback buffer
+│   ├── auth/                      # Authentication abstraction layer
+│   │   ├── AuthFactory.js         # Provider factory
+│   │   ├── NetlifyIdentityAdapter.js # Netlify Identity provider
+│   │   └── README.md              # Auth migration guide
 │   ├── mumble-websocket.js        # WebSocket → MumbleClient adapter
 │   └── config.js                  # Default configuration
 ├── vendors/                       # Vendored packages (file: protocol deps)
