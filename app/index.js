@@ -2,8 +2,6 @@
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "url";
 import MumbleClient from "mumble-client";
-import WorkerBasedMumbleConnector from "./worker-client";
-import audioContextManager, { ensureAudioContext } from "./audio/audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import BufferQueueNode from "./audio/buffer-queue-node";
@@ -20,6 +18,12 @@ import {
   translateEverything,
   translate,
 } from "./localize";
+
+// Import managers
+import { AudioManager } from "./managers/AudioManager";
+import { ConnectionManager } from "./managers/ConnectionManager";
+import { UIStateManager } from "./managers/UIStateManager";
+import { ChannelManager } from "./managers/ChannelManager";
 
 /**
  * Utility function to wait for audio mixer to become available
@@ -475,48 +479,67 @@ class GlobalBindings {
   constructor(config) {
     this.config = config;
     this.settings = new Settings(config.settings);
-    this.connector = new WorkerBasedMumbleConnector();
-    this.client = null;
     
-    // Add microphone permission state observable
-  this.micPermissionDenied = ko.observable(false);
-  this.micPermissionErrorMessage = ko.observable("");
-    this.micPermissionRetryCount = 0;
-    this.maxMicPermissionRetryCount = 3;
-    this.micPermissionRetryDelayMs = 1000;
+    // Initialize managers (delegation pattern)
+    this.audioManager = new AudioManager();
+    this.connectionManager = new ConnectionManager();
+    this.uiStateManager = new UIStateManager();
+    this.channelManager = new ChannelManager();
+    
+    // Expose manager properties for backward compatibility
+    // These delegate to the appropriate manager
+    this.connector = this.connectionManager.connector;
+    this.client = null; // Will be synced with connectionManager.client
+    this.thisUser = this.connectionManager.thisUser;
+    this.root = this.connectionManager.root;
+    this.remoteHost = this.connectionManager.remoteHost;
+    this.remotePort = this.connectionManager.remotePort;
+    
+    // Audio properties from AudioManager
+    this.micPermissionDenied = this.audioManager.micPermissionDenied;
+    this.micPermissionErrorMessage = this.audioManager.micPermissionErrorMessage;
+    this.audioLockActive = this.audioManager.audioLockActive;
+    this.audioLockReason = this.audioManager.audioLockReason;
+    this.audioLockDetails = this.audioManager.audioLockDetails;
+    this.isLoopbackMode = this.audioManager.isLoopbackMode;
+    this.isBeeping = this.audioManager.isBeeping;
+    this.beeperReady = this.audioManager.beeperReady;
+    this.voiceHandlerReady = this.audioManager.voiceHandlerReady;
+    this.audioContext = null; // Will be synced with audioManager.audioContext
+    
+    // UI properties from UIStateManager
+    this.currentOpenModal = this.uiStateManager.currentOpenModal;
+    this.selected = this.uiStateManager.selected;
+    this.messageBox = this.uiStateManager.messageBox;
+    this.messageBoxHint = this.uiStateManager.messageBoxHint;
+    this.settingsDialog = this.uiStateManager.settingsDialog;
+    
+    // Channel/User management from ChannelManager
+    this.channelContextMenu = this.channelManager.channelContextMenu;
+    this.userContextMenu = this.channelManager.userContextMenu;
     
     // Initialize auth abstraction layer
-    // Always default to netlify provider if config is missing or invalid
     const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
     this.auth = AuthFactory.create(authConfig);
+    this.netlifyIdentity = this.auth; // Backward compatibility
     
-    // Maintain backward compatibility - expose as netlifyIdentity
-    this.netlifyIdentity = this.auth;
-    
+    // Initialize dialogs
     this.connectDialog = new ConnectDialog();
     this.connectErrorDialog = new ConnectErrorDialog(this.connectDialog);
     this.sampleRateWarningDialog = new SampleRateWarningDialog(this);
     this.guacamoleFrame = new GuacamoleFrame();
     this.connectionInfo = new ConnectionInfo(this);
-    this.settingsDialog = ko.observable();
-
-    this.audioLockActive = ko.observable(false);
-    this.audioLockReason = ko.observable(null);
-    this.audioLockDetails = ko.observable(null);
     
-    // LOOPBACK-FEATURE: Track whether client is in loopback test mode
-    // When true, voice is routed to server loopback (target=31) for echo testing
-    this.isLoopbackMode = ko.observable(false);
-    
-    // GUACAMOLE-INTEGRATION: Store credentials for later use when switching from test to normal mode
-    // Allows seamless transition to Guacamole desktop without re-authentication
+    // GUACAMOLE-INTEGRATION: Store credentials for later use
     this._guacLogin = null; 
     this._guacPassword = null;
 
+    // Mute/Deaf state (will be used with voice handler)
+    this.selfMute = ko.observable();
+    this.selfDeaf = ko.observable();
+
     this._activateAudioLock = (reason, details = {}) => {
-      this.audioLockReason(reason);
-      this.audioLockDetails(details);
-      this.audioLockActive(true);
+      this.audioManager.activateAudioLock(reason, details);
       this.selfMute(true);
       this.selfDeaf(true);
       if (voiceHandler) {
@@ -529,18 +552,12 @@ class GlobalBindings {
         this.selfMute(false);
         this.selfDeaf(false);
       }
-      this.audioLockActive(false);
-      this.audioLockReason(null);
-      this.audioLockDetails(null);
+      this.audioManager.clearAudioLock();
     };
 
     this.notifyAudioLock = () => {
-      const details = this.audioLockDetails() || {};
-      const sr =
-        details.sampleRate !== undefined
-          ? details.sampleRate
-          : this.audioContext && this.audioContext.sampleRate;
-      this.sampleRateWarningDialog.showInfo(sr);
+      const info = this.audioManager.getAudioLockInfo();
+      this.sampleRateWarningDialog.showInfo(info.sampleRate);
     };
 
     this.handleUnmuteClick = () => {
@@ -555,291 +572,43 @@ class GlobalBindings {
       }
     };
     
-    // Modal management - track currently open modal to prevent multiple modals
-    this.currentOpenModal = ko.observable(null);
-    this.remoteHost = ko.observable();
-    this.remotePort = ko.observable();
-    this.thisUser = ko.observable();
-    this.root = ko.observable();
-    this.messageBox = ko.observable("");
-    this.selected = ko.observable();
-    this.selfMute = ko.observable();
-    this.selfDeaf = ko.observable();
-    this.isBeeping = ko.observable(false);
-    this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
-    this.voiceHandlerReady = ko.observable(false); // Track when voice handler is fully initialized
+    // Beeper methods delegate to AudioManager
+    this._initializePersistentBeeper = () => this.audioManager.initializePersistentBeeper();
+    this._checkFullBeepReadiness = () => this.audioManager.checkFullBeepReadiness();
     
-    // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
-    
-    // PERSISTENT-BEEPER: Initialize permanent beep oscillator once, control via gain
-    this._initializePersistentBeeper = async () => {
-      if (this._persistentBeeper) return; // Already initialized
-      
-      try {
-        // MIXER-WAIT: Wait for audio mixer to become available (handles delayed getUserMedia)
-        debugLog('[BEEP]', 'Waiting for audio mixer...');
-        const mixerAvailable = await waitForAudioMixer(5000, 50);
-        
-        if (!mixerAvailable) {
-          debugLog('[BEEP]', 'Mixer not ready after timeout');
-          this.beeperReady(false);
-          return;
-        }
-        
-        const mixer = window._audioMixer;
-        const ac = await window.audioContextManager.getAudioContext();
-        if (!ac || ac.state !== 'running') {
-          debugLog(
-            '[BEEP]',
-            'AudioContext not ready',
-            ac ? { state: ac.state, currentTime: ac.currentTime } : { ac: null }
-          );
-          this.beeperReady(false);
-          return;
-        }
-        
-        // DUAL-OUTPUT: Create permanent oscillator with split output for local+remote playback
-        const oscillator = ac.createOscillator();
-        const beepGain = ac.createGain();
-        const localGain = ac.createGain(); // Separate gain for local playback
-        
-        oscillator.frequency.setValueAtTime(440, ac.currentTime);
-        oscillator.type = 'sine';
-        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (remote path)
-        localGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (local path)
-        
-        // LATENCY-TEST: Split signal to hear both immediate local and delayed server echo
-        // Path 1: Oscillator -> beepGain -> Mixer -> Server -> Back (with latency)
-        // Path 2: Oscillator -> localGain -> Destination (immediate local playback)
-        oscillator.connect(beepGain);
-        beepGain.connect(mixer);
-        
-        oscillator.connect(localGain);
-        localGain.connect(ac.destination);
-        
-        // Start oscillator permanently (it just runs silently at gain=0)
-        oscillator.start();
-        
-        // Store references
-        this._persistentBeeper = {
-          oscillator,
-          gain: beepGain,        // Remote (server echo) gain
-          localGain: localGain,  // Local (immediate) gain
-          isPlaying: false
-        };
-        
-        // BEEPER-READY: Mark beeper as ready for UI
-        this.beeperReady(true);
-        
-        debugLog('[BEEP]', 'Persistent beeper initialized with dual output (local + server echo) for latency testing');
-        
-        // VOICE-HANDLER-CHECK: Verify voice handler is also ready before showing button
-        // This prevents showing the button too early when voice path isn't established yet
-        this._checkFullBeepReadiness();
-      } catch (err) {
-        console.error('[BEEP] Failed to initialize persistent beeper:', err);
-        this.beeperReady(false);
-      }
-    };
-    
-    // FULL-READINESS-CHECK: Verify both beeper AND voice handler are ready
-    this._checkFullBeepReadiness = () => {
-      const beeperOk = this.beeperReady();
-      const voiceOk = this.voiceHandlerReady();
-      
-      debugLog('[BEEP-READY]', `Beeper: ${beeperOk}, Voice: ${voiceOk}`);
-      
-      // Only mark as truly ready when BOTH are available
-      // This prevents the UI button from appearing before the voice path is established
-      if (beeperOk && voiceOk) {
-        debugLog('[BEEP-READY]', '✅ Full beep system ready!');
-      } else {
-        debugLog('[BEEP-READY]', '⏳ Waiting for full initialization...');
-      }
+    this.startBeep = () => {
+      this.audioManager.startBeep(this.connected());
     };
 
-    this.startBeep = () => {
-      debugLog('[BEEP]', 'Start beep requested');
-      
-      if (!this.connected()) {
-        debugLog('[BEEP]', 'Not connected, ignoring beep');
-        return;
-      }
-      
-      // INSTANT-RESPONSE: If beeper is ready, start immediately (no await, no delay)
-      if (this._persistentBeeper) {
-        try {
-          const beeper = this._persistentBeeper;
-          const ac = beeper.gain.context;
-          const currentTime = ac.currentTime;
-          
-          // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
-          const attackTime = 0.005; // 5ms attack to eliminate clicks
-          
-          // LATENCY-TEST: Activate both local and remote paths simultaneously
-          // Remote path (via mixer -> server -> back): You'll hear the echo with network latency
-          beeper.gain.gain.cancelScheduledValues(currentTime);
-          beeper.gain.gain.setValueAtTime(0, currentTime);
-          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
-          
-          // Local path (direct to destination): You'll hear immediately
-          beeper.localGain.gain.cancelScheduledValues(currentTime);
-          beeper.localGain.gain.setValueAtTime(0, currentTime);
-          beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime); // Slightly quieter to distinguish from echo
-          
-          beeper.isPlaying = true;
-          this.isBeeping(true);
-          
-          debugLog('[BEEP]', 'DUAL beep activated: local (immediate) + server echo (delayed) - listen for latency!');
-          return; // Exit immediately after successful beep
-        } catch (err) {
-          console.error('[BEEP] Error starting instant beep:', err);
-        }
-      }
-      
-      // FALLBACK-ASYNC: Only if beeper wasn't ready - initialize and retry
-      debugLog('[BEEP]', 'Beeper not ready, initializing...');
-      this._initializePersistentBeeper().then(() => {
-        if (this._persistentBeeper && this.connected()) {
-          this.startBeep(); // Retry immediately after initialization
+    this.stopBeep = () => {
+      this.audioManager.stopBeep();
+    };
+    
+    // Microphone permission methods delegate to AudioManager
+    this._attemptMicrophonePermission = () => {
+      this.audioManager.attemptMicrophonePermission(() => {
+        // Reinitialize voice if needed
+        if (this.client && !voiceHandler) {
+          this._updateVoiceHandler();
         }
       });
     };
 
-    this.stopBeep = () => {
-      debugLog('[BEEP]', 'Stop beep requested');
-      
-      if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
-        debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
-        return;
-      }
-      
-      try {
-        const beeper = this._persistentBeeper;
-        const ac = beeper.gain.context;
-        const currentTime = ac.currentTime;
-        
-        // PIANO-ENVELOPE: More realistic decay curve like acoustic piano
-        // Initial gentle decline, then stronger exponential decay
-        const initialDeclineTime = 0.3; // Gentle decline phase
-        const mainDecayTime = 1.0; // Main exponential decay
-        
-        // DUAL-FADEOUT: Fade out both local and remote paths with piano envelope
-        // Remote path (server echo)
-        beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0.4, currentTime);
-        beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
-        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
-        
-        // Local path (immediate playback)
-        beeper.localGain.gain.cancelScheduledValues(currentTime);
-        beeper.localGain.gain.setValueAtTime(0.3, currentTime);
-        beeper.localGain.gain.linearRampToValueAtTime(0.18, currentTime + initialDeclineTime);
-        beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
-        
-        beeper.isPlaying = false;
-        this.isBeeping(false);
-        
-        debugLog('[BEEP]', `Dual fadeout: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay (local + echo)`);
-      } catch (err) {
-        console.error('[BEEP] Error stopping beep:', err);
-      }
-    };    // Add method to retry microphone permission
-    this._attemptMicrophonePermission = () => {
-      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-        return;
-      }
-
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          this.micPermissionRetryCount = 0;
-          this.micPermissionDenied(false);
-          this.micPermissionErrorMessage("");
-          stream.getTracks().forEach((track) => track.stop());
-          // Reinitialize voice if needed
-          if (this.client && !voiceHandler) {
-            this._updateVoiceHandler();
-          }
-        })
-        .catch((err) => {
-          console.error("Microphone permission denied on retry:", err);
-          this.micPermissionRetryCount += 1;
-          const isPermissionBlocked =
-            err &&
-            (err.name === "NotAllowedError" ||
-              err.name === "SecurityError" ||
-              (typeof err.message === "string" &&
-                err.message.toLowerCase().includes("denied")));
-
-          if (isPermissionBlocked) {
-            this.micPermissionErrorMessage(
-              "Microphone access is blocked by the browser. Please allow it in the address bar or system settings, then try again."
-            );
-          }
-
-          if (this.micPermissionRetryCount >= this.maxMicPermissionRetryCount) {
-            return;
-          }
-          if (isPermissionBlocked) {
-            return;
-          }
-          setTimeout(() => this._attemptMicrophonePermission(), this.micPermissionRetryDelayMs);
-        });
-    };
-
     this.retryMicrophonePermission = () => {
-      this.micPermissionRetryCount = 0;
-      this.micPermissionErrorMessage("");
-      this._attemptMicrophonePermission();
-    };
-    
-    // AUDIO-CONTEXT: Initialize managed AudioContext with autoplay policy handling
-    // This method ensures singleton pattern and handles browser autoplay restrictions
-    this.initializeAudioContext = async () => {
-      // SINGLETON-PATTERN: Prevent duplicate initialization - reuse existing instance
-      if (this.audioContext) {
-        // AudioContext already exists, reusing singleton instance
-        return;
-      }
-      
-      try {
-        // AUTOPLAY-POLICY: Use managed AudioContext that handles browser autoplay restrictions
-        // Waits for user interaction before allowing audio playback
-        this.audioContext = await ensureAudioContext({ 
-          latencyHint: "interactive" 
-        });
-
-        // STATE-MONITORING: Set up event handlers for audio context state changes
-        // These help diagnose audio issues by tracking suspend/resume cycles
-        audioContextManager.onSuspend(() => {
-          // AudioContext suspended - audio features may be limited until user interaction
-        });
-
-        audioContextManager.onResume(() => {
-          // AudioContext resumed - audio features restored
-        });
-
-      } catch (error) {
-        console.error('Failed to initialize AudioContext:', error);
-        
-        // FALLBACK-STRATEGY: Try legacy AudioContext creation if managed approach fails
-        // Some older browsers or restricted environments may not support managed approach
-        try {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContextClass) {
-            throw new Error("AudioContext is not supported in this browser");
-          }
-          this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
-        } catch (fallbackError) {
-          console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
-          // DEGRADED-MODE: AudioContext remains null, audio features will be disabled
+      this.audioManager.retryMicrophonePermission(() => {
+        if (this.client && !voiceHandler) {
+          this._updateVoiceHandler();
         }
-      }
+      });
     };
     
-    // Use managed AudioContext with autoplay policy handling
-    this.audioContext = null;
+    // AUDIO-CONTEXT: Initialize managed AudioContext
+    this.initializeAudioContext = async () => {
+      await this.audioManager.initializeAudioContext();
+      this.audioContext = this.audioManager.audioContext;
+    };
+    
+    // Initialize AudioContext
     this.initializeAudioContext();
 
     this.selfMute.subscribe((mute) => {
@@ -849,7 +618,7 @@ class GlobalBindings {
     });
 
     this.select = (element) => {
-      this.selected(element);
+      this.uiStateManager.select(element);
     };
 
     this.openSettings = () => {
@@ -1416,20 +1185,14 @@ class GlobalBindings {
 
     this.resetClient = () => {
       this.stopBeep(); // Stop beep if active
-      if (this.client) {
-        this.client.disconnect();
-      }
-      this.client = null;
-      this.selected(null).root(null).thisUser(null);
-      this.isLoopbackMode(false); // Reset loopback mode on disconnect
-      this.beeperReady(false); // Reset beeper ready state on disconnect
-      this.voiceHandlerReady(false); // Reset voice handler ready state on disconnect
-      
-      // Note: We don't automatically reset isTestActive here anymore
-      // It's controlled manually by the toggle function
+      this.connectionManager.resetClient();
+      this.client = this.connectionManager.client;
+      this.selected(null);
+      this.audioManager.resetLoopbackMode();
+      this.audioManager.resetBeeper();
     };
 
-    this.connected = () => this.thisUser() != null;
+    this.connected = () => this.connectionManager.connected();
 
     // VOICE-HANDLER-UPDATE: Recreate voice handler when mode or target changes
     // Called when switching between normal/loopback mode or changing PTT/continuous settings
