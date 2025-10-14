@@ -588,7 +588,11 @@ class GlobalBindings {
         const mixer = window._audioMixer;
         const ac = await window.audioContextManager.getAudioContext();
         if (!ac || ac.state !== 'running') {
-          debugLog('[BEEP]', 'AudioContext not ready');
+          debugLog(
+            '[BEEP]',
+            'AudioContext not ready',
+            ac ? { state: ac.state, currentTime: ac.currentTime } : { ac: null }
+          );
           this.beeperReady(false);
           return;
         }
