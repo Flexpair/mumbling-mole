@@ -70,7 +70,7 @@ export default class AppState {
    * Check if connected
    * @returns {boolean}
    */
-  connected() {
+  connected = () => {
     return this.user.thisUser() != null;
   }
 
@@ -78,7 +78,7 @@ export default class AppState {
    * Get current client
    * @returns {object|null}
    */
-  getClient() {
+  getClient = () => {
     return this.connection.getClient();
   }
 
@@ -183,7 +183,7 @@ export default class AppState {
   /**
    * Start loopback test on existing connection
    */
-  async startLoopbackTest() {
+  startLoopbackTest = async () => {
     if (this.connected()) {
       this.voice.isLoopbackMode(true);
       
@@ -400,7 +400,7 @@ export default class AppState {
   /**
    * Reset client and all state
    */
-  resetClient() {
+  resetClient = () => {
     this.audio.stopBeep();
     this.connection.resetClient();
     this.ui.selected(null);
@@ -414,7 +414,7 @@ export default class AppState {
   /**
    * Send message to channel or user
    */
-  sendMessage(target, message) {
+  sendMessage = (target, message) => {
     if (this.connected()) {
       if (!target) {
         target = this.user.thisUser();
