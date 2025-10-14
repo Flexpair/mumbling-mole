@@ -159,7 +159,8 @@ const config = {
       process: ['process/browser']
     }),
     new webpack.DefinePlugin({
-      'process.browser': 'true'
+      'process.browser': 'true',
+      'process.env.USE_NEW_STATE_ARCHITECTURE': JSON.stringify(process.env.USE_NEW_STATE_ARCHITECTURE || 'false')
     }),
     new MiniCssExtractPlugin({
       filename: '[name].css',
