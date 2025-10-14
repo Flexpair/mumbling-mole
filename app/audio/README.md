@@ -238,3 +238,75 @@ If timeout occurs:
 - `app/index.html`: Button visibility bound to `beeperReady()` observable
 - `app/audio/voice.js`: Sets `window._audioMixer` after getUserMedia callback
 
+---
+
+## Dual-Output Latency Test Beep
+
+### Overview
+The test beep plays **both locally (immediate) and as echo from the Mumble server**, allowing users to hear the end-to-end audio latency.
+
+### How It Works
+
+#### Audio Signal Flow
+The 440 Hz sine tone follows **two parallel paths**:
+
+1. **Local Path (immediate)**:
+   - Oscillator → `localGain` → AudioContext.destination
+   - **No delay** - plays instantly when clicking Test button
+   - Volume: 0.3 (quieter)
+
+2. **Server Echo Path (delayed)**:
+   - Oscillator → `beepGain` → `_audioMixer` → Server (Loopback target=31) → back to client
+   - **With network latency** - echoes after round-trip time
+   - Volume: 0.4 (louder)
+
+#### Why Different Volumes?
+- **Local: 0.3** (quieter) - the immediate "click"
+- **Echo: 0.4** (louder) - the delayed server echo
+- Helps distinguish both signals acoustically
+
+### What You'll Hear
+
+When clicking the Test button:
+1. **Immediate tone** - local path plays (0ms latency)
+2. **Echo tone** - server echo arrives after some milliseconds
+3. **Time difference** = your round-trip latency to server
+
+#### Example Latency Scenarios:
+- **LAN/local server**: ~5-20ms → barely audible, minimal echo
+- **Good internet**: ~20-50ms → clear short echo
+- **Poor connection**: >100ms → distinct separate echo
+
+### Usage
+1. **Connect to server** (loopback mode recommended for testing)
+2. **Press Test button** (in connection dialog or UI)
+3. **Listen for**:
+   - First tone immediately
+   - Second tone (echo) after latency delay
+4. **Mental calculation**: Time between tones = your latency
+
+### First-Click Latency Fix
+
+The first beep used to have ~200ms extra latency due to AudioWorklet module loading. This is now fixed by **pre-warming** the AudioWorklet on connection:
+
+```javascript
+// In app/index.js during connect:
+await this.audioContext.audioWorklet.addModule('playback-buffer-processor.js');
+```
+
+The `voiceHandlerReady` observable gates the Test button until the voice handler is fully initialized, preventing measurement of initialization overhead.
+
+### Technical Details
+
+See `app/audio/LATENCY_TEST.md` for detailed implementation including:
+- Dual-path oscillator setup
+- Envelope curves (attack/sustain/decay)
+- AudioWorklet pre-warming
+- Voice handler ready observable
+
+### Limitations
+- **Loopback mode**: Tests same-client path (see warning above)
+- **Mixer dependency**: Requires `window._audioMixer` (after getUserMedia)
+- **AudioContext**: Needs running AudioContext (state: 'running')
+- **No automatic measurement**: User must listen and compare manually
+
