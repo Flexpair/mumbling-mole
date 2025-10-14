@@ -169,14 +169,7 @@ function ConnectDialog() {
       // BEEPER-PREPARATION: Start beeper initialization immediately when test is activated
       // This ensures the beeper is ready by the time the user wants to click the button
       setTimeout(async () => {
-        // Wait for mixer to be available after loopback connection
-        const mixerAvailable = await waitForAudioMixer(5000, 50);
-        
-        if (mixerAvailable && !ui._persistentBeeper) {
-          debugLog('[BEEP]', 'Initializing beeper after loopback toggle...');
-          await ui._initializePersistentBeeper();
-          debugLog('[BEEP]', 'Beeper ready for immediate use');
-        }
+        await ui._initializePersistentBeeper();
       }, 100); // Small delay to let loopback connection start
       
       // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
@@ -582,15 +575,21 @@ class GlobalBindings {
       if (this._persistentBeeper) return; // Already initialized
       
       try {
-        const mixer = window._audioMixer;
-        if (!mixer) {
-          debugLog('[BEEP]', 'Mixer not ready, will retry when available');
+        // MIXER-WAIT: Wait for audio mixer to become available (handles delayed getUserMedia)
+        debugLog('[BEEP]', 'Waiting for audio mixer...');
+        const mixerAvailable = await waitForAudioMixer(5000, 50);
+        
+        if (!mixerAvailable) {
+          debugLog('[BEEP]', 'Mixer not ready after timeout');
+          this.beeperReady(false);
           return;
         }
         
+        const mixer = window._audioMixer;
         const ac = await window.audioContextManager.getAudioContext();
         if (!ac || ac.state !== 'running') {
-          debugLog('[BEEP]', 'AudioContext not ready, will retry');
+          debugLog('[BEEP]', 'AudioContext not ready');
+          this.beeperReady(false);
           return;
         }
         
@@ -619,7 +618,7 @@ class GlobalBindings {
         // BEEPER-READY: Mark beeper as ready for UI
         this.beeperReady(true);
         
-        debugLog('[BEEP]', 'Persistent beeper initialized and connected to mixer - UI button enabled');
+        debugLog('[BEEP]', 'Persistent beeper initialized and ready');
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
         this.beeperReady(false);
@@ -658,17 +657,13 @@ class GlobalBindings {
         }
       }
       
-      // FALLBACK-ASYNC: Only if beeper wasn't ready - this will have delay but is rare
-      if (window._audioMixer) {
-        debugLog('[BEEP]', 'Beeper not ready, initializing async (will have delay)...');
-        this._initializePersistentBeeper().then(() => {
-          if (this._persistentBeeper && this.connected()) {
-            this.startBeep(); // Retry immediately after initialization
-          }
-        });
-      } else {
-        console.error('[BEEP] Beeper not ready! Audio mixer not available');
-      }
+      // FALLBACK-ASYNC: Only if beeper wasn't ready - initialize and retry
+      debugLog('[BEEP]', 'Beeper not ready, initializing...');
+      this._initializePersistentBeeper().then(() => {
+        if (this._persistentBeeper && this.connected()) {
+          this.startBeep(); // Retry immediately after initialization
+        }
+      });
     };
 
     this.stopBeep = () => {
@@ -1009,20 +1004,10 @@ class GlobalBindings {
         // HANDLER-RECREATION: Create new voice handler with loopback target (31)
         this._updateVoiceHandler();
         
-        // BEEPER-PREPARATION: Wait for mixer to be ready, then initialize beeper
-        // This ensures button responds instantly when user clicks
-        debugLog('[LOOPBACK]', 'Waiting for audio mixer to be ready...');
-        
-        // Wait up to 5 seconds for mixer to be available
-        const mixerAvailable = await waitForAudioMixer(5000, 100);
-        
-        if (mixerAvailable) {
-          debugLog('[LOOPBACK]', 'Mixer ready, initializing beeper...');
-          await this._initializePersistentBeeper();
-          debugLog('[LOOPBACK]', 'Beeper ready - button will respond instantly');
-        } else {
-          debugLog('[LOOPBACK]', 'Warning: Mixer not ready after 5 seconds, beeper will initialize on first click');
-        }
+        // BEEPER-PREPARATION: Initialize beeper for test mode
+        debugLog('[LOOPBACK]', 'Initializing beeper for test mode...');
+        await this._initializePersistentBeeper();
+        debugLog('[LOOPBACK]', 'Beeper initialization complete');
         
       } else {
         // NOT-CONNECTED: Use default connection parameters for initial loopback connection
@@ -1447,10 +1432,7 @@ class GlobalBindings {
       // This ensures the button appears automatically once everything is set up
       if (this.connectDialog.isTestActive()) {
         setTimeout(async () => {
-          if (window._audioMixer && !this._persistentBeeper) {
-            debugLog('[BEEP]', 'Auto-initializing beeper for test mode...');
-            await this._initializePersistentBeeper();
-          }
+          await this._initializePersistentBeeper();
         }, 100); // Small delay to ensure mixer is fully ready
       }
     };
