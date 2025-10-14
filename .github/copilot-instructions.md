@@ -4,7 +4,7 @@
 Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet; UI also gates Guacamole iframe after Netlify Identity auth.
 
 ## Architecture & threading
-**Main thread** (`app/index.js`): Bootstraps `GlobalBindings` observables (1474 lines, god object pattern—all UI state centralized here), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**Main thread** (`app/index.js`): Bootstraps `GlobalBindings` observables (1785 lines, god object pattern—all UI state centralized here), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **Worker instantiation**: Use native `new Worker(new URL('./worker.js', import.meta.url), {type: 'classic'})` syntax (Webpack 5 compatible); avoid worker-loader wrappers  
@@ -28,6 +28,7 @@ Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a
   - `npm run test:audio:system` = fastest; validates build artifacts, codecs, worker syntax (no server required)
   - `npm run test:e2e` = WebSocket smoke test (checks websockify tunnel + HTTP serving)
   - `npm run test` = runs `./scripts/run-all-tests.sh` (E2E + audio + audit combined)
+  - `npm run test:quick` = fast subset (audio:system + e2e + audit:ci)
   - `npm run test:audio` = single roundtrip test (sends 440 Hz sine wave to live server)
   - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
 **E2E modes**: `node scripts/e2e-check.cjs` (local) vs `--mode=container` (CI); set `PLAIN_TARGET=1` for non-TLS echo servers  
@@ -89,5 +90,5 @@ class GlobalBindings {
 ## Known technical debt
 - **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
 - **Build complexity**: `smart-build.sh` + webpack + vendor transpilation creates fragile incremental builds; consider consolidation
-- **GlobalBindings anti-pattern**: 1474-line god object centralizes all UI state; refactoring would improve maintainability
+- **GlobalBindings anti-pattern**: 1785-line god object centralizes all UI state; refactoring would improve maintainability
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
