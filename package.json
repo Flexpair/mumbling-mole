@@ -25,7 +25,7 @@
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "repository": "Flexpair/mumbling-mole",
-  "homepage": "https://github.com/jafudi/flexpair",
+  "homepage": "https://github.com/Flexpair",
   "engines": {
     "node": ">=22.0.0"
   },
