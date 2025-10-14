@@ -491,10 +491,6 @@ const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
 ui.netlifyIdentity = ui.auth; // Backward compatibility
 
-// Add context menu references (will be set up in initializeUI)
-ui.userContextMenu = null;
-ui.channelContextMenu = null;
-
 // Override openSettings to ensure the local SettingsDialog class is used
 // Knockout click bindings pass the event as first parameter, so we ignore it
 // and always use the local SettingsDialog constructor

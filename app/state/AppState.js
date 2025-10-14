@@ -426,18 +426,6 @@ export default class AppState {
     }
   }
 
-  /**
-   * Open context menu (implementation needed based on UI framework)
-   * @private
-   */
-  _openContextMenu(event, menu, ui) {
-    // Context menu implementation will be set up externally
-    // This is called by user/channel UI objects
-    if (typeof openContextMenu === 'function') {
-      openContextMenu(event, menu, ui);
-    }
-  }
-
   // ============================================================
   // DELEGATION - Expose module properties/methods
   // ============================================================
