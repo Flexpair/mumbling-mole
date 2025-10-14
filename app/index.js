@@ -567,6 +567,7 @@ class GlobalBindings {
     this.selfDeaf = ko.observable();
     this.isBeeping = ko.observable(false);
     this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
+    this.voiceHandlerReady = ko.observable(false); // Track when voice handler is fully initialized
     
     // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
     
@@ -597,17 +598,24 @@ class GlobalBindings {
           return;
         }
         
-        // Create permanent oscillator and gain for beep tone
+        // DUAL-OUTPUT: Create permanent oscillator with split output for local+remote playback
         const oscillator = ac.createOscillator();
         const beepGain = ac.createGain();
+        const localGain = ac.createGain(); // Separate gain for local playback
         
         oscillator.frequency.setValueAtTime(440, ac.currentTime);
         oscillator.type = 'sine';
-        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent
+        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (remote path)
+        localGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (local path)
         
-        // Connect: Oscillator -> Gain -> Mixer (permanent connection)
+        // LATENCY-TEST: Split signal to hear both immediate local and delayed server echo
+        // Path 1: Oscillator -> beepGain -> Mixer -> Server -> Back (with latency)
+        // Path 2: Oscillator -> localGain -> Destination (immediate local playback)
         oscillator.connect(beepGain);
         beepGain.connect(mixer);
+        
+        oscillator.connect(localGain);
+        localGain.connect(ac.destination);
         
         // Start oscillator permanently (it just runs silently at gain=0)
         oscillator.start();
@@ -615,17 +623,38 @@ class GlobalBindings {
         // Store references
         this._persistentBeeper = {
           oscillator,
-          gain: beepGain,
+          gain: beepGain,        // Remote (server echo) gain
+          localGain: localGain,  // Local (immediate) gain
           isPlaying: false
         };
         
         // BEEPER-READY: Mark beeper as ready for UI
         this.beeperReady(true);
         
-        debugLog('[BEEP]', 'Persistent beeper initialized and ready');
+        debugLog('[BEEP]', 'Persistent beeper initialized with dual output (local + server echo) for latency testing');
+        
+        // VOICE-HANDLER-CHECK: Verify voice handler is also ready before showing button
+        // This prevents showing the button too early when voice path isn't established yet
+        this._checkFullBeepReadiness();
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
         this.beeperReady(false);
+      }
+    };
+    
+    // FULL-READINESS-CHECK: Verify both beeper AND voice handler are ready
+    this._checkFullBeepReadiness = () => {
+      const beeperOk = this.beeperReady();
+      const voiceOk = this.voiceHandlerReady();
+      
+      debugLog('[BEEP-READY]', `Beeper: ${beeperOk}, Voice: ${voiceOk}`);
+      
+      // Only mark as truly ready when BOTH are available
+      // This prevents the UI button from appearing before the voice path is established
+      if (beeperOk && voiceOk) {
+        debugLog('[BEEP-READY]', '✅ Full beep system ready!');
+      } else {
+        debugLog('[BEEP-READY]', '⏳ Waiting for full initialization...');
       }
     };
 
@@ -647,14 +676,21 @@ class GlobalBindings {
           // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
           const attackTime = 0.005; // 5ms attack to eliminate clicks
           
+          // LATENCY-TEST: Activate both local and remote paths simultaneously
+          // Remote path (via mixer -> server -> back): You'll hear the echo with network latency
           beeper.gain.gain.cancelScheduledValues(currentTime);
-          beeper.gain.gain.setValueAtTime(0, currentTime); // Start from silence
-          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime); // Quick smooth ramp
+          beeper.gain.gain.setValueAtTime(0, currentTime);
+          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
+          
+          // Local path (direct to destination): You'll hear immediately
+          beeper.localGain.gain.cancelScheduledValues(currentTime);
+          beeper.localGain.gain.setValueAtTime(0, currentTime);
+          beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime); // Slightly quieter to distinguish from echo
           
           beeper.isPlaying = true;
           this.isBeeping(true);
           
-          debugLog('[BEEP]', 'INSTANT beep tone activated (no delay)');
+          debugLog('[BEEP]', 'DUAL beep activated: local (immediate) + server echo (delayed) - listen for latency!');
           return; // Exit immediately after successful beep
         } catch (err) {
           console.error('[BEEP] Error starting instant beep:', err);
@@ -688,19 +724,23 @@ class GlobalBindings {
         const initialDeclineTime = 0.3; // Gentle decline phase
         const mainDecayTime = 1.0; // Main exponential decay
         
+        // DUAL-FADEOUT: Fade out both local and remote paths with piano envelope
+        // Remote path (server echo)
         beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0.4, currentTime); // Current level
-        
-        // PHASE 1: Gentle initial decline (like piano hammer release)
+        beeper.gain.gain.setValueAtTime(0.4, currentTime);
         beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
-        
-        // PHASE 2: Natural exponential decay (like string resonance)
         beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
+        
+        // Local path (immediate playback)
+        beeper.localGain.gain.cancelScheduledValues(currentTime);
+        beeper.localGain.gain.setValueAtTime(0.3, currentTime);
+        beeper.localGain.gain.linearRampToValueAtTime(0.18, currentTime + initialDeclineTime);
+        beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
         
         beeper.isPlaying = false;
         this.isBeeping(false);
         
-        debugLog('[BEEP]', `Realistic piano envelope: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay`);
+        debugLog('[BEEP]', `Dual fadeout: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay (local + echo)`);
       } catch (err) {
         console.error('[BEEP] Error stopping beep:', err);
       }
@@ -1080,6 +1120,18 @@ class GlobalBindings {
         } else if (!this.audioContext) {
           await this.initializeAudioContext();
         }
+        
+        // WARM-UP: Pre-load AudioWorklet module to reduce first-playback latency
+        // BufferQueueNode loads this on-demand, but pre-loading eliminates ~50-100ms delay
+        try {
+          await this.audioContext.audioWorklet.addModule('playback-buffer-processor.js');
+          debugLog('[AUDIO-INIT]', 'Playback AudioWorklet pre-warmed successfully');
+        } catch (err) {
+          // Ignore if already loaded (will happen on reconnect)
+          if (err.name !== 'InvalidStateError') {
+            console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
+          }
+        }
       } catch (error) {
         console.warn("AudioContext resume failed, continuing anyway:", error);
       }
@@ -1371,6 +1423,7 @@ class GlobalBindings {
       this.selected(null).root(null).thisUser(null);
       this.isLoopbackMode(false); // Reset loopback mode on disconnect
       this.beeperReady(false); // Reset beeper ready state on disconnect
+      this.voiceHandlerReady(false); // Reset voice handler ready state on disconnect
       
       // Note: We don't automatically reset isTestActive here anymore
       // It's controlled manually by the toggle function
@@ -1390,6 +1443,10 @@ class GlobalBindings {
         voiceHandler.end();
         voiceHandler = null;
       }
+      
+      // RESET-READY: Mark voice handler as not ready during recreation
+      this.voiceHandlerReady(false);
+      debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
       
       let mode = this.settings.voiceMode;
       
@@ -1431,6 +1488,14 @@ class GlobalBindings {
         this.settings.audioBitrate,
         this.settings.samplesPerPacket
       );
+      
+      // VOICE-HANDLER-READY: Mark voice handler as initialized
+      // This signals that the voice path to server is established
+      this.voiceHandlerReady(true);
+      debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
+      
+      // Check if both beeper and voice handler are now ready
+      this._checkFullBeepReadiness();
       
       // BEEPER-AUTO-INIT: Initialize beeper when voice handler is ready and test is active
       // This ensures the button appears automatically once everything is set up

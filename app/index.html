@@ -138,7 +138,7 @@
                   data-bind="
                     event: { mousedown: $root.startBeep, mouseup: $root.stopBeep, mouseleave: $root.stopBeep, touchstart: $root.startBeep, touchend: $root.stopBeep },
                     css: { 'active': $root.isBeeping },
-                    visible: isTestActive() && $root.beeperReady()"
+                    visible: isTestActive() && $root.beeperReady() && $root.voiceHandlerReady()"
                   style="height: 32px; padding: 4px 8px; white-space: nowrap; width: 100%; box-sizing: border-box; font-size: 1em;"
                 ><span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)</button>
               </div>
@@ -320,12 +320,17 @@
           <br />
           <!-- /ko -->
           <!-- ko if: latencyMs() && !isNaN(latencyMs()) -->
+          <strong>Network latency (TCP ping):</strong>
           <span data-bind="text: latencyMs().toFixed(2)"></span> ms average
-          latency (<span data-bind="text: latencyDeviation().toFixed(2)"></span>
-          deviation)
+          (<span data-bind="text: latencyDeviation().toFixed(2)"></span> ms deviation)
+          <br />
+          <small style="color: #666; font-style: italic;">
+            Note: Voice latency is typically 35-80ms higher due to audio encoding/decoding and buffering.
+            Use the Piano test button to measure end-to-end audio latency.
+          </small>
           <!-- /ko -->
           <!-- ko if: !latencyMs() || isNaN(latencyMs()) -->
-          Latency: Unknown
+          <strong>Network latency (TCP ping):</strong> Unknown
           <!-- /ko -->
 
           <h3 id="connection-info_native">Desktop client / mobile app</h3>
