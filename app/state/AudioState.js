@@ -10,7 +10,12 @@ function debugLog(tag, ...args) {
 }
 
 /**
- * Utility function to wait for audio mixer to become available
+ * Utility function to wait for audio mixer to become available.
+ * 
+ * The audio mixer (window._audioMixer) is initialized asynchronously during
+ * the audio context setup. This function polls for its availability to ensure
+ * audio operations don't fail due to timing issues during initialization.
+ * 
  * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
  * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
  * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout

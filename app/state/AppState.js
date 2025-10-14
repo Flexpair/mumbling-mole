@@ -6,6 +6,7 @@ import UIState from "./UIState";
 import UserState from "./UserState";
 import ChannelState from "./ChannelState";
 import { translate } from "../localize";
+import packageJson from "../../package.json";
 
 /**
  * AppState - main state coordinator
@@ -584,7 +585,6 @@ export default class AppState {
   }
 
   openSourceCode = () => {
-    var homepage = require("../../package.json").homepage;
-    window.open(homepage, "_blank").focus();
+    window.open(packageJson.homepage, "_blank").focus();
   }
 }

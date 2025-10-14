@@ -495,16 +495,13 @@ ui.netlifyIdentity = ui.auth; // Backward compatibility
 ui.userContextMenu = null;
 ui.channelContextMenu = null;
 
-// Override openSettings to create new SettingsDialog instance
-const originalOpenSettings = ui.openSettings;
-ui.openSettings = (SettingsDialogClass) => {
-  // Create a new instance and pass it
-  const dialogInstance = new SettingsDialog(ui.settings);
-  // Manually call UIState.openSettings with settings and the constructor
-  if (ui.ui.currentOpenModal() === null) {
-    ui.ui.settingsDialog(dialogInstance);
-    ui.ui.currentOpenModal('settings');
-  }
+// Override openSettings to ensure the local SettingsDialog class is used
+// Knockout click bindings pass the event as first parameter, so we ignore it
+// and always use the local SettingsDialog constructor
+ui.openSettings = function() {
+  // Ignore any parameters (e.g., click events from Knockout bindings)
+  // Always use the local SettingsDialog class defined in this file
+  return ui.ui.openSettings(ui.settings, SettingsDialog);
 };
 
 // Used only for debugging
