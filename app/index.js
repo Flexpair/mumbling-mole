@@ -8,6 +8,9 @@ import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import BufferQueueNode from "./audio/buffer-queue-node";
 import AuthFactory from "./auth/AuthFactory";
+import ModalManager from "./managers/ModalManager";
+import AudioLockManager from "./managers/AudioLockManager";
+import BeeperManager from "./managers/BeeperManager";
 
 import {
   ContinuousVoiceHandler,
@@ -241,33 +244,31 @@ function SampleRateWarningDialog(ui) {
       .filter((text) => text && !/^\{\{.*\}\}$/.test(text));
   });
 
-  self.show = (sampleRate, params) => {
-    if (ui.currentOpenModal() !== null) {
+  this.show = (sampleRate, params) => {
+    if (ui.modalManager.isModalOpen()) {
       return;
     }
     self.mode("confirm");
     self.sampleRate(sampleRate || null);
     self.pendingConnection = params || null;
     self.visible(true);
-    ui.currentOpenModal('sampleRateWarning');
+    ui.modalManager.openModal('sampleRateWarning');
   };
 
   self.showInfo = (sampleRate) => {
-    if (ui.currentOpenModal() !== null) {
+    if (ui.modalManager.isModalOpen()) {
       return;
     }
     self.mode("info");
     self.sampleRate(sampleRate || null);
     self.pendingConnection = null;
     self.visible(true);
-    ui.currentOpenModal('sampleRateWarning');
+    ui.modalManager.openModal('sampleRateWarning');
   };
 
   self.hide = () => {
     self.visible(false);
-    if (ui.currentOpenModal() === 'sampleRateWarning') {
-      ui.currentOpenModal(null);
-    }
+    ui.modalManager.closeModal('sampleRateWarning');
     self.pendingConnection = null;
   };
 
@@ -305,19 +306,17 @@ class ConnectionInfo {
 
     this.show = () => {
       // Prevent opening connection info if another modal is already open
-      if (this._ui.currentOpenModal() !== null) {
+      if (this._ui.modalManager.isModalOpen()) {
         return;
       }
       this.update();
       this.visible(true);
-      this._ui.currentOpenModal('connectionInfo');
+      this._ui.modalManager.openModal('connectionInfo');
     };
     this.hide = () => {
       this.visible(false);
       // Clear the modal state when connection info dialog is closed
-      if (this._ui.currentOpenModal() === 'connectionInfo') {
-        this._ui.currentOpenModal(null);
-      }
+      this._ui.modalManager.closeModal('connectionInfo');
     };
   }
 
@@ -500,9 +499,19 @@ class GlobalBindings {
     this.connectionInfo = new ConnectionInfo(this);
     this.settingsDialog = ko.observable();
 
-    this.audioLockActive = ko.observable(false);
-    this.audioLockReason = ko.observable(null);
-    this.audioLockDetails = ko.observable(null);
+    // Initialize managers
+    this.modalManager = new ModalManager();
+    this.audioLockManager = new AudioLockManager();
+    this.beeperManager = new BeeperManager(debugLog);
+
+    // Expose manager observables for backward compatibility
+    this.currentOpenModal = this.modalManager.currentOpenModal;
+    this.audioLockActive = this.audioLockManager.audioLockActive;
+    this.audioLockReason = this.audioLockManager.audioLockReason;
+    this.audioLockDetails = this.audioLockManager.audioLockDetails;
+    this.isBeeping = this.beeperManager.isBeeping;
+    this.beeperReady = this.beeperManager.beeperReady;
+    this.voiceHandlerReady = this.beeperManager.voiceHandlerReady;
     
     // LOOPBACK-FEATURE: Track whether client is in loopback test mode
     // When true, voice is routed to server loopback (target=31) for echo testing
@@ -514,9 +523,7 @@ class GlobalBindings {
     this._guacPassword = null;
 
     this._activateAudioLock = (reason, details = {}) => {
-      this.audioLockReason(reason);
-      this.audioLockDetails(details);
-      this.audioLockActive(true);
+      this.audioLockManager.activate(reason, details);
       this.selfMute(true);
       this.selfDeaf(true);
       if (voiceHandler) {
@@ -525,17 +532,15 @@ class GlobalBindings {
     };
 
     this._clearAudioLock = ({ resetStates = false } = {}) => {
-      if (resetStates && this.audioLockActive()) {
+      const shouldResetStates = this.audioLockManager.clear({ resetStates });
+      if (shouldResetStates && resetStates) {
         this.selfMute(false);
         this.selfDeaf(false);
       }
-      this.audioLockActive(false);
-      this.audioLockReason(null);
-      this.audioLockDetails(null);
     };
 
     this.notifyAudioLock = () => {
-      const details = this.audioLockDetails() || {};
+      const details = this.audioLockManager.getDetails();
       const sr =
         details.sampleRate !== undefined
           ? details.sampleRate
@@ -555,8 +560,6 @@ class GlobalBindings {
       }
     };
     
-    // Modal management - track currently open modal to prevent multiple modals
-    this.currentOpenModal = ko.observable(null);
     this.remoteHost = ko.observable();
     this.remotePort = ko.observable();
     this.thisUser = ko.observable();
@@ -565,185 +568,25 @@ class GlobalBindings {
     this.selected = ko.observable();
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
-    this.isBeeping = ko.observable(false);
-    this.beeperReady = ko.observable(false); // Track when beeper is initialized and ready
-    this.voiceHandlerReady = ko.observable(false); // Track when voice handler is fully initialized
     
     // Beep test: inject 440Hz tone directly into audio pipeline (like second microphone)
     
     // PERSISTENT-BEEPER: Initialize permanent beep oscillator once, control via gain
     this._initializePersistentBeeper = async () => {
-      if (this._persistentBeeper) return; // Already initialized
-      
-      try {
-        // MIXER-WAIT: Wait for audio mixer to become available (handles delayed getUserMedia)
-        debugLog('[BEEP]', 'Waiting for audio mixer...');
-        const mixerAvailable = await waitForAudioMixer(5000, 50);
-        
-        if (!mixerAvailable) {
-          debugLog('[BEEP]', 'Mixer not ready after timeout');
-          this.beeperReady(false);
-          return;
-        }
-        
-        const mixer = window._audioMixer;
-        const ac = await window.audioContextManager.getAudioContext();
-        if (!ac || ac.state !== 'running') {
-          debugLog(
-            '[BEEP]',
-            'AudioContext not ready',
-            ac ? { state: ac.state, currentTime: ac.currentTime } : { ac: null }
-          );
-          this.beeperReady(false);
-          return;
-        }
-        
-        // DUAL-OUTPUT: Create permanent oscillator with split output for local+remote playback
-        const oscillator = ac.createOscillator();
-        const beepGain = ac.createGain();
-        const localGain = ac.createGain(); // Separate gain for local playback
-        
-        oscillator.frequency.setValueAtTime(440, ac.currentTime);
-        oscillator.type = 'sine';
-        beepGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (remote path)
-        localGain.gain.setValueAtTime(0, ac.currentTime); // Start silent (local path)
-        
-        // LATENCY-TEST: Split signal to hear both immediate local and delayed server echo
-        // Path 1: Oscillator -> beepGain -> Mixer -> Server -> Back (with latency)
-        // Path 2: Oscillator -> localGain -> Destination (immediate local playback)
-        oscillator.connect(beepGain);
-        beepGain.connect(mixer);
-        
-        oscillator.connect(localGain);
-        localGain.connect(ac.destination);
-        
-        // Start oscillator permanently (it just runs silently at gain=0)
-        oscillator.start();
-        
-        // Store references
-        this._persistentBeeper = {
-          oscillator,
-          gain: beepGain,        // Remote (server echo) gain
-          localGain: localGain,  // Local (immediate) gain
-          isPlaying: false
-        };
-        
-        // BEEPER-READY: Mark beeper as ready for UI
-        this.beeperReady(true);
-        
-        debugLog('[BEEP]', 'Persistent beeper initialized with dual output (local + server echo) for latency testing');
-        
-        // VOICE-HANDLER-CHECK: Verify voice handler is also ready before showing button
-        // This prevents showing the button too early when voice path isn't established yet
-        this._checkFullBeepReadiness();
-      } catch (err) {
-        console.error('[BEEP] Failed to initialize persistent beeper:', err);
-        this.beeperReady(false);
-      }
+      await this.beeperManager.initialize();
     };
     
     // FULL-READINESS-CHECK: Verify both beeper AND voice handler are ready
     this._checkFullBeepReadiness = () => {
-      const beeperOk = this.beeperReady();
-      const voiceOk = this.voiceHandlerReady();
-      
-      debugLog('[BEEP-READY]', `Beeper: ${beeperOk}, Voice: ${voiceOk}`);
-      
-      // Only mark as truly ready when BOTH are available
-      // This prevents the UI button from appearing before the voice path is established
-      if (beeperOk && voiceOk) {
-        debugLog('[BEEP-READY]', '✅ Full beep system ready!');
-      } else {
-        debugLog('[BEEP-READY]', '⏳ Waiting for full initialization...');
-      }
+      this.beeperManager.checkFullReadiness();
     };
 
     this.startBeep = () => {
-      debugLog('[BEEP]', 'Start beep requested');
-      
-      if (!this.connected()) {
-        debugLog('[BEEP]', 'Not connected, ignoring beep');
-        return;
-      }
-      
-      // INSTANT-RESPONSE: If beeper is ready, start immediately (no await, no delay)
-      if (this._persistentBeeper) {
-        try {
-          const beeper = this._persistentBeeper;
-          const ac = beeper.gain.context;
-          const currentTime = ac.currentTime;
-          
-          // INSTANT-ATTACK: Very fast but smooth attack to prevent audio pops
-          const attackTime = 0.005; // 5ms attack to eliminate clicks
-          
-          // LATENCY-TEST: Activate both local and remote paths simultaneously
-          // Remote path (via mixer -> server -> back): You'll hear the echo with network latency
-          beeper.gain.gain.cancelScheduledValues(currentTime);
-          beeper.gain.gain.setValueAtTime(0, currentTime);
-          beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
-          
-          // Local path (direct to destination): You'll hear immediately
-          beeper.localGain.gain.cancelScheduledValues(currentTime);
-          beeper.localGain.gain.setValueAtTime(0, currentTime);
-          beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime); // Slightly quieter to distinguish from echo
-          
-          beeper.isPlaying = true;
-          this.isBeeping(true);
-          
-          debugLog('[BEEP]', 'DUAL beep activated: local (immediate) + server echo (delayed) - listen for latency!');
-          return; // Exit immediately after successful beep
-        } catch (err) {
-          console.error('[BEEP] Error starting instant beep:', err);
-        }
-      }
-      
-      // FALLBACK-ASYNC: Only if beeper wasn't ready - initialize and retry
-      debugLog('[BEEP]', 'Beeper not ready, initializing...');
-      this._initializePersistentBeeper().then(() => {
-        if (this._persistentBeeper && this.connected()) {
-          this.startBeep(); // Retry immediately after initialization
-        }
-      });
+      this.beeperManager.start(this.connected());
     };
 
     this.stopBeep = () => {
-      debugLog('[BEEP]', 'Stop beep requested');
-      
-      if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
-        debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
-        return;
-      }
-      
-      try {
-        const beeper = this._persistentBeeper;
-        const ac = beeper.gain.context;
-        const currentTime = ac.currentTime;
-        
-        // PIANO-ENVELOPE: More realistic decay curve like acoustic piano
-        // Initial gentle decline, then stronger exponential decay
-        const initialDeclineTime = 0.3; // Gentle decline phase
-        const mainDecayTime = 1.0; // Main exponential decay
-        
-        // DUAL-FADEOUT: Fade out both local and remote paths with piano envelope
-        // Remote path (server echo)
-        beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0.4, currentTime);
-        beeper.gain.gain.linearRampToValueAtTime(0.25, currentTime + initialDeclineTime);
-        beeper.gain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
-        
-        // Local path (immediate playback)
-        beeper.localGain.gain.cancelScheduledValues(currentTime);
-        beeper.localGain.gain.setValueAtTime(0.3, currentTime);
-        beeper.localGain.gain.linearRampToValueAtTime(0.18, currentTime + initialDeclineTime);
-        beeper.localGain.gain.exponentialRampToValueAtTime(0.001, currentTime + initialDeclineTime + mainDecayTime);
-        
-        beeper.isPlaying = false;
-        this.isBeeping(false);
-        
-        debugLog('[BEEP]', `Dual fadeout: ${initialDeclineTime}s gentle + ${mainDecayTime}s decay (local + echo)`);
-      } catch (err) {
-        console.error('[BEEP] Error stopping beep:', err);
-      }
+      this.beeperManager.stop();
     };    // Add method to retry microphone permission
     this._attemptMicrophonePermission = () => {
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
@@ -854,11 +697,11 @@ class GlobalBindings {
 
     this.openSettings = () => {
       // Prevent opening settings if another modal is already open
-      if (this.currentOpenModal() !== null) {
+      if (this.modalManager.isModalOpen()) {
         return;
       }
       this.settingsDialog(new SettingsDialog(this.settings));
-      this.currentOpenModal('settings');
+      this.modalManager.openModal('settings');
     };
 
     this.logoutUser = () => {
@@ -883,9 +726,7 @@ class GlobalBindings {
       }
       this.settingsDialog(null);
       // Clear the modal state when settings dialog is closed
-      if (this.currentOpenModal() === 'settings') {
-        this.currentOpenModal(null);
-      }
+      this.modalManager.closeModal('settings');
     };
 
     this.connect = async (
