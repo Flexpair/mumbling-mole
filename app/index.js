@@ -1,5 +1,22 @@
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
+
+/**
+ * REFACTORING NOTE: GlobalBindings God Object Breakdown
+ * 
+ * The GlobalBindings class has been refactored to extract focused managers:
+ * - AudioManager: Audio context, beeper, microphone permissions (app/managers/AudioManager.js)
+ * - ConnectionManager: Client connection lifecycle (app/managers/ConnectionManager.js)
+ * - UserChannelManager: User/channel tree management (app/managers/UserChannelManager.js)
+ * 
+ * GlobalBindings now focuses on:
+ * - UI state (Knockout observables)
+ * - Coordination between managers
+ * - UI event handlers and bindings
+ * 
+ * See app/managers/README.md for architecture details.
+ */
+
 import url from "url";
 import MumbleClient from "mumble-client";
 import WorkerBasedMumbleConnector from "./worker-client";
