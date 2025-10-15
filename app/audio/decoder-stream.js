@@ -3,11 +3,12 @@ import createPool from "reuse-pool";
 import toArrayBuffer from "to-arraybuffer";
 
 // Native Worker factory function (Webpack 5 compatible)
-function createDecodeWorker() {
-  return new Worker(new URL('./decode-worker.js', import.meta.url), { type: 'classic' });
+function newWorker () {
+  // Use relative path instead of import.meta.url for esbuild IIFE compatibility
+  return new Worker('./audio/decode-worker.js', { type: 'classic' });
 }
 
-const pool = createPool(createDecodeWorker);
+const pool = createPool(newWorker);
 // Prepare first worker
 pool.recycle(pool.get());
 

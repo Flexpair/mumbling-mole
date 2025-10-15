@@ -8,9 +8,10 @@ import toArrayBuffer from "to-arraybuffer";
 // We keep a small factory so tests / future mocking can override if needed.
 function createWorker() {
   try {
-    return new Worker(new URL('./worker.js', import.meta.url), { type: 'classic' });
+    // Use relative path instead of import.meta.url for esbuild IIFE compatibility
+    return new Worker('./worker.js', { type: 'classic' });
   } catch (e) {
-    console.error('[worker] failed to construct with native URL syntax', e);
+    console.error('[worker] failed to construct worker', e);
     throw e;
   }
 }

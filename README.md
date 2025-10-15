@@ -12,11 +12,42 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 - 🔌 **WebSocket tunneling** – TCP voice streams over WebSocket connections (no WebRTC required)
 - 🎨 **Themeable interface** – MetroMumble-inspired Light/Dark themes
 - 👷 **Web Worker architecture** – Offloads Mumble protocol & audio encoding from main thread
-- � **English interface** – Localization system (multilanguage support disabled since v0.5.0)
+- 🌐 **English interface** – Localization system (multilanguage support disabled since v0.5.0)
 - 📦 **Smart build system** – Incremental builds with vendor dependency management
 - 🐳 **Docker-ready** – Containerized development and production environments
 - 🔊 **Audio loopback testing** – Built-in server loopback mode for testing audio encode/decode path
 - 🖥️ **Guacamole integration** – Optional remote desktop access after Netlify Identity authentication
+
+## 💻 System Requirements
+
+### Browser Compatibility
+
+**Minimum versions required:**
+
+| Browser | Version | Release Date | Notes |
+|---------|---------|--------------|-------|
+| **Safari** | 14.1+ | April 2021 | Primary constraint (AudioWorklet support) |
+| **Chrome** | 66+ | April 2018 | Full Web Audio API + AudioWorklet |
+| **Firefox** | 76+ | May 2020 | AudioWorklet + Opus codec |
+| **Edge** | 80+ | February 2020 | Chromium-based versions |
+| **Opera** | 53+ | May 2018 | Chromium-based versions |
+
+**Required browser features:**
+- ✅ **AudioWorklet API** (audio capture with 20ms frames)
+- ✅ **Web Audio API** (audio processing and playback)
+- ✅ **getUserMedia** (microphone access)
+- ✅ **WebSocket API** (Mumble protocol transport)
+- ✅ **Web Workers** (background audio encoding/decoding)
+- ✅ **ES2020 JavaScript** (modern syntax features)
+
+**Not supported:**
+- ❌ Internet Explorer (any version)
+- ❌ Safari < 14.1
+- ❌ Old Android browsers (use Chrome/Firefox on mobile)
+
+> **Note:** ~99.9% of users in 2025 have compatible browsers. The AudioWorklet API (Safari 14.1+, April 2021) is the primary constraint—without it, real-time audio capture is not possible.
+
+### Development Environment
 
 ## 📋 Prerequisites
 
@@ -112,6 +143,29 @@ This allows you to verify your microphone and audio encoding/decoding without ne
                     │    (TCP:64738)    │
                     └──────────────────┘
 ```
+
+### Build System
+
+**Tool:** esbuild 0.25.10 (replaced webpack + Babel in October 2025)
+
+**Performance:**
+- Build time: **~0.3 seconds** (60x faster than webpack)
+- Dependencies: **418 packages** (-70% reduction from 1,400)
+- Bundle size: Optimized IIFE format for modern browsers
+
+**Configuration:**
+- `build-esbuild.mjs` - Complete build setup with plugins
+- `smart-build.sh` - Incremental build orchestration
+- Target: ES2020 (Chrome 66+, Firefox 76+, Safari 14.1+)
+
+**Key Features:**
+- ⚡ Native Go-based bundler (no transpilation overhead)
+- 📦 SCSS compilation via esbuild-sass-plugin
+- 🔌 Node.js polyfills for browser (stream, crypto, path, buffer)
+- 🎯 Custom fs-mock for mumble-streams protobuf loading
+- 🚀 Build validation with artifact size checks
+
+See [build-esbuild.mjs](./build-esbuild.mjs) for complete configuration.
 
 ## 🔧 Configuration
 

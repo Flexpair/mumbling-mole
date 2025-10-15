@@ -473,8 +473,7 @@ class Settings {
   }
 }
 
-// Initialize UI with new modular AppState architecture
-console.log('[STATE] Using modular AppState architecture');
+// Initialize UI with modular AppState architecture
 var ui = new AppState(window.mumbleWebConfig, log);
 
 // Wire up dependencies that AppState expects

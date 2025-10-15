@@ -2,7 +2,8 @@
   "name": "mumble-client",
   "version": "1.4.1",
   "description": "Mumble protocol client library",
-  "main": "index.js",
+  "main": "src/client.js",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jafudi/mumble-client.git"
@@ -14,8 +15,7 @@
   },
   "homepage": "https://github.com/jafudi/mumble-client#readme",
   "files": [
-    "index.js",
-    "lib"
+    "src"
   ],
   "dependencies": {
     "drop-stream": "^1.0.0",

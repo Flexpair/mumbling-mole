@@ -23,6 +23,28 @@ MARKDOWN_FILES=$(find . -name "*.md" -type f \
 ERRORS=0
 WARNINGS=0
 
+# Check for forbidden docs/ directories
+# READMEs should live next to code, not in separate docs/ folders
+if [[ -d "docs" ]]; then
+    echo -e "${RED}✗ Error: docs/ directory is not allowed${NC}"
+    echo -e "  Reason: READMEs should be placed directly next to the code they document"
+    echo -e "  Example: app/audio/README.md documents app/audio/ code"
+    ERRORS=$((ERRORS + 1))
+fi
+
+# Check for any markdown files in docs/ directories (nested or top-level)
+DOCS_MD_FILES=$(echo "$MARKDOWN_FILES" | grep "/docs/" || true)
+if [[ -n "$DOCS_MD_FILES" ]]; then
+    echo -e "${RED}✗ Error: Markdown files found in docs/ directories${NC}"
+    echo -e "  Reason: READMEs must be placed next to the code they document"
+    echo -e "  Found files:"
+    echo "$DOCS_MD_FILES" | while IFS= read -r file; do
+        [[ -n "$file" ]] && echo -e "    - ${YELLOW}$file${NC}"
+    done
+    echo -e "  Action: Move these files to the directories they document"
+    ERRORS=$((ERRORS + 1))
+fi
+
 # Track directories that have markdown files
 declare -A DIR_MD_COUNT
 declare -A DIR_MD_FILES
@@ -133,9 +155,14 @@ if [[ $ERRORS -gt 0 ]]; then
     echo -e "${RED}❌ Validation FAILED with $ERRORS error(s)${NC}"
     echo ""
     echo "Rules:"
-    echo "  1. Maximum ONE markdown file per directory"
-    echo "  2. Markdown files MUST be named 'README.md'"
-    echo "  3. Exception: .github/copilot-instructions.md (GitHub convention)"
+    echo "  1. NO docs/ directories allowed - READMEs must live next to code"
+    echo "  2. Maximum ONE markdown file per directory"
+    echo "  3. Markdown files MUST be named 'README.md' or 'LICENSE.md'"
+    echo "  4. Exception: .github/copilot-instructions.md (GitHub convention)"
+    echo ""
+    echo "Philosophy:"
+    echo "  Documentation belongs WITH the code it describes, not in separate folders."
+    echo "  Example: app/audio/README.md documents app/audio/*.js files"
     echo ""
     exit 1
 else

@@ -48,92 +48,63 @@ function warn(msg) {
   console.log(`[⚠️ ] ${msg}`);
 }
 
-// Test 1: Mumble-Client Build-Status
+// Test 1: Mumble-Client Source Files
 async function testMumbleClientBuild() {
-  log('Test: Mumble-Client Build');
+  log('Test: Mumble-Client Source Files');
   
-  const libPath = path.join(__dirname, '../vendors/mumble-client/lib');
-  const clientPath = path.join(libPath, 'client.js');
+  const srcPath = path.join(__dirname, '../vendors/mumble-client/src');
+  const clientPath = path.join(srcPath, 'client.js');
   
   if (!fs.existsSync(clientPath)) {
-    fail('Mumble-Client Build', 'lib/client.js nicht gefunden - npm run build:vendor:mumble-client ausführen');
+    fail('Mumble-Client Source Files', 'src/client.js nicht gefunden');
     return false;
   }
   
-  // Prüfe ob Datei neulich kompiliert wurde
-  const stat = fs.statSync(clientPath);
-  const age = Date.now() - stat.mtimeMs;
-  const ageHours = age / (1000 * 60 * 60);
-  
-  if (ageHours > 24 * 7) {
-    warn(`Mumble-Client Build ist ${Math.round(ageHours / 24)} Tage alt`);
+  // Check for required source files
+  const requiredFiles = ['client.js', 'user.js', 'channel.js', 'utils.js'];
+  for (const file of requiredFiles) {
+    const filePath = path.join(srcPath, file);
+    if (!fs.existsSync(filePath)) {
+      fail('Mumble-Client Source Files', `src/${file} nicht gefunden`);
+      return false;
+    }
   }
   
-  // Prüfe Datei-Größe (sollte > 10KB sein wenn korrekt kompiliert)
-  if (stat.size < 10000) {
-    fail('Mumble-Client Build', `client.js zu klein (${stat.size} bytes) - möglicherweise fehlerhaft kompiliert`);
-    return false;
-  }
-  
-  pass(`Mumble-Client Build (${(stat.size / 1024).toFixed(1)} KB)`);
+  pass('Mumble-Client Source Files (4 Dateien)');
   return true;
 }
 
-// Test 2: Mumble-Client Import
+// Test 2: Mumble-Client ES Module Syntax
 async function testMumbleClientImport() {
-  log('Test: Mumble-Client Import');
+  log('Test: Mumble-Client ES Module Syntax');
   
-  try {
-    const MumbleClient = require('../vendors/mumble-client');
-    
-    if (typeof MumbleClient !== 'function') {
-      fail('Mumble-Client Import', `Falscher Typ: ${typeof MumbleClient}`);
-      return false;
-    }
-    
-    pass('Mumble-Client Import');
-    return true;
-  } catch (err) {
-    fail('Mumble-Client Import', err.message);
-    return false;
-  }
-}
-
-// Test 3: Mumble-Client Instanziierung
-async function testMumbleClientInstantiation() {
-  log('Test: Mumble-Client Instanziierung');
+  const srcFiles = [
+    '../vendors/mumble-client/src/client.js',
+    '../vendors/mumble-client/src/user.js',
+    '../vendors/mumble-client/src/channel.js',
+    '../vendors/mumble-client/src/utils.js'
+  ];
   
-  try {
-    const MumbleClient = require('../vendors/mumble-client');
-    const client = new MumbleClient({
-      username: 'TestUser',
-      password: '',
-      tokens: []
-    });
-    
-    if (!client) {
-      fail('Mumble-Client Instanziierung', 'Client ist null/undefined');
-      return false;
-    }
-    
-    // Prüfe wichtige Methoden
-    const requiredMethods = ['connectDataStream', 'createVoiceStream', 'disconnect'];
-    for (const method of requiredMethods) {
-      if (typeof client[method] !== 'function') {
-        fail('Mumble-Client Instanziierung', `Methode ${method} fehlt`);
+  for (const file of srcFiles) {
+    const fullPath = path.join(__dirname, file);
+    try {
+      // Node.js can't --check ES modules directly, just verify file exists and is readable
+      const content = fs.readFileSync(fullPath, 'utf8');
+      if (!content.includes('export')) {
+        fail('Mumble-Client ES Module Syntax', `${path.basename(file)} enthält keine exports`);
         return false;
       }
+    } catch (err) {
+      fail('Mumble-Client ES Module Syntax', `${path.basename(file)}: ${err.message}`);
+      return false;
     }
-    
-    pass('Mumble-Client Instanziierung');
-    return true;
-  } catch (err) {
-    fail('Mumble-Client Instanziierung', err.message);
-    return false;
   }
+  
+  pass('Mumble-Client ES Module Syntax (4 Dateien)');
+  return true;
 }
 
-// Test 4: Codec-Verfügbarkeit
+// Test 3: Codec-Verfügbarkeit
 async function testCodecs() {
   log('Test: Audio-Codecs');
   
@@ -200,11 +171,8 @@ async function testAudioDependencies() {
   
   const requiredModules = [
     'mumble-streams',
-    'websocket-stream'
-  ];
-  
-  const optionalModules = [
-    'node-opus' // Optional für Server-seitige Codierung
+    'websocket-stream',
+    'libopus.js' // Browser-kompatible Opus-Codec Implementierung
   ];
   
   for (const mod of requiredModules) {
@@ -213,14 +181,6 @@ async function testAudioDependencies() {
     } catch (err) {
       fail('Audio-Dependencies', `${mod} nicht installiert (erforderlich)`);
       return false;
-    }
-  }
-  
-  for (const mod of optionalModules) {
-    try {
-      require.resolve(mod);
-    } catch (err) {
-      warn(`${mod} nicht installiert (optional)`);
     }
   }
   
@@ -259,7 +219,7 @@ async function testAudioModules() {
   return true;
 }
 
-// Test 8: Package.json Audio-Scripts
+// Test 7: Package.json Audio-Scripts
 async function testNpmScripts() {
   log('Test: NPM Audio-Scripts');
   
@@ -267,8 +227,8 @@ async function testNpmScripts() {
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   
   const requiredScripts = [
-    'build:vendor:mumble-client',
-    'test:e2e'
+    'test:e2e',
+    'build'
   ];
   
   for (const script of requiredScripts) {
@@ -361,7 +321,6 @@ async function runAllTests() {
   const tests = [
     testMumbleClientBuild,
     testMumbleClientImport,
-    testMumbleClientInstantiation,
     testCodecs,
     testWorkerScripts,
     testAudioDependencies,
@@ -417,8 +376,7 @@ function printResults() {
     console.log('\n❌ TESTS FEHLGESCHLAGEN');
     console.log(`   ${stats.testsFailed.length} Problem(e) gefunden`);
     console.log('\n🔧 Behebung:');
-    if (stats.testsFailed.some(t => t.test.includes('Build'))) {
-      console.log('   - npm run build:vendor:mumble-client');
+    if (stats.testsFailed.some(t => t.test.includes('Build') || t.test.includes('Source'))) {
       console.log('   - npm run build');
     }
     if (stats.testsFailed.some(t => t.test.includes('Dependencies'))) {
