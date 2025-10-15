@@ -171,11 +171,8 @@ async function testAudioDependencies() {
   
   const requiredModules = [
     'mumble-streams',
-    'websocket-stream'
-  ];
-  
-  const optionalModules = [
-    'node-opus' // Optional für Server-seitige Codierung
+    'websocket-stream',
+    'libopus.js' // Browser-kompatible Opus-Codec Implementierung
   ];
   
   for (const mod of requiredModules) {
@@ -184,14 +181,6 @@ async function testAudioDependencies() {
     } catch (err) {
       fail('Audio-Dependencies', `${mod} nicht installiert (erforderlich)`);
       return false;
-    }
-  }
-  
-  for (const mod of optionalModules) {
-    try {
-      require.resolve(mod);
-    } catch (err) {
-      warn(`${mod} nicht installiert (optional)`);
     }
   }
   
