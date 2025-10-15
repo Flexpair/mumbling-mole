@@ -68,15 +68,14 @@ if [ -d "vendors/mumble-client/src" ]; then
         echo "  → Import from lib/ instead of src/"
         echo "  → No babel needed in main build!"
     else
-        echo "  ⚠️  lib/ missing"
-        echo "  → Run: npm run build:vendor:mumble-client"
+        echo "  ⚠️  lib/ missing (not needed with esbuild - uses src/ directly)"
+        echo "  → vendors/mumble-client now imports src/ files directly"
     fi
 fi
 
 echo ""
-echo "🚀 Next Steps:"
-echo "  1. Verify lib/ is up to date: npm run build:vendor:mumble-client"
-echo "  2. Update webpack to import from vendors/mumble-client/lib"
-echo "  3. Remove babel from main build (keep for vendors only)"
-echo "  4. Test: npm run test:audio:system && npm run test:e2e"
+echo "🚀 Next Steps (esbuild migration complete):"
+echo "  1. Build with esbuild: npm run build"
+echo "  2. vendors/mumble-client uses src/ directly (no transpilation needed)"
+echo "  3. Test: npm run test:audio:system && npm run test:e2e"
 echo ""

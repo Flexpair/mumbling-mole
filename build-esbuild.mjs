@@ -177,8 +177,9 @@ try {
   // Favicons
   copyDir('app/favicons', 'favicons');
   
-  // Theme SVG files - copy to dist/svg/ (as referenced in HTML)
+  // Theme assets - copy SVG and images
   copyDir('themes/MetroMumbleLight/svg', 'svg');
+  copyDir('themes/MetroMumbleLight/img', 'img');
   
   // AudioWorklet processors (MUST NOT be bundled!)
   // These run in AudioWorklet context and cannot use imports

@@ -1,7 +1,7 @@
 // Mock fs module for browser environment
 // Provides Mumble.proto file content for mumble-streams
 
-import protoContent from '../vendors/mumble-streams/lib/Mumble.proto?raw';
+import protoContent from '../vendors/mumble-streams/lib/Mumble.proto';
 
 const fileContents = {
   'Mumble.proto': protoContent
