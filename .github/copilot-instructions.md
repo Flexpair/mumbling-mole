@@ -4,8 +4,8 @@
 Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet; UI also gates Guacamole iframe after Netlify Identity auth.
 
 ## Architecture & threading
-**Main thread** (`app/index.js`): Bootstraps state via `AppState` (modular architecture replacing `GlobalBindings` god object), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
-**State architecture transition**: Code is migrating from monolithic `GlobalBindings` (1785-line god object, deprecated) to modular `AppState` composed of 6 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ChannelState`. See `app/state/README.md` for detailed architecture diagrams and migration guide. `AppState` maintains backward compatibility via delegation getters  
+**Main thread** (`app/index.js`): Bootstraps state via `AppState` (modular architecture, completed in v3.13.0), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**State architecture**: Uses modular `AppState` composed of 6 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ChannelState`. See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **Worker instantiation**: Use native `new Worker(new URL('./worker.js', import.meta.url), {type: 'classic'})` syntax (esbuild compatible); avoid worker-loader wrappers  
@@ -101,5 +101,4 @@ get audioContext() { return this.audio.audioContext; }
 ## Known technical debt
 - **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
 - **Build complexity**: `smart-build.sh` + esbuild + vendor transpilation creates fragile incremental builds; consider consolidation
-- **State architecture migration in progress**: Transitioning from `GlobalBindings` god object to modular `AppState`; both coexist during migration (see `app/state/README.md` for status)
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
