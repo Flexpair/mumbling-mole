@@ -83,7 +83,7 @@ const buildConfig = {
   // Target modern browsers (ES2020 = Chrome 80+, Firefox 72+, Safari 13.1+)
   // Your code already uses modern features, no need for ES5
   target: 'es2020',
-  format: 'esm', // Use ESM for import.meta.url support
+  format: 'iife', // IIFE for regular <script> tags (not modules)
   
   // Source maps
   sourcemap: isDev ? 'inline' : false,
@@ -94,10 +94,30 @@ const buildConfig = {
   // Keep names for debugging
   keepNames: isDev,
   
-  // Plugins
+    // Plugins
   plugins: [
+    // Custom plugin to alias fs to our mock
+    {
+      name: 'fs-mock',
+      setup(build) {
+        build.onResolve({ filter: /^fs$/ }, args => ({
+          path: path.resolve(__dirname, 'polyfills/fs-mock.js')
+        }));
+      }
+    },
     // Polyfill Node.js built-ins for browser
-    NodeModulesPolyfillPlugin(),
+    NodeModulesPolyfillPlugin({
+      // Explicitly configure polyfills
+      modules: {
+        path: true,
+        crypto: true,
+        stream: true,
+        buffer: true,
+        util: true,
+        assert: true,
+        url: true,
+      }
+    }),
     NodeGlobalsPolyfillPlugin({
       process: true,
       buffer: true,
@@ -109,6 +129,7 @@ const buildConfig = {
   loader: {
     '.json': 'json',
     '.txt': 'text',
+    '.proto': 'text', // Load .proto files as text for fs-mock
     '.png': 'file',
     '.jpg': 'file',
     '.jpeg': 'file',
@@ -120,11 +141,15 @@ const buildConfig = {
     '.eot': 'file',
   },
   
-  // Define environment variables
+  // Define environment variables and Node.js globals
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'global': 'window'
-    },  // Log level
+      'global': 'globalThis', // Use globalThis (works in both window and worker contexts)
+      '__dirname': JSON.stringify('/'),
+      '__filename': JSON.stringify('/index.js'),
+    },
+  
+  // Log level
   logLevel: 'info',
 };
 
@@ -151,6 +176,9 @@ try {
   
   // Favicons
   copyDir('app/favicons', 'favicons');
+  
+  // Theme SVG files - copy to dist/svg/ (as referenced in HTML)
+  copyDir('themes/MetroMumbleLight/svg', 'svg');
   
   // AudioWorklet processors (MUST NOT be bundled!)
   // These run in AudioWorklet context and cannot use imports
