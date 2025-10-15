@@ -106,18 +106,7 @@ const buildConfig = {
       }
     },
     // Polyfill Node.js built-ins for browser
-    NodeModulesPolyfillPlugin({
-      // Explicitly configure polyfills
-      modules: {
-        path: true,
-        crypto: true,
-        stream: true,
-        buffer: true,
-        util: true,
-        assert: true,
-        url: true,
-      }
-    }),
+    NodeModulesPolyfillPlugin(),
     NodeGlobalsPolyfillPlugin({
       process: true,
       buffer: true,
