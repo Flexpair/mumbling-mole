@@ -6,7 +6,8 @@
     "webpack-cli",
     "webpack-bundle-analyzer",
     "netlify-identity-widget",
-    "depcheck"
+    "depcheck",
+    "sass"
   ],
   "specials": [
     "babel",
