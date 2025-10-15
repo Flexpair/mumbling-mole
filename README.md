@@ -12,11 +12,42 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 - 🔌 **WebSocket tunneling** – TCP voice streams over WebSocket connections (no WebRTC required)
 - 🎨 **Themeable interface** – MetroMumble-inspired Light/Dark themes
 - 👷 **Web Worker architecture** – Offloads Mumble protocol & audio encoding from main thread
-- � **English interface** – Localization system (multilanguage support disabled since v0.5.0)
+- 🌐 **English interface** – Localization system (multilanguage support disabled since v0.5.0)
 - 📦 **Smart build system** – Incremental builds with vendor dependency management
 - 🐳 **Docker-ready** – Containerized development and production environments
 - 🔊 **Audio loopback testing** – Built-in server loopback mode for testing audio encode/decode path
 - 🖥️ **Guacamole integration** – Optional remote desktop access after Netlify Identity authentication
+
+## 💻 System Requirements
+
+### Browser Compatibility
+
+**Minimum versions required:**
+
+| Browser | Version | Release Date | Notes |
+|---------|---------|--------------|-------|
+| **Safari** | 14.1+ | April 2021 | Primary constraint (AudioWorklet support) |
+| **Chrome** | 66+ | April 2018 | Full Web Audio API + AudioWorklet |
+| **Firefox** | 76+ | May 2020 | AudioWorklet + Opus codec |
+| **Edge** | 80+ | February 2020 | Chromium-based versions |
+| **Opera** | 53+ | May 2018 | Chromium-based versions |
+
+**Required browser features:**
+- ✅ **AudioWorklet API** (audio capture with 20ms frames)
+- ✅ **Web Audio API** (audio processing and playback)
+- ✅ **getUserMedia** (microphone access)
+- ✅ **WebSocket API** (Mumble protocol transport)
+- ✅ **Web Workers** (background audio encoding/decoding)
+- ✅ **ES2020 JavaScript** (modern syntax features)
+
+**Not supported:**
+- ❌ Internet Explorer (any version)
+- ❌ Safari < 14.1
+- ❌ Old Android browsers (use Chrome/Firefox on mobile)
+
+> **Note:** ~99.9% of users in 2025 have compatible browsers. The AudioWorklet API (Safari 14.1+, April 2021) is the primary constraint—without it, real-time audio capture is not possible.
+
+### Development Environment
 
 ## 📋 Prerequisites
 
