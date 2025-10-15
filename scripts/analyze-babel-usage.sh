@@ -39,11 +39,11 @@ COUNT=$(grep -r '\.\.\.' $DIRS 2>/dev/null | wc -l)
 echo "Spread Operator (...):                   $COUNT uses"
 
 # Optional Chaining
-COUNT=$(grep -r '?\.'; $DIRS 2>/dev/null | wc -l)
+COUNT=$(grep -r '?\.' $DIRS 2>/dev/null | wc -l)
 echo "Optional Chaining (?.):                  $COUNT uses"
 
 # Nullish Coalescing
-COUNT=$(grep -r '??'; $DIRS 2>/dev/null | wc -l)
+COUNT=$(grep -r '??' $DIRS 2>/dev/null | wc -l)
 echo "Nullish Coalescing (??):                 $COUNT uses"
 
 echo ""

@@ -147,7 +147,7 @@ const buildConfig = {
       'global': 'globalThis', // Use globalThis (works in both window and worker contexts)
       '__dirname': JSON.stringify('/'),
       '__filename': JSON.stringify('/index.js'),
-    },
+    }, // Environment variable definitions
   
   // Log level
   logLevel: 'info',
