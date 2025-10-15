@@ -12,14 +12,6 @@ fi
 
 MODE="${WEBPACK_MODE:-production}"
 
-ensure_vendor() {
-    # Build vendors/mumble-client if lib missing (sustainable approach)
-    if [[ ! -s vendors/mumble-client/lib/client.js ]]; then
-        log "Vendor mumble-client lib missing → building (babel core)"
-        node scripts/build-mumble-client.js
-    fi
-}
-
 validate_artifacts() {
     local missing=()
     for f in dist/index.html dist/index.js dist/config.js dist/theme.js; do
@@ -39,7 +31,6 @@ validate_artifacts() {
 }
 
 do_build() {
-    ensure_vendor
     # Use esbuild instead of webpack (30x faster, 97% fewer dependencies)
     log "Running esbuild (mode=${MODE})"
     mkdir -p dist
