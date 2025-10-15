@@ -144,6 +144,29 @@ This allows you to verify your microphone and audio encoding/decoding without ne
                     └──────────────────┘
 ```
 
+### Build System
+
+**Tool:** esbuild 0.25.10 (replaced webpack + Babel in October 2025)
+
+**Performance:**
+- Build time: **~0.3 seconds** (60x faster than webpack)
+- Dependencies: **418 packages** (-70% reduction from 1,400)
+- Bundle size: Optimized IIFE format for modern browsers
+
+**Configuration:**
+- `build-esbuild.mjs` - Complete build setup with plugins
+- `smart-build.sh` - Incremental build orchestration
+- Target: ES2020 (Chrome 66+, Firefox 76+, Safari 14.1+)
+
+**Key Features:**
+- ⚡ Native Go-based bundler (no transpilation overhead)
+- 📦 SCSS compilation via esbuild-sass-plugin
+- 🔌 Node.js polyfills for browser (stream, crypto, path, buffer)
+- 🎯 Custom fs-mock for mumble-streams protobuf loading
+- 🚀 Build validation with artifact size checks
+
+See [build-esbuild.mjs](./build-esbuild.mjs) for complete configuration.
+
 ## 🔧 Configuration
 
 ### Runtime Configuration
