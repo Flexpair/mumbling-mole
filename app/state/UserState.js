@@ -200,8 +200,8 @@ export default class UserState {
             const dominantFrequency = (maxIndex * sampleRate) / analyserNode.fftSize;
             
             // Update voice state with detected frequency (only if significant amplitude)
-            // High threshold (80) to ensure display disappears quickly when audio stops
-            if (maxAmplitude > 80) {
+            // Threshold (50) to ensure display disappears quickly when audio stops
+            if (maxAmplitude > 50) {
               this.voiceState.updateLoopbackFrequency(dominantFrequency);
               noAudioCount = 0; // Reset counter when audio detected
               debugLog('[LOOPBACK-FREQ]', 'Dominant frequency:', dominantFrequency.toFixed(1), 'Hz, amplitude:', maxAmplitude);
