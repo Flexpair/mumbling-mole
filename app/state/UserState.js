@@ -1,7 +1,7 @@
 import ko from "knockout";
 import BufferQueueNode from "../audio/buffer-queue-node";
 
-const DEBUG_VOICE_LOGGING = true; // Enable to see frequency analysis logs
+const DEBUG_VOICE_LOGGING = false; // Set to true to see frequency analysis logs in console
 
 function debugLog(tag, ...args) {
   if (DEBUG_VOICE_LOGGING) {
