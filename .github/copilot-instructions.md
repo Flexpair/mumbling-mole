@@ -1,7 +1,20 @@
 # Copilot Instructions · mumbling-mole
 
+## Environment
+**Dev Container**: Ubuntu 24.04.3 LTS with Node.js ≥22.0.0. This is a **browser-first** web application (not Node.js app)—code runs in browsers, dev tools are Node-based.
+
 ## Quick context
-Browser-first Mumble voice client: Knockout.js UI delegates audio transport to a Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet; UI also gates Guacamole iframe after Netlify Identity auth.
+Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI delegates audio transport to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames). Optional Guacamole iframe gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
+
+## Getting started reading code
+**Entry points by use case:**
+- **UI/UX flow**: `app/index.html` (Knockout templates) → `app/index.js` (AppState init, auth, connection)
+- **State management**: `app/state/AppState.js` (6-module composition) → individual modules in `app/state/`
+- **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
+- **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
+- **Build system**: `smart-build.sh` (orchestrator) → `build-esbuild.mjs` (esbuild config)
+
+**Read these READMEs first**: `app/state/README.md` (architecture diagrams), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
 
 ## Architecture & threading
 **Main thread** (`app/index.js`): Bootstraps state via `AppState` (modular architecture, completed in v3.13.0), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
@@ -79,7 +92,7 @@ get audioContext() { return this.audio.audioContext; }
 **Themes**: SCSS sources under `themes/MetroMumbleLight`; esbuild (sassPlugin) compiles to CSS; runtime selection via `?theme=` query param; supports Light/Dark variants
 
 ## Debugging patterns
-**Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`; docker-entrypoint.sh uses websockify to bridge WebSocket ↔ TCP Mumble protocol  
+**Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  
 **Audio state**: Browser console → `audioContextManager.getStats()` shows context lifecycle; `[AudioContext]` logs state changes, sample rate, latencies  
 **Audio debugging sequence** (client-to-client playback):
   1. Sender: `[VOICE]` logs in voice.js → `[DEBUG-WORKER]` encoder logs  
