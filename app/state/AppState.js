@@ -33,7 +33,7 @@ export default class AppState {
     this.voice = new VoiceState();
     this.ui = new UIState();
     this.channel = new ChannelState();
-    this.user = new UserState(this.audio);
+    this.user = new UserState(this.audio, this.voice);
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
@@ -177,6 +177,10 @@ export default class AppState {
 
     this.audio.clearAudioLock({ resetStates: true });
     this.voice.isLoopbackMode(true);
+    
+    // Ensure microphone is NOT muted for loopback test
+    this.user.selfMute(false);
+    
     await this._performConnect(connectionParams, { audioEnabled: true });
   }
 
@@ -377,10 +381,18 @@ export default class AppState {
         if (this.user.thisUser()) {
           this.user.thisUser().talking("off");
         }
+        // Clear frequency display when stopped talking in loopback mode
+        // This happens when mute is activated or voice stream ends
+        if (this.voice.isLoopbackMode()) {
+          this.voice.loopbackDominantFrequency(0);
+        }
       }
     );
     
-    if (this.audio.audioLockActive() || this.user.selfMute()) {
+    // In loopback mode, ensure microphone is NOT muted initially
+    if (this.voice.isLoopbackMode()) {
+      this.voice.setMute(false);
+    } else if (this.audio.audioLockActive() || this.user.selfMute()) {
       this.voice.setMute(true);
     }
 
