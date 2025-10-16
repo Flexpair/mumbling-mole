@@ -37,7 +37,7 @@
     "brfs": "2.0.2",
     "depcheck": "^1.4.7",
     "drop-stream": "1.0.0",
-    "esbuild": "^0.25.10",
+    "esbuild": "^0.25.11",
     "esbuild-sass-plugin": "^3.3.1",
     "keyboardjs": "2.7.0",
     "knockout": "3.5.1",
