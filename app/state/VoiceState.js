@@ -33,6 +33,9 @@ export default class VoiceState {
     
     // Voice handler ready state
     this.voiceHandlerReady = ko.observable(false);
+    
+    // Loopback frequency analysis - tracks dominant frequency in returned audio
+    this.loopbackDominantFrequency = ko.observable(0);
   }
 
   /**
@@ -94,6 +97,16 @@ export default class VoiceState {
     // Mark as ready
     this.voiceHandlerReady(true);
     debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
+  }
+
+  /**
+   * Update loopback frequency display
+   * @param {number} frequency - Detected dominant frequency in Hz
+   */
+  updateLoopbackFrequency(frequency) {
+    if (this.isLoopbackMode()) {
+      this.loopbackDominantFrequency(Math.round(frequency * 10) / 10);
+    }
   }
 
   /**

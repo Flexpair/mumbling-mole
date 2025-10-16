@@ -1,7 +1,7 @@
 import ko from "knockout";
 import BufferQueueNode from "../audio/buffer-queue-node";
 
-const DEBUG_VOICE_LOGGING = false;
+const DEBUG_VOICE_LOGGING = false; // Set to true to see frequency analysis logs in console
 
 function debugLog(tag, ...args) {
   if (DEBUG_VOICE_LOGGING) {
@@ -23,8 +23,9 @@ function compareUsers(u1, u2) {
  * - Voice stream playback for users
  */
 export default class UserState {
-  constructor(audioState) {
+  constructor(audioState, voiceState) {
     this.audioState = audioState;
+    this.voiceState = voiceState;
     
     // Current user
     this.thisUser = ko.observable();
@@ -149,9 +150,81 @@ export default class UserState {
         gainNode.gain.value = this.selfDeaf() ? 0 : 1;
         debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value);
         
-        // Connect: userNode -> gainNode -> destination
-        userNode.connect(gainNode);
-        gainNode.connect(this.audioState.audioContext.destination);
+        // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
+        var analyserNode = null;
+        var frequencyAnalysisInterval = null;
+        
+        if (this.voiceState.isLoopbackMode()) {
+          analyserNode = this.audioState.audioContext.createAnalyser();
+          analyserNode.fftSize = 32768; // FFT size for frequency resolution (~1.46 Hz resolution @ 48kHz)
+          analyserNode.smoothingTimeConstant = 0.8; // Smooth frequency data
+          
+          // Connect: userNode -> gainNode -> analyserNode -> destination
+          // Frequency analysis AFTER gain node, so it only measures audible audio
+          userNode.connect(gainNode);
+          gainNode.connect(analyserNode);
+          analyserNode.connect(this.audioState.audioContext.destination);
+          
+          // Start frequency analysis loop (runs continuously, checks selfDeaf internally)
+          const bufferLength = analyserNode.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          let noAudioCount = 0;
+          const NO_AUDIO_THRESHOLD = 3; // Hide after 3 consecutive checks without audio (300ms)
+          
+          frequencyAnalysisInterval = setInterval(() => {
+            // Skip analysis if muted or deafened
+            if (this.selfMute() || this.selfDeaf()) {
+              if (this.voiceState.loopbackDominantFrequency() > 0) {
+                this.voiceState.updateLoopbackFrequency(0);
+                debugLog('[LOOPBACK-FREQ]', 'Display cleared (muted or deafened)');
+              }
+              return;
+            }
+            
+            analyserNode.getByteFrequencyData(dataArray);
+            
+            // Find dominant frequency (bin with highest amplitude)
+            let maxAmplitude = 0;
+            let maxIndex = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+              if (dataArray[i] > maxAmplitude) {
+                maxAmplitude = dataArray[i];
+                maxIndex = i;
+              }
+            }
+            
+            // Convert bin index to frequency (Hz)
+            // frequency = (index * sampleRate) / fftSize
+            const sampleRate = this.audioState.audioContext.sampleRate;
+            const dominantFrequency = (maxIndex * sampleRate) / analyserNode.fftSize;
+            
+            // Update voice state with detected frequency (only if significant amplitude)
+            // Threshold (50) to ensure display disappears quickly when audio stops
+            if (maxAmplitude > 50) {
+              this.voiceState.updateLoopbackFrequency(dominantFrequency);
+              noAudioCount = 0; // Reset counter when audio detected
+              debugLog('[LOOPBACK-FREQ]', 'Dominant frequency:', dominantFrequency.toFixed(1), 'Hz, amplitude:', maxAmplitude);
+            } else {
+              // No significant audio - increment counter
+              noAudioCount++;
+              
+              // Only clear display after consecutive checks without audio (and only if display is visible)
+              if (noAudioCount >= NO_AUDIO_THRESHOLD && this.voiceState.loopbackDominantFrequency() > 0) {
+                this.voiceState.updateLoopbackFrequency(0);
+                debugLog('[LOOPBACK-FREQ]', 'Display cleared after', noAudioCount, 'checks, amplitude:', maxAmplitude);
+              } else if (noAudioCount < NO_AUDIO_THRESHOLD) {
+                debugLog('[LOOPBACK-FREQ]', 'Low audio, amplitude:', maxAmplitude, 'count:', noAudioCount, '/', NO_AUDIO_THRESHOLD);
+              }
+            }
+          }, 100); // Update every 100ms
+          
+          debugLog('[LOOPBACK-FREQ]', 'Frequency analysis started for loopback mode');
+        } else {
+          // Normal mode: Connect: userNode -> gainNode -> destination
+          userNode.connect(gainNode);
+          gainNode.connect(this.audioState.audioContext.destination);
+        }
         
         // Subscribe to selfDeaf changes to update gain
         var deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
@@ -181,6 +254,12 @@ export default class UserState {
             ui.talking("off");
             userNode.end();
             deafSubscription.dispose();
+            
+            // LOOPBACK-FREQUENCY-ANALYSIS: Clean up frequency analysis
+            if (frequencyAnalysisInterval) {
+              clearInterval(frequencyAnalysisInterval);
+              debugLog('[LOOPBACK-FREQ]', 'Frequency analysis stopped');
+            }
           });
       });
   }

@@ -134,13 +134,18 @@
                 <button
                   type="button"
                   class="beep-test-button"
-                  title="Hold to send 440Hz test tone (bypasses mute, tests deafen)"
                   data-bind="
                     event: { mousedown: $root.startBeep, mouseup: $root.stopBeep, mouseleave: $root.stopBeep, touchstart: $root.startBeep, touchend: $root.stopBeep },
                     css: { 'active': $root.isBeeping },
                     visible: isTestActive() && $root.beeperReady() && $root.voiceHandlerReady()"
                   style="height: 32px; padding: 4px 8px; white-space: nowrap; width: 100%; box-sizing: border-box; font-size: 1em;"
                 ><span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)</button>
+              </div>
+              <!-- LOOPBACK-FREQUENCY-DISPLAY: Show dominant frequency during loopback test -->
+              <div class="loopback-frequency-display" 
+                   data-bind="visible: isTestActive() && $root.voice.isLoopbackMode()"
+                   style="display: inline-block; margin-left: 10px; padding: 6px 12px; background-color: rgba(0, 150, 255, 0.1); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 4px; vertical-align: middle; width: 120px; box-sizing: border-box; text-align: left; white-space: nowrap;">
+                <span style="font-weight: bold; color: #0096ff;">📊</span><!-- ko if: $root.voice.loopbackDominantFrequency() > 0 --><span data-bind="text: ' ' + $root.voice.loopbackDominantFrequency() + ' Hz'" style="font-size: 1.1em; font-weight: bold; color: #0066cc;"></span><!-- /ko -->
               </div>
             </div>
             <div class="dialog-buttons">
