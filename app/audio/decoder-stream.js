@@ -40,7 +40,6 @@ class DecoderStream extends Transform {
     // EOF-GUARD: Prevent push after EOF by checking multiple stream states
     // Worker may send decoded frames after stream.end() was called
     if (this._ended || this.destroyed || this.readableEnded) {
-      console.warn('[DecoderStream] Message received after stream ended, ignoring');
       return;
     }
     
@@ -82,7 +81,6 @@ class DecoderStream extends Transform {
   }
 
   _final(callback) {
-    console.log('[DecoderStream] _final() called - stream ending');
     this._ended = true;
     
     if (!this._worker) {
@@ -101,7 +99,7 @@ class DecoderStream extends Transform {
     try {
       this._worker.postMessage({ id: this._messageId++, action: "reset" });
     } catch (err) {
-      console.warn('[DecoderStream] Failed to post reset message; recycling worker immediately', err);
+      // Worker might be terminated already, recycle immediately
       this._finalCallback();
     }
   }
