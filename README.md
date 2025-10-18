@@ -214,9 +214,8 @@ Create custom themes by extending existing ones in `themes/` directory.
 
 | Command | Description |
 |---------|-------------|
-| `npm run build` | Incremental build (checks timestamps) |
-| `npm run build:force` | Clean rebuild of all artifacts |
-| `npm run build:vendor:mumble-client` | Rebuild vendored mumble-client |
+| `npm run build` | Clean build (always rebuilds all artifacts) |
+| `npm run build:dev` | Development build (with source maps) |
 
 ### Testing
 
@@ -281,9 +280,9 @@ Für detaillierte Informationen zu Test-Szenarien, CI/CD-Integration, Troublesho
 
 #### Build fails with "vendors/mumble-client/lib not found"
 ```bash
-# Force rebuild vendored dependencies
+# Rebuild vendored mumble-client
 npm run build:vendor:mumble-client
-npm run build:force
+npm run build
 ```
 
 > **Note:** `vendors/mumble-client` is a `file:` protocol dependency, not from npm registry. After editing source in `vendors/mumble-client/src/`, you must run `npm run build:vendor:mumble-client` to transpile to `lib/`.

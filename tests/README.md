@@ -785,7 +785,7 @@ timeout 1 bash -c "echo > /dev/tcp/localhost/64738" && echo "OK" || echo "FAIL"
 **Solution:**
 ```bash
 # 1. Check build
-npm run build:force
+npm run build
 
 # 2. Check worker scripts
 npm run test:audio:system
@@ -802,8 +802,8 @@ npm run test:audio:system
 # Rebuild vendored dependencies
 npm run build:vendor:mumble-client
 
-# Clean rebuild
-npm run build:force
+# Rebuild
+npm run build
 
 # Test again
 npm run test:audio:system
@@ -1015,7 +1015,7 @@ timeout 1 bash -c "echo > /dev/tcp/localhost/64738" && echo "OK" || echo "FAIL"
 **Lösung:**
 ```bash
 # 1. Prüfe Build
-npm run build:force
+npm run build
 
 # 2. Prüfe Worker-Scripts
 npm run test:audio:system
@@ -1032,8 +1032,8 @@ npm run test:audio:system
 # Rebuild vendored dependencies
 npm run build:vendor:mumble-client
 
-# Clean rebuild
-npm run build:force
+# Rebuild
+npm run build
 
 # Test erneut
 npm run test:audio:system
