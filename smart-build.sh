@@ -4,13 +4,8 @@ set -euo pipefail
 log() { printf '%s %s\n' "[smart-build]" "$*"; }
 fail() { printf '%s %s\n' "[smart-build][FAIL]" "$*" >&2; exit 1; }
 
-FORCE_BUILD=false
-if [[ ${1:-} == "--force" ]]; then
-    FORCE_BUILD=true
-    log "Force build requested"
-fi
-
-MODE="${WEBPACK_MODE:-production}"
+# Since esbuild is so fast (~1s), always do a clean build
+MODE="${BUILD_MODE:-production}"
 
 validate_artifacts() {
     local missing=()
@@ -30,67 +25,13 @@ validate_artifacts() {
     log "Artifacts OK (index.html ${sz} bytes)"
 }
 
-do_build() {
-    # Use esbuild instead of webpack (30x faster, 97% fewer dependencies)
-    log "Running esbuild (mode=${MODE})"
-    mkdir -p dist
-    WEBPACK_MODE="${MODE}" node build-esbuild.mjs
-    # config.local.js and AudioWorklet processors are already handled by build-esbuild.mjs
-    touch dist/.build-marker
-    printf '%s' "${MODE}" > dist/.build-mode
-    validate_artifacts
-}
+# Always clean and rebuild (esbuild is fast enough)
+log "Cleaning dist/"
+rm -rf dist
 
-log "Build decision phase"
-if $FORCE_BUILD; then
-    log "Force rebuild: cleaning dist"
-    rm -rf dist
-    mkdir -p dist
-    do_build
-    exit 0
-fi
-
-if [[ ! -f dist/index.js ]]; then
-    log "No existing build → building"
-    do_build
-    exit 0
-fi
-
-if [[ ! -f dist/.build-marker ]]; then
-    log "No build marker → rebuilding"
-    do_build
-    exit 0
-fi
-
-if [[ ! -f dist/.build-mode ]]; then
-    log "No build mode file → rebuilding"
-    do_build
-    exit 0
-fi
-
-CURRENT_MODE=$(<dist/.build-mode)
-if [[ "${CURRENT_MODE}" != "${MODE}" ]]; then
-    log "Build mode mismatch (found ${CURRENT_MODE} vs ${MODE}) → rebuilding"
-    do_build
-    exit 0
-fi
-
-log "Checking source timestamps"
-NEED=false
-for f in app/*.js app/*.html; do
-    if [[ -f $f && $f -nt dist/.build-marker ]]; then
-        log "Change detected: $f"
-        NEED=true
-        break
-    fi
-done
-
-if $NEED; then
-    log "Sources changed → rebuilding"
-    do_build
-    exit 0
-fi
-
-log "Existing build fresh; validating artifacts"
+log "Running esbuild (mode=${MODE})"
+mkdir -p dist
+BUILD_MODE="${MODE}" node build-esbuild.mjs
+# config.local.js and AudioWorklet processors are already handled by build-esbuild.mjs
 validate_artifacts
-log "Up to date (no rebuild)"
+log "Build complete"

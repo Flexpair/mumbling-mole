@@ -26,14 +26,13 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Event synchronization**: Worker events use `_dispatchEvent` (worker-client.js) → `registerEventProxy` (worker.js); property updates use `_setProp` → `pushProp`; both systems must stay in sync
 
 ## Build system
-- **esbuild-based** (migrated from webpack in v3.14.0): `npm run build` or `WEBPACK_MODE=development ./smart-build.sh` → runs `build-esbuild.mjs`
-- `smart-build.sh` uses `dist/.build-marker` for incremental builds; checks mode changes (dev/prod) via `dist/.build-mode`
-- `smart-build.sh --force` wipes `dist/` entirely and forces full rebuild
-- `prepare` hook runs smart-build unless `SKIP_PREPARE=1`; **never commit** `dist/**` (it's generated)
+- **esbuild-based** (migrated from webpack in v3.14.0): `npm run build` or `BUILD_MODE=development ./smart-build.sh` → runs `build-esbuild.mjs`
+- `smart-build.sh` always does clean builds (removes `dist/` first); esbuild is fast enough (~1s) that this is practical
+- `prepare` hook runs `npm run build` unless `SKIP_PREPARE=1`; **never commit** `dist/**` (it's generated)
 - **Target**: ES2020 (Chrome 80+, Firefox 72+, Safari 13.1+); output format is IIFE for `<script>` tags (not ES modules)
 - **Critical validation**: build fails if `dist/index.html` < 1 KB; checks for empty/corrupted artifacts
 - **AudioWorklet processors**: `recorder-worker.js` and `playback-buffer-processor.js` copied verbatim (NOT bundled); can't use imports/requires
-- `dist/config.local.js` copied from `app/config.local.js` if missing; **back up before clean builds**
+- `dist/config.local.js` copied from `app/config.local.js` during each build; source file is `app/config.local.js`
 - **Entry points**: `index.js`, `config.js`, `theme.js`, `worker.js`, `audio/encode-worker.js`, `audio/decode-worker.js` (separate bundles)
 - **Polyfills**: `fs-mock.js` aliased for `fs` requires; Node.js globals/modules polyfilled via esbuild plugins
 

@@ -195,7 +195,7 @@ window.mumbleWebConfig = {
 | `PORT` | HTTP server port | `80` |
 | `SKIP_TUNNEL` | Disable WebSocket tunnel (static only) | `false` |
 | `SKIP_PREPARE` | Skip build during `npm install` | `false` |
-| `WEBPACK_MODE` | Build mode (`development` or `production`) | `production` |
+| `BUILD_MODE` | Build mode (`development` or `production`) | `production` |
 | `PLAIN_TARGET` | Disable SSL for target server (E2E tests) | `false` |
 
 ## 🎨 Theming
