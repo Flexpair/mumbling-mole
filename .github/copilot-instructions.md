@@ -38,6 +38,7 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 
 ## Dev & test workflows
 **Local dev**: `MUMBLE_SERVER=host:port ./start-dev-server.sh` → builds in dev mode, spawns `docker-entrypoint.sh`, opens `http://local.flexpair.app`, logs to `/tmp/entrypoint.log`  
+**Quick restart**: `./rebuild-and-restart.sh` convenience script rebuilds and restarts dev server (useful during active development)  
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  
 **Testing** (no unit tests exist; only integration/E2E):
   - `npm run test:audio:system` = fastest; validates build artifacts, codecs, worker syntax (no server required)
@@ -99,7 +100,8 @@ get audioContext() { return this.audio.audioContext; }
 **Container tests**: `node scripts/e2e-check.cjs --mode=container` validates inside CI; uses `docker exec` for connectivity checks  
 **Worker crashes**: Check browser DevTools → Sources → worker.js for exceptions; worker errors don't always surface in main console  
 **Console logging**: Production builds minimize logs; prefix debug logs with context tags like `[LOOPBACK]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[DEBUG-VOICE]`  
-**Known issue**: Loopback mode misleads debugging—tests same-client playback path, NOT cross-client network/audio playback (see `app/audio/README.md` line 7-18)
+**Known issue**: Loopback mode misleads debugging—tests same-client playback path, NOT cross-client network/audio playback (see `app/audio/README.md` line 7-18)  
+**Decoder stream invariant**: `decoder-stream.js` uses TransformStream; never push after EOF or call `controller.enqueue()` after `controller.terminate()` (causes "push after EOF" errors)
 
 ## Key file map
 **UI/session**: `app/index.js` (AppState initialization + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
