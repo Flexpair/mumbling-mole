@@ -385,12 +385,11 @@ npm install
 ## References
 
 - **Mumbling Mole Documentation:** `/README.md`
-- **Technical Debt Analysis:** `/TECHNICAL_DEBT_ANALYSIS.md`
-- **Build System:** `/smart-build.sh`, `/webpack.config.js`
-- **Testing Guide:** `/TESTING.md`
+- **Build System:** `/build-esbuild.mjs`
+- **Testing Guide:** `/tests/README.md`
 
 ---
 
-**Last Updated:** October 10, 2025  
+**Last Updated:** October 18, 2025  
 **Maintained By:** Flexpair Team  
 **Next Review:** January 2026

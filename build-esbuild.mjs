@@ -2,6 +2,7 @@
 /**
  * esbuild Build Script for mumbling-mole
  * Replaces webpack + babel with fast Go-based bundler
+ * Since esbuild is fast (~1s), always does clean builds
  */
 
 import * as esbuild from 'esbuild';
@@ -21,10 +22,14 @@ const isDev = mode === 'development';
 
 console.log(`🔨 Building with esbuild (mode: ${mode})`);
 
-// Ensure dist directory exists
-if (!fs.existsSync('dist')) {
-  fs.mkdirSync('dist', { recursive: true });
+// Always clean dist/ for guaranteed fresh builds (esbuild is fast enough)
+if (fs.existsSync('dist')) {
+  console.log('🧹 Cleaning dist/');
+  fs.rmSync('dist', { recursive: true, force: true });
 }
+
+// Create dist directory
+fs.mkdirSync('dist', { recursive: true });
 
 // Copy static files helper
 function copyFile(src, dest) {
@@ -189,8 +194,13 @@ try {
     throw new Error('index.html not found in dist/ - build failed');
   }
   
-  // Create build marker for smart-build.sh
-  fs.writeFileSync('dist/.build-marker', new Date().toISOString());
+  // Validate critical build artifacts
+  const requiredFiles = ['dist/index.js', 'dist/config.js', 'dist/theme.js'];
+  const missing = requiredFiles.filter(f => !fs.existsSync(f) || fs.statSync(f).size === 0);
+  if (missing.length > 0) {
+    throw new Error(`Missing or empty build artifacts: ${missing.join(', ')}`);
+  }
+  console.log('✅ Validation: All critical artifacts present');
   
   console.log('');
   console.log('✨ Build complete!');

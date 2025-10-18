@@ -3,7 +3,7 @@
 set -e
 
 echo "🔨 Building..."
-./smart-build.sh --force
+node build-esbuild.mjs
 
 echo "🛑 Stopping dev server..."
 ./stop-dev-server.sh 2>/dev/null || true

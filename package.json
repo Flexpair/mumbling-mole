@@ -3,8 +3,8 @@
   "version": "0.5.1",
   "description": "An HTML5 Mumble client.",
   "scripts": {
-    "build": "./smart-build.sh",
-    "build:dev": "BUILD_MODE=development ./smart-build.sh",
+    "build": "node build-esbuild.mjs",
+    "build:dev": "BUILD_MODE=development node build-esbuild.mjs",
     "audit:ci": "node scripts/audit-ci.cjs",
     "audit:baseline": "node scripts/audit-ci.cjs --write-baseline",
     "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then npm run build; fi",

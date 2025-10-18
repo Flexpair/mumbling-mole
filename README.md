@@ -70,7 +70,7 @@ npm install
 ./scripts/setup-git-hooks.sh
 ```
 
-> **Note:** The `prepare` script automatically runs `smart-build.sh` during installation to generate the `dist/` directory.
+> **Note:** The `prepare` script automatically runs `npm run build` during installation to generate the `dist/` directory.
 
 ### 2. Start Development Server
 
@@ -154,12 +154,12 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 - Bundle size: Optimized IIFE format for modern browsers
 
 **Configuration:**
-- `build-esbuild.mjs` - Complete build setup with plugins
-- `smart-build.sh` - Incremental build orchestration
+- `build-esbuild.mjs` - Complete build setup with plugins and validation
 - Target: ES2020 (Chrome 66+, Firefox 76+, Safari 14.1+)
 
 **Key Features:**
 - ⚡ Native Go-based bundler (no transpilation overhead)
+- 🧹 Always clean builds (~1s, fast enough to skip incremental logic)
 - 📦 SCSS compilation via esbuild-sass-plugin
 - 🔌 Node.js polyfills for browser (stream, crypto, path, buffer)
 - 🎯 Custom fs-mock for mumble-streams protobuf loading
@@ -185,7 +185,7 @@ window.mumbleWebConfig = {
 }
 ```
 
-> **⚠️ Critical:** Always back up `dist/config.local.js` before running `npm run build:force` or `smart-build.sh --force`, as these commands wipe the entire `dist/` directory. The file is copied from `app/config.local.js` if missing after builds.
+> **Note:** Since builds always clean `dist/`, runtime configuration should be in `app/config.local.js` (source), which is copied to `dist/config.local.js` during each build.
 
 ### Environment Variables
 
@@ -396,11 +396,8 @@ mumbling-mole/
 │   ├── run-all-tests.sh           # Primary test runner
 │   └── quick-audio-test.sh        # All-in-one test wrapper
 ├── dist/                          # Build output (generated, never commit!)
-│   ├── .build-marker              # Incremental build tracker
-│   ├── .build-mode                # Current build mode
-│   └── config.local.js            # Runtime config overrides (back up!)
-├── smart-build.sh                 # Incremental build orchestrator
-├── webpack.config.js              # Webpack 5 configuration
+│   └── config.local.js            # Runtime config (copied from app/config.local.js)
+├── build-esbuild.mjs              # esbuild build script with validation
 ├── start-dev-server.sh            # Dev server launcher
 ├── docker-entrypoint.sh           # Websockify tunnel launcher
 └── *.md                           # Documentation files
@@ -420,8 +417,7 @@ mumbling-mole/
 - **[Auth Abstraction Layer](app/auth/README.md)** – Authentication system architecture and migration guide
 
 ### Build & Configuration
-- **[Webpack Config](webpack.config.js)** – Build configuration (Webpack 5)
-- **[Smart Build Script](smart-build.sh)** – Incremental build logic
+- **[esbuild Build Script](build-esbuild.mjs)** – Build configuration with clean builds and validation
 - **[Docker Entrypoint](docker-entrypoint.sh)** – Websockify tunnel setup
 
 ### Markdown Structure Rules
