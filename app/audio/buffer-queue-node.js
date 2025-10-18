@@ -155,7 +155,7 @@ class BufferQueueNode extends Writable {
   async _initializeWorklet() {
     try {
       // LAZY-LOAD: Try to load AudioWorklet module (may already be loaded during connection)
-      // Use direct path since file is copied as-is by webpack
+      // Use direct path since file is copied as-is by esbuild
       // InvalidStateError means already loaded - that's fine, we can proceed
       try {
         await this._audioContext.audioWorklet.addModule('playback-buffer-processor.js');

@@ -242,9 +242,9 @@ async function testNpmScripts() {
   return true;
 }
 
-// Test 9: Webpack Audio-Build
-async function testWebpackBuild() {
-  log('Test: Webpack Build für Audio-Module');
+// Test 9: esbuild Audio-Build
+async function testEsbuildBuild() {
+  log('Test: esbuild Build für Audio-Module');
   
   const distPath = path.join(__dirname, '../dist');
   
@@ -264,7 +264,7 @@ async function testWebpackBuild() {
     warn(`dist/index.html sehr klein (${stat.size} bytes)`);
   }
   
-  pass('Webpack Build');
+  pass('esbuild Build');
   return true;
 }
 
@@ -326,7 +326,7 @@ async function runAllTests() {
     testAudioDependencies,
     testAudioModules,
     testNpmScripts,
-    testWebpackBuild,
+    testEsbuildBuild,
     testAudioPacketGeneration
   ];
   

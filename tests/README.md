@@ -99,7 +99,7 @@ The automated test `npm run test:audio:system` checks **10 critical components**
 6. ✅ **Audio Dependencies** - Required NPM packages installed
 7. ✅ **Audio Modules** - voice.js, audio-context-manager.js, mumble-websocket.js OK
 8. ✅ **NPM Scripts** - Build scripts present
-9. ✅ **Webpack Build** - dist/ directory generated correctly
+9. ✅ **esbuild Build** - dist/ directory generated correctly
 10. ✅ **Audio Packet Generation** - 440Hz test tone can be generated
 
 ### Expected Output (Success)
@@ -167,7 +167,7 @@ Der automatisierte Test `npm run test:audio:system` prüft **10 kritische Kompon
 6. ✅ **Audio-Dependencies** - Erforderliche NPM-Pakete installiert
 7. ✅ **Audio-Module** - voice.js, audio-context-manager.js, mumble-websocket.js OK
 8. ✅ **NPM Scripts** - Build-Scripts vorhanden
-9. ✅ **Webpack Build** - dist/ Verzeichnis korrekt generiert
+9. ✅ **esbuild Build** - dist/ Verzeichnis korrekt generiert
 10. ✅ **Audio-Paket-Generierung** - 440Hz Testton kann generiert werden
 
 ### Expected Output (Success)
@@ -186,7 +186,7 @@ Der automatisierte Test `npm run test:audio:system` prüft **10 kritische Kompon
 [✅] Audio Dependencies
 [✅] Audio Modules
 [✅] NPM Scripts
-[✅] Webpack Build
+[✅] esbuild Build
 [✅] Audio Packet Generation (440 Hz)
 
 ✅ ALL TESTS PASSED (10/10 in 0.3s)

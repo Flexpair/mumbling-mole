@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * esbuild Build Script for mumbling-mole
- * Replaces webpack + babel with fast Go-based bundler
- * Since esbuild is fast (~1s), always does clean builds
+ * Fast Go-based bundler (~1s build time)
+ * Since esbuild is fast, always does clean builds
  */
 
 import * as esbuild from 'esbuild';
@@ -16,8 +16,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Build mode from environment (BUILD_MODE takes precedence, fallback to legacy WEBPACK_MODE for compatibility)
-const mode = process.env.BUILD_MODE || process.env.WEBPACK_MODE || process.env.NODE_ENV || 'production';
+// Build mode from environment
+const mode = process.env.BUILD_MODE || process.env.NODE_ENV || 'production';
 const isDev = mode === 'development';
 
 console.log(`🔨 Building with esbuild (mode: ${mode})`);

@@ -1,7 +1,7 @@
 import { Transform } from "stream";
 import createPool from "reuse-pool";
 
-// Native Worker factory function (Webpack 5 compatible)
+// Native Worker factory function (esbuild compatible)
 function newWorker () {
   // Use relative path instead of import.meta.url for esbuild IIFE compatibility
   return new Worker('./audio/encode-worker.js', { type: 'classic' });

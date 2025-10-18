@@ -32,7 +32,7 @@ async function evalDependencyGraph({ loaderContext, src, filename, publicPath })
     const sandbox = Object.assign({}, global, {
       module: moduleExports,
       exports: moduleExports.exports,
-      __webpack_public_path__: publicPath,
+      __esbuild_public_path__: publicPath,
       Buffer,
       process,
       console,

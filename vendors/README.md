@@ -255,9 +255,9 @@ Cons:
 
 ## Build Integration
 
-### Webpack Configuration
+### esbuild Configuration
 ```javascript
-// webpack.config.js
+// build-esbuild.mjs
 resolve: {
   alias: {
     'mumble-client': path.resolve(__dirname, 'vendors/mumble-client'),
@@ -287,7 +287,7 @@ After updating any vendored dependency:
 
 ### Build Tests
 - [ ] `npm run build` succeeds
-- [ ] No webpack errors or warnings
+- [ ] No build errors or warnings
 - [ ] Bundle size within expected range
 
 ### System Tests

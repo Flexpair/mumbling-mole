@@ -2,15 +2,12 @@
   "ignores": [
     "@babel/plugin-transform-runtime",
     "@babel/runtime",
-    "brfs", 
-    "webpack-cli",
-    "webpack-bundle-analyzer",
+    "brfs",
     "netlify-identity-widget",
     "depcheck",
     "sass"
   ],
   "specials": [
-    "babel",
-    "webpack"
+    "babel"
   ]
 }
