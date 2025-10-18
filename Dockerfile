@@ -105,6 +105,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Playwright system dependencies for Chromium
+# Required for automated loopback frequency tests
+RUN npx playwright install-deps chromium
+
 RUN mkdir -p /home/node/.npm && chown -R node:node /home/node
 USER node
 

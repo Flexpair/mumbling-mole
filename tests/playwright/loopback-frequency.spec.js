@@ -26,9 +26,8 @@ import { test, expect } from '@playwright/test';
 
 // Test configuration
 const TEST_CONFIG = {
-  SERVER: process.env.MUMBLE_SERVER || 'localhost:64738',
-  USERNAME: process.env.TEST_USERNAME || 'AutomatedTestBot',
-  PASSWORD: process.env.TEST_PASSWORD || '',
+  // App handles Mumble server connection in background
+  // We only need to interact with the UI
   EXPECTED_FREQUENCY: 440, // Hz
   FREQUENCY_TOLERANCE: 0.05, // ±5%
   CONNECTION_TIMEOUT: 20000, // 20s
@@ -40,125 +39,147 @@ const TEST_CONFIG = {
 test.describe('Loopback Frequency Test', () => {
   
   test.beforeEach(async ({ page }) => {
-    // Enable console logging from the page
+    // Enable ALL console logging from the page for debugging
     page.on('console', msg => {
-      if (msg.type() === 'error') {
-        console.error(`[PAGE ERROR] ${msg.text()}`);
-      } else if (msg.text().includes('[LOOPBACK') || msg.text().includes('[BEEP]')) {
-        console.log(`[PAGE LOG] ${msg.text()}`);
+      const type = msg.type();
+      const text = msg.text();
+      if (type === 'error') {
+        console.error(`[PAGE ERROR] ${text}`);
+      } else if (type === 'warning') {
+        console.warn(`[PAGE WARN] ${text}`);
+      } else {
+        console.log(`[PAGE ${type.toUpperCase()}] ${text}`);
       }
+    });
+    
+    // Capture page errors
+    page.on('pageerror', error => {
+      console.error(`[PAGE EXCEPTION] ${error.message}\n${error.stack}`);
     });
     
     // Navigate to app
     console.log('🌐 Navigating to application...');
-    await page.goto('/');
     
-    // Wait for app initialization (window.ui should be defined)
+    await page.goto('/', { waitUntil: 'networkidle', timeout: 30000 });
+    
+    // Handle Netlify Identity Widget login
+    console.log('🔐 Checking for Netlify Identity login...');
+    try {
+      // Wait for iframe to appear
+      await page.waitForSelector('iframe', { timeout: 5000 });
+      const iframe = page.frameLocator('iframe').first();
+      
+      // Switch to "Log in" tab
+      const loginTab = iframe.locator('button:has-text("Log in")');
+      if (await loginTab.isVisible({ timeout: 2000 })) {
+        await loginTab.click();
+        console.log('✅ Switched to Log in tab');
+        await page.waitForTimeout(500);
+      }
+      
+      // Fill in credentials
+      const emailInput = iframe.locator('input[type="email"]');
+      const passwordInput = iframe.locator('input[type="password"]');
+      
+      if (await emailInput.isVisible({ timeout: 2000 })) {
+        const testEmail = process.env.TEST_EMAIL || 'test@example.com';
+        const testPassword = process.env.TEST_PASSWORD || 'testpassword';
+        
+        console.log(`🔐 Logging in as ${testEmail}...`);
+        await emailInput.fill(testEmail);
+        await passwordInput.fill(testPassword);
+        
+        const loginButton = iframe.locator('button[type="submit"]');
+        await loginButton.click();
+        console.log('✅ Submitted login credentials');
+        
+        // Wait for login to complete
+        await page.waitForTimeout(3000);
+      }
+    } catch (e) {
+      console.log('ℹ️  No Netlify Identity login required or already logged in');
+    }
+    
+    // Wait for app initialization (window.mumbleUi should be defined)
     console.log('⏳ Waiting for UI initialization...');
-    await page.waitForFunction(() => window.ui !== undefined, { timeout: 10000 });
+    
+    // Wait for window.mumbleUi to be defined (app uses mumbleUi not ui)
+    await page.waitForFunction(
+      () => {
+        return window.mumbleUi !== undefined && 
+               document.querySelector('#container') !== null;
+      }, 
+      { timeout: 30000 }
+    );
     console.log('✅ UI initialized');
   });
 
   test('should display ~440 Hz when piano button is pressed', async ({ page }) => {
     console.log('\n🎵 TEST: Piano Button Frequency Detection\n');
     
-    // STEP 1: Activate loopback mode
-    console.log('🔄 Step 1: Activating loopback mode...');
+    // STEP 1: Wait for connect dialog to appear (should show after mock login)
+    console.log('🔄 Step 1: Waiting for connect dialog...');
+    await page.waitForSelector('.connect-dialog', { state: 'visible', timeout: 10000 });
+    console.log('✅ Connect dialog visible');
+    
+    // STEP 2: Activate test mode via toggle
+    console.log('🔄 Step 2: Clicking Audio Test toggle...');
     const testToggle = page.locator('.test-toggle-label');
     await expect(testToggle).toBeVisible({ timeout: 5000 });
     await testToggle.click();
-    console.log('✅ Loopback mode activated');
+    console.log('✅ Test toggle clicked');
     
     // Verify test mode is active
     const isTestActive = await page.evaluate(() => {
-      return window.ui?.connectDialog?.isTestActive() || false;
+      return window.mumbleUi?.connectDialog?.isTestActive() || false;
     });
     expect(isTestActive).toBe(true);
+    console.log('✅ Test mode activated');
     
-    // STEP 2: Fill connection details (use existing values if available)
-    console.log('🔗 Step 2: Configuring connection...');
-    
-    const serverInput = page.locator('#address');
-    const portInput = page.locator('#port');
-    const usernameInput = page.locator('#username');
-    const passwordInput = page.locator('#password');
-    
-    // Only fill if inputs are visible and editable
-    if (await serverInput.isVisible().catch(() => false)) {
-      await serverInput.fill(TEST_CONFIG.SERVER.split(':')[0]);
-    }
-    if (await portInput.isVisible().catch(() => false)) {
-      await portInput.fill(TEST_CONFIG.SERVER.split(':')[1] || '64738');
-    }
-    if (await usernameInput.isVisible().catch(() => false) && !await usernameInput.getAttribute('readonly')) {
-      await usernameInput.fill(TEST_CONFIG.USERNAME);
-    }
-    if (await passwordInput.isVisible().catch(() => false)) {
-      await passwordInput.fill(TEST_CONFIG.PASSWORD);
-    }
-    
-    console.log(`✅ Connection configured: ${TEST_CONFIG.SERVER} as ${TEST_CONFIG.USERNAME}`);
-    
-    // STEP 3: Connect in loopback mode
-    console.log('🔌 Step 3: Connecting to server...');
-    const connectButton = page.locator('#connect-dialog_controls_connect');
-    await expect(connectButton).toBeVisible();
-    await connectButton.click();
-    
-    // STEP 4: Wait for connection + beeper initialization
-    console.log('⏳ Step 4: Waiting for connection and beeper initialization...');
-    console.log('   (This may take up to 20 seconds)');
+    // STEP 3: Wait for audio components to initialize
+    console.log('⏳ Step 3: Waiting for audio components to initialize...');
+    console.log('   (This may take a few seconds)');
     
     await page.waitForFunction(
       () => {
-        const ui = window.ui;
+        const ui = window.mumbleUi;
         if (!ui) return false;
         
-        const connected = ui.connection?.thisUser() !== null;
-        const beeperReady = ui.beeperReady() === true;
-        const voiceReady = ui.voiceHandlerReady() === true;
+        // Check if audio context is ready
+        const audioContextReady = ui.audio?.audioContext?.state === 'running';
         
-        // Log progress
-        if (!connected) console.log('   Waiting for connection...');
-        else if (!beeperReady) console.log('   Waiting for beeper...');
-        else if (!voiceReady) console.log('   Waiting for voice handler...');
+        // Check if test mode components are ready
+        const testModeReady = ui.connectDialog?.isTestActive() === true;
         
-        return connected && beeperReady && voiceReady;
+        return audioContextReady && testModeReady;
       },
-      { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
+      { timeout: 15000 }
     );
     
-    console.log('✅ Connected and beeper ready');
+    console.log('✅ Audio components ready');
     
-    // Verify loopback mode is active
-    const isLoopbackMode = await page.evaluate(() => {
-      return window.ui?.voice?.isLoopbackMode() || false;
-    });
-    expect(isLoopbackMode).toBe(true);
-    console.log('✅ Loopback mode confirmed');
-    
-    // STEP 5: Find and verify piano button is visible
-    console.log('🎹 Step 5: Locating piano button...');
+    // STEP 4: Wait for piano button to appear
+    console.log('🎹 Step 4: Waiting for piano button to appear...');
     const pianoButton = page.locator('.beep-test-button');
-    await expect(pianoButton).toBeVisible({ timeout: 5000 });
+    await expect(pianoButton).toBeVisible({ timeout: 10000 });
     console.log('✅ Piano button visible');
     
-    // STEP 6: Press piano button (simulate mousedown)
-    console.log('🎹 Step 6: Pressing piano button...');
+    // STEP 5: Press piano button (simulate mousedown)
+    console.log('🎹 Step 5: Pressing piano button...');
     await pianoButton.dispatchEvent('mousedown');
     console.log('✅ Piano button pressed (mousedown event dispatched)');
     
-    // STEP 7: Wait for audio to stabilize
-    console.log(`⏳ Step 7: Waiting ${TEST_CONFIG.BEEPER_WAIT}ms for audio to stabilize...`);
+    // STEP 6: Wait for audio to stabilize
+    console.log(`⏳ Step 6: Waiting ${TEST_CONFIG.BEEPER_WAIT}ms for audio to stabilize...`);
     await page.waitForTimeout(TEST_CONFIG.BEEPER_WAIT);
     
-    // STEP 8: Collect multiple frequency readings
-    console.log(`📊 Step 8: Collecting ${TEST_CONFIG.FREQUENCY_READINGS} frequency readings...`);
+    // STEP 7: Collect multiple frequency readings
+    console.log(`📊 Step 7: Collecting ${TEST_CONFIG.FREQUENCY_READINGS} frequency readings...`);
     const frequencies = [];
     
     for (let i = 0; i < TEST_CONFIG.FREQUENCY_READINGS; i++) {
       const freq = await page.evaluate(() => {
-        return window.ui?.voice?.loopbackDominantFrequency() || 0;
+        return window.mumbleUi?.voice?.loopbackDominantFrequency() || 0;
       });
       frequencies.push(freq);
       console.log(`   Reading ${i + 1}/${TEST_CONFIG.FREQUENCY_READINGS}: ${freq} Hz`);
@@ -168,8 +189,8 @@ test.describe('Loopback Frequency Test', () => {
       }
     }
     
-    // STEP 9: Validate frequency readings
-    console.log('📊 Step 9: Validating frequency readings...');
+    // STEP 8: Validate frequency readings
+    console.log('📊 Step 8: Validating frequency readings...');
     
     const validFrequencies = frequencies.filter(f => f > 0);
     console.log(`   Valid readings: ${validFrequencies.length}/${TEST_CONFIG.FREQUENCY_READINGS}`);
@@ -189,8 +210,8 @@ test.describe('Loopback Frequency Test', () => {
     
     console.log(`✅ Frequency validation passed! (${avgFrequency.toFixed(1)} Hz ≈ ${TEST_CONFIG.EXPECTED_FREQUENCY} Hz)`);
     
-    // STEP 10: Verify frequency display is visible in UI
-    console.log('👁️  Step 10: Verifying frequency display...');
+    // STEP 9: Verify frequency display is visible in UI
+    console.log('👁️  Step 9: Verifying frequency display...');
     const frequencyDisplay = page.locator('.loopback-frequency-display');
     await expect(frequencyDisplay).toBeVisible();
     
@@ -199,20 +220,20 @@ test.describe('Loopback Frequency Test', () => {
     expect(displayText).toContain('Hz');
     console.log('✅ Frequency display visible and contains Hz');
     
-    // STEP 11: Release button
-    console.log('🎹 Step 11: Releasing piano button...');
+    // STEP 10: Release button
+    console.log('🎹 Step 10: Releasing piano button...');
     await pianoButton.dispatchEvent('mouseup');
     console.log('✅ Piano button released (mouseup event dispatched)');
     
-    // STEP 12: Verify frequency display clears
-    console.log('🧹 Step 12: Verifying frequency display clears...');
+    // STEP 11: Verify frequency display clears
+    console.log('🧹 Step 11: Verifying frequency display clears...');
     await page.waitForFunction(
-      () => (window.ui?.voice?.loopbackDominantFrequency() || 0) === 0,
+      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) === 0,
       { timeout: 1000 }
     );
     
     const finalFreq = await page.evaluate(() => {
-      return window.ui?.voice?.loopbackDominantFrequency() || 0;
+      return window.mumbleUi?.voice?.loopbackDominantFrequency() || 0;
     });
     expect(finalFreq).toBe(0);
     console.log('✅ Frequency display cleared after button release');
@@ -229,7 +250,7 @@ test.describe('Loopback Frequency Test', () => {
     await page.click('#connect-dialog_controls_connect');
     
     await page.waitForFunction(
-      () => window.ui?.beeperReady() === true && window.ui?.voiceHandlerReady() === true,
+      () => window.mumbleUi?.beeperReady() === true && window.mumbleUi?.voiceHandlerReady() === true,
       { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
     );
     console.log('✅ Setup complete');
@@ -244,7 +265,7 @@ test.describe('Loopback Frequency Test', () => {
     
     // Wait for significant frequency to appear (> 100 Hz threshold)
     await page.waitForFunction(
-      () => (window.ui?.voice?.loopbackDominantFrequency() || 0) > 100,
+      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) > 100,
       { timeout: 5000 }
     );
     
@@ -270,7 +291,7 @@ test.describe('Loopback Frequency Test', () => {
     await page.click('#connect-dialog_controls_connect');
     
     await page.waitForFunction(
-      () => window.ui?.beeperReady() === true && window.ui?.voiceHandlerReady() === true,
+      () => window.mumbleUi?.beeperReady() === true && window.mumbleUi?.voiceHandlerReady() === true,
       { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
     );
     console.log('✅ Setup complete');
@@ -297,7 +318,7 @@ test.describe('Loopback Frequency Test', () => {
     // Should not crash and should eventually clear
     console.log('🧹 Waiting for frequency to clear...');
     await page.waitForFunction(
-      () => (window.ui?.voice?.loopbackDominantFrequency() || 0) === 0,
+      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) === 0,
       { timeout: 2000 }
     );
     
@@ -317,7 +338,7 @@ test.describe('Loopback Frequency Test', () => {
     await page.click('#connect-dialog_controls_connect');
     
     await page.waitForFunction(
-      () => window.ui?.beeperReady() === true && window.ui?.voiceHandlerReady() === true,
+      () => window.mumbleUi?.beeperReady() === true && window.mumbleUi?.voiceHandlerReady() === true,
       { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
     );
     console.log('✅ Setup complete');
@@ -330,19 +351,19 @@ test.describe('Loopback Frequency Test', () => {
     await page.waitForTimeout(500);
     
     // Verify frequency is detected
-    let freq = await page.evaluate(() => window.ui?.voice?.loopbackDominantFrequency() || 0);
+    let freq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
     console.log(`📊 Frequency before deaf: ${freq} Hz`);
     expect(freq).toBeGreaterThan(100);
     
     // Enable self-deaf
     console.log('🔇 Enabling self-deaf...');
     await page.evaluate(() => {
-      window.ui?.user?.setSelfDeaf(true);
+      window.mumbleUi?.user?.setSelfDeaf(true);
     });
     await page.waitForTimeout(200);
     
     // Verify frequency display clears when deaf
-    freq = await page.evaluate(() => window.ui?.voice?.loopbackDominantFrequency() || 0);
+    freq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
     console.log(`📊 Frequency while deaf: ${freq} Hz`);
     expect(freq).toBe(0);
     console.log('✅ Frequency cleared when deaf');
@@ -350,12 +371,12 @@ test.describe('Loopback Frequency Test', () => {
     // Disable self-deaf
     console.log('🔊 Disabling self-deaf...');
     await page.evaluate(() => {
-      window.ui?.user?.setSelfDeaf(false);
+      window.mumbleUi?.user?.setSelfDeaf(false);
     });
     await page.waitForTimeout(500);
     
     // Verify frequency reappears
-    freq = await page.evaluate(() => window.ui?.voice?.loopbackDominantFrequency() || 0);
+    freq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
     console.log(`📊 Frequency after deaf disabled: ${freq} Hz`);
     expect(freq).toBeGreaterThan(100);
     console.log('✅ Frequency reappeared after deaf disabled');

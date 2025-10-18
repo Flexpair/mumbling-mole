@@ -1,8 +1,20 @@
 # Loopback Test Automation - Implementation Summary
 
-## 🎯 What Was Delivered
+## ⚠️ Current Status: Development In Progress
 
-A complete **automated testing solution** for validating the piano button (🎹) loopback frequency test, which verifies that the audio pipeline correctly encodes, transmits, decodes, and analyzes a 440 Hz tone.
+A **partially complete** automated testing solution for validating the piano button (🎹) loopback frequency test. The infrastructure is in place, but full test execution is blocked by network connectivity issues.
+
+### Progress Overview
+- **Infrastructure**: ✅ Complete (Playwright, MockAuth, test suite structure)
+- **Test Execution**: 🚧 Blocked (WebSocket connection failing)
+- **Documentation**: ✅ Complete
+- **CI/CD Ready**: ⏳ Pending successful test execution
+
+---
+
+## 🎯 Intended Goal
+
+An automated testing solution that validates the audio loopback pipeline: the system should encode a 440 Hz tone, transmit it via Mumble protocol, decode it, analyze the frequency, and display ~440 Hz on the UI.
 
 ---
 
@@ -69,9 +81,46 @@ Automated runner that:
 
 ---
 
+## 🚧 Current Status: Work In Progress
+
+### ✅ Completed
+- **MockAuth Implementation**: `MockAuthAdapter` with autoLogin feature bypasses Netlify Identity for automated tests
+- **Authentication Timing Fix**: Event handlers now register BEFORE `init()` to catch autoLogin events
+- **UI Initialization**: Connect dialog displays correctly with MockAuth user
+- **Test Mode Activation**: Audio Test toggle successfully activates loopback mode (`isTestActive: true`)
+- **Container Dependencies**: Chromium system dependencies installed in Dockerfile
+
+### 🔄 Current Blocker: WebSocket Connection
+**Issue**: Browser cannot establish WebSocket connection to Mumble server
+- **Symptom**: Test reaches "Waiting for piano button to appear" but times out
+- **Browser logs**: `"Connecting to audio server localhost"` → `"Connection error {isTrusted: true}"` (repeated)
+- **Expected flow**: Toggle → Connect → `beeperReady(true)` → `voiceHandlerReady(true)` → Piano button appears
+- **Actual flow**: Toggle → Connection fails → Flags stay false → Button stays hidden
+- **Piano button condition**: `isTestActive() && $root.beeperReady() && $root.voiceHandlerReady()`
+
+**Configuration Attempts**:
+1. Direct murmur IP (`172.18.0.5:64738`) - Connection failed
+2. Websockify proxy (`localhost:8081`) - Connection still fails
+
+**Next Steps**:
+1. Verify murmur container is running and accessible
+2. Check websockify proxy logs and configuration
+3. Test direct connectivity from devcontainer to murmur
+4. Debug WebSocket tunnel: Browser → websockify → murmur
+
+### 🎯 Remaining Work
+Once connection is fixed:
+- Verify piano button appears after successful connection
+- Validate frequency detection (440 Hz ±5%)
+- Test all 4 scenarios (frequency, latency, rapid press, mute/deaf)
+- Generate test reports
+- CI/CD integration
+
+---
+
 ## 🏗️ Technical Architecture
 
-### Test Flow
+### Test Flow (Target State)
 ```
 User runs: npm run test:loopback
     ↓
@@ -83,9 +132,11 @@ Clicks "Audio Test" toggle (activates loopback mode)
     ↓
 Fills connection details & clicks "Connect"
     ↓
-Waits for: connection + beeper initialization + voice handler
+⚠️ CURRENT BLOCKER: WebSocket connection fails here
     ↓
-Simulates mousedown on piano button (🎹)
+[After fix] Waits for: connection + beeper initialization + voice handler
+    ↓
+[After fix] Simulates mousedown on piano button (🎹)
     ↓
 Waits 500ms for audio to stabilize
     ↓

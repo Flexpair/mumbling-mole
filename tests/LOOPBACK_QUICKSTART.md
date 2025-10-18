@@ -1,29 +1,59 @@
 # Loopback Test Automation - Quick Start Guide
 
+## ⚠️ Current Status: Work In Progress
+
+The loopback test automation infrastructure is **partially implemented** but not yet fully functional. Current progress:
+
+**✅ Completed:**
+- Playwright configuration with Chromium browser
+- MockAuth adapter for automated testing (bypasses Netlify Identity)
+- Test suite structure with 4 test scenarios
+- Documentation and strategy guides
+
+**🚧 In Progress:**
+- WebSocket connection to Mumble server failing in test environment
+- Audio components (`beeperReady`, `voiceHandlerReady`) not initializing
+- Piano button visibility depends on successful connection
+
+**🔍 Current Blocker:**
+Browser test environment cannot establish WebSocket connection to Mumble server, causing test to hang at "Waiting for piano button to appear" step. Investigating websockify proxy configuration and network routing.
+
+---
+
 ## 🚀 Installation & Setup
 
-### Step 1: Install Playwright
+### Step 1: Install Playwright Dependencies
 ```bash
+# Playwright and dependencies are already in package.json
 npm install
-npx playwright install chromium
+
+# Chromium browser was installed via Dockerfile during container build
+# To verify: npx playwright --version
 ```
 
-This will install Playwright and download the Chromium browser needed for testing.
+### Step 2: Verify Test Infrastructure
+**Important:** The Mumble test server must be running OUTSIDE the devcontainer.
 
-### Step 2: Verify Test Server
-Make sure you have a Mumble test server running:
+From your host machine (NOT inside devcontainer):
 ```bash
-npm run test:server:up
+# Check if murmur container is running
+docker ps | grep murmur
+
+# If not running, start via docker-compose
+cd .devcontainer && docker-compose up -d murmur
 ```
 
-Check server logs to confirm it's running:
+Check network connectivity from devcontainer:
 ```bash
-npm run test:server:logs
+# Verify murmur is reachable
+curl -v telnet://172.18.0.5:64738
 ```
 
 ### Step 3: Build the Application
 ```bash
 npm run build
+# Or for quick rebuild during development:
+./rebuild-and-restart.sh
 ```
 
 ---

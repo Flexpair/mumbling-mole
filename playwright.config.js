@@ -48,10 +48,13 @@ export default defineConfig({
     ['json', { outputFile: 'test-results/results.json' }]
   ],
   
-  // Shared settings for all projects
+    // Shared settings for all projects
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: 'http://localhost:8081',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8081',
+    
+    // Ignore HTTPS certificate errors (self-signed certs in dev)
+    ignoreHTTPSErrors: true,
     
     // Collect trace when retrying the failed test
     trace: 'retain-on-failure',
@@ -70,6 +73,7 @@ export default defineConfig({
         '--autoplay-policy=no-user-gesture-required', // Allow audio without user gesture
         '--disable-web-security',                 // For cross-origin WebSocket
         '--allow-file-access-from-files',        // For local file access
+        '--host-resolver-rules=MAP local.flexpair.app 127.0.0.1', // DNS override for Netlify Identity
       ]
     },
     
@@ -98,18 +102,18 @@ export default defineConfig({
   ],
   
   // Run your local dev server before starting the tests
-  webServer: {
-    command: 'SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh',
-    port: 8081,
-    timeout: 120000, // 2 minutes to start server
-    reuseExistingServer: !process.env.CI, // Reuse server in dev, always start fresh in CI
-    stdout: 'pipe',
-    stderr: 'pipe',
-    // Wait for server to be ready
-    env: {
-      NODE_ENV: 'test'
-    }
-  },
+  // In docker-compose setup, server is already running, so disable this
+  // webServer: {
+  //   command: 'SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh',
+  //   port: 8081,
+  //   timeout: 120000,
+  //   reuseExistingServer: !process.env.CI,
+  //   stdout: 'pipe',
+  //   stderr: 'pipe',
+  //   env: {
+  //     NODE_ENV: 'test'
+  //   }
+  // },
   
   // Output folder for test artifacts
   outputDir: 'test-results',

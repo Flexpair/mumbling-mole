@@ -510,17 +510,8 @@ if (ui.auth) {
 async function initializeUI() {
   // Initialize auth provider
   let user = null;
-  try {
-    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
-      APIUrl: "https://welcome.flexpair.com/identity-proxy",
-      locale: "en",
-      logo: false,
-    });
-    user = ui.auth.currentUser();
-  } catch (e) {
-    console.warn('[Auth] Initialization failed; continuing without authentication', e);
-  }
-
+  
+  // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
     const username = getUsernameFromMetadata(user);
     if (username) {
@@ -545,6 +536,18 @@ async function initializeUI() {
     // Show connect dialog even if auth fails to allow retry
     ui.connectDialog.show();
   });
+
+  // Now initialize auth (event handlers are already registered)
+  try {
+    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
+      APIUrl: "https://welcome.flexpair.com/identity-proxy",
+      locale: "en",
+      logo: false,
+    });
+    user = ui.auth.currentUser();
+  } catch (e) {
+    console.warn('[Auth] Initialization failed; continuing without authentication', e);
+  }
 
   if (user == null) {
     // Hide connect dialog when showing authentication modal
