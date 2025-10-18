@@ -12,7 +12,7 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 - **State management**: `app/state/AppState.js` (6-module composition) → individual modules in `app/state/`
 - **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
 - **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
-- **Build system**: `smart-build.sh` (orchestrator) → `build-esbuild.mjs` (esbuild config)
+- **Build system**: `build-esbuild.mjs` (esbuild config with clean builds)
 
 **Read these READMEs first**: `app/state/README.md` (architecture diagrams), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
 
@@ -26,14 +26,13 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Event synchronization**: Worker events use `_dispatchEvent` (worker-client.js) → `registerEventProxy` (worker.js); property updates use `_setProp` → `pushProp`; both systems must stay in sync
 
 ## Build system
-- **esbuild-based** (migrated from webpack in v3.14.0): `npm run build` or `WEBPACK_MODE=development ./smart-build.sh` → runs `build-esbuild.mjs`
-- `smart-build.sh` uses `dist/.build-marker` for incremental builds; checks mode changes (dev/prod) via `dist/.build-mode`
-- `smart-build.sh --force` wipes `dist/` entirely and forces full rebuild
-- `prepare` hook runs smart-build unless `SKIP_PREPARE=1`; **never commit** `dist/**` (it's generated)
+- **esbuild-based** (migrated from webpack in v3.14.0): `npm run build` runs `build-esbuild.mjs` directly
+- `build-esbuild.mjs` always does clean builds (removes `dist/` first); esbuild is fast enough (~1s) that this is practical
+- `prepare` hook runs `npm run build` unless `SKIP_PREPARE=1`; **never commit** `dist/**` (it's generated)
 - **Target**: ES2020 (Chrome 80+, Firefox 72+, Safari 13.1+); output format is IIFE for `<script>` tags (not ES modules)
 - **Critical validation**: build fails if `dist/index.html` < 1 KB; checks for empty/corrupted artifacts
 - **AudioWorklet processors**: `recorder-worker.js` and `playback-buffer-processor.js` copied verbatim (NOT bundled); can't use imports/requires
-- `dist/config.local.js` copied from `app/config.local.js` if missing; **back up before clean builds**
+- `dist/config.local.js` copied from `app/config.local.js` during each build; source file is `app/config.local.js`
 - **Entry points**: `index.js`, `config.js`, `theme.js`, `worker.js`, `audio/encode-worker.js`, `audio/decode-worker.js` (separate bundles)
 - **Polyfills**: `fs-mock.js` aliased for `fs` requires; Node.js globals/modules polyfilled via esbuild plugins
 
@@ -107,11 +106,10 @@ get audioContext() { return this.audio.audioContext; }
 **State modules**: `app/state/AppState.js` (coordinator), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/selections), `app/state/UserState.js` (thisUser/mute/deaf), `app/state/ChannelState.js` (root channel/links)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
-**Build/runtime**: `smart-build.sh` (incremental build logic), `build-esbuild.mjs` (esbuild config), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
+**Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
 **Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner)  
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Known technical debt
 - **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
-- **Build complexity**: `smart-build.sh` + esbuild + vendor transpilation creates fragile incremental builds; consider consolidation
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build

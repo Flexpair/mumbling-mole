@@ -76,7 +76,7 @@ USER node
 WORKDIR /home/node
 
 RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
-RUN npm run build:force
+RUN npm run build
 
 
 # =====================================================================

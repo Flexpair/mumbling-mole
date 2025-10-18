@@ -2,7 +2,7 @@ import { Transform } from "stream";
 import createPool from "reuse-pool";
 import toArrayBuffer from "to-arraybuffer";
 
-// Native Worker factory function (Webpack 5 compatible)
+// Native Worker factory function (esbuild compatible)
 function newWorker () {
   // Use relative path instead of import.meta.url for esbuild IIFE compatibility
   return new Worker('./audio/decode-worker.js', { type: 'classic' });
@@ -17,12 +17,39 @@ class DecoderStream extends Transform {
     super({ objectMode: true });
 
     this._worker = pool.get();
+    this._ended = false;
+    this._finalized = false;
+    this._finalCallback = null;
+    this._messageId = 0;
     this._worker.onmessage = (msg) => {
       this._onMessage(msg.data);
     };
   }
 
   _onMessage(data) {
+    // RESET-PRIORITY: Handle reset messages first, before checking stream state
+    // This ensures cleanup happens even after stream has ended
+    if (data.action === "reset") {
+      // Atomic check-and-set to prevent double execution of finalCallback
+      if (this._finalized) {
+        return;
+      }
+      this._finalized = true;
+      
+      const finalize = this._finalCallback;
+      this._finalCallback = null;
+      if (finalize) {
+        finalize();
+      }
+      return;
+    }
+
+    // EOF-GUARD: Prevent push after EOF by checking multiple stream states
+    // Worker may send decoded frames after stream.end() was called
+    if (this._ended || this.destroyed || this.readableEnded) {
+      return;
+    }
+    
     if (data.action === "decoded") {
       const pcm = new Float32Array(data.buffer);
       
@@ -32,8 +59,6 @@ class DecoderStream extends Transform {
         numberOfChannels: data.numberOfChannels,
         position: data.position,
       });
-    } else if (data.action === "reset") {
-      this._finalCallback();
     } else {
       throw new Error("unexpected message:" + data);
     }
@@ -63,12 +88,25 @@ class DecoderStream extends Transform {
   }
 
   _final(callback) {
-    this._worker.postMessage({ id: this._id++, action: "reset" });
+    this._ended = true;
+    
+    if (!this._worker) {
+      callback();
+      return;
+    }
+
     this._finalCallback = () => {
       pool.recycle(this._worker);
       this._worker = null;
       callback();
     };
+
+    try {
+      this._worker.postMessage({ id: this._messageId++, action: "reset" });
+    } catch (err) {
+      // Worker might be terminated already, recycle immediately
+      this._finalCallback();
+    }
   }
 }
 

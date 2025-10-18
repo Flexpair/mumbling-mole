@@ -6,7 +6,7 @@ echo "🔧 [$(date)] Starting dev server..." | tee -a /tmp/startup-debug.log
 cd /home/node
 
 echo "🛠️ [$(date)] Ensuring development bundle is up to date..." | tee -a /tmp/startup-debug.log
-if WEBPACK_MODE=development ./smart-build.sh >> /tmp/startup-debug.log 2>&1; then
+if BUILD_MODE=development node build-esbuild.mjs >> /tmp/startup-debug.log 2>&1; then
     echo "✅ [$(date)] Development bundle ready." | tee -a /tmp/startup-debug.log
 else
     echo "❌ [$(date)] Failed to build development bundle" | tee -a /tmp/startup-debug.log
