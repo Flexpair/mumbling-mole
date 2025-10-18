@@ -18,6 +18,7 @@ class DecoderStream extends Transform {
 
     this._worker = pool.get();
     this._ended = false;
+    this._finalized = false;
     this._finalCallback = null;
     this._messageId = 0;
     this._worker.onmessage = (msg) => {
@@ -29,6 +30,12 @@ class DecoderStream extends Transform {
     // RESET-PRIORITY: Handle reset messages first, before checking stream state
     // This ensures cleanup happens even after stream has ended
     if (data.action === "reset") {
+      // Atomic check-and-set to prevent double execution of finalCallback
+      if (this._finalized) {
+        return;
+      }
+      this._finalized = true;
+      
       const finalize = this._finalCallback;
       this._finalCallback = null;
       if (finalize) {
@@ -89,10 +96,8 @@ class DecoderStream extends Transform {
     }
 
     this._finalCallback = () => {
-      if (this._worker) {
-        pool.recycle(this._worker);
-        this._worker = null;
-      }
+      pool.recycle(this._worker);
+      this._worker = null;
       callback();
     };
 
