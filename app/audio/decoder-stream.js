@@ -17,12 +17,33 @@ class DecoderStream extends Transform {
     super({ objectMode: true });
 
     this._worker = pool.get();
+    this._ended = false;
+    this._finalCallback = null;
+    this._messageId = 0;
     this._worker.onmessage = (msg) => {
       this._onMessage(msg.data);
     };
   }
 
   _onMessage(data) {
+    // RESET-PRIORITY: Handle reset messages first, before checking stream state
+    // This ensures cleanup happens even after stream has ended
+    if (data.action === "reset") {
+      const finalize = this._finalCallback;
+      this._finalCallback = null;
+      if (finalize) {
+        finalize();
+      }
+      return;
+    }
+
+    // EOF-GUARD: Prevent push after EOF by checking multiple stream states
+    // Worker may send decoded frames after stream.end() was called
+    if (this._ended || this.destroyed || this.readableEnded) {
+      console.warn('[DecoderStream] Message received after stream ended, ignoring');
+      return;
+    }
+    
     if (data.action === "decoded") {
       const pcm = new Float32Array(data.buffer);
       
@@ -32,8 +53,6 @@ class DecoderStream extends Transform {
         numberOfChannels: data.numberOfChannels,
         position: data.position,
       });
-    } else if (data.action === "reset") {
-      this._finalCallback();
     } else {
       throw new Error("unexpected message:" + data);
     }
@@ -63,12 +82,28 @@ class DecoderStream extends Transform {
   }
 
   _final(callback) {
-    this._worker.postMessage({ id: this._id++, action: "reset" });
+    console.log('[DecoderStream] _final() called - stream ending');
+    this._ended = true;
+    
+    if (!this._worker) {
+      callback();
+      return;
+    }
+
     this._finalCallback = () => {
-      pool.recycle(this._worker);
-      this._worker = null;
+      if (this._worker) {
+        pool.recycle(this._worker);
+        this._worker = null;
+      }
       callback();
     };
+
+    try {
+      this._worker.postMessage({ id: this._messageId++, action: "reset" });
+    } catch (err) {
+      console.warn('[DecoderStream] Failed to post reset message; recycling worker immediately', err);
+      this._finalCallback();
+    }
   }
 }
 
