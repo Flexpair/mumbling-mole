@@ -152,15 +152,22 @@ test.describe('Loopback Frequency Test', () => {
     expect(isTestActive).toBe(true);
     console.log('✅ Test mode activated');
     
-    // STEP 3: Wait for audio components to initialize
-    console.log('⏳ Step 3: Waiting for audio components to initialize...');
-    console.log('   (This may take a few seconds)');
+    // STEP 3: Click Connect button to establish connection
+    console.log('🔄 Step 3: Clicking Connect button...');
+    const connectButton = page.locator('input.connect-dialog-submit[type="submit"]');
+    await expect(connectButton).toBeVisible({ timeout: 5000 });
+    await connectButton.click();
+    console.log('✅ Connect button clicked');
+    
+    // STEP 4: Wait for audio components to initialize
+    console.log('⏳ Step 4: Waiting for audio components to initialize...');
+    console.log('   (This may take a few seconds - connecting to Murmur server)');
     
     // Verify mumbleUi is still available after toggle
     const uiAvailable = await page.evaluate(() => window.mumbleUi !== undefined);
     if (!uiAvailable) {
-      console.error('❌ window.mumbleUi is undefined after toggle!');
-      throw new Error('UI state lost after toggle - check for JS errors');
+      console.error('❌ window.mumbleUi is undefined after connect!');
+      throw new Error('UI state lost after connect - check for JS errors');
     }
     
     // Resume AudioContext if suspended (required in headless browsers)
@@ -251,14 +258,14 @@ test.describe('Loopback Frequency Test', () => {
     
     console.log('✅ Audio components ready');
     
-    // STEP 4: Wait for piano button to appear
-    console.log('🎹 Step 4: Waiting for piano button to appear...');
+    // STEP 5: Wait for piano button to appear
+    console.log('🎹 Step 5: Waiting for piano button to appear...');
     const pianoButton = page.locator('.beep-test-button');
     await expect(pianoButton).toBeVisible({ timeout: 10000 });
     console.log('✅ Piano button visible');
     
-    // STEP 5: Press piano button (simulate mousedown)
-    console.log('🎹 Step 5: Pressing piano button...');
+    // STEP 6: Press piano button (simulate mousedown)
+    console.log('🎹 Step 6: Pressing piano button...');
     
     // Check beeper state before clicking
     const beeperState = await page.evaluate(() => {
@@ -287,8 +294,8 @@ test.describe('Loopback Frequency Test', () => {
     });
     console.log('   Beeper state after click:', JSON.stringify(beeperStateAfter, null, 2));
     
-    // STEP 6: Wait for audio to go through the full pipeline
-    console.log(`⏳ Step 6: Waiting for audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser)...`);
+    // STEP 7: Wait for audio to go through the full pipeline
+    console.log(`⏳ Step 7: Waiting for audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser)...`);
     console.log(`   Initial wait: ${TEST_CONFIG.BEEPER_INITIAL_WAIT}ms`);
     await page.waitForTimeout(TEST_CONFIG.BEEPER_INITIAL_WAIT);
     
@@ -315,8 +322,8 @@ test.describe('Loopback Frequency Test', () => {
       console.log(`   ⚠️  No frequency detected after ${TEST_CONFIG.BEEPER_MAX_WAIT}ms`);
     }
     
-    // STEP 7: Collect multiple frequency readings
-    console.log(`📊 Step 7: Collecting ${TEST_CONFIG.FREQUENCY_READINGS} frequency readings...`);
+    // STEP 8: Collect multiple frequency readings
+    console.log(`📊 Step 8: Collecting ${TEST_CONFIG.FREQUENCY_READINGS} frequency readings...`);
     const frequencies = [];
     
     // Check if frequency analysis is actually running
