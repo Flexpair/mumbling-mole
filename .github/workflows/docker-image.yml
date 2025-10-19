@@ -212,6 +212,7 @@ jobs:
               volumes: []  # No volume mounts needed for prod image
               environment:
                 - MUMBLE_SERVER=murmur:64738
+                - PLAIN_TARGET=1  # Disable SSL to Murmur (self-signed cert)
           EOF
           cat .devcontainer/docker-compose.override.yml
 
