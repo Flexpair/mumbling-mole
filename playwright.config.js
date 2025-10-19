@@ -117,7 +117,9 @@ export default defineConfig({
       name: 'chromium',
       use: { 
         ...devices['Desktop Chrome'],
-        channel: 'chromium' // Use system Chromium if available
+        channel: 'chromium', // Use system Chromium if available
+        // Force headed mode in CI for audio tests (fake devices need rendering context)
+        headless: false
       }
     }
   ],
