@@ -217,9 +217,14 @@ export function initVoice(onData, onUserMediaError) {
 
       // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
       // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
+      let pcmFrameCount = 0;
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
+          pcmFrameCount++;
+          if (pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
+            console.log('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
+          }
           onData(Buffer.from(f32.buffer));
         }
       };

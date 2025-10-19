@@ -136,6 +136,7 @@ export default class UserState {
         }
       })
       .on("voice", (stream) => {
+        console.log('[LOOPBACK-DEBUG] Voice stream received for user:', user.username, 'isLoopback:', this.voiceState.isLoopbackMode());
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
         // Create audio node for playing back received voice
