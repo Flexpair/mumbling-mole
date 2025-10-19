@@ -119,7 +119,8 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         channel: 'chromium', // Use system Chromium if available
         // Force headed mode in CI for audio tests (fake devices need rendering context)
-        headless: false
+        // In Codespace, headless works fine since it has proper audio context
+        headless: process.env.CI ? false : true
       }
     }
   ],
