@@ -3,6 +3,15 @@
 ## Environment
 **Dev Container**: Ubuntu 24.04.3 LTS with Node.js ≥22.0.0. This is a **browser-first** web application (not Node.js app)—code runs in browsers, dev tools are Node-based.
 
+**CRITICAL - Docker Compose Architecture**:
+- Development happens INSIDE a container (`service: mumble` in `.devcontainer/docker-compose.yml`)
+- Murmur server runs in SEPARATE container (`service: murmur`, reachable at `murmur:64738`)
+- Both containers started together via docker-compose
+- FROM INSIDE the dev container: NO docker command access (we ARE in a container!)
+- Murmur MUST be running for Playwright tests to work
+- If `curl -v telnet://murmur:64738` shows "Connection refused": **restart entire Codespace** (cannot restart murmur from inside dev container)
+- Never suggest `docker-compose up` or `docker ps` commands - they won't work from inside the dev container
+
 ## Quick context
 Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI delegates audio transport to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames). Optional Guacamole iframe gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
 
@@ -47,7 +56,9 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
   - `npm run test:quick` = fast subset (audio:system + e2e + audit:ci)
   - `npm run test:audio` = single roundtrip test (sends 440 Hz sine wave to live server)
   - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
+  - `npx playwright test tests/playwright/loopback-frequency.spec.js` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
 **E2E modes**: `node scripts/e2e-check.cjs` (local) vs `--mode=container` (CI); set `PLAIN_TARGET=1` for non-TLS echo servers  
+**Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
@@ -101,7 +112,8 @@ get audioContext() { return this.audio.audioContext; }
 **Worker crashes**: Check browser DevTools → Sources → worker.js for exceptions; worker errors don't always surface in main console  
 **Console logging**: Production builds minimize logs; prefix debug logs with context tags like `[LOOPBACK]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[DEBUG-VOICE]`  
 **Known issue**: Loopback mode misleads debugging—tests same-client playback path, NOT cross-client network/audio playback (see `app/audio/README.md` line 7-18)  
-**Decoder stream invariant**: `decoder-stream.js` uses TransformStream; never push after EOF or call `controller.enqueue()` after `controller.terminate()` (causes "push after EOF" errors)
+**Decoder stream invariant**: `decoder-stream.js` uses TransformStream; never push after EOF or call `controller.enqueue()` after `controller.terminate()` (causes "push after EOF" errors)  
+**Playwright debugging**: Run with `--headed` for visible browser; use `--debug` for step-through debugging; `--trace on` generates detailed trace files in `test-results/`; Codespaces requires public URL auto-detection (configured in `playwright.config.js`)
 
 ## Key file map
 **UI/session**: `app/index.js` (AppState initialization + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
@@ -109,8 +121,8 @@ get audioContext() { return this.audio.audioContext; }
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
-**Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner)  
-**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
+**Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner), `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation)  
+**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Known technical debt
 - **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)

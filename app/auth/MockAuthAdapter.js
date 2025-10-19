@@ -21,7 +21,7 @@ class MockAuthAdapter extends AuthProvider {
     this.autoLoginDelay = options.autoLoginDelay || 0;
     this.throwErrors = options.throwErrors || false;
     
-    this.currentUser = null;
+    this._currentUser = null;
     this.listeners = {};
     this.isOpen = false;
     
@@ -37,11 +37,11 @@ class MockAuthAdapter extends AuthProvider {
   async init() {
     return new Promise((resolve) => {
       setTimeout(() => {
-        this._emit('init', this.currentUser);
+        this._emit('init', this._currentUser);
         
         if (this.autoLogin) {
-          this.currentUser = this._createUser('auto@example.com');
-          this._emit('login', this.currentUser);
+          this._currentUser = this._createUser('auto@example.com');
+          this._emit('login', this._currentUser);
         }
         
         resolve();
@@ -54,7 +54,7 @@ class MockAuthAdapter extends AuthProvider {
    * @returns {Promise<Object|null>}
    */
   async getCurrentUser() {
-    return Promise.resolve(this.currentUser);
+    return Promise.resolve(this._currentUser);
   }
 
   /**
@@ -98,7 +98,7 @@ class MockAuthAdapter extends AuthProvider {
     
     const user = this._createUser(email, metadata);
     this.users.set(email, { password, user });
-    this.currentUser = user;
+    this._currentUser = user;
     
     this._emit('login', user);
     return user;
@@ -126,9 +126,9 @@ class MockAuthAdapter extends AuthProvider {
       throw new Error('Invalid password');
     }
     
-    this.currentUser = userData.user;
-    this._emit('login', this.currentUser);
-    return this.currentUser;
+    this._currentUser = userData.user;
+    this._emit('login', this._currentUser);
+    return this._currentUser;
   }
 
   /**
@@ -138,7 +138,7 @@ class MockAuthAdapter extends AuthProvider {
   async logout() {
     await this._delay(100);
     
-    this.currentUser = null;
+    this._currentUser = null;
     this._emit('logout');
     return Promise.resolve();
   }
@@ -151,19 +151,19 @@ class MockAuthAdapter extends AuthProvider {
   async updateUser(updates) {
     await this._delay(200);
     
-    if (!this.currentUser) {
+    if (!this._currentUser) {
       throw new Error('No user logged in');
     }
     
-    this.currentUser = {
-      ...this.currentUser,
+    this._currentUser = {
+      ...this._currentUser,
       user_metadata: {
-        ...this.currentUser.user_metadata,
+        ...this._currentUser.user_metadata,
         ...updates
       }
     };
     
-    return this.currentUser;
+    return this._currentUser;
   }
 
   /**
@@ -191,7 +191,7 @@ class MockAuthAdapter extends AuthProvider {
   async refreshToken() {
     await this._delay(100);
     
-    if (!this.currentUser) {
+    if (!this._currentUser) {
       throw new Error('No user logged in');
     }
     
@@ -303,7 +303,7 @@ class MockAuthAdapter extends AuthProvider {
    * Reset to initial state (for testing)
    */
   reset() {
-    this.currentUser = null;
+    this._currentUser = null;
     this.listeners = {};
     this.isOpen = false;
     this.users = new Map();
@@ -329,6 +329,31 @@ class MockAuthAdapter extends AuthProvider {
    */
   getAllUsers() {
     return Array.from(this.users.values()).map(u => u.user);
+  }
+
+  /**
+   * Convenience method - sync version of getCurrentUser
+   * @returns {Object|null}
+   */
+  currentUser() {
+    return this._currentUser;
+  }
+
+  /**
+   * Convenience method - alias for openAuth
+   * @param {string} view
+   * @returns {Promise<void>}
+   */
+  open(view = 'login') {
+    return this.openAuth(view);
+  }
+
+  /**
+   * Convenience method - alias for closeAuth
+   * @returns {Promise<void>}
+   */
+  close() {
+    return this.closeAuth();
   }
 }
 

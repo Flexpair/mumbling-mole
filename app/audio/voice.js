@@ -16,6 +16,7 @@ class VoiceHandler extends Writable {
     this._target = target; // Voice routing target (0=normal, 31=loopback)
     this._outbound = null;
     this._mute = false;
+    this._isLoopbackMode = target === 31; // Track loopback mode for debug logging
   }
 
   setMute(mute) {
@@ -217,9 +218,15 @@ export function initVoice(onData, onUserMediaError) {
 
       // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
       // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
+      let pcmFrameCount = 0;
       node.port.onmessage = (ev) => {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
+          pcmFrameCount++;
+          // DEBUG: Log only in loopback mode to avoid performance impact
+          if (this._isLoopbackMode && pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
+            console.log('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
+          }
           onData(Buffer.from(f32.buffer));
         }
       };

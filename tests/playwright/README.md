@@ -1,3 +1,42 @@
+# Playwright E2E Tests
+
+## Overview
+
+This directory contains automated end-to-end tests using Playwright, focusing on browser-based audio pipeline validation.
+
+## Available Tests
+
+### 🎹 Loopback Frequency Test (`loopback-frequency.spec.js`)
+
+Automated validation of the piano button loopback feature.
+
+**Test Scenarios:**
+1. **Frequency Detection** - Verifies ~440 Hz tone is detected and displayed in UI
+2. **Mute/Deaf States** - Validates display behavior when muted/deaf (0 Hz)
+3. **Undeafen Recovery** - Confirms frequency display restores after undeafen
+
+**Quick Start:**
+```bash
+# Basic run (headless)
+npm run test:loopback
+
+# Watch it work (headed mode)
+npm run test:loopback:headed
+
+# Debug mode
+npm run test:loopback:debug
+
+# Interactive UI mode
+npm run test:loopback:ui
+```
+
+**See Also:**
+- 📖 Full strategy: `tests/LOOPBACK_AUTOMATION_STRATEGY.md`
+- 🚀 Quick start guide: `tests/LOOPBACK_QUICKSTART.md`
+- ⚙️ Configuration: `playwright.config.js`
+
+---
+
 # Loopback Test Analysis: What is Tested, What is Not?
 
 ## Your Loopback Test in Detail

@@ -47,26 +47,59 @@ class DecoderStream extends Transform {
     // EOF-GUARD: Prevent push after EOF by checking multiple stream states
     // Worker may send decoded frames after stream.end() was called
     if (this._ended || this.destroyed || this.readableEnded) {
+      // Safe check for debug flag (works in both browser and worker contexts)
+      const debugEnabled = typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO;
+      if (debugEnabled) {
+        console.log('[DEBUG-DECODER] Ignoring message, stream ended');
+      }
       return;
     }
     
     if (data.action === "decoded") {
       const pcm = new Float32Array(data.buffer);
+      const debugEnabled = typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO;
+      if (debugEnabled) {
+        console.log('[DEBUG-DECODER] Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
+      }
       
-      this.push({
-        target: data.target,
-        pcm: pcm,
-        numberOfChannels: data.numberOfChannels,
-        position: data.position,
-      });
+      // Additional safety check: verify stream is still writable before pushing
+      // This prevents "push after EOF" errors when worker messages arrive after _final()
+      if (!this.writableEnded && !this.readableEnded) {
+        try {
+          this.push({
+            target: data.target,
+            pcm: pcm,
+            numberOfChannels: data.numberOfChannels,
+            position: data.position,
+          });
+          if (debugEnabled) {
+            console.log('[DEBUG-DECODER] Pushed decoded data to stream');
+          }
+        } catch (err) {
+          // Silently ignore push errors after stream has ended
+          // This can happen in race conditions during stream cleanup
+          if (debugEnabled) {
+            console.log('[DEBUG-DECODER] Failed to push (stream ended):', err.message);
+          }
+        }
+      } else if (debugEnabled) {
+        console.log('[DEBUG-DECODER] Skipping push, stream ended (writable:', !this.writableEnded, 'readable:', !this.readableEnded, ')');
+      }
     } else {
       throw new Error("unexpected message:" + data);
     }
   }
 
   _transform(chunk, encoding, callback) {
+    const debugEnabled = typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO;
+    if (debugEnabled) {
+      console.log('[DEBUG-DECODER] Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length);
+    }
     if (chunk.frame) {
       const buffer = toArrayBuffer(chunk.frame);
+      if (debugEnabled) {
+        console.log('[DEBUG-DECODER] Sending decode request to worker, action:', 'decode' + chunk.codec, 'buffer size:', buffer.byteLength);
+      }
       this._worker.postMessage(
         {
           action: "decode" + chunk.codec,
@@ -77,6 +110,9 @@ class DecoderStream extends Transform {
         [buffer]
       );
     } else {
+      if (debugEnabled) {
+        console.log('[DEBUG-DECODER] Sending null frame (packet loss) to worker');
+      }
       this._worker.postMessage({
         action: "decode" + chunk.codec,
         buffer: null,

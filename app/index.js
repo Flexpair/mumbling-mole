@@ -44,6 +44,17 @@ async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
 // Debug flag for controlling verbose logging in voice handlers
 const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
+// Check URL parameters for debug-audio flag (used in automated tests)
+const urlParams = new URLSearchParams(window.location.search);
+const isDebugAudio = urlParams.has('debug-audio');
+
+// Set global debug flag for audio pipeline logging
+// This is checked by decoder-stream.js and vendored mumble-streams
+if (isDebugAudio) {
+  window.MUMBLE_DEBUG_AUDIO = true;
+  console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
+}
+
 /**
  * Debug logging function that respects the DEBUG_VOICE_LOGGING flag
  * @param {string} tag - Log tag like '[VOICE]' 
@@ -510,17 +521,8 @@ if (ui.auth) {
 async function initializeUI() {
   // Initialize auth provider
   let user = null;
-  try {
-    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
-      APIUrl: "https://welcome.flexpair.com/identity-proxy",
-      locale: "en",
-      logo: false,
-    });
-    user = ui.auth.currentUser();
-  } catch (e) {
-    console.warn('[Auth] Initialization failed; continuing without authentication', e);
-  }
-
+  
+  // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
     const username = getUsernameFromMetadata(user);
     if (username) {
@@ -545,6 +547,18 @@ async function initializeUI() {
     // Show connect dialog even if auth fails to allow retry
     ui.connectDialog.show();
   });
+
+  // Now initialize auth (event handlers are already registered)
+  try {
+    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
+      APIUrl: "https://welcome.flexpair.com/identity-proxy",
+      locale: "en",
+      logo: false,
+    });
+    user = ui.auth.currentUser();
+  } catch (e) {
+    console.warn('[Auth] Initialization failed; continuing without authentication', e);
+  }
 
   if (user == null) {
     // Hide connect dialog when showing authentication modal

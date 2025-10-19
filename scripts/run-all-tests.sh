@@ -57,11 +57,8 @@ echo "╚═══════════════════════�
 echo ""
 
 # Alle Tests ausführen
-run_test "Audio-System Test" "npm run test:audio:system"
-AUDIO_RESULT=$?
-
-run_test "E2E WebSocket Test" "npm run test:e2e"
-E2E_RESULT=$?
+run_test "Playwright Loopback Test" "npm run test:loopback"
+LOOPBACK_RESULT=$?
 
 run_test "Dependency Audit" "npm run audit:ci"
 AUDIT_RESULT=$?

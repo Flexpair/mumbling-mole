@@ -2,6 +2,25 @@
 
 Comprehensive documentation for testing the audio system, both in local DevContainers and in GitHub Codespaces.
 
+## ⚠️ CRITICAL: Docker Compose Architecture
+
+**This project runs in a multi-container docker-compose environment:**
+
+- **Development container** (`service: mumble`): Where you work (this container, no docker access)
+- **Murmur server** (`service: murmur`): Mumble server at `murmur:64738` (separate container)
+- **Both containers** are started together via docker-compose
+
+**For Playwright tests to work, the Murmur container MUST be running!**
+
+If tests fail with "Connection refused" to `murmur:64738`:
+```bash
+# Check if murmur is reachable
+curl -v --connect-timeout 2 telnet://murmur:64738 2>&1 | grep -E "Connected|refused"
+
+# If "Connection refused": Restart the ENTIRE Codespace
+# (You cannot restart murmur from inside this container)
+```
+
 ## 📋 Table of Contents
 
 - [Quick Start](#-quick-start)
@@ -1162,6 +1181,166 @@ npm run test:server:down   # Server stoppen
 ### Für CI/CD:
 ```bash
 npm run test:audio:system  # In Pipeline einbinden
+```
+
+---
+
+## 🎹 Automated Loopback Frequency Testing
+
+### Overview
+
+Automated E2E testing for the piano button (🎹) loopback feature using Playwright. This validates the complete audio pipeline: the system encodes a 440 Hz tone, transmits it via Mumble protocol, decodes it, analyzes the frequency, and displays ~440 Hz on the UI.
+
+### Quick Start
+
+```bash
+# Run the automated loopback test
+npx playwright test tests/playwright/loopback-frequency.spec.js
+
+# With visible browser (debugging)
+npx playwright test tests/playwright/loopback-frequency.spec.js --headed
+
+# Generate trace for debugging
+npx playwright test tests/playwright/loopback-frequency.spec.js --trace on
+```
+
+### What Gets Tested
+
+The automated test validates:
+
+1. **✅ Frequency Detection**: 440 Hz ±5% (averages 439.5-439.8 Hz)
+2. **✅ UI Display**: Real-time frequency shown in interface
+3. **✅ Cleanup**: Display clears on button release
+4. **✅ Mute State**: Mute prevents frequency display (0 Hz)
+5. **✅ Deaf State**: Deaf prevents frequency display (0 Hz)
+6. **✅ Undeafen**: Frequency display restores after undeafen
+
+### Test Flow
+
+```
+Playwright launches Chromium (fake audio devices)
+    ↓
+Navigates to app (GitHub Codespaces URL auto-detected)
+    ↓
+Clicks "Continue" on Codespaces interstitial (if present)
+    ↓
+MockAuth auto-login (bypasses Netlify Identity)
+    ↓
+Clicks "Audio Test" toggle (activates loopback mode)
+    ↓
+Waits for WebSocket connection to Mumble server
+    ↓
+Simulates mousedown on piano button (🎹)
+    ↓
+Waits for audio pipeline (~750-800ms)
+    ↓
+Collects 5 frequency readings (100ms apart)
+    ↓
+Validates: average ≈ 440 Hz (±5%)
+    ↓
+Verifies UI display shows frequency
+    ↓
+Tests mute/deaf states
+    ↓
+Simulates mouseup (releases button)
+    ↓
+Verifies frequency clears
+    ↓
+✅ Test passes (typically ~25-26s)
+```
+
+### Audio Pipeline Tested
+
+The test validates the complete audio chain:
+
+1. **Beeper Initialization** - 440 Hz oscillator creation
+2. **Audio Encoding** - Opus encoding via encode-worker
+3. **Worker Communication** - postMessage between threads
+4. **WebSocket Transport** - Packet transmission to server
+5. **Server Loopback** - Echo back to same client (target=31)
+6. **Audio Decoding** - Opus decoding via decode-worker
+7. **Frequency Analysis** - FFT via AnalyserNode (32768 points)
+8. **UI Updates** - Observable updates (loopbackDominantFrequency)
+9. **Display Rendering** - DOM updates with Hz value
+10. **Cleanup** - Proper teardown on button release
+
+### Test Results (Production)
+
+```
+✅ First frequency detected: ~750-800ms
+✅ Average frequency: 439.5-439.8 Hz (within 440 Hz ±5%)
+✅ Mute prevents display: 0 Hz ✓
+✅ Deaf prevents display: 0 Hz ✓
+✅ Undeafen restores: 436-440 Hz ✓
+⏱️  Total test duration: ~25-26s
+```
+
+### Technical Implementation
+
+- **Playwright 1.56.1**: Browser automation with Chromium
+- **MockAuth Adapter**: Bypasses Netlify Identity for automated testing
+- **Codespaces Integration**: Auto-detects GitHub Codespaces public URLs
+- **Dynamic Timing**: Waits for complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser)
+- **UI Button Testing**: Uses actual mute/deaf buttons instead of API calls
+
+### Configuration
+
+Test configuration in `tests/playwright/loopback-frequency.spec.js`:
+
+```javascript
+const TEST_CONFIG = {
+  EXPECTED_FREQUENCY: 440,         // Hz
+  FREQUENCY_TOLERANCE: 0.05,       // ±5%
+  CONNECTION_TIMEOUT: 20000,       // 20s
+  BEEPER_INITIAL_WAIT: 1000,       // 1s initial wait
+  BEEPER_MAX_WAIT: 5000,           // 5s max wait for first frequency
+  FREQUENCY_READINGS: 5,           // Number of samples
+  READING_INTERVAL: 100            // ms between readings
+};
+```
+
+### Known Issues
+
+**Stream EOF Warnings**: `stream.push() after EOF` warnings appear during mute/deaf state changes
+- Documented in `copilot-instructions.md` as known decoder-stream issue
+- Does not affect test functionality or assertions
+- Test passes consistently despite warnings
+
+### Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| **Connection refused to murmur:64738** | **Murmur container not running** | **Restart entire Codespace** (see architecture note at top) |
+| Connection timeout | Server not running | Verify murmur container is running |
+| AudioContext suspended | Autoplay policy | Check `playwright.config.js` flags |
+| Frequency not detected | Analysis timing | Increase `BEEPER_INITIAL_WAIT` to 1500ms |
+| Browser doesn't open | Chromium not installed | `npx playwright install chromium` |
+| Codespaces Continue button not found | Running locally | Set `PLAYWRIGHT_BASE_URL=http://localhost:8081` |
+| `voiceHandlerReady` stays false | No connection to Murmur | Check murmur reachability: `curl -v telnet://murmur:64738` |
+
+### Files Modified
+
+- `playwright.config.js`: Codespaces URL auto-detection
+- `app/config.local.js`: Enable MockAuth for Codespaces domains
+- `tests/playwright/loopback-frequency.spec.js`: Complete test suite
+- `package.json` + `package-lock.json`: Playwright dependencies
+- `Dockerfile`: Chromium system dependencies
+
+### CI/CD Integration
+
+The test is ready for CI/CD integration:
+
+```yaml
+# GitHub Actions example
+- name: Run Loopback Test
+  run: npx playwright test tests/playwright/loopback-frequency.spec.js
+  
+- name: Upload test results
+  if: always()
+  uses: actions/upload-artifact@v3
+  with:
+    name: playwright-report
+    path: test-results/playwright-report/
 ```
 
 ---

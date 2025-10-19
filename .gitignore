@@ -30,6 +30,15 @@ coverage/
 *.tsbuildinfo
 .tmp/
 
+# Playwright test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Browser configs (Playwright/Chromium)
+.config/
+.pki/
+
 # ============================================================
 # Node.js Dependencies
 # ============================================================
@@ -52,6 +61,7 @@ jspm_packages/
 .devcontainer/*Marker
 .devcontainer/murmur_config/
 .devcontainer/murmur_data/
+.devcontainer/docker-compose.override.yml
 .cache/
 .dotnet/
 

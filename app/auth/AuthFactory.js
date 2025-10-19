@@ -1,4 +1,5 @@
 import NetlifyIdentityAdapter from './NetlifyIdentityAdapter.js';
+import MockAuthAdapter from './MockAuthAdapter.js';
 // Import other adapters as they're implemented:
 // import SupabaseAuthAdapter from './SupabaseAuthAdapter.js';
 // import Auth0Adapter from './Auth0Adapter.js';
@@ -41,12 +42,16 @@ class AuthFactory {
     }
 
     const provider = authConfig.provider || 'netlify';
-    const options = authConfig.options || {};
+    // Provider-specific options (e.g., config.auth.netlify, config.auth.mock)
+    const providerOptions = authConfig[provider.toLowerCase()] || {};
 
     switch (provider.toLowerCase()) {
       case 'netlify':
       case 'netlify-identity':
         return new NetlifyIdentityAdapter();
+
+      case 'mock':
+        return new MockAuthAdapter(providerOptions);
 
       // Uncomment and implement as needed:
       /*
@@ -81,6 +86,7 @@ class AuthFactory {
   static getSupportedProviders() {
     return [
       'netlify',
+      'mock',
       // Add more as they're implemented:
       // 'supabase',
       // 'auth0',
