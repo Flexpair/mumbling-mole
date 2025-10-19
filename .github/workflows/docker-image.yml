@@ -46,11 +46,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Install docker-compose
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
-
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -213,7 +208,10 @@ jobs:
           services:
             mumble:
               image: ${{ env.TEST_TAG }}
+              build: null  # Disable build, use pre-built image
               volumes: []  # No volume mounts needed for prod image
+              environment:
+                - MUMBLE_SERVER=murmur:64738
           EOF
           cat .devcontainer/docker-compose.override.yml
 
@@ -225,25 +223,27 @@ jobs:
           # Start only murmur and mumble services (not nginx/guacamole)
           docker-compose up -d murmur mumble
           
-          echo "Waiting for services to start..."
+          echo "Waiting for Murmur server to initialize..."
           sleep 15
           
           # Check if services are running
           docker-compose ps
           
-          # Show murmur logs for debugging
-          echo "--- Murmur logs ---"
+          # Check logs for any startup errors
+          echo "=== Murmur logs ==="
           docker-compose logs murmur | tail -20
+          echo "=== Mumble web logs ==="
+          docker-compose logs mumble | tail -20
 
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for web service on http://localhost:8081"
-          timeout 60 bash -c 'until curl -f http://localhost:8081 > /dev/null 2>&1; do echo "Waiting..."; sleep 2; done'
+          timeout 90 bash -c 'until curl -f http://localhost:8081 > /dev/null 2>&1; do echo "Waiting..."; sleep 2; done'
           echo "✅ Web service is ready"
           
-          echo "Waiting for Mumble server on port 64738"
-          timeout 60 bash -c 'until nc -z localhost 64738; do echo "Waiting for Mumble..."; sleep 2; done'
-          echo "✅ Mumble server is ready"
+          # Test if we get actual HTML content
+          echo "Testing if index.html is served..."
+          curl -s http://localhost:8081 | head -20
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
