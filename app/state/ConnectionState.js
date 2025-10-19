@@ -35,7 +35,7 @@ export default class ConnectionState {
   /**
    * Connect to Mumble server via WebSocket
    * @param {string} host - Server hostname
-   * @param {string|number} port - Server port (can be "443/murmur" format with path)
+   * @param {string|number} port - Server port. Can be a number (e.g., 64738) or a string in the format "port/path" (e.g., "443/murmur" or "443/ws").
    * @param {string} username - Username
    * @param {string} password - Password
    * @param {Array} tokens - Access tokens

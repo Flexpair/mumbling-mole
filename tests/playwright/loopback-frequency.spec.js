@@ -59,9 +59,10 @@ test.describe('Loopback Frequency Test', () => {
     });
     
     // Navigate to app with mock-auth parameter to bypass Netlify Identity
+    // Also enable debug-audio for detailed audio pipeline logging during tests
     console.log('🌐 Navigating to application...');
     
-    await page.goto('/?mock-auth', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('/?mock-auth&debug-audio', { waitUntil: 'networkidle', timeout: 30000 });
     
     // Handle GitHub Codespaces "Continue" button if present
     console.log('🔍 Checking for GitHub Codespaces interstitial page...');
@@ -97,8 +98,10 @@ test.describe('Loopback Frequency Test', () => {
         const passwordInput = iframe.locator('input[type="password"]');
         
         if (await emailInput.isVisible({ timeout: 2000 })) {
-          const testEmail = process.env.TEST_EMAIL || 'test@example.com';
-          const testPassword = process.env.TEST_PASSWORD || 'testpassword';
+          // Use obviously fake test credentials with fallback for local testing
+          // In production/CI, mock-auth bypasses this entirely
+          const testEmail = process.env.TEST_EMAIL || 'playwright-test@mumbling-mole.local';
+          const testPassword = process.env.TEST_PASSWORD || 'playwright-automated-test-password';
           
           console.log(`🔐 Logging in as ${testEmail}...`);
           await emailInput.fill(testEmail);

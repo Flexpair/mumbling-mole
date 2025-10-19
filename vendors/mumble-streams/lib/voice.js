@@ -253,7 +253,11 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
   } catch (e) {
     return callback(e);
   }
-  console.warn('[MUMBLE-STREAMS-DEBUG] Voice packet parsed successfully - source:', packet.source, 'target:', packet.target, 'codec:', packet.codec, 'frames:', packet.frames?.length, 'seqNum:', packet.seqNum);
+  // DEBUG: Log only when MUMBLE_DEBUG_AUDIO flag is set (via ?debug-audio URL parameter)
+  // This prevents performance impact from logging every voice packet in production
+  if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+    console.warn('[MUMBLE-STREAMS-DEBUG] Voice packet parsed successfully - source:', packet.source, 'target:', packet.target, 'codec:', packet.codec, 'frames:', packet.frames?.length, 'seqNum:', packet.seqNum);
+  }
   return callback(null, packet);
 };
 

@@ -16,6 +16,7 @@ class VoiceHandler extends Writable {
     this._target = target; // Voice routing target (0=normal, 31=loopback)
     this._outbound = null;
     this._mute = false;
+    this._isLoopbackMode = target === 31; // Track loopback mode for debug logging
   }
 
   setMute(mute) {
@@ -222,7 +223,8 @@ export function initVoice(onData, onUserMediaError) {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
           pcmFrameCount++;
-          if (pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
+          // DEBUG: Log only in loopback mode to avoid performance impact
+          if (this._isLoopbackMode && pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
             console.warn('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
           }
           onData(Buffer.from(f32.buffer));

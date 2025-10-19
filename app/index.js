@@ -44,6 +44,17 @@ async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
 // Debug flag for controlling verbose logging in voice handlers
 const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
+// Check URL parameters for debug-audio flag (used in automated tests)
+const urlParams = new URLSearchParams(window.location.search);
+const isDebugAudio = urlParams.has('debug-audio');
+
+// Set global debug flag for audio pipeline logging
+// This is checked by decoder-stream.js and vendored mumble-streams
+if (isDebugAudio) {
+  window.MUMBLE_DEBUG_AUDIO = true;
+  console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
+}
+
 /**
  * Debug logging function that respects the DEBUG_VOICE_LOGGING flag
  * @param {string} tag - Log tag like '[VOICE]' 
