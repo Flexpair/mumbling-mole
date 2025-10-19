@@ -277,6 +277,15 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
+      - name: Install PulseAudio for Web Audio API
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio
+          # Start PulseAudio in dummy output mode (no real hardware needed)
+          pulseaudio --start --exit-idle-time=-1 --log-target=syslog || true
+          # Verify PulseAudio is running
+          pactl info || echo "Warning: PulseAudio not running"
+
       - name: Run Playwright loopback tests
         env:
           PLAYWRIGHT_BASE_URL: https://localhost
