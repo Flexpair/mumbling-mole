@@ -58,10 +58,10 @@ test.describe('Loopback Frequency Test', () => {
       console.error(`[PAGE EXCEPTION] ${error.message}\n${error.stack}`);
     });
     
-    // Navigate to app
+    // Navigate to app with mock-auth parameter to bypass Netlify Identity
     console.log('🌐 Navigating to application...');
     
-    await page.goto('/', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('/?mock-auth', { waitUntil: 'networkidle', timeout: 30000 });
     
     // Handle GitHub Codespaces "Continue" button if present
     console.log('🔍 Checking for GitHub Codespaces interstitial page...');
