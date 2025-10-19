@@ -183,6 +183,15 @@ export default class UserState {
             
             analyserNode.getByteFrequencyData(dataArray);
             
+            // DEBUG: Log raw FFT data to diagnose why amplitude is 0
+            const nonZeroCount = dataArray.filter(v => v > 0).length;
+            const maxInArray = Math.max(...dataArray);
+            if (nonZeroCount === 0) {
+              console.log('[LOOPBACK-FREQ-DEBUG] All FFT bins are ZERO - no audio data in AnalyserNode');
+            } else {
+              console.log('[LOOPBACK-FREQ-DEBUG] FFT data: non-zero bins:', nonZeroCount, '/', bufferLength, 'max amplitude:', maxInArray);
+            }
+            
             // Find dominant frequency (bin with highest amplitude)
             let maxAmplitude = 0;
             let maxIndex = 0;
