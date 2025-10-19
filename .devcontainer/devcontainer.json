@@ -6,7 +6,7 @@
   "remoteUser": "node",
   "overrideCommand": true,
 
-  "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole'",
+  "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole'",
   "postStartCommand": "bash -lc 'cd /home/node && echo \"🔧 Starting dev server via postStartCommand...\" && ./start-dev-server.sh && echo \"✅ postStartCommand completed\"'",
 
   "portsAttributes": {

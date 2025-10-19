@@ -26,8 +26,8 @@ npm run test:loopback:headed
 # Debug mode
 npm run test:loopback:debug
 
-# Or use convenience script
-./scripts/run-loopback-test.sh --headed
+# Interactive UI mode
+npm run test:loopback:ui
 ```
 
 **See Also:**
