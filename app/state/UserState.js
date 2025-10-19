@@ -136,16 +136,12 @@ export default class UserState {
         }
       })
       .on("voice", (stream) => {
-        console.warn('[DEBUG-USER-VOICE] Voice event received for user:', user.username, 'isLoopback:', this.voiceState.isLoopbackMode());
-        console.warn('[DEBUG-USER-VOICE] Stream type:', stream?.constructor?.name, 'readable:', stream?.readable);
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
         // Create audio node for playing back received voice
-        console.warn('[DEBUG-USER-VOICE] Creating BufferQueueNode with audioContext state:', this.audioState.audioContext?.state);
         var userNode = new BufferQueueNode({
           audioContext: this.audioState.audioContext,
         });
-        console.warn('[DEBUG-USER-VOICE] BufferQueueNode created successfully');
         
         // Create a GainNode to control volume (for deafen functionality)
         var gainNode = this.audioState.audioContext.createGain();
@@ -186,17 +182,6 @@ export default class UserState {
             }
             
             analyserNode.getByteFrequencyData(dataArray);
-            
-            // DEBUG: Log raw FFT data only in loopback mode to avoid performance impact
-            if (this.voiceState && this.voiceState.isLoopbackMode()) {
-              const nonZeroCount = dataArray.filter(v => v > 0).length;
-              const maxInArray = Math.max(...dataArray);
-              if (nonZeroCount === 0) {
-                console.warn('[LOOPBACK-FREQ-DEBUG] All FFT bins are ZERO - no audio data in AnalyserNode');
-              } else {
-                console.warn('[LOOPBACK-FREQ-DEBUG] FFT data: non-zero bins:', nonZeroCount, '/', bufferLength, 'max amplitude:', maxInArray);
-              }
-            }
             
             // Find dominant frequency (bin with highest amplitude)
             let maxAmplitude = 0;
@@ -249,7 +234,6 @@ export default class UserState {
 
         stream
           .on("data", (data) => {
-            console.warn('[DEBUG-STREAM-DATA] Audio data received, target:', data.target, 'buffer length:', data.buffer?.length, 'buffer type:', data.buffer?.constructor?.name);
             debugLog('[VOICE]', 'Audio data received, target:', data.target);
             
             if (data.target === "normal") {
@@ -263,12 +247,9 @@ export default class UserState {
               debugLog('[VOICE]', 'Loopback audio received!');
             }
             
-            console.warn('[DEBUG-STREAM-DATA] Writing buffer to BufferQueueNode');
             userNode.write(data.buffer);
-            console.warn('[DEBUG-STREAM-DATA] Buffer written successfully');
           })
           .on("end", () => {
-            console.warn('[DEBUG-STREAM-END] Voice stream ended for user:', user.username);
             debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
             ui.talking("off");
             userNode.end();

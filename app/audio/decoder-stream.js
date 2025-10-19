@@ -50,7 +50,7 @@ class DecoderStream extends Transform {
       // Safe check for debug flag (works in both browser and worker contexts)
       const debugEnabled = typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO;
       if (debugEnabled) {
-        console.warn('[DEBUG-DECODER] Ignoring message, stream ended');
+        console.log('[DEBUG-DECODER] Ignoring message, stream ended');
       }
       return;
     }
@@ -59,7 +59,7 @@ class DecoderStream extends Transform {
       const pcm = new Float32Array(data.buffer);
       const debugEnabled = typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO;
       if (debugEnabled) {
-        console.warn('[DEBUG-DECODER] Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
+        console.log('[DEBUG-DECODER] Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
       }
       
       this.push({
@@ -69,7 +69,7 @@ class DecoderStream extends Transform {
         position: data.position,
       });
       if (debugEnabled) {
-        console.warn('[DEBUG-DECODER] Pushed decoded data to stream');
+        console.log('[DEBUG-DECODER] Pushed decoded data to stream');
       }
     } else {
       throw new Error("unexpected message:" + data);
@@ -79,12 +79,12 @@ class DecoderStream extends Transform {
   _transform(chunk, encoding, callback) {
     const debugEnabled = typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO;
     if (debugEnabled) {
-      console.warn('[DEBUG-DECODER] Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length);
+      console.log('[DEBUG-DECODER] Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length);
     }
     if (chunk.frame) {
       const buffer = toArrayBuffer(chunk.frame);
       if (debugEnabled) {
-        console.warn('[DEBUG-DECODER] Sending decode request to worker, action:', 'decode' + chunk.codec, 'buffer size:', buffer.byteLength);
+        console.log('[DEBUG-DECODER] Sending decode request to worker, action:', 'decode' + chunk.codec, 'buffer size:', buffer.byteLength);
       }
       this._worker.postMessage(
         {
@@ -97,7 +97,7 @@ class DecoderStream extends Transform {
       );
     } else {
       if (debugEnabled) {
-        console.warn('[DEBUG-DECODER] Sending null frame (packet loss) to worker');
+        console.log('[DEBUG-DECODER] Sending null frame (packet loss) to worker');
       }
       this._worker.postMessage({
         action: "decode" + chunk.codec,

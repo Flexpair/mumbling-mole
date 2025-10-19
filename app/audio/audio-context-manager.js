@@ -138,17 +138,6 @@ class AudioContextManager {
     // BROWSER-COMPAT: Not all browsers support addEventListener on AudioContext
     if (typeof this.audioContext.addEventListener === 'function') {
       this.audioContext.addEventListener('statechange', () => {
-        // DETAILED-LOGGING: Log comprehensive state information for debugging
-        // This helps diagnose audio issues in production without verbose debug logs
-        console.log('[AudioContext] State changed to:', this.audioContext.state);
-        console.log('[AudioContext] Full state:', {
-          state: this.audioContext.state,
-          sampleRate: this.audioContext.sampleRate,
-          currentTime: this.audioContext.currentTime,
-          baseLatency: this.audioContext.baseLatency,
-          outputLatency: this.audioContext.outputLatency
-        });
-        
         // SUSPEND-CALLBACKS: Notify listeners when AudioContext is suspended
         // This allows components to pause audio-related operations
         if (this.audioContext.state === 'suspended') {
