@@ -136,7 +136,7 @@ export default class UserState {
         }
       })
       .on("voice", (stream) => {
-        console.log('[LOOPBACK-DEBUG] Voice stream received for user:', user.username, 'isLoopback:', this.voiceState.isLoopbackMode());
+        console.warn('[LOOPBACK-DEBUG] Voice stream received for user:', user.username, 'isLoopback:', this.voiceState.isLoopbackMode());
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
         // Create audio node for playing back received voice
@@ -188,9 +188,9 @@ export default class UserState {
             const nonZeroCount = dataArray.filter(v => v > 0).length;
             const maxInArray = Math.max(...dataArray);
             if (nonZeroCount === 0) {
-              console.log('[LOOPBACK-FREQ-DEBUG] All FFT bins are ZERO - no audio data in AnalyserNode');
+            console.warn('[LOOPBACK-FREQ-DEBUG] All FFT bins are ZERO - no audio data in AnalyserNode');
             } else {
-              console.log('[LOOPBACK-FREQ-DEBUG] FFT data: non-zero bins:', nonZeroCount, '/', bufferLength, 'max amplitude:', maxInArray);
+              console.warn('[LOOPBACK-FREQ-DEBUG] FFT data: non-zero bins:', nonZeroCount, '/', bufferLength, 'max amplitude:', maxInArray);
             }
             
             // Find dominant frequency (bin with highest amplitude)

@@ -129,7 +129,7 @@ function setupUser(id, user) {
     return [actor, props];
   });
   registerEventProxy(id, user, "voice", (stream) => {
-    console.log('[LOOPBACK-DEBUG-WORKER] Voice stream started for user ID:', id);
+    console.warn('[LOOPBACK-DEBUG-WORKER] Voice stream started for user ID:', id);
     let voiceId = nextVoiceId++;
 
     let target;
@@ -140,7 +140,7 @@ function setupUser(id, user) {
     // Pipe stream into resampler
     stream
       .on("data", (data) => {
-        console.log('[LOOPBACK-DEBUG-WORKER] Voice data received, target:', data.target, 'pcm length:', data.pcm.length);
+        console.warn('[LOOPBACK-DEBUG-WORKER] Voice data received, target:', data.target, 'pcm length:', data.pcm.length);
         // store target so we can pass it on after resampling
         target = data.target;
         resampler.write(Buffer.from(data.pcm.buffer));
@@ -395,7 +395,7 @@ function onMessage(data) {
         let voiceId = payload.shift();
         let samplesPerPacket = payload.shift();
         
-        console.log('[LOOPBACK-DEBUG-WORKER] createVoiceStream called with payload:', payload, 'voiceId:', voiceId, 'samplesPerPacket:', samplesPerPacket);
+        console.warn('[LOOPBACK-DEBUG-WORKER] createVoiceStream called with payload:', payload, 'voiceId:', voiceId, 'samplesPerPacket:', samplesPerPacket);
 
         let stream = target.createVoiceStream.apply(target, payload);
 

@@ -223,7 +223,7 @@ export function initVoice(onData, onUserMediaError) {
           const f32 = new Float32Array(ev.data.data);
           pcmFrameCount++;
           if (pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
-            console.log('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
+            console.warn('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
           }
           onData(Buffer.from(f32.buffer));
         }
