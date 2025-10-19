@@ -82,7 +82,7 @@ class User extends EventEmitter {
     if (!this._voice) {
       // New transmission
       if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-        console.warn('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
+        console.log('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
       }
       if (!this._client._codecs) {
         // No codecs available, cannot decode
@@ -92,13 +92,13 @@ class User extends EventEmitter {
         this._voice = DropStream.obj()
       } else {
         if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-          console.warn('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
+          console.log('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
         }
         this._voice = this._client._codecs.createDecoderStream(this)
       }
       this._voice.once('close', () => {
         if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-          console.warn('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
+          console.log('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
         }
         this._voice = null
       })
@@ -109,12 +109,12 @@ class User extends EventEmitter {
         }
       }, this._client._options.userVoiceTimeout || 200).set()
       if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-        console.warn('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
+        console.log('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
       }
       this.emit('voice', this._voice)
     } else {
       if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-        console.warn('[MUMBLE-USER-DEBUG] Voice stream already exists, reusing existing stream');
+        console.log('[MUMBLE-USER-DEBUG] Voice stream already exists, reusing existing stream');
       }
     }
     return this._voice
@@ -140,7 +140,7 @@ class User extends EventEmitter {
    */
   _onVoice (seqNum, codec, target, frames, position, end) {
     if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-      console.warn('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end);
+      console.log('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end);
     }
     if (frames.length > 0) {
       const duration = this._getDuration(codec, frames)
@@ -177,7 +177,7 @@ class User extends EventEmitter {
           position: position
         };
         if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
-          console.warn('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null');
+          console.log('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null');
         }
         this._getOrCreateVoiceStream().write(writeData)
       })

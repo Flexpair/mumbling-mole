@@ -225,7 +225,7 @@ export function initVoice(onData, onUserMediaError) {
           pcmFrameCount++;
           // DEBUG: Log only in loopback mode to avoid performance impact
           if (this._isLoopbackMode && pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
-            console.warn('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
+            console.log('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
           }
           onData(Buffer.from(f32.buffer));
         }
