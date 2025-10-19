@@ -228,7 +228,8 @@ jobs:
               volumes: []  # No volume mounts needed for prod image
               environment:
                 - MUMBLE_SERVER=murmur:64738
-                - PLAIN_TARGET=1  # Disable SSL to Murmur (self-signed cert)
+                # Note: websockify connects to Murmur with SSL (Murmur's self-signed cert)
+                # This is the default behavior, no PLAIN_TARGET needed
             nginx:
               environment:
                 - SSL_DOMAIN=localhost  # Use localhost cert in CI
