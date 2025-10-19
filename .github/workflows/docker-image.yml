@@ -225,17 +225,25 @@ jobs:
           # Start only murmur and mumble services (not nginx/guacamole)
           docker-compose up -d murmur mumble
           
-          echo "Waiting for services to be ready..."
-          sleep 10
+          echo "Waiting for services to start..."
+          sleep 15
           
           # Check if services are running
           docker-compose ps
+          
+          # Show murmur logs for debugging
+          echo "--- Murmur logs ---"
+          docker-compose logs murmur | tail -20
 
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for web service on http://localhost:8081"
           timeout 60 bash -c 'until curl -f http://localhost:8081 > /dev/null 2>&1; do echo "Waiting..."; sleep 2; done'
           echo "✅ Web service is ready"
+          
+          echo "Waiting for Mumble server on port 64738"
+          timeout 60 bash -c 'until nc -z localhost 64738; do echo "Waiting for Mumble..."; sleep 2; done'
+          echo "✅ Mumble server is ready"
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
