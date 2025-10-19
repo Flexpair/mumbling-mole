@@ -30,6 +30,15 @@ coverage/
 *.tsbuildinfo
 .tmp/
 
+# Playwright test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Browser configs (Playwright/Chromium)
+.config/
+.pki/
+
 # ============================================================
 # Node.js Dependencies
 # ============================================================
