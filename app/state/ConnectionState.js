@@ -54,8 +54,10 @@ export default class ConnectionState {
       const portStr = String(port);
       
       if (portStr.includes('/')) {
-        // Format: "443/path" → wss://host/path
-        const [portNum, path] = portStr.split('/');
+        // Format: "443/path" or "443/path/subpath" → wss://host/path or wss://host/path/subpath
+        const slashIndex = portStr.indexOf('/');
+        const portNum = portStr.substring(0, slashIndex);
+        const path = portStr.substring(slashIndex + 1);
         const protocol = portNum === '443' ? 'wss' : 'ws';
         wsUrl = portNum === '443' || portNum === '80'
           ? `${protocol}://${host}/${path}`
