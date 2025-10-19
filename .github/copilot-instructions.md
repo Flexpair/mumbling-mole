@@ -3,6 +3,15 @@
 ## Environment
 **Dev Container**: Ubuntu 24.04.3 LTS with Node.js ≥22.0.0. This is a **browser-first** web application (not Node.js app)—code runs in browsers, dev tools are Node-based.
 
+**CRITICAL - Docker Compose Architecture**:
+- Development happens INSIDE a container (`service: mumble` in `.devcontainer/docker-compose.yml`)
+- Murmur server runs in SEPARATE container (`service: murmur`, reachable at `murmur:64738`)
+- Both containers started together via docker-compose
+- FROM INSIDE the dev container: NO docker command access (we ARE in a container!)
+- Murmur MUST be running for Playwright tests to work
+- If `curl -v telnet://murmur:64738` shows "Connection refused": **restart entire Codespace** (cannot restart murmur from inside dev container)
+- Never suggest `docker-compose up` or `docker ps` commands - they won't work from inside the dev container
+
 ## Quick context
 Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI delegates audio transport to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames). Optional Guacamole iframe gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
 

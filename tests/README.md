@@ -2,6 +2,25 @@
 
 Comprehensive documentation for testing the audio system, both in local DevContainers and in GitHub Codespaces.
 
+## ⚠️ CRITICAL: Docker Compose Architecture
+
+**This project runs in a multi-container docker-compose environment:**
+
+- **Development container** (`service: mumble`): Where you work (this container, no docker access)
+- **Murmur server** (`service: murmur`): Mumble server at `murmur:64738` (separate container)
+- **Both containers** are started together via docker-compose
+
+**For Playwright tests to work, the Murmur container MUST be running!**
+
+If tests fail with "Connection refused" to `murmur:64738`:
+```bash
+# Check if murmur is reachable
+curl -v --connect-timeout 2 telnet://murmur:64738 2>&1 | grep -E "Connected|refused"
+
+# If "Connection refused": Restart the ENTIRE Codespace
+# (You cannot restart murmur from inside this container)
+```
+
 ## 📋 Table of Contents
 
 - [Quick Start](#-quick-start)
@@ -1291,11 +1310,13 @@ const TEST_CONFIG = {
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
+| **Connection refused to murmur:64738** | **Murmur container not running** | **Restart entire Codespace** (see architecture note at top) |
 | Connection timeout | Server not running | Verify murmur container is running |
 | AudioContext suspended | Autoplay policy | Check `playwright.config.js` flags |
 | Frequency not detected | Analysis timing | Increase `BEEPER_INITIAL_WAIT` to 1500ms |
 | Browser doesn't open | Chromium not installed | `npx playwright install chromium` |
 | Codespaces Continue button not found | Running locally | Set `PLAYWRIGHT_BASE_URL=http://localhost:8081` |
+| `voiceHandlerReady` stays false | No connection to Murmur | Check murmur reachability: `curl -v telnet://murmur:64738` |
 
 ### Files Modified
 
