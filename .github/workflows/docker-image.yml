@@ -279,9 +279,9 @@ jobs:
 
       - name: Run Playwright loopback tests
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:8081
+          PLAYWRIGHT_BASE_URL: https://localhost
           CI: true
-        run: npm run test:loopback
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" npm run test:loopback
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
