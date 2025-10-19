@@ -253,6 +253,7 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
   } catch (e) {
     return callback(e);
   }
+  console.warn('[MUMBLE-STREAMS-DEBUG] Voice packet parsed successfully - source:', packet.source, 'target:', packet.target, 'codec:', packet.codec, 'frames:', packet.frames?.length, 'seqNum:', packet.seqNum);
   return callback(null, packet);
 };
 

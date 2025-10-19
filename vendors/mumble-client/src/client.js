@@ -320,7 +320,13 @@ class MumbleClient extends EventEmitter {
    * Forwards the packet to the source user.
    */
   _onVoice (chunk) {
+    console.warn('[MUMBLE-CLIENT-DEBUG] _onVoice called - source:', chunk.source, 'target:', chunk.target, 'codec:', chunk.codec, 'frames:', chunk.frames?.length);
     const user = this._userById[chunk.source]
+    if (!user) {
+      console.warn('[MUMBLE-CLIENT-DEBUG] WARNING: User not found for source ID:', chunk.source, 'Available users:', Object.keys(this._userById));
+      return;
+    }
+    console.warn('[MUMBLE-CLIENT-DEBUG] Found user:', user.name, 'Forwarding voice data');
     user._onVoice(
       chunk.seqNum,
       chunk.codec,
