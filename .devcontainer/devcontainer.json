@@ -10,6 +10,16 @@
   "postStartCommand": "bash -lc 'cd /home/node && echo \"🔧 Starting dev server via postStartCommand...\" && ./start-dev-server.sh && echo \"✅ postStartCommand completed\"'",
 
   "portsAttributes": {
-    "8081": { "label": "App", "onAutoForward": "notify" }
-  }
+    "8081": { 
+      "label": "App", 
+      "onAutoForward": "notify",
+      "visibility": "public"
+    },
+    "64738": {
+      "label": "Murmur Server",
+      "visibility": "public"
+    }
+  },
+
+  "forwardPorts": [8081, 64738]
 }

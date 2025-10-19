@@ -42,7 +42,6 @@ class AuthFactory {
     }
 
     const provider = authConfig.provider || 'netlify';
-    const options = authConfig.options || {};
     // Provider-specific options (e.g., config.auth.netlify, config.auth.mock)
     const providerOptions = authConfig[provider.toLowerCase()] || {};
 

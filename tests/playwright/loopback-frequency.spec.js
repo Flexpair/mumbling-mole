@@ -67,12 +67,11 @@ test.describe('Loopback Frequency Test', () => {
     console.log('🔍 Checking for GitHub Codespaces interstitial page...');
     try {
       const continueButton = page.locator('button:has-text("Continue"), a:has-text("Continue")');
-      if (await continueButton.isVisible({ timeout: 2000 })) {
-        console.log('✅ Found Codespaces Continue button, clicking...');
-        await continueButton.click();
-        await page.waitForLoadState('networkidle', { timeout: 10000 });
-        console.log('✅ Passed Codespaces interstitial');
-      }
+      await expect(continueButton).toBeVisible({ timeout: 2000 });
+      console.log('✅ Found Codespaces Continue button, clicking...');
+      await continueButton.click();
+      await page.waitForLoadState('networkidle', { timeout: 10000 });
+      console.log('✅ Passed Codespaces interstitial');
     } catch (e) {
       console.log('ℹ️  No Codespaces interstitial page');
     }
@@ -80,36 +79,38 @@ test.describe('Loopback Frequency Test', () => {
     // Handle Netlify Identity Widget login
     console.log('🔐 Checking for Netlify Identity login...');
     try {
-      // Wait for iframe to appear
-      await page.waitForSelector('iframe', { timeout: 5000 });
-      const iframe = page.frameLocator('iframe').first();
-      
-      // Switch to "Log in" tab
-      const loginTab = iframe.locator('button:has-text("Log in")');
-      if (await loginTab.isVisible({ timeout: 2000 })) {
-        await loginTab.click();
-        console.log('✅ Switched to Log in tab');
-        await page.waitForTimeout(500);
-      }
-      
-      // Fill in credentials
-      const emailInput = iframe.locator('input[type="email"]');
-      const passwordInput = iframe.locator('input[type="password"]');
-      
-      if (await emailInput.isVisible({ timeout: 2000 })) {
-        const testEmail = process.env.TEST_EMAIL || 'test@example.com';
-        const testPassword = process.env.TEST_PASSWORD || 'testpassword';
+      // Non-blocking check for iframe presence (skip fast if MockAuth is active)
+      const framesCount = await page.locator('iframe').count();
+      if (framesCount > 0) {
+        const iframe = page.frameLocator('iframe').first();
         
-        console.log(`🔐 Logging in as ${testEmail}...`);
-        await emailInput.fill(testEmail);
-        await passwordInput.fill(testPassword);
+        // Switch to "Log in" tab
+        const loginTab = iframe.locator('button:has-text("Log in")');
+        if (await loginTab.isVisible({ timeout: 2000 })) {
+          await loginTab.click();
+          console.log('✅ Switched to Log in tab');
+          await page.waitForTimeout(500);
+        }
         
-        const loginButton = iframe.locator('button[type="submit"]');
-        await loginButton.click();
-        console.log('✅ Submitted login credentials');
+        // Fill in credentials
+        const emailInput = iframe.locator('input[type="email"]');
+        const passwordInput = iframe.locator('input[type="password"]');
         
-        // Wait for login to complete
-        await page.waitForTimeout(3000);
+        if (await emailInput.isVisible({ timeout: 2000 })) {
+          const testEmail = process.env.TEST_EMAIL || 'test@example.com';
+          const testPassword = process.env.TEST_PASSWORD || 'testpassword';
+          
+          console.log(`🔐 Logging in as ${testEmail}...`);
+          await emailInput.fill(testEmail);
+          await passwordInput.fill(testPassword);
+          
+          const loginButton = iframe.locator('button[type="submit"]');
+          await loginButton.click();
+          console.log('✅ Submitted login credentials');
+          
+          // Wait for login to complete
+          await page.waitForTimeout(3000);
+        }
       }
     } catch (e) {
       console.log('ℹ️  No Netlify Identity login required or already logged in');
@@ -168,7 +169,7 @@ test.describe('Loopback Frequency Test', () => {
         
         return audioContextReady && testModeReady;
       },
-      { timeout: 15000 }
+      { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
     );
     
     console.log('✅ Audio components ready');
