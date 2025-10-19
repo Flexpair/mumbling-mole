@@ -201,7 +201,23 @@ jobs:
         if: always()
         run: docker rm -f mm-e2e || true
 
-      # Playwright E2E Tests (Loopback Audio)
+      # Playwright E2E Tests (Loopback Audio) - Full Production Stack with Nginx
+      - name: Generate self-signed SSL certificate for CI
+        run: |
+          set -euo pipefail
+          mkdir -p .devcontainer/letsencrypt
+          
+          # Generate self-signed certificate matching Nginx config expectation
+          # Nginx expects: local.flexpair.app.pem / local.flexpair.app-key.pem
+          openssl req -x509 -newkey rsa:4096 -nodes \
+            -keyout .devcontainer/letsencrypt/local.flexpair.app-key.pem \
+            -out .devcontainer/letsencrypt/local.flexpair.app.pem \
+            -days 1 -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,DNS:local.flexpair.app"
+          
+          echo "✅ Self-signed certificate generated"
+          ls -lh .devcontainer/letsencrypt/
+
       - name: Create docker-compose override for CI
         run: |
           cat > .devcontainer/docker-compose.override.yml <<EOF
@@ -213,47 +229,49 @@ jobs:
               environment:
                 - MUMBLE_SERVER=murmur:64738
                 - PLAIN_TARGET=1  # Disable SSL to Murmur (self-signed cert)
+            nginx:
+              environment:
+                - SSL_DOMAIN=localhost  # Use localhost cert in CI
           EOF
           cat .devcontainer/docker-compose.override.yml
 
-      - name: Start Murmur + Web services for Playwright
+      - name: Start Full Production Stack (Murmur + Mumble + Nginx)
         run: |
           set -euo pipefail
           cd .devcontainer
           
-          # Use 'docker compose' (v2 syntax, built into modern Docker)
-          # Start only murmur and mumble services (not nginx/guacamole)
-          docker compose up -d murmur mumble
+          # Start production stack: murmur, mumble, nginx (skip guacamole)
+          docker compose up -d murmur mumble nginx
           
-          echo "Waiting for Murmur server to initialize..."
-          sleep 20
+          echo "Waiting for services to initialize..."
+          sleep 25
           
           # Check if services are running
+          echo "=== Docker Compose Services ==="
           docker compose ps
           
-          # Verify Murmur is listening on port 64738
-          echo "=== Checking if Murmur is listening on port 64738 ==="
-          docker exec murmur netstat -tuln | grep 64738 || echo "Warning: Murmur may not be listening yet"
-          
-          # Check logs for any startup errors
           echo "=== Murmur logs ==="
           docker compose logs murmur | tail -30
+          
           echo "=== Mumble web logs ==="
           docker compose logs mumble | tail -30
+          
+          echo "=== Nginx logs ==="
+          docker compose logs nginx | tail -30
 
-      - name: Wait for services to be healthy
+      - name: Wait for Nginx HTTPS to be ready
         run: |
-          echo "Waiting for web service on http://localhost:8081"
-          timeout 90 bash -c 'until curl -f http://localhost:8081 > /dev/null 2>&1; do echo "Waiting..."; sleep 2; done'
-          echo "✅ Web service is ready"
+          echo "Waiting for Nginx HTTPS service on https://localhost"
+          timeout 90 bash -c 'until curl -k -f https://localhost > /dev/null 2>&1; do echo "Waiting..."; sleep 2; done'
+          echo "✅ Nginx HTTPS service is ready"
           
           # Test if we get actual HTML content
-          echo "Testing if index.html is served..."
-          curl -s http://localhost:8081 | head -20
+          echo "Testing if index.html is served via Nginx..."
+          curl -k -s https://localhost | head -20
           
-          # Verify web container can reach Murmur
-          echo "=== Testing connectivity: mumble container → murmur ==="
-          docker exec mumble_web_container sh -c "nc -zv murmur 64738 || echo 'Cannot reach murmur:64738'"
+          # Verify Nginx can reach mumble backend
+          echo "=== Testing connectivity: nginx → mumble ==="
+          docker exec nginx_container curl -f http://mumble:8081 || echo "Warning: Nginx cannot reach mumble backend"
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps

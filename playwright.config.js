@@ -24,13 +24,18 @@ const getBaseURL = () => {
     return process.env.PLAYWRIGHT_BASE_URL;
   }
   
+  // In CI (GitHub Actions), use HTTPS with Nginx on port 443
+  if (process.env.CI === 'true') {
+    return 'https://localhost';
+  }
+  
   // In GitHub Codespaces, use the public forwarded URL
   if (process.env.CODESPACES === 'true' && process.env.CODESPACE_NAME) {
     const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN || 'app.github.dev';
     return `https://${process.env.CODESPACE_NAME}-8081.${domain}`;
   }
   
-  // Fallback to localhost
+  // Fallback to localhost (dev mode, direct mumble container)
   return 'http://localhost:8081';
 };
 
