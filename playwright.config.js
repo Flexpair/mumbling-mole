@@ -59,7 +59,7 @@ export default defineConfig({
   
   // Reporter to use
   reporter: [
-    ['html', { outputFolder: 'test-results/playwright-report' }],
+    ['html'], // Uses default: playwright-report/
     ['list'],
     ['json', { outputFile: 'test-results/results.json' }]
   ],
