@@ -348,6 +348,7 @@ class MumbleClient extends EventEmitter {
 
   _onUDPTunnel (payload) {
     // Forward tunneled udp packets to the voice pipeline
+    console.warn('[MUMBLE-CLIENT-DEBUG] UDPTunnel packet received, length:', payload.length);
     this._voiceDecoder.write(payload)
   }
 
