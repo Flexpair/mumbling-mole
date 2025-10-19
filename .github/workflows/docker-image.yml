@@ -225,16 +225,20 @@ jobs:
           docker compose up -d murmur mumble
           
           echo "Waiting for Murmur server to initialize..."
-          sleep 15
+          sleep 20
           
           # Check if services are running
           docker compose ps
           
+          # Verify Murmur is listening on port 64738
+          echo "=== Checking if Murmur is listening on port 64738 ==="
+          docker exec murmur netstat -tuln | grep 64738 || echo "Warning: Murmur may not be listening yet"
+          
           # Check logs for any startup errors
           echo "=== Murmur logs ==="
-          docker compose logs murmur | tail -20
+          docker compose logs murmur | tail -30
           echo "=== Mumble web logs ==="
-          docker compose logs mumble | tail -20
+          docker compose logs mumble | tail -30
 
       - name: Wait for services to be healthy
         run: |
@@ -245,6 +249,10 @@ jobs:
           # Test if we get actual HTML content
           echo "Testing if index.html is served..."
           curl -s http://localhost:8081 | head -20
+          
+          # Verify web container can reach Murmur
+          echo "=== Testing connectivity: mumble container → murmur ==="
+          docker exec mumble_web_container sh -c "nc -zv murmur 64738 || echo 'Cannot reach murmur:64738'"
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
