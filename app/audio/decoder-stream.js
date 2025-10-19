@@ -47,11 +47,13 @@ class DecoderStream extends Transform {
     // EOF-GUARD: Prevent push after EOF by checking multiple stream states
     // Worker may send decoded frames after stream.end() was called
     if (this._ended || this.destroyed || this.readableEnded) {
+      console.warn('[DEBUG-DECODER] Ignoring message, stream ended');
       return;
     }
     
     if (data.action === "decoded") {
       const pcm = new Float32Array(data.buffer);
+      console.warn('[DEBUG-DECODER] Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
       
       this.push({
         target: data.target,
@@ -59,14 +61,17 @@ class DecoderStream extends Transform {
         numberOfChannels: data.numberOfChannels,
         position: data.position,
       });
+      console.warn('[DEBUG-DECODER] Pushed decoded data to stream');
     } else {
       throw new Error("unexpected message:" + data);
     }
   }
 
   _transform(chunk, encoding, callback) {
+    console.warn('[DEBUG-DECODER] Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length);
     if (chunk.frame) {
       const buffer = toArrayBuffer(chunk.frame);
+      console.warn('[DEBUG-DECODER] Sending decode request to worker, action:', 'decode' + chunk.codec, 'buffer size:', buffer.byteLength);
       this._worker.postMessage(
         {
           action: "decode" + chunk.codec,
@@ -77,6 +82,7 @@ class DecoderStream extends Transform {
         [buffer]
       );
     } else {
+      console.warn('[DEBUG-DECODER] Sending null frame (packet loss) to worker');
       this._worker.postMessage({
         action: "decode" + chunk.codec,
         buffer: null,
