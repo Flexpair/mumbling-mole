@@ -47,7 +47,7 @@ test.describe('Loopback Frequency Test', () => {
       if (type === 'error') {
         console.error(`[PAGE ERROR] ${text}`);
       } else if (type === 'warning') {
-        console.warn(`[PAGE WARN] ${text}`);
+        // console.warn(`[PAGE WARN] ${text}`);
       } else {
         console.log(`[PAGE ${type.toUpperCase()}] ${text}`);
       }
@@ -468,7 +468,9 @@ test.describe('Loopback Frequency Test', () => {
     const undeafButton = page.locator('.tb-undeaf[alt="Turn sound back on"]');
     await undeafButton.click();
     console.log('   Undeaf button clicked');
-    await page.waitForTimeout(200);
+    
+    // Give audio system more time to stabilize after undeafening
+    await page.waitForTimeout(TEST_CONFIG.BEEPER_INITIAL_WAIT);
     
     // Wait for frequency to appear
     await page.waitForFunction(
