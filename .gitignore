@@ -61,6 +61,7 @@ jspm_packages/
 .devcontainer/*Marker
 .devcontainer/murmur_config/
 .devcontainer/murmur_data/
+.devcontainer/docker-compose.override.yml
 .cache/
 .dotnet/
 

@@ -201,6 +201,77 @@ jobs:
         if: always()
         run: docker rm -f mm-e2e || true
 
+      # Playwright E2E Tests (Loopback Audio)
+      - name: Create docker-compose override for CI
+        run: |
+          cat > .devcontainer/docker-compose.override.yml <<EOF
+          services:
+            mumble:
+              image: ${{ env.TEST_TAG }}
+              build: null  # Disable build, use pre-built image
+              volumes: []  # No volume mounts needed for prod image
+          EOF
+          cat .devcontainer/docker-compose.override.yml
+
+      - name: Start Murmur + Web services for Playwright
+        run: |
+          set -euo pipefail
+          cd .devcontainer
+          
+          # Start only murmur and mumble services (not nginx/guacamole)
+          docker-compose up -d murmur mumble
+          
+          echo "Waiting for services to be ready..."
+          sleep 10
+          
+          # Check if services are running
+          docker-compose ps
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for web service on http://localhost:8081"
+          timeout 60 bash -c 'until curl -f http://localhost:8081 > /dev/null 2>&1; do echo "Waiting..."; sleep 2; done'
+          echo "✅ Web service is ready"
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright loopback tests
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8081
+          CI: true
+        run: npm run test:loopback
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload Playwright test results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+
+      - name: Debug logs (Playwright failure)
+        if: failure()
+        run: |
+          echo "----- docker-compose logs -----"
+          cd .devcontainer && docker-compose logs || true
+          echo "----- docker ps -----"
+          docker ps -a || true
+
+      - name: Cleanup Playwright services
+        if: always()
+        run: |
+          cd .devcontainer
+          docker-compose down || true
+
       - name: Push image tags
         if: github.event_name != 'pull_request'
         run: |
