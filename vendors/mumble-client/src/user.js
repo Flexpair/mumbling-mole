@@ -81,13 +81,17 @@ class User extends EventEmitter {
   _getOrCreateVoiceStream () {
     if (!this._voice) {
       // New transmission
+      console.warn('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
       if (!this._client._codecs) {
         // No codecs available, cannot decode
+        console.warn('[MUMBLE-USER-DEBUG] WARNING: No codecs available, using DropStream');
         this._voice = DropStream.obj()
       } else {
+        console.warn('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
         this._voice = this._client._codecs.createDecoderStream(this)
       }
       this._voice.once('close', () => {
+        console.warn('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
         this._voice = null
       })
       this._voiceTimeout = new Timer(() => {
@@ -96,6 +100,7 @@ class User extends EventEmitter {
           this._voice = null
         }
       }, this._client._options.userVoiceTimeout || 200).set()
+      console.warn('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
       this.emit('voice', this._voice)
     }
     return this._voice
@@ -120,6 +125,7 @@ class User extends EventEmitter {
    * the transmission has ended it closes the stream.
    */
   _onVoice (seqNum, codec, target, frames, position, end) {
+    console.warn('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end);
     if (frames.length > 0) {
       const duration = this._getDuration(codec, frames)
       if (this._voice != null) {
