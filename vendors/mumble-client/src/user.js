@@ -102,6 +102,8 @@ class User extends EventEmitter {
       }, this._client._options.userVoiceTimeout || 200).set()
       console.warn('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
       this.emit('voice', this._voice)
+    } else {
+      console.warn('[MUMBLE-USER-DEBUG] Voice stream already exists, reusing existing stream');
     }
     return this._voice
   }
@@ -154,12 +156,14 @@ class User extends EventEmitter {
         }
       }
       frames.forEach(frame => {
-        this._getOrCreateVoiceStream().write({
+        const writeData = {
           target: target,
           codec: codec,
           frame: frame,
           position: position
-        })
+        };
+        console.warn('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null');
+        this._getOrCreateVoiceStream().write(writeData)
       })
       this._voiceTimeout.set()
       this._lastVoiceSeqId = seqNum + duration / 10 - 1
