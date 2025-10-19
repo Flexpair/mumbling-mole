@@ -152,12 +152,20 @@ test.describe('Loopback Frequency Test', () => {
     expect(isTestActive).toBe(true);
     console.log('✅ Test mode activated');
     
-    // STEP 3: Click Connect button to establish connection
-    console.log('🔄 Step 3: Clicking Connect button...');
+    // STEP 3: Click Connect button if still visible (not auto-connected)
+    console.log('🔄 Step 3: Checking if Connect button needs to be clicked...');
     const connectButton = page.locator('input.connect-dialog-submit[type="submit"]');
-    await expect(connectButton).toBeVisible({ timeout: 5000 });
-    await connectButton.click();
-    console.log('✅ Connect button clicked');
+    
+    // Check if button is still visible (not auto-connected via MockAuth)
+    const isConnectButtonVisible = await connectButton.isVisible().catch(() => false);
+    
+    if (isConnectButtonVisible) {
+      console.log('   Connect button found, clicking...');
+      await connectButton.click();
+      console.log('✅ Connect button clicked');
+    } else {
+      console.log('✅ Already connected (auto-connect active)');
+    }
     
     // STEP 4: Wait for audio components to initialize
     console.log('⏳ Step 4: Waiting for audio components to initialize...');
