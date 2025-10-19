@@ -220,20 +220,21 @@ jobs:
           set -euo pipefail
           cd .devcontainer
           
+          # Use 'docker compose' (v2 syntax, built into modern Docker)
           # Start only murmur and mumble services (not nginx/guacamole)
-          docker-compose up -d murmur mumble
+          docker compose up -d murmur mumble
           
           echo "Waiting for Murmur server to initialize..."
           sleep 15
           
           # Check if services are running
-          docker-compose ps
+          docker compose ps
           
           # Check logs for any startup errors
           echo "=== Murmur logs ==="
-          docker-compose logs murmur | tail -20
+          docker compose logs murmur | tail -20
           echo "=== Mumble web logs ==="
-          docker-compose logs mumble | tail -20
+          docker compose logs mumble | tail -20
 
       - name: Wait for services to be healthy
         run: |
@@ -273,8 +274,8 @@ jobs:
       - name: Debug logs (Playwright failure)
         if: failure()
         run: |
-          echo "----- docker-compose logs -----"
-          cd .devcontainer && docker-compose logs || true
+          echo "----- docker compose logs -----"
+          cd .devcontainer && docker compose logs || true
           echo "----- docker ps -----"
           docker ps -a || true
 
@@ -282,7 +283,7 @@ jobs:
         if: always()
         run: |
           cd .devcontainer
-          docker-compose down || true
+          docker compose down || true
 
       - name: Push image tags
         if: github.event_name != 'pull_request'
