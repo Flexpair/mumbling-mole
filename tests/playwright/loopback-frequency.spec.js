@@ -77,47 +77,9 @@ test.describe('Loopback Frequency Test', () => {
       console.log('ℹ️  No Codespaces interstitial page');
     }
     
-    // Handle Netlify Identity Widget login
-    console.log('🔐 Checking for Netlify Identity login...');
-    try {
-      // Non-blocking check for iframe presence (skip fast if MockAuth is active)
-      const framesCount = await page.locator('iframe').count();
-      if (framesCount > 0) {
-        const iframe = page.frameLocator('iframe').first();
-        
-        // Switch to "Log in" tab
-        const loginTab = iframe.locator('button:has-text("Log in")');
-        if (await loginTab.isVisible({ timeout: 2000 })) {
-          await loginTab.click();
-          console.log('✅ Switched to Log in tab');
-          await page.waitForTimeout(500);
-        }
-        
-        // Fill in credentials
-        const emailInput = iframe.locator('input[type="email"]');
-        const passwordInput = iframe.locator('input[type="password"]');
-        
-        if (await emailInput.isVisible({ timeout: 2000 })) {
-          // Use obviously fake test credentials with fallback for local testing
-          // In production/CI, mock-auth bypasses this entirely
-          const testEmail = process.env.TEST_EMAIL || 'playwright-test@mumbling-mole.local';
-          const testPassword = process.env.TEST_PASSWORD || 'playwright-automated-test-password';
-          
-          console.log(`🔐 Logging in as ${testEmail}...`);
-          await emailInput.fill(testEmail);
-          await passwordInput.fill(testPassword);
-          
-          const loginButton = iframe.locator('button[type="submit"]');
-          await loginButton.click();
-          console.log('✅ Submitted login credentials');
-          
-          // Wait for login to complete
-          await page.waitForTimeout(3000);
-        }
-      }
-    } catch (e) {
-      console.log('ℹ️  No Netlify Identity login required or already logged in');
-    }
+    // Note: When running without mock-auth, Netlify Identity login is handled manually
+    // or by being already logged in. MockAuth bypasses this entirely in automated tests.
+    console.log('ℹ️  Netlify Identity login (if required) should be handled manually or via existing session');
     
     // Wait for app initialization (window.mumbleUi should be defined)
     console.log('⏳ Waiting for UI initialization...');
