@@ -5,17 +5,19 @@
   "workspaceFolder": "/home/node",
   "remoteUser": "node",
   "overrideCommand": true,
-
   "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole'",
   "postStartCommand": "bash -lc 'cd /home/node && echo \"🔧 Starting dev server via postStartCommand...\" && ./start-dev-server.sh && echo \"✅ postStartCommand completed\"'",
-
   "portsAttributes": {
-    "8081": { 
-      "label": "App", 
+    "8081": {
+      "label": "App",
       "onAutoForward": "notify",
       "visibility": "public"
     }
   },
-
-  "forwardPorts": [8081]
+  "forwardPorts": [
+    8081
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker": {}
+  }
 }
