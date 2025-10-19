@@ -14,12 +14,8 @@
       "label": "App", 
       "onAutoForward": "notify",
       "visibility": "public"
-    },
-    "64738": {
-      "label": "Murmur Server",
-      "visibility": "public"
     }
   },
 
-  "forwardPorts": [8081, 64738]
+  "forwardPorts": [8081]
 }
