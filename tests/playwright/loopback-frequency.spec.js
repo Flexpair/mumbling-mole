@@ -156,6 +156,21 @@ test.describe('Loopback Frequency Test', () => {
     console.log('⏳ Step 3: Waiting for audio components to initialize...');
     console.log('   (This may take a few seconds)');
     
+    // Resume AudioContext if suspended (required in headless browsers)
+    await page.evaluate(async () => {
+      const ui = window.mumbleUi;
+      if (ui?.audio?.audioContext?.state === 'suspended') {
+        console.log('[TEST] AudioContext is suspended, resuming...');
+        await ui.audio.audioContext.resume();
+        console.log('[TEST] AudioContext resumed, state:', ui.audio.audioContext.state);
+        
+        // Re-initialize beeper after AudioContext is running
+        console.log('[TEST] Re-initializing persistent beeper...');
+        await ui._initializePersistentBeeper();
+        console.log('[TEST] Beeper re-initialized');
+      }
+    });
+    
     await page.waitForFunction(
       () => {
         const ui = window.mumbleUi;
@@ -167,7 +182,13 @@ test.describe('Loopback Frequency Test', () => {
         // Check if test mode components are ready
         const testModeReady = ui.connectDialog?.isTestActive() === true;
         
-        return audioContextReady && testModeReady;
+        // Check if beeper is ready (required for button visibility)
+        const beeperReady = ui.beeperReady?.() === true;
+        
+        // Check if voice handler is ready (required for button visibility)
+        const voiceReady = ui.voiceHandlerReady?.() === true;
+        
+        return audioContextReady && testModeReady && beeperReady && voiceReady;
       },
       { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
     );
