@@ -11,10 +11,9 @@ This directory contains automated end-to-end tests using Playwright, focusing on
 Automated validation of the piano button loopback feature.
 
 **Test Scenarios:**
-1. **Frequency Detection** - Verifies ~440 Hz tone is detected
-2. **Latency Measurement** - Measures end-to-end audio latency
-3. **Rapid Press Handling** - Tests multiple quick button presses
-4. **Mute/Deaf States** - Validates display behavior when muted/deaf
+1. **Frequency Detection** - Verifies ~440 Hz tone is detected and displayed in UI
+2. **Mute/Deaf States** - Validates display behavior when muted/deaf (0 Hz)
+3. **Undeafen Recovery** - Confirms frequency display restores after undeafen
 
 **Quick Start:**
 ```bash
