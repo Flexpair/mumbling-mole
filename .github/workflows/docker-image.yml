@@ -213,7 +213,6 @@ jobs:
           services:
             mumble:
               image: ${{ env.TEST_TAG }}
-              build: null  # Disable build, use pre-built image
               volumes: []  # No volume mounts needed for prod image
           EOF
           cat .devcontainer/docker-compose.override.yml
