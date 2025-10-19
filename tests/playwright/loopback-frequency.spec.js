@@ -156,39 +156,95 @@ test.describe('Loopback Frequency Test', () => {
     console.log('⏳ Step 3: Waiting for audio components to initialize...');
     console.log('   (This may take a few seconds)');
     
+    // Verify mumbleUi is still available after toggle
+    const uiAvailable = await page.evaluate(() => window.mumbleUi !== undefined);
+    if (!uiAvailable) {
+      console.error('❌ window.mumbleUi is undefined after toggle!');
+      throw new Error('UI state lost after toggle - check for JS errors');
+    }
+    
     // Resume AudioContext if suspended (required in headless browsers)
-    await page.evaluate(async () => {
+    const resumeResult = await page.evaluate(async () => {
       const ui = window.mumbleUi;
-      if (ui?.audio?.audioContext?.state === 'suspended') {
-        console.log('[TEST] AudioContext is suspended, resuming...');
-        await ui.audio.audioContext.resume();
-        console.log('[TEST] AudioContext resumed, state:', ui.audio.audioContext.state);
-        
-        // Re-initialize beeper after AudioContext is running
-        console.log('[TEST] Re-initializing persistent beeper...');
-        await ui._initializePersistentBeeper();
-        console.log('[TEST] Beeper re-initialized');
+      if (!ui) {
+        return { error: 'mumbleUi not found' };
       }
+      
+      if (!ui.audio?.audioContext) {
+        return { error: 'audioContext not found', hasAudio: !!ui.audio };
+      }
+      
+      const initialState = ui.audio.audioContext.state;
+      console.log('[TEST] AudioContext initial state:', initialState);
+      
+      if (initialState === 'suspended') {
+        console.log('[TEST] AudioContext is suspended, resuming...');
+        try {
+          await ui.audio.audioContext.resume();
+          const newState = ui.audio.audioContext.state;
+          console.log('[TEST] AudioContext resumed, new state:', newState);
+          
+          // Re-initialize beeper after AudioContext is running
+          if (newState === 'running') {
+            console.log('[TEST] Re-initializing persistent beeper...');
+            await ui._initializePersistentBeeper();
+            console.log('[TEST] Beeper re-initialized');
+          }
+          
+          return { success: true, initialState, newState };
+        } catch (err) {
+          console.error('[TEST] Failed to resume AudioContext:', err);
+          return { error: err.message, initialState };
+        }
+      }
+      
+      return { success: true, state: initialState, message: 'Already running' };
     });
+    
+    console.log('Resume result:', JSON.stringify(resumeResult, null, 2));
+    
+    if (resumeResult.error) {
+      throw new Error(`AudioContext resume failed: ${resumeResult.error}`);
+    }
     
     await page.waitForFunction(
       () => {
         const ui = window.mumbleUi;
-        if (!ui) return false;
+        if (!ui) {
+          console.error('[TEST-CHECK] window.mumbleUi is undefined!');
+          return false;
+        }
         
         // Check if audio context is ready
         const audioContextReady = ui.audio?.audioContext?.state === 'running';
+        if (!audioContextReady) {
+          console.log('[TEST-CHECK] AudioContext not running:', ui.audio?.audioContext?.state);
+        }
         
         // Check if test mode components are ready
         const testModeReady = ui.connectDialog?.isTestActive() === true;
+        if (!testModeReady) {
+          console.log('[TEST-CHECK] Test mode not active');
+        }
         
         // Check if beeper is ready (required for button visibility)
         const beeperReady = ui.beeperReady?.() === true;
+        if (!beeperReady) {
+          console.log('[TEST-CHECK] Beeper not ready');
+        }
         
         // Check if voice handler is ready (required for button visibility)
         const voiceReady = ui.voiceHandlerReady?.() === true;
+        if (!voiceReady) {
+          console.log('[TEST-CHECK] Voice handler not ready');
+        }
         
-        return audioContextReady && testModeReady && beeperReady && voiceReady;
+        const allReady = audioContextReady && testModeReady && beeperReady && voiceReady;
+        if (allReady) {
+          console.log('[TEST-CHECK] ✅ All components ready!');
+        }
+        
+        return allReady;
       },
       { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
     );
