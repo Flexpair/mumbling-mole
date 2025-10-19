@@ -394,6 +394,8 @@ function onMessage(data) {
       if (method === "createVoiceStream") {
         let voiceId = payload.shift();
         let samplesPerPacket = payload.shift();
+        
+        console.log('[LOOPBACK-DEBUG-WORKER] createVoiceStream called with payload:', payload, 'voiceId:', voiceId, 'samplesPerPacket:', samplesPerPacket);
 
         let stream = target.createVoiceStream.apply(target, payload);
 
