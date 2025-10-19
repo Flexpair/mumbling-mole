@@ -62,14 +62,28 @@ class DecoderStream extends Transform {
         console.log('[DEBUG-DECODER] Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
       }
       
-      this.push({
-        target: data.target,
-        pcm: pcm,
-        numberOfChannels: data.numberOfChannels,
-        position: data.position,
-      });
-      if (debugEnabled) {
-        console.log('[DEBUG-DECODER] Pushed decoded data to stream');
+      // Additional safety check: verify stream is still writable before pushing
+      // This prevents "push after EOF" errors when worker messages arrive after _final()
+      if (!this.writableEnded && !this.readableEnded) {
+        try {
+          this.push({
+            target: data.target,
+            pcm: pcm,
+            numberOfChannels: data.numberOfChannels,
+            position: data.position,
+          });
+          if (debugEnabled) {
+            console.log('[DEBUG-DECODER] Pushed decoded data to stream');
+          }
+        } catch (err) {
+          // Silently ignore push errors after stream has ended
+          // This can happen in race conditions during stream cleanup
+          if (debugEnabled) {
+            console.log('[DEBUG-DECODER] Failed to push (stream ended):', err.message);
+          }
+        }
+      } else if (debugEnabled) {
+        console.log('[DEBUG-DECODER] Skipping push, stream ended (writable:', !this.writableEnded, 'readable:', !this.readableEnded, ')');
       }
     } else {
       throw new Error("unexpected message:" + data);
