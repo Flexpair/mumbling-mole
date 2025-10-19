@@ -35,7 +35,7 @@ export default class ConnectionState {
   /**
    * Connect to Mumble server via WebSocket
    * @param {string} host - Server hostname
-   * @param {number} port - Server port
+   * @param {string|number} port - Server port (can be "443/murmur" format with path)
    * @param {string} username - Username
    * @param {string} password - Password
    * @param {Array} tokens - Access tokens
@@ -48,7 +48,27 @@ export default class ConnectionState {
     this.log(translate("logentry.connecting"), host);
 
     try {
-      const client = await this.connector.connect(`wss://${host}:${port}`, {
+      // Parse port format: can be "443/murmur" (port + path) or just "64738" (port only)
+      // For HTTPS (443) and HTTP (80), omit port from URL
+      let wsUrl;
+      const portStr = String(port);
+      
+      if (portStr.includes('/')) {
+        // Format: "443/path" → wss://host/path
+        const [portNum, path] = portStr.split('/');
+        const protocol = portNum === '443' ? 'wss' : 'ws';
+        wsUrl = portNum === '443' || portNum === '80'
+          ? `${protocol}://${host}/${path}`
+          : `${protocol}://${host}:${portNum}/${path}`;
+      } else {
+        // Format: "64738" → wss://host:64738
+        const protocol = portStr === '443' ? 'wss' : 'ws';
+        wsUrl = portStr === '443' || portStr === '80'
+          ? `${protocol}://${host}`
+          : `${protocol}://${host}:${portStr}`;
+      }
+
+      const client = await this.connector.connect(wsUrl, {
         username: username,
         password: password,
         tokens: tokens,
