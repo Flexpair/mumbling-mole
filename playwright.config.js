@@ -18,6 +18,22 @@
 
 import { defineConfig, devices } from '@playwright/test';
 
+// Auto-detect GitHub Codespaces public URL
+const getBaseURL = () => {
+  if (process.env.PLAYWRIGHT_BASE_URL) {
+    return process.env.PLAYWRIGHT_BASE_URL;
+  }
+  
+  // In GitHub Codespaces, use the public forwarded URL
+  if (process.env.CODESPACES === 'true' && process.env.CODESPACE_NAME) {
+    const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN || 'app.github.dev';
+    return `https://${process.env.CODESPACE_NAME}-8081.${domain}`;
+  }
+  
+  // Fallback to localhost
+  return 'http://localhost:8081';
+};
+
 export default defineConfig({
   testDir: './tests/playwright',
   
@@ -51,7 +67,7 @@ export default defineConfig({
     // Shared settings for all projects
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8081',
+    baseURL: getBaseURL(),
     
     // Ignore HTTPS certificate errors (self-signed certs in dev)
     ignoreHTTPSErrors: true,

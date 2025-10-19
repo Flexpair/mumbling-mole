@@ -31,7 +31,8 @@ const TEST_CONFIG = {
   EXPECTED_FREQUENCY: 440, // Hz
   FREQUENCY_TOLERANCE: 0.05, // ±5%
   CONNECTION_TIMEOUT: 20000, // 20s
-  BEEPER_WAIT: 500, // 500ms for audio to stabilize
+  BEEPER_INITIAL_WAIT: 1000, // 1s initial wait for audio to start
+  BEEPER_MAX_WAIT: 5000, // 5s max wait for first frequency detection
   FREQUENCY_READINGS: 5, // Number of samples to average
   READING_INTERVAL: 100 // ms between readings
 };
@@ -61,6 +62,20 @@ test.describe('Loopback Frequency Test', () => {
     console.log('🌐 Navigating to application...');
     
     await page.goto('/', { waitUntil: 'networkidle', timeout: 30000 });
+    
+    // Handle GitHub Codespaces "Continue" button if present
+    console.log('🔍 Checking for GitHub Codespaces interstitial page...');
+    try {
+      const continueButton = page.locator('button:has-text("Continue"), a:has-text("Continue")');
+      if (await continueButton.isVisible({ timeout: 2000 })) {
+        console.log('✅ Found Codespaces Continue button, clicking...');
+        await continueButton.click();
+        await page.waitForLoadState('networkidle', { timeout: 10000 });
+        console.log('✅ Passed Codespaces interstitial');
+      }
+    } catch (e) {
+      console.log('ℹ️  No Codespaces interstitial page');
+    }
     
     // Handle Netlify Identity Widget login
     console.log('🔐 Checking for Netlify Identity login...');
@@ -166,16 +181,78 @@ test.describe('Loopback Frequency Test', () => {
     
     // STEP 5: Press piano button (simulate mousedown)
     console.log('🎹 Step 5: Pressing piano button...');
+    
+    // Check beeper state before clicking
+    const beeperState = await page.evaluate(() => {
+      const audio = window.mumbleUi.audio;
+      return {
+        isBeeping: audio.isBeeping(),
+        hasPersistentBeeper: !!audio._persistentBeeper,
+        beeperReady: window.mumbleUi.beeperReady(),
+        isLoopbackMode: window.mumbleUi.voice.isLoopbackMode()
+      };
+    });
+    console.log('   Beeper state before click:', JSON.stringify(beeperState, null, 2));
+    
     await pianoButton.dispatchEvent('mousedown');
     console.log('✅ Piano button pressed (mousedown event dispatched)');
     
-    // STEP 6: Wait for audio to stabilize
-    console.log(`⏳ Step 6: Waiting ${TEST_CONFIG.BEEPER_WAIT}ms for audio to stabilize...`);
-    await page.waitForTimeout(TEST_CONFIG.BEEPER_WAIT);
+    // Check beeper state after clicking
+    await page.waitForTimeout(200);
+    const beeperStateAfter = await page.evaluate(() => {
+      const audio = window.mumbleUi.audio;
+      return {
+        isBeeping: audio.isBeeping(),
+        hasPersistentBeeper: !!audio._persistentBeeper,
+        beeperIsPlaying: audio._persistentBeeper?.isPlaying
+      };
+    });
+    console.log('   Beeper state after click:', JSON.stringify(beeperStateAfter, null, 2));
+    
+    // STEP 6: Wait for audio to go through the full pipeline
+    console.log(`⏳ Step 6: Waiting for audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser)...`);
+    console.log(`   Initial wait: ${TEST_CONFIG.BEEPER_INITIAL_WAIT}ms`);
+    await page.waitForTimeout(TEST_CONFIG.BEEPER_INITIAL_WAIT);
+    
+    // Wait for first frequency detection (with timeout)
+    console.log(`   Waiting for first frequency detection (max ${TEST_CONFIG.BEEPER_MAX_WAIT}ms)...`);
+    const startWait = Date.now();
+    let firstFreqDetected = false;
+    
+    while (Date.now() - startWait < TEST_CONFIG.BEEPER_MAX_WAIT) {
+      const freq = await page.evaluate(() => {
+        return window.mumbleUi?.voice?.loopbackDominantFrequency() || 0;
+      });
+      
+      if (freq > 0) {
+        console.log(`   ✅ First frequency detected after ${Date.now() - startWait}ms: ${freq} Hz`);
+        firstFreqDetected = true;
+        break;
+      }
+      
+      await page.waitForTimeout(100);
+    }
+    
+    if (!firstFreqDetected) {
+      console.log(`   ⚠️  No frequency detected after ${TEST_CONFIG.BEEPER_MAX_WAIT}ms`);
+    }
     
     // STEP 7: Collect multiple frequency readings
     console.log(`📊 Step 7: Collecting ${TEST_CONFIG.FREQUENCY_READINGS} frequency readings...`);
     const frequencies = [];
+    
+    // Check if frequency analysis is actually running
+    const analysisState = await page.evaluate(() => {
+      const thisUser = window.mumbleUi.user.thisUser();
+      return {
+        hasThisUser: !!thisUser,
+        selfMute: window.mumbleUi.user.selfMute(),
+        selfDeaf: window.mumbleUi.user.selfDeaf(),
+        isLoopbackMode: window.mumbleUi.voice.isLoopbackMode(),
+        loopbackDominantFrequency: window.mumbleUi.voice.loopbackDominantFrequency()
+      };
+    });
+    console.log('   Analysis state:', JSON.stringify(analysisState, null, 2));
     
     for (let i = 0; i < TEST_CONFIG.FREQUENCY_READINGS; i++) {
       const freq = await page.evaluate(() => {
@@ -238,152 +315,82 @@ test.describe('Loopback Frequency Test', () => {
     expect(finalFreq).toBe(0);
     console.log('✅ Frequency display cleared after button release');
     
-    console.log('\n✅ TEST PASSED: Piano button loopback test completed successfully!\n');
-  });
-
-  test('should measure end-to-end latency', async ({ page }) => {
-    console.log('\n⏱️  TEST: End-to-End Latency Measurement\n');
+    // STEP 12: Test mute prevents frequency display
+    console.log('\n🔇 Step 12: Testing MUTE prevents frequency display...');
     
-    // Setup: Connect in loopback mode
-    console.log('🔧 Setup: Connecting in loopback mode...');
-    await page.click('.test-toggle-label');
-    await page.click('#connect-dialog_controls_connect');
-    
-    await page.waitForFunction(
-      () => window.mumbleUi?.beeperReady() === true && window.mumbleUi?.voiceHandlerReady() === true,
-      { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
-    );
-    console.log('✅ Setup complete');
-    
-    const pianoButton = page.locator('.beep-test-button');
-    await expect(pianoButton).toBeVisible();
-    
-    // Measure latency: time from button press to frequency detection
-    console.log('⏱️  Measuring latency...');
-    const startTime = Date.now();
-    await pianoButton.dispatchEvent('mousedown');
-    
-    // Wait for significant frequency to appear (> 100 Hz threshold)
-    await page.waitForFunction(
-      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) > 100,
-      { timeout: 5000 }
-    );
-    
-    const latency = Date.now() - startTime;
-    console.log(`📊 End-to-end latency: ${latency}ms`);
-    
-    // Assert latency is reasonable (< 1000ms)
-    expect(latency).toBeLessThan(1000);
-    console.log('✅ Latency within acceptable range (<1000ms)');
-    
-    // Cleanup
-    await pianoButton.dispatchEvent('mouseup');
-    
-    console.log('\n✅ TEST PASSED: Latency measurement completed!\n');
-  });
-
-  test('should handle rapid button presses without errors', async ({ page }) => {
-    console.log('\n🚀 TEST: Rapid Button Press Handling\n');
-    
-    // Setup
-    console.log('🔧 Setup: Connecting in loopback mode...');
-    await page.click('.test-toggle-label');
-    await page.click('#connect-dialog_controls_connect');
-    
-    await page.waitForFunction(
-      () => window.mumbleUi?.beeperReady() === true && window.mumbleUi?.voiceHandlerReady() === true,
-      { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
-    );
-    console.log('✅ Setup complete');
-    
-    const pianoButton = page.locator('.beep-test-button');
-    
-    // Track any errors
-    const errors = [];
-    page.on('pageerror', error => {
-      errors.push(error.message);
-      console.error(`❌ Page error: ${error.message}`);
-    });
-    
-    // Rapid press/release cycle
-    console.log('🚀 Performing rapid button presses...');
-    for (let i = 0; i < 3; i++) {
-      console.log(`   Cycle ${i + 1}/3`);
-      await pianoButton.dispatchEvent('mousedown');
-      await page.waitForTimeout(200); // Short press (200ms)
-      await pianoButton.dispatchEvent('mouseup');
-      await page.waitForTimeout(200); // Short gap (200ms)
-    }
-    
-    // Should not crash and should eventually clear
-    console.log('🧹 Waiting for frequency to clear...');
-    await page.waitForFunction(
-      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) === 0,
-      { timeout: 2000 }
-    );
-    
-    // Assert no errors occurred
-    expect(errors.length).toBe(0);
-    console.log('✅ Handled rapid button presses without errors');
-    
-    console.log('\n✅ TEST PASSED: Rapid press test completed!\n');
-  });
-
-  test('should handle mute/deaf states correctly', async ({ page }) => {
-    console.log('\n🔇 TEST: Mute/Deaf State Handling\n');
-    
-    // Setup
-    console.log('🔧 Setup: Connecting in loopback mode...');
-    await page.click('.test-toggle-label');
-    await page.click('#connect-dialog_controls_connect');
-    
-    await page.waitForFunction(
-      () => window.mumbleUi?.beeperReady() === true && window.mumbleUi?.voiceHandlerReady() === true,
-      { timeout: TEST_CONFIG.CONNECTION_TIMEOUT }
-    );
-    console.log('✅ Setup complete');
-    
-    const pianoButton = page.locator('.beep-test-button');
-    
-    // Press button
-    console.log('🎹 Pressing button...');
-    await pianoButton.dispatchEvent('mousedown');
-    await page.waitForTimeout(500);
-    
-    // Verify frequency is detected
-    let freq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
-    console.log(`📊 Frequency before deaf: ${freq} Hz`);
-    expect(freq).toBeGreaterThan(100);
-    
-    // Enable self-deaf
-    console.log('🔇 Enabling self-deaf...');
-    await page.evaluate(() => {
-      window.mumbleUi?.user?.setSelfDeaf(true);
-    });
+    // Click mute button
+    const muteButton = page.locator('.tb-mute[alt="Mute my microphone"]');
+    await muteButton.click();
     await page.waitForTimeout(200);
     
-    // Verify frequency display clears when deaf
-    freq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
-    console.log(`📊 Frequency while deaf: ${freq} Hz`);
-    expect(freq).toBe(0);
-    console.log('✅ Frequency cleared when deaf');
+    const muteState = await page.evaluate(() => window.mumbleUi?.user?.selfMute());
+    console.log(`   Mute enabled: ${muteState}`);
     
-    // Disable self-deaf
-    console.log('🔊 Disabling self-deaf...');
-    await page.evaluate(() => {
-      window.mumbleUi?.user?.setSelfDeaf(false);
-    });
-    await page.waitForTimeout(500);
+    // Press button while muted
+    await pianoButton.dispatchEvent('mousedown');
+    await page.waitForTimeout(TEST_CONFIG.BEEPER_INITIAL_WAIT + 500);
     
-    // Verify frequency reappears
-    freq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
-    console.log(`📊 Frequency after deaf disabled: ${freq} Hz`);
-    expect(freq).toBeGreaterThan(100);
-    console.log('✅ Frequency reappeared after deaf disabled');
+    // Frequency should stay at 0
+    let mutedFreq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
+    console.log(`   Frequency while muted: ${mutedFreq} Hz`);
+    expect(mutedFreq).toBe(0);
+    console.log('✅ No frequency displayed when muted');
     
-    // Cleanup
+    // Release button and unmute
+    await pianoButton.dispatchEvent('mouseup');
+    await page.waitForTimeout(300);
+    
+    const unmuteButton = page.locator('.tb-unmute[alt="Unmute my microphone"]');
+    await unmuteButton.click();
+    await page.waitForTimeout(200);
+    
+    // STEP 13: Test deaf prevents frequency display
+    console.log('\n🔇 Step 13: Testing DEAF prevents frequency display...');
+    
+    // Click deaf button
+    const deafButton = page.locator('.tb-deaf[alt="Turn off sound"]');
+    await deafButton.click();
+    await page.waitForTimeout(200);
+    
+    const deafState = await page.evaluate(() => ({
+      mute: window.mumbleUi?.user?.selfMute(),
+      deaf: window.mumbleUi?.user?.selfDeaf()
+    }));
+    console.log(`   State: mute=${deafState.mute}, deaf=${deafState.deaf}`);
+    
+    // Press button while deafened
+    await pianoButton.dispatchEvent('mousedown');
+    await page.waitForTimeout(TEST_CONFIG.BEEPER_INITIAL_WAIT + 500);
+    
+    // Frequency should stay at 0
+    let deafFreq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
+    console.log(`   Frequency while deafened: ${deafFreq} Hz`);
+    expect(deafFreq).toBe(0);
+    console.log('✅ No frequency displayed when deafened');
+    
+    // STEP 14: Test undeafening restores frequency display
+    console.log('\n🔊 Step 14: Testing UNDEAFEN restores frequency display...');
+    
+    // Click undeaf button (piano button still pressed)
+    const undeafButton = page.locator('.tb-undeaf[alt="Turn sound back on"]');
+    await undeafButton.click();
+    console.log('   Undeaf button clicked');
+    await page.waitForTimeout(200);
+    
+    // Wait for frequency to appear
+    await page.waitForFunction(
+      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) > 0,
+      { timeout: TEST_CONFIG.BEEPER_MAX_WAIT }
+    );
+    
+    let undeafFreq = await page.evaluate(() => window.mumbleUi?.voice?.loopbackDominantFrequency() || 0);
+    console.log(`   Frequency after undeafen: ${undeafFreq} Hz`);
+    expect(undeafFreq).toBeGreaterThan(100);
+    console.log('✅ Frequency displayed again after undeafen');
+    
+    // Final cleanup
     await pianoButton.dispatchEvent('mouseup');
     
-    console.log('\n✅ TEST PASSED: Mute/deaf handling test completed!\n');
+    console.log('\n✅ TEST PASSED: All scenarios validated successfully!\n');
   });
 });

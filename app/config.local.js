@@ -7,17 +7,19 @@ let config = window.mumbleWebConfig;
 config.settings.audioBitrate = 96000;
 
 // Use mock auth for automated tests (bypasses Netlify Identity)
-if (window.location.search.includes('mock-auth') || window.location.hostname === 'localhost') {
+// Trigger: Either ?mock-auth in URL, or non-Codespaces localhost, or Codespaces URLs
+const isTestEnvironment = window.location.search.includes('mock-auth') 
+  || window.location.hostname === 'localhost'
+  || window.location.hostname.includes('.app.github.dev');
+
+if (isTestEnvironment) {
   config.auth.provider = 'mock';
   config.auth.mock = {
     autoLogin: true,        // Automatically log in a mock user
     autoLoginDelay: 100     // Small delay to simulate async auth
   };
   
-  // Use test mumble server via websockify proxy
-  // The browser connects to websockify (running on same port as web server)
-  // which then tunnels the WebSocket connection to the actual Mumble server
-  config.defaults.address = 'localhost';  // websockify proxy
-  config.defaults.port = '8081';          // same port as dev server
+  // Default config already uses window.location.hostname for WebSocket
+  // No need to override address/port here - it works automatically
   config.defaults.username = 'Test_User';
 }
