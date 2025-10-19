@@ -6,13 +6,11 @@ let config = window.mumbleWebConfig;
 
 config.settings.audioBitrate = 96000;
 
-// Use mock auth for automated tests (bypasses Netlify Identity)
-// Trigger: Either ?mock-auth in URL, or non-Codespaces localhost, or Codespaces URLs
-const isTestEnvironment = window.location.search.includes('mock-auth') 
-  || window.location.hostname === 'localhost'
-  || window.location.hostname.includes('.app.github.dev');
+// Use mock auth ONLY when explicitly requested via ?mock-auth URL parameter
+// Default: Always use Netlify Identity (production behavior)
+const useMockAuth = window.location.search.includes('mock-auth');
 
-if (isTestEnvironment) {
+if (useMockAuth) {
   config.auth.provider = 'mock';
   config.auth.mock = {
     autoLogin: true,        // Automatically log in a mock user
