@@ -50,12 +50,16 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Quick restart**: `./rebuild-and-restart.sh` convenience script rebuilds and restarts dev server (useful during active development)  
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  
 **Testing**:
-  - `npm test` = Playwright loopback test + audit:ci (main test suite)
+  - `npm test` = Unit tests + Playwright loopback + audit:ci (full test suite)
+  - `npm run test:unit` = Jest unit tests (characterization tests for critical components)
+  - `npm run test:unit:watch` = Jest watch mode for TDD
+  - `npm run test:unit:coverage` = Generate coverage reports (text + lcov + html in `coverage/`)
   - `npm run test:loopback` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
   - `npm run test:loopback:headed` = same test with visible browser (debugging)
   - `npm run test:loopback:debug` = step-through debugging mode
   - `npm run audit:ci` = dependency vulnerability check
 **Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
+**Jest unit tests**: ES modules with jsdom environment; mocks for Web Audio API, AudioWorkletNode, localStorage; characterization tests document current behavior for regression protection during refactoring  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
@@ -174,5 +178,5 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Known technical debt
-- **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
+- **Limited unit test coverage**: Jest infrastructure is set up (`jest.config.js`, `jest.setup.js`), first characterization tests exist (`__tests__/state/UserState.test.js`), but coverage is still low (~25% in UserState.js, 2% overall). Gradually add tests for critical components before refactoring.
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
