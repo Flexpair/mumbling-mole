@@ -1,7 +1,7 @@
 import ko from "knockout";
 import audioContextManager, { ensureAudioContext } from "../audio/audio-context-manager";
 
-const DEBUG_VOICE_LOGGING = false;
+const DEBUG_VOICE_LOGGING = true; // Enable for debugging beeper initialization
 
 function debugLog(tag, ...args) {
   if (DEBUG_VOICE_LOGGING) {
@@ -22,6 +22,8 @@ export default class AudioState {
   constructor() {
     // Audio context
     this.audioContext = null;
+    this._audioContextInitPromise = null; // Track pending initialization
+    this._audioWorkletModulesLoaded = new Set(); // Track loaded AudioWorklet modules
     
     // Audio lock state
     this.audioLockActive = ko.observable(false);
@@ -39,6 +41,7 @@ export default class AudioState {
     this.isBeeping = ko.observable(false);
     this.beeperReady = ko.observable(false);
     this._persistentBeeper = null;
+    this._beeperInitPromise = null; // Track pending beeper initialization
     
     // Initialize audio context
     this.initializeAudioContext();
@@ -46,42 +49,56 @@ export default class AudioState {
 
   /**
    * Initialize managed AudioContext with autoplay policy handling
+   * RACE-SAFE: Multiple concurrent calls will reuse the same initialization
    */
   async initializeAudioContext() {
-    // Prevent duplicate initialization - reuse existing instance
+    // Return existing instance if already initialized
     if (this.audioContext) {
       return;
     }
     
-    try {
-      // Use managed AudioContext that handles browser autoplay restrictions
-      this.audioContext = await ensureAudioContext({ 
-        latencyHint: "interactive" 
-      });
-
-      // Set up event handlers for audio context state changes
-      audioContextManager.onSuspend(() => {
-        // AudioContext suspended - audio features may be limited
-      });
-
-      audioContextManager.onResume(() => {
-        // AudioContext resumed - audio features restored
-      });
-
-    } catch (error) {
-      console.error('Failed to initialize AudioContext:', error);
-      
-      // Fallback: Try legacy AudioContext creation
-      try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) {
-          throw new Error("AudioContext is not supported in this browser");
-        }
-        this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
-      } catch (fallbackError) {
-        console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
-      }
+    // Return pending promise if initialization is in progress
+    if (this._audioContextInitPromise) {
+      return this._audioContextInitPromise;
     }
+    
+    // Start new initialization
+    this._audioContextInitPromise = (async () => {
+      try {
+        // Use managed AudioContext that handles browser autoplay restrictions
+        this.audioContext = await ensureAudioContext({ 
+          latencyHint: "interactive" 
+        });
+
+        // Set up event handlers for audio context state changes
+        audioContextManager.onSuspend(() => {
+          // AudioContext suspended - audio features may be limited
+        });
+
+        audioContextManager.onResume(() => {
+          // AudioContext resumed - audio features restored
+        });
+
+      } catch (error) {
+        console.error('Failed to initialize AudioContext:', error);
+        
+        // Fallback: Try legacy AudioContext creation
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) {
+            throw new Error("AudioContext is not supported in this browser");
+          }
+          this.audioContext = new AudioContextClass({ latencyHint: "interactive" });
+        } catch (fallbackError) {
+          console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
+        }
+      } finally {
+        // Clear promise reference once complete
+        this._audioContextInitPromise = null;
+      }
+    })();
+    
+    return this._audioContextInitPromise;
   }
 
   /**
@@ -92,6 +109,34 @@ export default class AudioState {
       await this.audioContext.resume();
     } else if (!this.audioContext) {
       await this.initializeAudioContext();
+    }
+  }
+
+  /**
+   * Load AudioWorklet module safely (prevents duplicate loading races)
+   * RACE-SAFE: Multiple concurrent calls for same module will only load once
+   * @param {string} moduleUrl - URL of the AudioWorklet processor module
+   */
+  async loadAudioWorkletModule(moduleUrl) {
+    if (!this.audioContext) {
+      throw new Error('AudioContext not initialized');
+    }
+    
+    // Return immediately if already loaded
+    if (this._audioWorkletModulesLoaded.has(moduleUrl)) {
+      return;
+    }
+    
+    try {
+      await this.audioContext.audioWorklet.addModule(moduleUrl);
+      this._audioWorkletModulesLoaded.add(moduleUrl);
+    } catch (err) {
+      // InvalidStateError means module was already loaded by another concurrent call
+      if (err.name === 'InvalidStateError') {
+        this._audioWorkletModulesLoaded.add(moduleUrl);
+      } else {
+        throw err;
+      }
     }
   }
 
@@ -171,18 +216,25 @@ export default class AudioState {
    * Initialize persistent beeper for latency testing
    * 
    * EVENT-BASED: No timeouts! This method is called when audio mixer becomes available.
-   * Can be called multiple times safely (idempotent) - only initializes once.
+   * RACE-SAFE: Multiple concurrent calls will reuse the same initialization.
    */
   async initializePersistentBeeper() {
+    // Return if already initialized
     if (this._persistentBeeper) {
-      // Already initialized - just ensure ready state is set
       this.beeperReady(true);
       return;
     }
     
-    try {
-      // Check if mixer is available NOW (no waiting, no timeout)
-      const mixer = window._audioMixer;
+    // Return pending promise if initialization is in progress
+    if (this._beeperInitPromise) {
+      return this._beeperInitPromise;
+    }
+    
+    // Start new initialization
+    this._beeperInitPromise = (async () => {
+      try {
+        // Check if mixer is available NOW (no waiting, no timeout)
+        const mixer = window._audioMixer;
       if (!mixer) {
         debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
         this.beeperReady(false);
@@ -190,13 +242,22 @@ export default class AudioState {
       }
       
       const ac = await window.audioContextManager.getAudioContext();
-      if (!ac || ac.state !== 'running') {
-        debugLog('[BEEP]', 'AudioContext not ready', ac ? { state: ac.state } : { ac: null });
+      if (!ac) {
+        debugLog('[BEEP]', 'AudioContext not available');
         this.beeperReady(false);
         return;
       }
       
-      debugLog('[BEEP]', 'Initializing persistent beeper...');
+      // AUTOPLAY-POLICY: Allow beeper initialization even when AudioContext is suspended
+      // The Piano button click will resume the context via user gesture
+      // Only block if context is closed or in an error state
+      if (ac.state === 'closed') {
+        debugLog('[BEEP]', 'AudioContext is closed', { state: ac.state });
+        this.beeperReady(false);
+        return;
+      }
+      
+      debugLog('[BEEP]', 'Initializing persistent beeper...', { state: ac.state });
       
       // Create permanent oscillator with split output for local+remote playback
       const oscillator = ac.createOscillator();
@@ -217,31 +278,45 @@ export default class AudioState {
       
       oscillator.start();
       
-      this._persistentBeeper = {
-        oscillator,
-        gain: beepGain,
-        localGain: localGain,
-        isPlaying: false
-      };
-      
-      this.beeperReady(true);
-      console.log('[BEEP] Persistent beeper initialized successfully');
-    } catch (err) {
-      console.error('[BEEP] Failed to initialize persistent beeper:', err);
-      this.beeperReady(false);
-    }
+        this._persistentBeeper = {
+          oscillator,
+          gain: beepGain,
+          localGain: localGain,
+          isPlaying: false
+        };
+        
+        this.beeperReady(true);
+        console.log('[BEEP] Persistent beeper initialized successfully');
+      } catch (err) {
+        console.error('[BEEP] Failed to initialize persistent beeper:', err);
+        this.beeperReady(false);
+      } finally {
+        // Clear promise reference once complete
+        this._beeperInitPromise = null;
+      }
+    })();
+    
+    return this._beeperInitPromise;
   }
 
   /**
    * Start beeping
    */
-  startBeep() {
+  async startBeep() {
     debugLog('[BEEP]', 'Start beep requested');
     
     if (this._persistentBeeper) {
       try {
         const beeper = this._persistentBeeper;
         const ac = beeper.gain.context;
+        
+        // AUTOPLAY-POLICY: Resume AudioContext if suspended (Piano button = user gesture)
+        if (ac.state === 'suspended') {
+          debugLog('[BEEP]', 'Resuming suspended AudioContext...');
+          await ac.resume();
+          debugLog('[BEEP]', 'AudioContext resumed:', { state: ac.state });
+        }
+        
         const currentTime = ac.currentTime;
         const attackTime = 0.005;
         

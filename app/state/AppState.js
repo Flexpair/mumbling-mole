@@ -117,16 +117,27 @@ export default class AppState {
     }
 
     // Request microphone permission
+    // Store connection ID to detect if connection was cancelled during async operations
+    const connectionId = Symbol('connection');
+    this._currentConnectionId = connectionId;
+    
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
-          this.audio.micPermissionDenied(false);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(false);
+          }
+          // Always stop tracks to avoid mic staying active
           stream.getTracks().forEach((track) => track.stop());
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
-          this.audio.micPermissionDenied(true);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(true);
+          }
         });
     }
 
@@ -162,16 +173,27 @@ export default class AppState {
       isLoopback: true,
     };
 
+    // Store connection ID to detect if connection was cancelled during async operations
+    const connectionId = Symbol('loopback-connection');
+    this._currentConnectionId = connectionId;
+
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
-          this.audio.micPermissionDenied(false);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(false);
+          }
+          // Always stop tracks to avoid mic staying active
           stream.getTracks().forEach((track) => track.stop());
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
-          this.audio.micPermissionDenied(true);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(true);
+          }
         });
     }
 
@@ -270,13 +292,11 @@ export default class AppState {
     try {
       await this.audio.resumeAudioContext();
       
-      // Pre-warm AudioWorklet
+      // Pre-warm AudioWorklet (RACE-SAFE: uses tracked module loading)
       try {
-        await this.audio.audioContext.audioWorklet.addModule('playback-buffer-processor.js');
+        await this.audio.loadAudioWorkletModule('playback-buffer-processor.js');
       } catch (err) {
-        if (err.name !== 'InvalidStateError') {
-          console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
-        }
+        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
       }
     } catch (error) {
       console.warn("AudioContext resume failed, continuing anyway:", error);
@@ -434,6 +454,9 @@ export default class AppState {
    * Reset client and all state
    */
   resetClient = () => {
+    // RACE-SAFE: Cancel any in-progress connections
+    this._currentConnectionId = null;
+    
     this.audio.stopBeep();
     this.connection.resetClient();
     this.ui.selected(null);
