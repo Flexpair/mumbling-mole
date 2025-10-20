@@ -187,9 +187,6 @@ these subsystems once.
 **EVENT-BASED ARCHITECTURE** - No timeouts, no polling! The beeper initializes automatically
 when the audio mixer becomes available, regardless of how long that takes.
 
-**EVENT-BASED ARCHITECTURE** - No timeouts, no polling! The beeper initializes automatically
-when the audio mixer becomes available, regardless of how long that takes.
-
 **Implementation:**
 
 1. **`voice.js`** exports `onAudioMixerReady(callback)` function

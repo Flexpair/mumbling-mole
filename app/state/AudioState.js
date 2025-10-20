@@ -2,7 +2,7 @@ import ko from "knockout";
 import audioContextManager, { ensureAudioContext } from "../audio/audio-context-manager";
 import { getCurrentMixer } from "../audio/voice";
 
-const DEBUG_VOICE_LOGGING = true; // Enable for debugging beeper initialization
+const DEBUG_VOICE_LOGGING = false; // Set to true for debugging beeper initialization
 
 function debugLog(tag, ...args) {
   if (DEBUG_VOICE_LOGGING) {
