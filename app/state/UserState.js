@@ -33,6 +33,10 @@ export default class UserState {
     // Self mute/deaf state
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
+    
+    // CLEANUP-TRACKING: Track active voice stream resources for proper cleanup
+    // Prevents memory leaks from intervals and subscriptions
+    this._activeVoiceStreams = new Map(); // user.id -> { interval, subscription, userNode }
   }
 
   /**
@@ -138,6 +142,10 @@ export default class UserState {
       .on("voice", (stream) => {
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
+        // CLEANUP-SAFETY: Clear any previous voice stream resources for this user
+        // Prevents multiple intervals/subscriptions from running in parallel
+        this._cleanupVoiceStream(user.session);
+        
         // Create audio node for playing back received voice
         var userNode = new BufferQueueNode({
           audioContext: this.audioState.audioContext,
@@ -231,6 +239,13 @@ export default class UserState {
           gainNode.gain.value = isDeaf ? 0 : 1;
           debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
         });
+        
+        // CLEANUP-TRACKING: Store resources for proper cleanup
+        this._activeVoiceStreams.set(user.session, {
+          interval: frequencyAnalysisInterval,
+          subscription: deafSubscription,
+          userNode: userNode
+        });
 
         stream
           .on("data", (data) => {
@@ -252,16 +267,52 @@ export default class UserState {
           .on("end", () => {
             debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
             ui.talking("off");
-            userNode.end();
-            deafSubscription.dispose();
             
-            // LOOPBACK-FREQUENCY-ANALYSIS: Clean up frequency analysis
-            if (frequencyAnalysisInterval) {
-              clearInterval(frequencyAnalysisInterval);
-              debugLog('[LOOPBACK-FREQ]', 'Frequency analysis stopped');
-            }
+            // CLEANUP: Use centralized cleanup method
+            this._cleanupVoiceStream(user.session);
           });
       });
+  }
+  
+  /**
+   * Clean up voice stream resources (intervals, subscriptions, audio nodes)
+   * RACE-SAFE: Can be called multiple times safely (idempotent)
+   * @param {number} sessionId - User session ID
+   * @private
+   */
+  _cleanupVoiceStream(sessionId) {
+    const resources = this._activeVoiceStreams.get(sessionId);
+    if (!resources) {
+      return; // Already cleaned up
+    }
+    
+    // Clear frequency analysis interval
+    if (resources.interval) {
+      clearInterval(resources.interval);
+      debugLog('[LOOPBACK-FREQ]', 'Frequency analysis stopped');
+    }
+    
+    // Dispose subscription
+    if (resources.subscription) {
+      try {
+        resources.subscription.dispose();
+        debugLog('[VOICE]', 'Deaf subscription disposed');
+      } catch (err) {
+        console.error('[VOICE] Error disposing subscription:', err);
+      }
+    }
+    
+    // End audio node
+    if (resources.userNode) {
+      try {
+        resources.userNode.end();
+      } catch (err) {
+        console.error('[VOICE] Error ending userNode:', err);
+      }
+    }
+    
+    // Remove from tracking
+    this._activeVoiceStreams.delete(sessionId);
   }
 
   /**

@@ -117,16 +117,27 @@ export default class AppState {
     }
 
     // Request microphone permission
+    // Store connection ID to detect if connection was cancelled during async operations
+    const connectionId = Symbol('connection');
+    this._currentConnectionId = connectionId;
+    
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
-          this.audio.micPermissionDenied(false);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(false);
+          }
+          // Always stop tracks to avoid mic staying active
           stream.getTracks().forEach((track) => track.stop());
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
-          this.audio.micPermissionDenied(true);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(true);
+          }
         });
     }
 
@@ -162,16 +173,27 @@ export default class AppState {
       isLoopback: true,
     };
 
+    // Store connection ID to detect if connection was cancelled during async operations
+    const connectionId = Symbol('loopback-connection');
+    this._currentConnectionId = connectionId;
+
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
-          this.audio.micPermissionDenied(false);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(false);
+          }
+          // Always stop tracks to avoid mic staying active
           stream.getTracks().forEach((track) => track.stop());
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
-          this.audio.micPermissionDenied(true);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this.audio.micPermissionDenied(true);
+          }
         });
     }
 
@@ -218,6 +240,12 @@ export default class AppState {
 
     let channelName = targetChannel;
 
+    // Set loopback mode FIRST, before any async operations
+    const isLoopback = connectionParams.isLoopback || false;
+    if (isLoopback) {
+      this.voice.isLoopbackMode(true);
+    }
+
     if (audioEnabled) {
       this.voice.initVoiceInput(
         (data) => {
@@ -229,6 +257,17 @@ export default class AppState {
         },
         (err) => {
           this.log(translate("logentry.mic_init_error"), err);
+        },
+        // EVENT-BASED: Initialize beeper when mixer becomes ready (no timeout!)
+        () => {
+          this.audio.initializePersistentBeeper();
+          
+          // LOOPBACK-MODE: Voice handler state for UI (button visibility)
+          // In loopback mode, the beeper doesn't actually need a voice handler
+          // but the UI requires voiceHandlerReady for button visibility
+          if (this.voice.isLoopbackMode()) {
+            this.voice.voiceHandlerReady(true);
+          }
         }
       );
     } else {
@@ -236,22 +275,28 @@ export default class AppState {
       this.voice.endVoiceHandler();
     }
 
-    this.resetClient();
+    // Reset UI state but NOT the client connection
+    // (client will be replaced by new connection below)
+    this.audio.stopBeep();
+    this.ui.selected(null);
+    this.channel.root(null);
+    this.user.thisUser(null);
     
-    if (connectionParams.isLoopback) {
-      this.voice.isLoopbackMode(true);
+    // Keep beeper/voice ready state in loopback mode
+    const wasLoopback = this.voice.isLoopbackMode();
+    if (!wasLoopback) {
+      this.audio.beeperReady(false);
+      this.voice.voiceHandlerReady(false);
     }
 
     try {
       await this.audio.resumeAudioContext();
       
-      // Pre-warm AudioWorklet
+      // Pre-warm AudioWorklet (RACE-SAFE: uses tracked module loading)
       try {
-        await this.audio.audioContext.audioWorklet.addModule('playback-buffer-processor.js');
+        await this.audio.loadAudioWorkletModule('playback-buffer-processor.js');
       } catch (err) {
-        if (err.name !== 'InvalidStateError') {
-          console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
-        }
+        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
       }
     } catch (error) {
       console.warn("AudioContext resume failed, continuing anyway:", error);
@@ -401,26 +446,32 @@ export default class AppState {
       this.settings.samplesPerPacket
     );
     
-    // Initialize beeper if in test mode
-    if (this.connectDialog && this.connectDialog.isTestActive && this.connectDialog.isTestActive()) {
-      setTimeout(async () => {
-        await this.audio.initializePersistentBeeper();
-      }, 100);
-    }
+    // EVENT-BASED: Beeper initialization happens automatically when mixer becomes ready
+    // No need for setTimeout() - see _performConnect() mixer ready callback
   }
 
   /**
    * Reset client and all state
    */
   resetClient = () => {
+    // RACE-SAFE: Cancel any in-progress connections
+    this._currentConnectionId = null;
+    
     this.audio.stopBeep();
     this.connection.resetClient();
     this.ui.selected(null);
     this.channel.root(null);
     this.user.thisUser(null);
+    
+    // Keep beeper/voice ready state in loopback mode (for test button)
+    // Only reset loopback mode flag itself
+    const wasLoopback = this.voice.isLoopbackMode();
     this.voice.isLoopbackMode(false);
-    this.audio.beeperReady(false);
-    this.voice.voiceHandlerReady(false);
+    
+    if (!wasLoopback) {
+      this.audio.beeperReady(false);
+      this.voice.voiceHandlerReady(false);
+    }
   }
 
   /**

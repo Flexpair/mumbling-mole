@@ -237,8 +237,18 @@ function setupClient(id, client) {
   client.on("serverVersion", () => {
     pushProp(id, client, "serverVersion");
   });
+  
+  // DISCONNECT-CLEANUP: Ensure interval is cleared on disconnect
+  // Handles edge case where disconnect happens before initialization completes
+  client.on("disconnect", () => {
+    if (rootCheckInterval) {
+      clearInterval(rootCheckInterval);
+      rootCheckInterval = null;
+    }
+  });
 
   let initialized = false;
+  let rootCheckInterval = null; // CLEANUP-TRACKING: Store interval ID for proper cleanup
 
   // INITIALIZATION: Set up initial client state once root channel is available
   // Root channel must exist before we can traverse channel tree
@@ -279,6 +289,12 @@ function setupClient(id, client) {
     client.removeListener("newChannel", initializeClientState);
     client.removeListener("connected", initializeClientState);
     
+    // CLEANUP-INTERVAL: Stop periodic check since initialization complete
+    if (rootCheckInterval) {
+      clearInterval(rootCheckInterval);
+      rootCheckInterval = null;
+    }
+    
     // CLEANUP-TEMP: Clear temporary root channel storage
     tempRootChannel = null;
   };
@@ -303,7 +319,7 @@ function setupClient(id, client) {
     // STRATEGY-3: Periodic check as last-resort fallback for edge cases where events don't fire
     // This handles unusual server behaviors or timing issues where normal event-based init fails
     let checkCount = 0;
-    const checkInterval = setInterval(() => {
+    rootCheckInterval = setInterval(() => {
       checkCount++;
       
       // ALTERNATIVE-DISCOVERY: Try finding root channel in client.channels map
@@ -322,7 +338,8 @@ function setupClient(id, client) {
             const [rootId, rootChannel] = rootCandidates[0];
             
             // SUCCESS: Found root channel via alternative method
-            clearInterval(checkInterval);
+            clearInterval(rootCheckInterval);
+            rootCheckInterval = null;
             
             // Store for use in initializeClientState
             tempRootChannel = rootChannel;
@@ -335,7 +352,8 @@ function setupClient(id, client) {
       
       // TIMEOUT-CHECK: Stop after maximum attempts or when root channel appears
       if (client.root || checkCount > ROOT_CHECK_MAX_COUNT) {
-        clearInterval(checkInterval);
+        clearInterval(rootCheckInterval);
+        rootCheckInterval = null;
         if (client.root) {
           // Root channel appeared normally - initialize
           initializeClientState();

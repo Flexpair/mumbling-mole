@@ -3,6 +3,7 @@ import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
   initVoice,
+  onAudioMixerReady,
 } from "../audio/voice";
 import { translate } from "../localize";
 
@@ -42,13 +43,20 @@ export default class VoiceState {
    * Initialize voice input capture
    * @param {Function} onData - Callback for voice data
    * @param {Function} onError - Callback for errors
+   * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
    */
-  initVoiceInput(onData, onError) {
+  initVoiceInput(onData, onError, onMixerReady) {
     initVoice(onData, onError);
+    
+    // Register for mixer ready notification if callback provided
+    if (onMixerReady) {
+      onAudioMixerReady(onMixerReady);
+    }
   }
 
   /**
    * Update/recreate voice handler based on settings
+   * RACE-SAFE: Ensures previous handler cleanup completes before creating new one
    * @param {object} client - Mumble client instance
    * @param {object} settings - Settings object with voiceMode, etc.
    * @param {Function} onStartedTalking - Callback when user starts talking
@@ -60,8 +68,13 @@ export default class VoiceState {
     }
     
     // Cleanup existing handler
+    // Note: .end() is synchronous but we ensure null assignment before proceeding
     if (this.voiceHandler) {
-      this.voiceHandler.end();
+      try {
+        this.voiceHandler.end();
+      } catch (err) {
+        console.error('[VOICE-HANDLER] Error during cleanup:', err);
+      }
       this.voiceHandler = null;
     }
     

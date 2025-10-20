@@ -227,7 +227,6 @@ async function testNpmScripts() {
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   
   const requiredScripts = [
-    'test:e2e',
     'build'
   ];
   

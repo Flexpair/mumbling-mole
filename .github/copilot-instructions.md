@@ -51,13 +51,11 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  
 **Testing** (no unit tests exist; only integration/E2E):
   - `npm run test:audio:system` = fastest; validates build artifacts, codecs, worker syntax (no server required)
-  - `npm run test:e2e` = WebSocket smoke test (checks websockify tunnel + HTTP serving)
-  - `npm run test` = runs `./scripts/run-all-tests.sh` (E2E + audio + audit combined)
-  - `npm run test:quick` = fast subset (audio:system + e2e + audit:ci)
+  - `npm run test` = runs `./scripts/run-all-tests.sh` (Playwright loopback + audit combined)
+  - `npm run test:quick` = fast subset (audio:system + audit:ci)
   - `npm run test:audio` = single roundtrip test (sends 440 Hz sine wave to live server)
   - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
   - `npx playwright test tests/playwright/loopback-frequency.spec.js` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
-**E2E modes**: `node scripts/e2e-check.cjs` (local) vs `--mode=container` (CI); set `PLAIN_TARGET=1` for non-TLS echo servers  
 **Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
@@ -89,7 +87,59 @@ get audioContext() { return this.audio.audioContext; }
 **Sample-rate modal**: Blocks connection until acknowledged; `ui._performConnect({audioEnabled:false})` bypasses audio for "join without audio"  
 **Loopback testing**: `target=31` in `voice.js` creates server loopback streams (echoes audio back to sender); `isLoopbackMode` observable controls UI/behavior; Test button recreates voice handler with loopback target. **Warning**: loopback tests audio encode/decode but NOT client-to-client playback initialization (see `app/audio/README.md`)  
 **User object migration**: When server assigns self ID, migrate `_users[undefined]` → `_users[actualID]` in `worker-client.js` `_setProp()` to preserve event listeners (critical for loopback voice events)  
-**Authentication**: Uses provider-agnostic abstraction layer (`app/auth/`); `AuthFactory` instantiates providers based on config. Current production: `NetlifyIdentityAdapter` (deprecated upstream, migrating to Supabase Auth in Q1 2026). See `app/auth/README.md` for migration roadmap. All UI code references `this.auth` (not `this.netlifyIdentity`)
+**Authentication**: Uses provider-agnostic abstraction layer (`app/auth/`); `AuthFactory` instantiates providers based on config. Current production: `NetlifyIdentityAdapter` (deprecated upstream, migrating to Supabase Auth in Q1 2026). See `app/auth/README.md` for migration roadmap. All UI code references `this.auth` (not `this.netlifyIdentity`)  
+**Event-based initialization**: Beeper and audio mixer use callback-based initialization via `onAudioMixerReady()` in `voice.js`—**never use timeouts or polling**. Resources initialize automatically when dependencies become available, regardless of timing. Example: `initializePersistentBeeper()` called from mixer ready callback, not after fixed delay.
+
+## Race condition patterns (critical for correctness)
+**Promise caching**: Prevent duplicate async operations via cached promises. Pattern:
+```javascript
+async initializeAudioContext() {
+  if (this.audioContext) return;
+  if (this._audioContextInitPromise) return this._audioContextInitPromise;
+  this._audioContextInitPromise = (async () => {
+    // ... initialization
+  })();
+  return this._audioContextInitPromise;
+}
+```
+**Connection ID tracking**: Prevent stale callbacks from cancelled connections using Symbol-based tracking:
+```javascript
+const connectionId = Symbol('connection');
+this._currentConnectionId = connectionId;
+getUserMedia().then((stream) => {
+  if (this._currentConnectionId === connectionId) { /* safe to update */ }
+});
+```
+**Resource cleanup**: Always track resources (intervals, subscriptions, audio nodes) in Maps or instance variables for idempotent cleanup:
+```javascript
+// UserState.js pattern
+this._activeVoiceStreams = new Map(); // sessionId -> { interval, subscription, userNode }
+_cleanupVoiceStream(sessionId) {
+  const resources = this._activeVoiceStreams.get(sessionId);
+  if (!resources) return; // idempotent
+  if (resources.interval) clearInterval(resources.interval);
+  if (resources.subscription) resources.subscription.dispose();
+  this._activeVoiceStreams.delete(sessionId);
+}
+```
+**Global state races**: Use instance tracking with timestamps to prevent cleanup races. See `currentMixerInstance` + `currentMixerTimestamp` in `voice.js` (lines 172-174, 289-292, 310-320). Cleanup only executes if `currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp`.  
+**AudioWorklet module loading**: Track loaded modules in Set to prevent duplicate `addModule()` calls (causes InvalidStateError). Use `loadAudioWorkletModule()` helper in `AudioState.js` (lines 120-138).  
+**Interval cleanup**: Store interval IDs in outer scope (not closure-only) for cleanup in ALL code paths (success, error, disconnect). Example: `worker.js` `rootCheckInterval` (lines 242, 283-287, 312-315, 327-330).
+
+## Browser API gotchas
+**Autoplay policy**: AudioContext starts suspended until user gesture. Pattern:
+```javascript
+// In click handler (preserves user gesture)
+async toggleLoopback() {
+  if (ui.audio.audioContext?.state === 'suspended') {
+    await ui.audio.audioContext.resume();
+  }
+  // ... continue with audio operations
+}
+```
+Accept suspended state in initialization; resume on user interaction (Piano button click). See `app/index.js` lines 173-209 and `AudioState.js` `initializePersistentBeeper()` (line 248).  
+**getUserMedia lifecycle**: Always stop tracks after permission check to avoid lingering mic access. Pattern: `stream.getTracks().forEach(track => track.stop())` immediately after checking permissions.  
+**AudioContext singleton**: Never `new AudioContext()` directly—always use `ensureAudioContext()` from `audio-context-manager.js`. Creates exactly one context per app lifecycle; handles state transitions, autoplay policies, exponential backoff resume retries.
 
 ## Vendored dependencies
 - `vendors/mumble-client` is `file:` protocol dep (not npm registry); after editing `src/`, run `npm run build:vendor:mumble-client` to refresh `lib/`

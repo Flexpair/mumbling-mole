@@ -170,20 +170,39 @@ function ConnectDialog() {
   };
   
   // LOOPBACK-FEATURE: Toggle button handler - activates loopback test mode
-  self.toggleLoopback = function () {
+  self.toggleLoopback = async function () {
       // One-way activation: prevent deactivation via this button (use Connect button instead)
       if (self.isTestActive()) {
         return;
       }
       
+      // USER-GESTURE: Ensure AudioContext is created and running SYNCHRONOUSLY in click handler
+      // This must happen before any async operations that might lose the user gesture context
+      try {
+        // Mark user interaction for audio-context-manager
+        if (ui.audio && ui.audio.audioContextManager) {
+          ui.audio.audioContextManager.userInteractionDetected = true;
+        }
+        
+        // Create AudioContext if not exists
+        if (!ui.audio.audioContext) {
+          console.log('[LOOPBACK] Creating AudioContext on user click');
+          await ui.audio.initializeAudioContext();
+        }
+        
+        // Resume if suspended
+        if (ui.audio.audioContext && ui.audio.audioContext.state === 'suspended') {
+          console.log('[LOOPBACK] Resuming AudioContext on user click');
+          await ui.audio.audioContext.resume();
+        }
+        
+        console.log('[LOOPBACK] AudioContext ready:', ui.audio.audioContext.state);
+      } catch (err) {
+        console.error('[LOOPBACK] Failed to prepare AudioContext on click:', err);
+      }
+      
       // Mark test as active and connect in loopback mode
       self.isTestActive(true);
-      
-      // BEEPER-PREPARATION: Start beeper initialization immediately when test is activated
-      // This ensures the beeper is ready by the time the user wants to click the button
-      setTimeout(async () => {
-        await ui._initializePersistentBeeper();
-      }, 100); // Small delay to let loopback connection start
       
       // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
       // This allows user to see connection status and switch back to normal mode
