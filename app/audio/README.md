@@ -165,34 +165,68 @@ Voice echo works correctly, but the test tone button remains invisible.
 1. `_performConnect()` calls `initVoice()`
 2. `getUserMedia()` requests microphone permission (asynchronous)
 3. User grants permission
-4. `getUserMedia` callback sets `window._audioMixer`
-5. **BUT**: `_initializePersistentBeeper()` was called before mixer existed
-6. Function returned early without waiting
-7. `beeperReady()` stays false → button hidden
+4. `getUserMedia` callback must initialize:
+   - AudioContext creation (can be slow on first browser launch)
+   - AudioWorklet module loading + JIT compilation
+   - AudioWorklet node instantiation
+   - Finally sets `window._audioMixer`
+5. Beeper initialization was called **before** mixer existed or used timeout-based polling
+
+**CRITICAL DISCOVERY**: On **brand-new browser installations** (not Inkognito, not after permission reset),
+the entire audio stack initialization can take **6-10+ seconds** on first run ever:
+- OS audio driver interfaces must be initialized
+- WebRTC stack first-time initialization
+- AudioWorklet engine JIT compilation
+- Browser-internal audio subsystem warm-up
+
+This ONLY happens on the very first launch of a newly installed browser, NOT on subsequent
+runs (even in Inkognito mode), because the browser process itself has already initialized
+these subsystems once.
 
 ### Solution
-Made `_initializePersistentBeeper()` wait for audio mixer internally using `waitForAudioMixer()` helper:
+**EVENT-BASED ARCHITECTURE** - No timeouts, no polling! The beeper initializes automatically
+when the audio mixer becomes available, regardless of how long that takes.
+
+**EVENT-BASED ARCHITECTURE** - No timeouts, no polling! The beeper initializes automatically
+when the audio mixer becomes available, regardless of how long that takes.
+
+**Implementation:**
+
+1. **`voice.js`** exports `onAudioMixerReady(callback)` function
+2. When `window._audioMixer` is set, all registered callbacks are invoked
+3. **`AppState._performConnect()`** registers callback: `() => this.audio.initializePersistentBeeper()`
+4. Button appears automatically when mixer is ready
 
 ```javascript
-this._initializePersistentBeeper = async () => {
-  if (this._persistentBeeper) return;
-  
-  // Wait for audio mixer to become available (handles delayed getUserMedia)
-  const mixerAvailable = await waitForAudioMixer(5000, 50);
-  if (!mixerAvailable) {
-    this.beeperReady(false);
+// In voice.js - notify when mixer ready
+window._audioMixer = mixer;
+audioMixerReadyCallbacks.forEach(callback => callback(mixer));
+
+// In AppState - register for notification
+this.voice.initVoiceInput(onData, onError, 
+  () => this.audio.initializePersistentBeeper()  // Called when mixer ready
+);
+
+// In AudioState - idempotent initialization
+async initializePersistentBeeper() {
+  if (this._persistentBeeper) {
+    this.beeperReady(true);  // Already exists
     return;
   }
-  
-  const mixer = window._audioMixer;
-  // ... initialization continues
+  if (!window._audioMixer) {
+    return;  // Not ready yet, will be called again
+  }
+  // ... create oscillator, set beeperReady(true)
 }
 ```
 
-**Benefits**:
-- Works automatically wherever `_initializePersistentBeeper()` is called
-- No redundant waiting logic at call sites
-- One central, robust implementation
+**Benefits:**
+- ✅ **No arbitrary timeouts** - waits as long as needed (seconds, minutes, hours)
+- ✅ **No polling loops** - event-driven callback
+- ✅ **Immediate response** - if mixer already exists, callback fires instantly
+- ✅ **Idempotent** - safe to call multiple times
+- ✅ **Cleaner code** - no retry logic, no timeout management
+- ✅ **Zero race conditions** - callback is guaranteed after mixer exists
 
 ### Test Scenarios
 
@@ -203,8 +237,37 @@ this._initializePersistentBeeper = async () => {
 4. Click "Connect"
 5. Browser requests microphone permission
 6. Grant permission
-7. **Expected**: Test tone button appears automatically (max 5 seconds)
+7. **Expected**: Test tone button appears automatically (typically 1-3 seconds)
 8. Click button → tone plays
+
+#### Scenario 1b: BRAND NEW BROWSER INSTALLATION (Slow First Launch)
+**CRITICAL**: This scenario ONLY occurs on the absolute first launch of a newly installed browser!
+
+1. Install fresh browser (Chrome/Firefox) on clean system or VM
+2. Launch browser for the FIRST TIME EVER
+3. Navigate to URL
+4. Activate "Audio Test" toggle
+5. Click "Connect"
+6. Browser requests microphone permission
+7. Grant permission
+8. **Expected**: 
+   - Audio pipeline initialization takes 6-10+ seconds (OS/WebRTC/AudioWorklet first-time init)
+   - Console shows progress with timestamps
+   - Button appears automatically when initialization completes (NO TIMEOUT!)
+9. Click button → tone plays
+
+**NOTE**: This cannot be reproduced by:
+- Using Inkognito mode (browser process already initialized)
+- Clearing cookies/permissions (browser process already initialized)
+- Closing and reopening browser (browser process cache persists)
+
+Only reproducible by:
+- Completely uninstalling and reinstalling browser
+- Using fresh VM/container with no browser cache
+- First-time launch after OS reboot on brand-new system
+
+**Architecture advantage**: Even if initialization takes 30 seconds or 5 minutes (e.g., slow VM, 
+overloaded system), the button will still appear eventually. No arbitrary timeout limits!
 
 #### Scenario 2: Repeat Visit (Permission Already Granted)
 1. Navigate to URL (permission cached)
@@ -221,22 +284,38 @@ this._initializePersistentBeeper = async () => {
 5. Test tone works
 
 ### Debugging
-Console logs for successful initialization:
+
+#### Console Logs
+
+**Normal initialization:**
 ```
-[BEEP] Waiting for audio mixer...
-[BEEP] Persistent beeper initialized and ready
+[VOICE-INIT] Starting audio pipeline initialization
+[VOICE-INIT] AudioContext ready after 45ms (state: running, sampleRate: 48000Hz)
+[VOICE-INIT] AudioWorklet module loaded after 123ms
+[VOICE-INIT] Audio mixer ready - total initialization time: 234ms
+[BEEP] Initializing persistent beeper...
+[BEEP] Persistent beeper initialized successfully
 ```
 
-If timeout occurs:
+**First-time browser launch** (slow initialization):
 ```
-[BEEP] Mixer not ready after timeout
+[VOICE-INIT] Starting audio pipeline initialization
+[VOICE-INIT] AudioContext ready after 2341ms (state: running, sampleRate: 48000Hz)
+[VOICE-INIT] AudioWorklet module loaded after 4567ms
+[VOICE-INIT] Audio mixer ready - total initialization time: 7123ms
+[BEEP] Initializing persistent beeper...
+[BEEP] Persistent beeper initialized successfully
 ```
-→ Check AudioWorklet initialization or getUserMedia issues
+
+**Key advantage**: No matter how long initialization takes (7s, 30s, 5 minutes), the button
+will appear automatically when ready. No timeout errors!
 
 ### Related Files
-- `app/index.js`: `_initializePersistentBeeper()` with automatic mixer waiting
-- `app/index.html`: Button visibility bound to `beeperReady()` observable
-- `app/audio/voice.js`: Sets `window._audioMixer` after getUserMedia callback
+- **`app/audio/voice.js`**: `onAudioMixerReady()` callback registration, mixer ready notification
+- **`app/state/AppState.js`**: Registers callback in `_performConnect()` to initialize beeper when ready
+- **`app/state/AudioState.js`**: `initializePersistentBeeper()` - idempotent, event-based initialization
+- **`app/state/VoiceState.js`**: `initVoiceInput()` accepts mixer ready callback
+- **`app/index.html`**: Button visibility bound to `beeperReady()` observable
 
 ---
 

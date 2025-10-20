@@ -3,6 +3,7 @@ import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
   initVoice,
+  onAudioMixerReady,
 } from "../audio/voice";
 import { translate } from "../localize";
 
@@ -42,9 +43,15 @@ export default class VoiceState {
    * Initialize voice input capture
    * @param {Function} onData - Callback for voice data
    * @param {Function} onError - Callback for errors
+   * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
    */
-  initVoiceInput(onData, onError) {
+  initVoiceInput(onData, onError, onMixerReady) {
     initVoice(onData, onError);
+    
+    // Register for mixer ready notification if callback provided
+    if (onMixerReady) {
+      onAudioMixerReady(onMixerReady);
+    }
   }
 
   /**

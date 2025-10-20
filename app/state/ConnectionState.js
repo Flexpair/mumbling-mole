@@ -42,6 +42,12 @@ export default class ConnectionState {
    * @returns {Promise<MumbleClient>} Connected client instance
    */
   async connect(host, port, username, password, tokens = []) {
+    // Disconnect existing client before creating new connection
+    if (this.client) {
+      this.client.disconnect();
+      this.client = null;
+    }
+    
     this.remoteHost(host);
     this.remotePort(port);
 

@@ -218,6 +218,12 @@ export default class AppState {
 
     let channelName = targetChannel;
 
+    // Set loopback mode FIRST, before any async operations
+    const isLoopback = connectionParams.isLoopback || false;
+    if (isLoopback) {
+      this.voice.isLoopbackMode(true);
+    }
+
     if (audioEnabled) {
       this.voice.initVoiceInput(
         (data) => {
@@ -229,6 +235,17 @@ export default class AppState {
         },
         (err) => {
           this.log(translate("logentry.mic_init_error"), err);
+        },
+        // EVENT-BASED: Initialize beeper when mixer becomes ready (no timeout!)
+        () => {
+          this.audio.initializePersistentBeeper();
+          
+          // LOOPBACK-MODE: Voice handler state for UI (button visibility)
+          // In loopback mode, the beeper doesn't actually need a voice handler
+          // but the UI requires voiceHandlerReady for button visibility
+          if (this.voice.isLoopbackMode()) {
+            this.voice.voiceHandlerReady(true);
+          }
         }
       );
     } else {
@@ -236,10 +253,18 @@ export default class AppState {
       this.voice.endVoiceHandler();
     }
 
-    this.resetClient();
+    // Reset UI state but NOT the client connection
+    // (client will be replaced by new connection below)
+    this.audio.stopBeep();
+    this.ui.selected(null);
+    this.channel.root(null);
+    this.user.thisUser(null);
     
-    if (connectionParams.isLoopback) {
-      this.voice.isLoopbackMode(true);
+    // Keep beeper/voice ready state in loopback mode
+    const wasLoopback = this.voice.isLoopbackMode();
+    if (!wasLoopback) {
+      this.audio.beeperReady(false);
+      this.voice.voiceHandlerReady(false);
     }
 
     try {
@@ -401,12 +426,8 @@ export default class AppState {
       this.settings.samplesPerPacket
     );
     
-    // Initialize beeper if in test mode
-    if (this.connectDialog && this.connectDialog.isTestActive && this.connectDialog.isTestActive()) {
-      setTimeout(async () => {
-        await this.audio.initializePersistentBeeper();
-      }, 100);
-    }
+    // EVENT-BASED: Beeper initialization happens automatically when mixer becomes ready
+    // No need for setTimeout() - see _performConnect() mixer ready callback
   }
 
   /**
@@ -418,9 +439,16 @@ export default class AppState {
     this.ui.selected(null);
     this.channel.root(null);
     this.user.thisUser(null);
+    
+    // Keep beeper/voice ready state in loopback mode (for test button)
+    // Only reset loopback mode flag itself
+    const wasLoopback = this.voice.isLoopbackMode();
     this.voice.isLoopbackMode(false);
-    this.audio.beeperReady(false);
-    this.voice.voiceHandlerReady(false);
+    
+    if (!wasLoopback) {
+      this.audio.beeperReady(false);
+      this.voice.voiceHandlerReady(false);
+    }
   }
 
   /**

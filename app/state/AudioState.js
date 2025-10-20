@@ -10,29 +10,6 @@ function debugLog(tag, ...args) {
 }
 
 /**
- * Utility function to wait for audio mixer to become available.
- * 
- * The audio mixer (window._audioMixer) is initialized asynchronously during
- * the audio context setup. This function polls for its availability to ensure
- * audio operations don't fail due to timing issues during initialization.
- * 
- * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
- * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
- * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout
- */
-async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
-  const maxRetries = Math.floor(timeoutMs / checkIntervalMs);
-  let retries = maxRetries;
-  
-  while (retries > 0 && !window._audioMixer) {
-    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
-    retries--;
-  }
-  
-  return !!window._audioMixer;
-}
-
-/**
  * AudioState - manages audio context, permissions, and beeper functionality
  * 
  * Responsibilities:
@@ -192,28 +169,34 @@ export default class AudioState {
 
   /**
    * Initialize persistent beeper for latency testing
+   * 
+   * EVENT-BASED: No timeouts! This method is called when audio mixer becomes available.
+   * Can be called multiple times safely (idempotent) - only initializes once.
    */
   async initializePersistentBeeper() {
-    if (this._persistentBeeper) return; // Already initialized
+    if (this._persistentBeeper) {
+      // Already initialized - just ensure ready state is set
+      this.beeperReady(true);
+      return;
+    }
     
     try {
-      // Wait for audio mixer to become available
-      debugLog('[BEEP]', 'Waiting for audio mixer...');
-      const mixerAvailable = await waitForAudioMixer(5000, 50);
-      
-      if (!mixerAvailable) {
-        debugLog('[BEEP]', 'Mixer not ready after timeout');
+      // Check if mixer is available NOW (no waiting, no timeout)
+      const mixer = window._audioMixer;
+      if (!mixer) {
+        debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
         this.beeperReady(false);
         return;
       }
       
-      const mixer = window._audioMixer;
       const ac = await window.audioContextManager.getAudioContext();
       if (!ac || ac.state !== 'running') {
         debugLog('[BEEP]', 'AudioContext not ready', ac ? { state: ac.state } : { ac: null });
         this.beeperReady(false);
         return;
       }
+      
+      debugLog('[BEEP]', 'Initializing persistent beeper...');
       
       // Create permanent oscillator with split output for local+remote playback
       const oscillator = ac.createOscillator();
@@ -242,7 +225,7 @@ export default class AudioState {
       };
       
       this.beeperReady(true);
-      debugLog('[BEEP]', 'Persistent beeper initialized with dual output');
+      console.log('[BEEP] Persistent beeper initialized successfully');
     } catch (err) {
       console.error('[BEEP] Failed to initialize persistent beeper:', err);
       this.beeperReady(false);

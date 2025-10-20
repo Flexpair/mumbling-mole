@@ -166,6 +166,35 @@ export function enumMicrophones() {
 }
 
 /**
+ * Global callback registry for audio mixer ready events
+ * External components can register callbacks to be notified when mixer becomes available
+ */
+const audioMixerReadyCallbacks = [];
+
+/**
+ * Register a callback to be invoked when audio mixer becomes ready
+ * @param {Function} callback - Called with (mixer, audioContext) when ready
+ */
+export function onAudioMixerReady(callback) {
+  if (typeof callback !== 'function') {
+    console.error('[VOICE] onAudioMixerReady: callback must be a function');
+    return;
+  }
+  
+  // If mixer is already available, call immediately
+  if (window._audioMixer) {
+    try {
+      callback(window._audioMixer);
+    } catch (err) {
+      console.error('[VOICE] Error in mixer ready callback:', err);
+    }
+  } else {
+    // Otherwise, queue for later
+    audioMixerReadyCallbacks.push(callback);
+  }
+}
+
+/**
  * Init microphone capture.
  * Liefert per onData PCM-Frames (Float32) weiter – wie bisher, nur stabil via AudioWorklet.
  */
@@ -189,17 +218,24 @@ export function initVoice(onData, onUserMediaError) {
       return;
     }
 
+    const initStartTime = Date.now();
+    console.log('[VOICE-INIT] Starting audio pipeline initialization');
+
     try {
       // AUDIO-CONTEXT: Use managed AudioContext with autoplay policy handling
       // Sample rate must be 48kHz to match Mumble protocol requirements
+      const acStartTime = Date.now();
       const ac = await ensureAudioContext({
         sampleRate: 48000,
         latencyHint: 'interactive'
       });
+      console.log(`[VOICE-INIT] AudioContext ready after ${Date.now() - acStartTime}ms (state: ${ac.state}, sampleRate: ${ac.sampleRate}Hz)`);
 
       // AUDIOWORKLET: Load AudioWorklet processor for real-time audio capture
       // recorder-worker.js runs in audio thread for low-latency processing
+      const workletStartTime = Date.now();
       await ac.audioWorklet.addModule("recorder-worker.js");
+      console.log(`[VOICE-INIT] AudioWorklet module loaded after ${Date.now() - workletStartTime}ms`);
 
       // AUDIO-SOURCE: Create audio source from microphone stream
       const src = ac.createMediaStreamSource(userMedia);
@@ -238,6 +274,18 @@ export function initVoice(onData, onUserMediaError) {
       // BEEP-INJECTION: Expose mixer for beep injection
       // Global reference so the beep system can connect to it
       window._audioMixer = mixer;
+      console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
+
+      // CALLBACK-NOTIFICATION: Notify all registered callbacks that mixer is ready
+      audioMixerReadyCallbacks.forEach(callback => {
+        try {
+          callback(mixer);
+        } catch (err) {
+          console.error('[VOICE] Error in mixer ready callback:', err);
+        }
+      });
+      // Clear callbacks after notification (one-time use)
+      audioMixerReadyCallbacks.length = 0;
 
       // optional: aufräumen, wenn das mediastream endet
       userMedia.getTracks().forEach((t) =>
