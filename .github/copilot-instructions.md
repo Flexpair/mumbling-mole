@@ -49,13 +49,12 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Local dev**: `MUMBLE_SERVER=host:port ./start-dev-server.sh` → builds in dev mode, spawns `docker-entrypoint.sh`, opens `http://local.flexpair.app`, logs to `/tmp/entrypoint.log`  
 **Quick restart**: `./rebuild-and-restart.sh` convenience script rebuilds and restarts dev server (useful during active development)  
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  
-**Testing** (no unit tests exist; only integration/E2E):
-  - `npm run test:audio:system` = fastest; validates build artifacts, codecs, worker syntax (no server required)
-  - `npm run test` = runs `./scripts/run-all-tests.sh` (Playwright loopback + audit combined)
-  - `npm run test:quick` = fast subset (audio:system + audit:ci)
-  - `npm run test:audio` = single roundtrip test (sends 440 Hz sine wave to live server)
-  - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
-  - `npx playwright test tests/playwright/loopback-frequency.spec.js` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
+**Testing**:
+  - `npm test` = Playwright loopback test + audit:ci (main test suite)
+  - `npm run test:loopback` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
+  - `npm run test:loopback:headed` = same test with visible browser (debugging)
+  - `npm run test:loopback:debug` = step-through debugging mode
+  - `npm run audit:ci` = dependency vulnerability check
 **Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
@@ -170,8 +169,8 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **State modules**: `app/state/AppState.js` (coordinator), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/selections), `app/state/UserState.js` (thisUser/mute/deaf), `app/state/ChannelState.js` (root channel/links)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
-**Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
-**Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner), `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation)  
+**Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
+**Testing**: `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation), `scripts/audit-ci.cjs` (dependency vulnerability checks)  
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Known technical debt
