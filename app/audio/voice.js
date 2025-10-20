@@ -171,6 +171,20 @@ export function enumMicrophones() {
  */
 const audioMixerReadyCallbacks = [];
 
+// MIXER-TRACKING: Track current mixer instance to prevent race conditions
+// When initVoice is called multiple times, only the latest mixer is valid
+let currentMixerInstance = null;
+let currentMixerTimestamp = 0;
+
+/**
+ * Get the current audio mixer instance
+ * RACE-SAFE: Returns null if no mixer or mixer is from an old initVoice call
+ * @returns {GainNode|null} Current audio mixer or null
+ */
+export function getCurrentMixer() {
+  return currentMixerInstance;
+}
+
 /**
  * Register a callback to be invoked when audio mixer becomes ready
  * @param {Function} callback - Called with (mixer, audioContext) when ready
@@ -271,8 +285,13 @@ export function initVoice(onData, onUserMediaError) {
       src.connect(mixer);
       mixer.connect(node);
 
-      // BEEP-INJECTION: Expose mixer for beep injection
-      // Global reference so the beep system can connect to it
+      // BEEP-INJECTION: Track mixer instance with timestamp to prevent race conditions
+      // RACE-SAFE: Only latest mixer instance is valid; previous instances are invalidated
+      const mixerTimestamp = Date.now();
+      currentMixerInstance = mixer;
+      currentMixerTimestamp = mixerTimestamp;
+      
+      // BACKWARD-COMPAT: Also set global for existing code (will be deprecated)
       window._audioMixer = mixer;
       console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
 
@@ -290,22 +309,29 @@ export function initVoice(onData, onUserMediaError) {
       // optional: aufräumen, wenn das mediastream endet
       userMedia.getTracks().forEach((t) =>
         t.addEventListener("ended", () => {
-          try {
-            node.disconnect();
-          } catch {}
-          try {
-            mixer.disconnect();
-          } catch {}
-          try {
-            src.disconnect();
-          } catch {}
-          // Clean up global reference
-          window._audioMixer = null;
-          // Don't close the shared/global AudioContext here. Suspending saves power without
-          // invalidating the shared instance held by the AudioContextManager.
-          try {
-            audioContextManager.suspendAudioContext();
-          } catch {}
+          // RACE-SAFE: Only clean up if this is still the current mixer instance
+          // Prevents newer mixer from being invalidated by older instance cleanup
+          if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
+            try {
+              node.disconnect();
+            } catch {}
+            try {
+              mixer.disconnect();
+            } catch {}
+            try {
+              src.disconnect();
+            } catch {}
+            
+            // Clear global references only if this is still the active instance
+            currentMixerInstance = null;
+            window._audioMixer = null;
+            
+            // Don't close the shared/global AudioContext here. Suspending saves power without
+            // invalidating the shared instance held by the AudioContextManager.
+            try {
+              audioContextManager.suspendAudioContext();
+            } catch {}
+          }
         })
       );
     } catch (e) {

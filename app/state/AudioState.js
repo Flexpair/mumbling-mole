@@ -1,5 +1,6 @@
 import ko from "knockout";
 import audioContextManager, { ensureAudioContext } from "../audio/audio-context-manager";
+import { getCurrentMixer } from "../audio/voice";
 
 const DEBUG_VOICE_LOGGING = true; // Enable for debugging beeper initialization
 
@@ -234,7 +235,8 @@ export default class AudioState {
     this._beeperInitPromise = (async () => {
       try {
         // Check if mixer is available NOW (no waiting, no timeout)
-        const mixer = window._audioMixer;
+        // RACE-SAFE: Use getCurrentMixer() instead of window._audioMixer to avoid race conditions
+        const mixer = getCurrentMixer();
       if (!mixer) {
         debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
         this.beeperReady(false);
