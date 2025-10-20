@@ -51,13 +51,11 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  
 **Testing** (no unit tests exist; only integration/E2E):
   - `npm run test:audio:system` = fastest; validates build artifacts, codecs, worker syntax (no server required)
-  - `npm run test:e2e` = WebSocket smoke test (checks websockify tunnel + HTTP serving)
-  - `npm run test` = runs `./scripts/run-all-tests.sh` (E2E + audio + audit combined)
-  - `npm run test:quick` = fast subset (audio:system + e2e + audit:ci)
+  - `npm run test` = runs `./scripts/run-all-tests.sh` (Playwright loopback + audit combined)
+  - `npm run test:quick` = fast subset (audio:system + audit:ci)
   - `npm run test:audio` = single roundtrip test (sends 440 Hz sine wave to live server)
   - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
   - `npx playwright test tests/playwright/loopback-frequency.spec.js` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
-**E2E modes**: `node scripts/e2e-check.cjs` (local) vs `--mode=container` (CI); set `PLAIN_TARGET=1` for non-TLS echo servers  
 **Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
