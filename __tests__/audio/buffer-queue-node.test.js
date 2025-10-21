@@ -309,6 +309,288 @@ describe('BufferQueueNode - Audio Connection', () => {
   });
 });
 
+describe('BufferQueueNode - Error Handling', () => {
+  let mockAudioContext;
+  let mockWorkletNode;
+
+  beforeEach(() => {
+    mockWorkletNode = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      port: {
+        postMessage: jest.fn(),
+        onmessage: null
+      }
+    };
+
+    mockAudioContext = {
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+  });
+
+  afterEach(() => {
+    delete global.AudioWorkletNode;
+  });
+
+  test('emits error on worklet initialization failure', async () => {
+    const testError = new Error('Network error');
+    testError.name = 'NetworkError';
+    mockAudioContext.audioWorklet.addModule.mockRejectedValue(testError);
+    
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    
+    const errorPromise = new Promise(resolve => node.on('error', resolve));
+    const error = await errorPromise;
+    
+    expect(error).toBe(testError);
+    expect(node._isReady).toBe(false);
+  });
+
+  test('handles unsupported buffer type in Float32ArrayWrapper', () => {
+    expect(() => {
+      new Float32ArrayWrapper(1, false, [1, 2, 3]);
+    }).toThrow('Unsupported buffer type');
+  });
+
+  test('handles unsupported buffer type in Int16ArrayWrapper', () => {
+    expect(() => {
+      new Int16ArrayWrapper(1, false, { not: 'a buffer' });
+    }).toThrow('Unsupported buffer type');
+  });
+});
+
+describe('BufferQueueNode - Stream Events', () => {
+  let mockAudioContext;
+  let mockWorkletNode;
+
+  beforeEach(() => {
+    mockWorkletNode = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      port: {
+        postMessage: jest.fn(),
+        onmessage: null
+      }
+    };
+
+    mockAudioContext = {
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+  });
+
+  afterEach(() => {
+    delete global.AudioWorkletNode;
+  });
+
+  test('sends finish message on stream finish', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    node.emit('finish');
+    
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalledWith({ type: 'finish' });
+  });
+
+  test('sends close message and disconnects on stream close', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    node.emit('close');
+    
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalledWith({ type: 'close' });
+    expect(mockWorkletNode.disconnect).toHaveBeenCalled();
+  });
+
+  test('handles close message from worklet', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    const closePromise = new Promise(resolve => node.on('close', resolve));
+    
+    // Simulate worklet sending close message
+    mockWorkletNode.port.onmessage({ data: { type: 'close' } });
+    
+    await closePromise;
+  });
+
+  test('handles closed confirmation from worklet', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    // Should not emit close event for 'closed' type (just confirmation)
+    const closeListener = jest.fn();
+    node.on('close', closeListener);
+    
+    mockWorkletNode.port.onmessage({ data: { type: 'closed' } });
+    
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(closeListener).not.toHaveBeenCalled();
+  });
+});
+
+describe('BufferQueueNode - _write() Method', () => {
+  let mockAudioContext;
+  let mockWorkletNode;
+
+  beforeEach(() => {
+    mockWorkletNode = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      port: {
+        postMessage: jest.fn(),
+        onmessage: null
+      }
+    };
+
+    mockAudioContext = {
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+  });
+
+  afterEach(() => {
+    delete global.AudioWorkletNode;
+  });
+
+  test('writes Float32Array in object mode', async () => {
+    const node = new BufferQueueNode({ 
+      audioContext: mockAudioContext,
+      objectMode: true,
+      channels: 1
+    });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    const data = new Float32Array([0.1, 0.2, 0.3, 0.4]);
+    const callback = jest.fn();
+    
+    node._write(data, null, callback);
+    
+    expect(callback).toHaveBeenCalledWith();
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalledWith({
+      type: 'data',
+      data: expect.objectContaining({
+        channels: expect.any(Array),
+        length: 4
+      })
+    });
+  });
+
+  test('writes Int16Array in object mode', async () => {
+    const node = new BufferQueueNode({ 
+      audioContext: mockAudioContext,
+      objectMode: true,
+      channels: 1
+    });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    const data = new Int16Array([16384, -16384, 0, 32767]);
+    const callback = jest.fn();
+    
+    node._write(data, null, callback);
+    
+    expect(callback).toHaveBeenCalledWith();
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalled();
+  });
+
+  test('writes AudioBuffer in object mode', async () => {
+    const node = new BufferQueueNode({ 
+      audioContext: mockAudioContext,
+      objectMode: true,
+      channels: 1
+    });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    const audioBuffer = {
+      numberOfChannels: 1,
+      length: 100,
+      getChannelData: jest.fn(() => new Float32Array(100))
+    };
+    
+    const callback = jest.fn();
+    
+    node._write(audioBuffer, null, callback);
+    
+    expect(callback).toHaveBeenCalledWith();
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalledWith({
+      type: 'data',
+      data: expect.objectContaining({
+        channels: expect.any(Array),
+        length: 100
+      })
+    });
+  });
+
+  test('writes Float32Array in non-object mode with dataType', async () => {
+    const node = new BufferQueueNode({ 
+      audioContext: mockAudioContext,
+      objectMode: false,
+      dataType: Float32ArrayWrapper,
+      channels: 1
+    });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    const data = new Float32Array([0.5, 0.6]);
+    const callback = jest.fn();
+    
+    node._write(data, null, callback);
+    
+    expect(callback).toHaveBeenCalledWith();
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalled();
+  });
+
+  test('waits for ready before writing', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    
+    const data = new Float32Array([0.1, 0.2]);
+    const callback = jest.fn();
+    
+    // Write before ready
+    node._write(data, null, callback);
+    
+    // Callback should not be called yet
+    expect(callback).not.toHaveBeenCalled();
+    
+    // Wait for ready
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    // Now callback should be called
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(callback).toHaveBeenCalledWith();
+  });
+
+  test('calls callback with error on write failure', async () => {
+    const node = new BufferQueueNode({ 
+      audioContext: mockAudioContext,
+      objectMode: false,
+      dataType: Float32ArrayWrapper
+    });
+    await new Promise(resolve => node.on('ready', resolve));
+    
+    // Mock postMessage to throw an error
+    mockWorkletNode.port.postMessage.mockImplementation(() => {
+      throw new Error('Failed to post message');
+    });
+    
+    const data = new Float32Array([0.1, 0.2]);
+    const callback = jest.fn();
+    
+    node._write(data, null, callback);
+    
+    expect(callback).toHaveBeenCalledWith(expect.any(Error));
+  });
+});
+
 describe('BufferQueueNode - Exported Classes', () => {
   test('exports AudioBuffer wrapper', () => {
     expect(BufferQueueNode.AudioBuffer).toBe(AudioBufferWrapper);
