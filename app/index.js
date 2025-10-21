@@ -17,23 +17,6 @@ import {
   translate,
 } from "./localize";
 
-/**
- * Utility function to wait for audio mixer to become available
- * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
- * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
- * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout
- */
-async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
-  const maxRetries = Math.floor(timeoutMs / checkIntervalMs);
-  let retries = maxRetries;
-  
-  while (retries > 0 && !window._audioMixer) {
-    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
-    retries--;
-  }
-  
-  return !!window._audioMixer;
-}
 
 // Debug flag for controlling verbose logging in voice handlers
 const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
@@ -49,16 +32,6 @@ if (isDebugAudio) {
   console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
 }
 
-/**
- * Debug logging function that respects the DEBUG_VOICE_LOGGING flag
- * @param {string} tag - Log tag like '[VOICE]' 
- * @param {...any} args - Arguments to log
- */
-function debugLog(tag, ...args) {
-  if (DEBUG_VOICE_LOGGING) {
-    console.log(tag, ...args);
-  }
-}
 
 /**
  * Safely extracts and sanitizes username from user metadata
@@ -114,7 +87,6 @@ function GuacamoleFrame() {
     this.loading(false);
     try {
       const frame = document.getElementById("guacframe");
-      const doc = frame && frame.contentDocument;
     } catch (e) {
       console.warn("[Guac] cannot inspect iframe content", e);
     }
@@ -580,7 +552,7 @@ async function initializeUI() {
   }
 
   let queryParams = url.parse(document.location.href, true).query;
-  queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
+  queryParams = { ...window.mumbleWebConfig.defaults, ...queryParams};
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
   }
@@ -594,41 +566,12 @@ async function initializeUI() {
 }
 
 function log() {
-  console.log.apply(console, arguments);
+  console.log(...arguments);
 }
 
-function compareChannels(c1, c2) {
-  if (c1.position() === c2.position()) {
-    return c1.name() === c2.name() ? 0 : c1.name() < c2.name() ? -1 : 1;
-  }
-  return c1.position() - c2.position();
-}
 
-function compareUsers(u1, u2) {
-  return u1.name() === u2.name() ? 0 : u1.name() < u2.name() ? -1 : 1;
-}
 
-function userToState() {
-  let flags = [];
-  if (this.uid()) {
-    flags.push("Authenticated");
-  }
-  if (this.mute()) {
-    flags.push("Muted (server)");
-  }
-  if (this.deaf()) {
-    flags.push("Deafened (server)");
-  }
-  if (this.selfMute()) {
-    flags.push("Muted (self)");
-  }
-  if (this.selfDeaf()) {
-    flags.push("Deafened (self)");
-  }
-  return flags.join(", ");
-}
 
-let voiceHandler;
 
 async function main() {
   document.title = window.location.hostname;
