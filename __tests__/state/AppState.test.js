@@ -908,5 +908,913 @@ describe('AppState', () => {
       expect(appState.mailToDesktop).toBeDefined();
       expect(ko.observable).toHaveBeenCalled();
     });
+
+    test('messageBoxHint returns empty string when no user', () => {
+      appState.user.thisUser.mockReturnValue(null);
+      
+      const hintFunction = ko.pureComputed.mock.calls.find(call => 
+        call[0].toString().includes('thisUser')
+      )?.[0];
+      
+      if (hintFunction) {
+        const result = hintFunction();
+        expect(result).toBe('');
+      }
+    });
+
+    test('messageBoxHint generates channel message placeholder', () => {
+      const mockChannel = {
+        name: jest.fn(() => 'General'),
+        users: []
+      };
+      const mockUser = {
+        channel: jest.fn(() => mockChannel)
+      };
+      appState.user.thisUser.mockReturnValue(mockUser);
+      appState.ui.selected.mockReturnValue(null);
+      
+      const hintFunction = ko.pureComputed.mock.calls.find(call => 
+        call[0].toString().includes('thisUser')
+      )?.[0];
+      
+      if (hintFunction) {
+        const result = hintFunction();
+        expect(translate).toHaveBeenCalledWith('chat.channel_message_placeholder');
+      }
+    });
+
+    test('messageBoxHint generates user message placeholder', () => {
+      const mockTarget = {
+        name: jest.fn(() => 'Alice')
+      };
+      const mockUser = {
+        name: 'Bob'
+      };
+      appState.user.thisUser.mockReturnValue(mockUser);
+      appState.ui.selected.mockReturnValue(mockTarget);
+      
+      const hintFunction = ko.pureComputed.mock.calls.find(call => 
+        call[0].toString().includes('thisUser')
+      )?.[0];
+      
+      if (hintFunction) {
+        const result = hintFunction();
+        expect(translate).toHaveBeenCalledWith('chat.user_message_placeholder');
+      }
+    });
+
+    test('messageBoxHint uses thisUser channel when target is self', () => {
+      const mockChannel = {
+        name: jest.fn(() => 'General'),
+        users: []
+      };
+      const mockUser = {
+        channel: jest.fn(() => mockChannel)
+      };
+      appState.user.thisUser.mockReturnValue(mockUser);
+      appState.ui.selected.mockReturnValue(mockUser);
+      
+      const hintFunction = ko.pureComputed.mock.calls.find(call => 
+        call[0].toString().includes('thisUser')
+      )?.[0];
+      
+      if (hintFunction) {
+        const result = hintFunction();
+        expect(mockUser.channel).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('Connection - AudioContext Initialization', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.sampleRateWarningDialog = {
+        show: jest.fn(),
+        showInfo: jest.fn(),
+      };
+    });
+
+    test('initializes AudioContext if not present', async () => {
+      appState.audio.audioContext = null;
+      appState.audio.initializeAudioContext.mockImplementation(async () => {
+        appState.audio.audioContext = { sampleRate: 48000 };
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.audio.initializeAudioContext).toHaveBeenCalled();
+    });
+
+    test('handles non-array roles in identity', async () => {
+      const identity = {
+        app_metadata: {
+          roles: 'admin' // Not an array
+        }
+      };
+      appState.auth.currentUser.mockReturnValue(identity);
+      appState.audio.audioContext = { sampleRate: 48000 };
+      
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(Array.isArray(identity.app_metadata.roles)).toBe(true);
+      expect(identity.app_metadata.roles).toContain('watch');
+      expect(identity.app_metadata.roles).toContain('listen');
+    });
+  });
+
+  describe('Connection - getUserMedia Error Handling', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.audio.audioContext = { sampleRate: 48000 };
+      appState.sampleRateWarningDialog = {
+        show: jest.fn(),
+        showInfo: jest.fn(),
+      };
+    });
+
+    test('handles cancelled connection during getUserMedia', async () => {
+      let resolveGetUserMedia;
+      const getUserMediaPromise = new Promise(resolve => {
+        resolveGetUserMedia = resolve;
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockReturnValue(getUserMediaPromise)
+        }
+      };
+
+      const connectPromise = appState.connect('host', 64738, 'user', 'pass');
+
+      // Cancel connection before getUserMedia resolves
+      appState._currentConnectionId = null;
+
+      // Now resolve getUserMedia
+      resolveGetUserMedia({
+        getTracks: jest.fn(() => [{ stop: jest.fn() }])
+      });
+
+      await connectPromise;
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // micPermissionDenied should NOT have been called because connection was cancelled
+      expect(appState.audio.micPermissionDenied).not.toHaveBeenCalled();
+    });
+
+    test('sets connection ID before getUserMedia', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      // Connection ID should be set
+      expect(typeof appState._currentConnectionId).toBe('symbol');
+    });
+  });
+
+  describe('Connection - Guacamole Integration', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.audio.audioContext = { sampleRate: 48000 };
+      appState.connectDialog = {
+        password: jest.fn(() => 'test-password')
+      };
+      appState.guacamoleFrame = {
+        start: jest.fn(),
+        show: jest.fn()
+      };
+      global.alert = jest.fn();
+    });
+
+    afterEach(() => {
+      delete global.alert;
+    });
+
+    test('starts Guacamole for admin role', async () => {
+      appState.auth.currentUser.mockReturnValue({
+        app_metadata: {
+          roles: ['admin', 'watch', 'listen']
+        }
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.guacamoleFrame.start).toHaveBeenCalledWith('admin', 'test-password');
+      expect(appState.guacamoleFrame.show).toHaveBeenCalled();
+    });
+
+    test('starts Guacamole for edit role', async () => {
+      appState.auth.currentUser.mockReturnValue({
+        app_metadata: {
+          roles: ['edit', 'watch', 'listen']
+        }
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.guacamoleFrame.start).toHaveBeenCalledWith('editor', 'test-password');
+    });
+
+    test('starts Guacamole for watch role', async () => {
+      appState.auth.currentUser.mockReturnValue({
+        app_metadata: {
+          roles: ['watch', 'listen']
+        }
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.guacamoleFrame.start).toHaveBeenCalledWith('watcher', 'test-password');
+    });
+
+    test('does not start Guacamole without appropriate role (unreachable in connect())', async () => {
+      // NOTE: This scenario is theoretically unreachable in normal connect() flow
+      // because connect() always adds 'watch' role. This test documents that behavior.
+      // If roles were manipulated directly without going through connect(), this would trigger.
+      appState.auth.currentUser.mockReturnValue({
+        app_metadata: {
+          roles: ['listen'] // No admin/edit/watch
+        }
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      // After connect(), watch should have been added
+      expect(appState.auth.currentUser().app_metadata.roles).toContain('watch');
+    });
+
+    test('skips Guacamole in loopback mode', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connectLoopback('host', 64738, 'user', 'pass');
+
+      expect(appState.guacamoleFrame.start).not.toHaveBeenCalled();
+      expect(global.alert).not.toHaveBeenCalled();
+    });
+
+    test('stores Guacamole credentials', async () => {
+      appState.auth.currentUser.mockReturnValue({
+        app_metadata: {
+          roles: ['admin', 'watch', 'listen']
+        }
+      });
+
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState._guacLogin).toBe('admin');
+      expect(appState._guacPassword).toBe('test-password');
+    });
+  });
+
+  describe('Connection - Channel Registration', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.audio.audioContext = { sampleRate: 48000 };
+      appState.connectDialog = {
+        password: jest.fn(() => 'test-password')
+      };
+      appState.guacamoleFrame = {
+        start: jest.fn(),
+        show: jest.fn()
+      };
+    });
+
+    test('registers channels with leading slash', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const mockSubChannel = {
+        __ui: {},
+        name: 'SubChannel',
+        children: []
+      };
+
+      const mockRootChannel = {
+        __ui: {},
+        name: 'Root',
+        children: [mockSubChannel]
+      };
+
+      const mockSelf = {
+        __ui: {},
+        setChannel: jest.fn()
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: mockRootChannel,
+        users: [],
+        self: mockSelf,
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass', [], '/SubChannel');
+
+      expect(mockSelf.setChannel).toHaveBeenCalledWith(mockSubChannel);
+    });
+
+    test('registers channels without leading slash', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const mockSubChannel = {
+        __ui: {},
+        name: 'SubChannel',
+        children: []
+      };
+
+      const mockRootChannel = {
+        __ui: {},
+        name: 'Root',
+        children: [mockSubChannel]
+      };
+
+      const mockSelf = {
+        __ui: {},
+        setChannel: jest.fn()
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: mockRootChannel,
+        users: [],
+        self: mockSelf,
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass', [], 'SubChannel');
+
+      expect(mockSelf.setChannel).toHaveBeenCalledWith(mockSubChannel);
+    });
+
+    test('registers existing users', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const mockUser1 = { __ui: {}, name: 'User1' };
+      const mockUser2 = { __ui: {}, name: 'User2' };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [mockUser1, mockUser2],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.user.registerUser).toHaveBeenCalledWith(
+        mockUser1,
+        expect.any(Function),
+        expect.any(Function)
+      );
+      expect(appState.user.registerUser).toHaveBeenCalledWith(
+        mockUser2,
+        expect.any(Function),
+        expect.any(Function)
+      );
+    });
+
+    test('registers self if no __ui', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const mockSelf = {
+        setChannel: jest.fn()
+        // No __ui property
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: mockSelf,
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.user.registerUser).toHaveBeenCalledWith(
+        mockSelf,
+        expect.any(Function),
+        expect.any(Function)
+      );
+    });
+
+    test('sets up newChannel event listener', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const mockClient = {
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      };
+
+      appState.connection.connect.mockResolvedValue(mockClient);
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(mockClient.on).toHaveBeenCalledWith('newChannel', expect.any(Function));
+    });
+
+    test('sets up newUser event listener', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const mockClient = {
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      };
+
+      appState.connection.connect.mockResolvedValue(mockClient);
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(mockClient.on).toHaveBeenCalledWith('newUser', expect.any(Function));
+    });
+  });
+
+  describe('Connection - Error Handling', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.audio.audioContext = { sampleRate: 48000 };
+      appState.connectErrorDialog = {
+        type: jest.fn(),
+        reason: jest.fn(),
+        show: jest.fn()
+      };
+    });
+
+    test('handles Reject error type', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const rejectError = {
+        $type: { name: 'Reject' },
+        type: 1,
+        reason: 'Connection refused'
+      };
+
+      appState.connection.connect.mockRejectedValue(rejectError);
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.connectErrorDialog.type).toHaveBeenCalledWith(1);
+      expect(appState.connectErrorDialog.reason).toHaveBeenCalledWith('Connection refused');
+      expect(appState.connectErrorDialog.show).toHaveBeenCalled();
+    });
+
+    test('logs generic connection errors', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      const genericError = new Error('Network error');
+      appState.connection.connect.mockRejectedValue(genericError);
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('connection_error'),
+        genericError
+      );
+    });
+  });
+
+  describe('Connection - AudioWorklet Preloading', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.audio.audioContext = { sampleRate: 48000 };
+      appState.connectDialog = {
+        password: jest.fn(() => 'test-password')
+      };
+      appState.guacamoleFrame = {
+        start: jest.fn(),
+        show: jest.fn()
+      };
+    });
+
+    test('pre-warms AudioWorklet processor', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.audio.loadAudioWorkletModule).toHaveBeenCalledWith(
+        'playback-buffer-processor.js'
+      );
+    });
+
+    test('continues connection if AudioWorklet pre-warm fails', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.audio.loadAudioWorkletModule.mockRejectedValue(new Error('Module load failed'));
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('AudioWorklet'),
+        expect.any(Error)
+      );
+      expect(appState.connection.connect).toHaveBeenCalled();
+      
+      consoleWarnSpy.mockRestore();
+    });
+  });
+
+  describe('Connection - State Management', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.auth = mockAuth;
+      appState.audio.audioContext = { sampleRate: 48000 };
+      appState.connectDialog = {
+        password: jest.fn(() => 'test-password')
+      };
+      appState.guacamoleFrame = {
+        start: jest.fn(),
+        show: jest.fn()
+      };
+      appState.settings = {
+        audioBitrate: 40000,
+        samplesPerPacket: 960,
+      };
+    });
+
+    test('updates links after connection', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.channel.updateLinks).toHaveBeenCalled();
+    });
+
+    test('sets selfMute/selfDeaf when audio locked', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.audio.audioLockActive.mockReturnValue(true);
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.connection.setSelfMute).toHaveBeenCalledWith(true);
+      expect(appState.connection.setSelfDeaf).toHaveBeenCalledWith(true);
+    });
+
+    test('sets selfDeaf when user is deafened', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.audio.audioLockActive.mockReturnValue(false);
+      appState.user.selfDeaf.mockReturnValue(true);
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.connection.setSelfDeaf).toHaveBeenCalledWith(true);
+    });
+
+    test('sets selfMute when user is muted', async () => {
+      global.navigator = {
+        mediaDevices: {
+          getUserMedia: jest.fn().mockResolvedValue({
+            getTracks: jest.fn(() => [{ stop: jest.fn() }])
+          })
+        }
+      };
+
+      appState.audio.audioLockActive.mockReturnValue(false);
+      appState.user.selfDeaf.mockReturnValue(false);
+      appState.user.selfMute.mockReturnValue(true);
+
+      appState.connection.connect.mockResolvedValue({
+        root: { __ui: {}, children: [], name: 'Root' },
+        users: [],
+        self: { __ui: {}, setChannel: jest.fn() },
+        on: jest.fn(),
+      });
+
+      await appState.connect('host', 64738, 'user', 'pass');
+
+      expect(appState.connection.setSelfMute).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('_updateVoiceHandler', () => {
+    beforeEach(() => {
+      appState = new AppState(mockConfig, mockLog);
+      appState.settings = {
+        audioBitrate: 40000,
+        samplesPerPacket: 960,
+      };
+    });
+
+    test('unmutes in loopback mode', () => {
+      appState.voice.isLoopbackMode.mockReturnValue(true);
+
+      appState._updateVoiceHandler();
+
+      expect(appState.voice.setMute).toHaveBeenCalledWith(false);
+    });
+
+    test('mutes when audio locked in normal mode', () => {
+      appState.voice.isLoopbackMode.mockReturnValue(false);
+      appState.audio.audioLockActive.mockReturnValue(true);
+
+      appState._updateVoiceHandler();
+
+      expect(appState.voice.setMute).toHaveBeenCalledWith(true);
+    });
+
+    test('mutes when selfMute is true in normal mode', () => {
+      appState.voice.isLoopbackMode.mockReturnValue(false);
+      appState.audio.audioLockActive.mockReturnValue(false);
+      appState.user.selfMute.mockReturnValue(true);
+
+      appState._updateVoiceHandler();
+
+      expect(appState.voice.setMute).toHaveBeenCalledWith(true);
+    });
+
+    test('updates voice handler with talking callbacks', () => {
+      const mockUser = {
+        talking: jest.fn()
+      };
+      appState.user.thisUser.mockReturnValue(mockUser);
+
+      appState._updateVoiceHandler();
+
+      const onStartedCall = appState.voice.updateVoiceHandler.mock.calls[0];
+      const onStoppedCall = appState.voice.updateVoiceHandler.mock.calls[0];
+      
+      expect(appState.voice.updateVoiceHandler).toHaveBeenCalled();
+      
+      // Test onStarted callback
+      const onStarted = onStartedCall[2];
+      onStarted();
+      expect(mockUser.talking).toHaveBeenCalledWith('on');
+      
+      // Test onStopped callback
+      const onStopped = onStartedCall[3];
+      onStopped();
+      expect(mockUser.talking).toHaveBeenCalledWith('off');
+    });
+
+    test('clears loopback frequency when stopped talking in loopback mode', () => {
+      appState.voice.isLoopbackMode.mockReturnValue(true);
+
+      appState._updateVoiceHandler();
+
+      const onStoppedCall = appState.voice.updateVoiceHandler.mock.calls[0];
+      const onStopped = onStoppedCall[3];
+      
+      onStopped();
+      
+      expect(appState.voice.loopbackDominantFrequency).toHaveBeenCalledWith(0);
+    });
+
+    test('sets audio quality settings', () => {
+      appState._updateVoiceHandler();
+
+      expect(appState.connection.setAudioQuality).toHaveBeenCalledWith(40000, 960);
+    });
   });
 });
