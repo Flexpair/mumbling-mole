@@ -55,7 +55,6 @@ class MockAudioContext {
 }
 
 global.AudioContext = MockAudioContext;
-global.webkitAudioContext = MockAudioContext;
 
 // Mock AudioWorkletNode (not fully supported in jsdom)
 global.AudioWorkletNode = class MockAudioWorkletNode {

@@ -1,6 +1,6 @@
 # 🧪 Testing Guide for Mumbling Mole
 
-Documentation for testing the Mumble web client.
+Documentation for testing the Mumble web client with Playwright integration tests and Jest unit tests.
 
 ## ⚠️ CRITICAL: Docker Compose Architecture
 
@@ -202,14 +202,6 @@ npm run test:loopback:debug
 ---
 
 ## 📝 Notes
-
-### No Unit Tests (Yet)
-
-This project currently has **no unit tests** - only integration/E2E tests via Playwright.
-
-**Known Technical Debt:** See `.github/copilot-instructions.md` - "No unit tests: Zero test files for application code; only integration tests exist"
-
-**Planned:** Issue #155 - Setup Unit Testing Infrastructure
 
 ### Test Strategy
 
