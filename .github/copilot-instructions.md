@@ -177,6 +177,19 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Testing**: `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation), `scripts/audit-ci.cjs` (dependency vulnerability checks)  
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
+## Test infrastructure (Jest + Playwright)
+**Unit tests** (Jest 30.2.0): 343 tests, 43.35% overall coverage. ES modules with jsdom environment.
+- **High coverage** (>90%): AudioState (93.64%), ChannelState (96.49%), ConnectionState (100%), UIState (100%), UserState (95.51%)
+- **Good coverage** (>80%): AuthProvider (82.35%), decoder-stream (82.53%), encoder-stream (94.11%)
+- **Needs coverage** (<50%): AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%), getusermedia.js (0%)
+- **Test patterns**: Use `jest.unstable_mockModule()` before imports for ES module mocking; characterization tests document behavior for regression protection
+- **Running tests**: `npm run test:unit` (all tests), `npm run test:unit:watch` (TDD mode), `npm run test:unit:coverage` (with reports)
+
+**E2E tests** (Playwright): `tests/playwright/loopback-frequency.spec.js` validates full audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → UI). Tests 440 Hz frequency detection, mute/deaf states, frequency display. Run with `npm run test:loopback` (headless) or `npm run test:loopback:headed` (visible browser).
+
+**CI pipeline** (`.github/workflows/docker-image.yml`): Runs security audit → dependency check → unit tests → Docker build & push. Unit tests run on every push/PR.
+
 ## Known technical debt
-- **Limited unit test coverage**: Jest infrastructure is set up (`jest.config.js`, `jest.setup.js`), first characterization tests exist (`__tests__/state/UserState.test.js`), but coverage is still low (~25% in UserState.js, 2% overall). Gradually add tests for critical components before refactoring.
+- **Missing unit tests**: AppState, VoiceState, worker-client.js, worker.js need characterization tests before major refactoring
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
+- **NetlifyIdentityAdapter**: 9.09% coverage (deprecated, migrating to Supabase Auth Q1 2026)
