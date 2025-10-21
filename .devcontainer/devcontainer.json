@@ -6,8 +6,9 @@
   "remoteUser": "node",
   "overrideCommand": true,
   "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true'",
-  // Removed postStartCommand - start dev server manually to avoid system overload
-  // Run: ./start-dev-server.sh when ready
+  // postStartCommand removed - start dev server manually to avoid system overload and allow inspection
+  // To start manually: ./start-dev-server.sh
+  "postStartCommand": "",
   "portsAttributes": {
     "8081": {
       "label": "App",
