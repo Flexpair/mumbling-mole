@@ -31,7 +31,7 @@ curl -v --connect-timeout 2 telnet://murmur:64738 2>&1 | grep -E "Connected|refu
 
 ---
 
-## 
+## 🚀 Quick Start
 ```bash
 # Run all tests (Playwright loopback + dependency audit)
 npm test
@@ -96,7 +96,7 @@ npm run audit:ci
 
 **Detailed Documentation:**
 - 📖 See `tests/playwright/README.md` for full details
-- � Architecture: `app/audio/README.md`
+- 🏗️ Architecture: `app/audio/README.md`
 - 🎯 Configuration: `playwright.config.js`
 
 ---
