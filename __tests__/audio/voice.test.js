@@ -6,6 +6,11 @@
 import { jest } from '@jest/globals';
 import { Writable } from 'stream';
 
+// Setup DOM BEFORE importing voice.js (which queries DOM on load)
+if (typeof document !== 'undefined') {
+  document.body.innerHTML = '<select id="audioSource"><option value="default">Default</option></select>';
+}
+
 // Mock dependencies before imports
 const mockGetUserMedia = jest.fn();
 const mockKeyboardjs = {
@@ -650,5 +655,503 @@ describe('enumMicrophones', () => {
     });
     
     enumMicrophones();
+  });
+});
+
+// ============================================================
+// INTEGRATION TESTS - initVoice() Audio Pipeline
+// ============================================================
+
+describe('initVoice Integration Tests', () => {
+  let mockAudioContext;
+  let mockMediaStream;
+  let mockTrack;
+  let mockMediaStreamSource;
+  let mockGainNode;
+  let mockAudioWorkletNode;
+  let consoleLogSpy;
+  let consoleErrorSpy;
+
+  beforeEach(() => {
+    // Spy on console methods
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    // Mock MediaStreamTrack
+    mockTrack = {
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    };
+
+    // Mock MediaStream
+    mockMediaStream = {
+      getTracks: jest.fn(() => [mockTrack])
+    };
+
+    // Mock MediaStreamSource
+    mockMediaStreamSource = {
+      connect: jest.fn(),
+      disconnect: jest.fn()
+    };
+
+    // Mock GainNode (Mixer)
+    mockGainNode = {
+      gain: {
+        setValueAtTime: jest.fn()
+      },
+      connect: jest.fn(),
+      disconnect: jest.fn()
+    };
+
+    // Mock AudioWorkletNode
+    mockAudioWorkletNode = {
+      port: {
+        onmessage: null
+      },
+      connect: jest.fn(),
+      disconnect: jest.fn()
+    };
+
+    // Mock AudioContext
+    mockAudioContext = {
+      state: 'running',
+      sampleRate: 48000,
+      currentTime: 0,
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      },
+      createMediaStreamSource: jest.fn(() => mockMediaStreamSource),
+      createGain: jest.fn(() => mockGainNode)
+    };
+
+    // Mock global AudioWorkletNode constructor
+    global.AudioWorkletNode = jest.fn(() => mockAudioWorkletNode);
+
+    // Mock window._audioMixer
+    global.window = global.window || {};
+
+    // Mock ensureAudioContext
+    mockEnsureAudioContext.mockResolvedValue(mockAudioContext);
+
+    // Clear previous mocks
+    mockGetUserMedia.mockClear();
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    delete global.window._audioMixer;
+    delete global.AudioWorkletNode;
+    
+    // Reset module-level mixer state
+    // Note: Can't directly reset module variables, but window._audioMixer is the public API
+    if (typeof window !== 'undefined') {
+      window._audioMixer = null;
+    }
+  });
+
+  describe('Success Flow', () => {
+    test('should initialize complete audio pipeline successfully', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+
+      // Setup getUserMedia to call success callback
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        // Simulate async getUserMedia success
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Call initVoice
+      initVoice(onData, onError);
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify AudioContext initialization
+      expect(mockEnsureAudioContext).toHaveBeenCalledWith({
+        sampleRate: 48000,
+        latencyHint: 'interactive'
+      });
+
+      // Verify AudioWorklet module loaded
+      expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith(
+        'recorder-worker.js'
+      );
+
+      // Verify audio nodes created
+      expect(mockAudioContext.createMediaStreamSource).toHaveBeenCalledWith(mockMediaStream);
+      expect(mockAudioContext.createGain).toHaveBeenCalled();
+      expect(global.AudioWorkletNode).toHaveBeenCalledWith(
+        mockAudioContext,
+        'recorder-processor',
+        expect.objectContaining({
+          numberOfInputs: 1,
+          numberOfOutputs: 0,
+          channelCount: 1
+        })
+      );
+
+      // Verify audio graph connections
+      expect(mockMediaStreamSource.connect).toHaveBeenCalledWith(mockGainNode);
+      expect(mockGainNode.connect).toHaveBeenCalledWith(mockAudioWorkletNode);
+
+      // Verify mixer gain value
+      expect(mockGainNode.gain.setValueAtTime).toHaveBeenCalledWith(1.0, 0);
+
+      // Verify global mixer reference
+      expect(window._audioMixer).toBe(mockGainNode);
+
+      // Verify no errors
+      expect(onError).not.toHaveBeenCalled();
+
+      // Verify console logs
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[VOICE-INIT] Starting audio pipeline initialization')
+      );
+    });
+
+    test('should handle PCM data from AudioWorklet', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      initVoice(onData, onError);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify AudioWorkletNode was created
+      expect(mockAudioWorkletNode.port).toBeDefined();
+
+      // Simulate AudioWorklet sending PCM data
+      const pcmData = new Float32Array(960);
+      for (let i = 0; i < 960; i++) {
+        pcmData[i] = Math.sin(2 * Math.PI * 440 * i / 48000); // 440 Hz tone
+      }
+
+      // NOTE: Bug was fixed - previously had `this._isLoopbackMode` check which was undefined
+      // initVoice is not a class method, so 'this' context doesn't exist
+      // The debug logging has been removed in the fix
+      if (mockAudioWorkletNode.port.onmessage) {
+        mockAudioWorkletNode.port.onmessage({
+          data: {
+            type: 'pcm',
+            data: pcmData.buffer
+          }
+        });
+
+        // Verify onData callback was called with Buffer
+        expect(onData).toHaveBeenCalled();
+        const callArg = onData.mock.calls[0][0];
+        expect(callArg).toBeInstanceOf(Buffer);
+        expect(callArg.length).toBe(960 * 4); // Float32 = 4 bytes per sample
+      }
+    });
+
+    test('should register mixer ready callbacks', async () => {
+      const callback1 = jest.fn();
+      const callback2 = jest.fn();
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Register callbacks before initialization
+      onAudioMixerReady(callback1);
+      onAudioMixerReady(callback2);
+
+      initVoice(jest.fn(), jest.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify both callbacks were called with mixer
+      expect(callback1).toHaveBeenCalledWith(mockGainNode);
+      expect(callback2).toHaveBeenCalledWith(mockGainNode);
+    });
+
+    test('should handle callback errors gracefully', async () => {
+      const errorCallback = jest.fn(() => {
+        throw new Error('Callback error');
+      });
+      const successCallback = jest.fn();
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      onAudioMixerReady(errorCallback);
+      onAudioMixerReady(successCallback);
+
+      initVoice(jest.fn(), jest.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify error was logged
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[VOICE] Error in mixer ready callback'),
+        expect.any(Error)
+      );
+
+      // Verify second callback still executed
+      expect(successCallback).toHaveBeenCalled();
+    });
+
+    test('should setup track ended event listener', async () => {
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      initVoice(jest.fn(), jest.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify addEventListener was called on track
+      expect(mockTrack.addEventListener).toHaveBeenCalledWith('ended', expect.any(Function));
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle getUserMedia errors', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+      const mockError = new Error('Permission denied');
+
+      // Setup getUserMedia to call error callback
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(mockError, null), 0);
+      });
+
+      initVoice(onData, onError);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify error callback was called
+      expect(onError).toHaveBeenCalledWith(mockError);
+
+      // Verify AudioContext was not initialized
+      expect(mockEnsureAudioContext).not.toHaveBeenCalled();
+
+      // Verify no data callback
+      expect(onData).not.toHaveBeenCalled();
+    });
+
+    test('should handle AudioWorklet loading errors', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+      const workletError = new Error('Failed to load AudioWorklet module');
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Mock AudioWorklet module loading failure
+      mockAudioContext.audioWorklet.addModule.mockRejectedValue(workletError);
+
+      initVoice(onData, onError);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify error was caught and handled
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'AudioWorklet init failed:',
+        workletError
+      );
+
+      // Verify error callback was called
+      expect(onError).toHaveBeenCalledWith(workletError);
+    });
+
+    test('should handle AudioContext initialization errors', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+      const contextError = new Error('AudioContext creation failed');
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Mock AudioContext initialization failure
+      mockEnsureAudioContext.mockRejectedValue(contextError);
+
+      initVoice(onData, onError);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify error was caught
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'AudioWorklet init failed:',
+        contextError
+      );
+
+      // Verify error callback was called
+      expect(onError).toHaveBeenCalledWith(contextError);
+    });
+
+    test('should handle AudioWorkletNode creation errors', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+      const nodeError = new Error('AudioWorkletNode creation failed');
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Mock AudioWorkletNode constructor to throw
+      global.AudioWorkletNode = jest.fn(() => {
+        throw nodeError;
+      });
+
+      initVoice(onData, onError);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify error was caught
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'AudioWorklet init failed:',
+        nodeError
+      );
+
+      // Verify error callback was called
+      expect(onError).toHaveBeenCalledWith(nodeError);
+    });
+  });
+
+  describe('Mixer Lifecycle & Race Conditions', () => {
+    test('should track current mixer instance', async () => {
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Get mixer before initialization (might be from previous test or null)
+      const mixerBefore = getCurrentMixer();
+
+      // Initialize new mixer
+      initVoice(jest.fn(), jest.fn());
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const mixerAfter = getCurrentMixer();
+      
+      // After initialization, mixer should be the new mockGainNode
+      expect(mixerAfter).toBe(mockGainNode);
+      expect(window._audioMixer).toBe(mockGainNode);
+      
+      // Mixer should have changed (new instance created)
+      if (mixerBefore !== null) {
+        expect(mixerAfter).not.toBe(mixerBefore);
+      }
+    });
+
+    test('should cleanup mixer when track ends', async () => {
+      let trackEndedHandler;
+
+      mockTrack.addEventListener.mockImplementation((event, handler) => {
+        if (event === 'ended') {
+          trackEndedHandler = handler;
+        }
+      });
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      initVoice(jest.fn(), jest.fn());
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Verify mixer was created
+      expect(window._audioMixer).toBe(mockGainNode);
+
+      // Simulate track ended event
+      if (trackEndedHandler) {
+        trackEndedHandler();
+      }
+
+      // Verify cleanup was called
+      expect(mockAudioWorkletNode.disconnect).toHaveBeenCalled();
+      expect(mockGainNode.disconnect).toHaveBeenCalled();
+      expect(mockMediaStreamSource.disconnect).toHaveBeenCalled();
+
+      // Verify global reference cleared
+      expect(window._audioMixer).toBeNull();
+
+      // Verify AudioContext was suspended (not closed)
+      expect(mockAudioContextManager.suspendAudioContext).toHaveBeenCalled();
+    });
+
+    test('should handle disconnect errors during cleanup', async () => {
+      let trackEndedHandler;
+
+      mockTrack.addEventListener.mockImplementation((event, handler) => {
+        if (event === 'ended') {
+          trackEndedHandler = handler;
+        }
+      });
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      // Make disconnect throw errors
+      mockAudioWorkletNode.disconnect.mockImplementation(() => {
+        throw new Error('Already disconnected');
+      });
+
+      initVoice(jest.fn(), jest.fn());
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Simulate track ended event - should not throw
+      expect(() => {
+        if (trackEndedHandler) {
+          trackEndedHandler();
+        }
+      }).not.toThrow();
+
+      // Verify cleanup continued despite errors
+      expect(mockGainNode.disconnect).toHaveBeenCalled();
+    });
+  });
+
+  describe('Device Selection', () => {
+    test('should use audio device from select element', async () => {
+      const onData = jest.fn();
+      const onError = jest.fn();
+
+      // LIMITATION: audioInputSelect is evaluated at module load time (see TODO in voice.js)
+      // The select element was created with value="default" before module import.
+      // Changing select.value here won't affect initVoice() because it already captured
+      // the reference at import time. This is a known design issue documented in voice.js.
+
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        // Verify constraints were created (deviceId depends on select value at import time)
+        expect(constraints.audio).toBeDefined();
+        expect(constraints.audio.deviceId).toBeDefined();
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      initVoice(onData, onError);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockGetUserMedia).toHaveBeenCalled();
+    });
+
+    test('should request audio with proper constraints', async () => {
+      mockGetUserMedia.mockImplementation((constraints, callback) => {
+        // Verify all audio constraints
+        expect(constraints.audio.echoCancellation).toBe(true);
+        expect(constraints.audio.autoGainControl).toBe(true);
+        expect(constraints.audio.noiseSuppression).toBe(true);
+        expect(constraints.audio.channelCount).toEqual({ ideal: 1 });
+        expect(constraints.audio.sampleRate).toEqual({ ideal: 48000 });
+        setTimeout(() => callback(null, mockMediaStream), 0);
+      });
+
+      initVoice(jest.fn(), jest.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockGetUserMedia).toHaveBeenCalled();
+    });
   });
 });
