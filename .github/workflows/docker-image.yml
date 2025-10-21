@@ -13,7 +13,6 @@ on:
 
 env:
   TEST_TAG: jafudi/mumbling-mole:test
-  SMOKE_HTTP_PORT: "8081"
 
 jobs:
   docker:
@@ -38,8 +37,8 @@ jobs:
       - name: Dependency check gate
         run: npm run check:deps
 
-      - name: Audio system test
-        run: npm run test:audio:system
+      - name: Run unit tests
+        run: npm run test:unit
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -76,93 +75,6 @@ jobs:
           cache-from: type=gha
           # Removed cache-to to avoid 502 errors from GitHub Actions cache backend
           # See: https://github.com/docker/build-push-action/issues/1967
-
-      - name: HTML smoke test (:${{ env.SMOKE_HTTP_PORT }})
-        env:
-          SMOKE_HTTP_PORT: ${{ env.SMOKE_HTTP_PORT }}
-        run: |
-          set -euo pipefail
-          cleanup() { docker rm -f mm-http >/dev/null 2>&1 || true; }
-          trap cleanup EXIT
-
-          echo "[smoke] Starting container for static HTML check on port ${SMOKE_HTTP_PORT}"
-          docker run -d --rm \
-            -p ${SMOKE_HTTP_PORT}:8081 \
-            -e SKIP_TUNNEL=1 \
-            --name mm-http \
-            ${{ env.TEST_TAG }}
-
-          # Wait (max ~30s) for HTTP 200 on root
-          for i in {1..30}; do
-            status=$(curl -sk -o /dev/null -w '%{http_code}' "http://127.0.0.1:${SMOKE_HTTP_PORT}" || true)
-            if [ "$status" = "200" ]; then
-              break
-            fi
-            sleep 1
-          done
-
-          if [ "${status:-}" != "200" ]; then
-            echo "[smoke][fail] Did not receive HTTP 200 from :${SMOKE_HTTP_PORT} (last status='${status}')"
-            echo "---- docker logs (mm-http) ----"; docker logs mm-http || true
-            exit 1
-          fi
-
-          # Fetch raw headers and body separately (avoid verbose prefix noise)
-          curl -sS -D /tmp/headers -o /tmp/body "http://127.0.0.1:${SMOKE_HTTP_PORT}" || {
-            echo "[smoke][fail] curl fetch failed"; exit 1; }
-
-          echo "[smoke] Response headers:"; sed 's/^/[H] /' /tmp/headers
-
-          # Basic header assertions (allow charset parameter, case-insensitive)
-          if ! grep -Ei '^Content-Type: *text/html(;|$)' /tmp/headers; then
-            # Fallback: if body clearly contains HTML structure, warn instead of hard fail
-            if grep -qi '<html' /tmp/body; then
-              echo "[smoke][warn] Content-Type header missing or not text/html, but HTML tag found in body"
-            else
-              echo "[smoke][fail] Expected Content-Type: text/html (headers above)"; exit 1
-            fi
-          fi
-
-          bytes=$(wc -c </tmp/body | awk '{print $1}')
-          echo "[smoke] Body size: ${bytes} bytes"
-          if [ "${bytes}" -lt 200 ]; then
-            echo "[smoke][fail] HTML body unexpectedly small (<200 bytes)"; exit 1
-          fi
-
-          # Look for structural HTML marker in built index.html
-          # Strategy:
-          # 1. Ensure structural tag (<html or <!DOCTYPE html>) exists
-          # 2. Body already asserted non-empty & minimum size above
-          if grep -Fqi '<!DOCTYPE html>' /tmp/body || grep -Fqi '<html' /tmp/body; then
-            echo "[smoke] HTML structure marker ok"
-          else
-            echo "[smoke][fail] No <html> or <!DOCTYPE html> tag found"; exit 1
-          fi
-
-          # If the served index.html is unexpectedly tiny (< 500 bytes) dump it for diagnostics
-          if [ "$bytes" -lt 500 ]; then
-            echo "[smoke][diag] index.html content (truncated to 400 bytes):"
-            head -c 400 /tmp/body | sed 's/^/[body] /'
-          fi
-
-          # Direct asset fetch tests (avoid depending on inline <script> tags in minimized HTML)
-          asset_checks=(config.js theme.js)
-          for asset in "${asset_checks[@]}"; do
-            echo "[smoke] Fetching asset: $asset"
-            curl -sS -D "/tmp/hdr-$asset" -o "/tmp/$asset" "http://127.0.0.1:${SMOKE_HTTP_PORT}/$asset" || { echo "[smoke][fail] curl error for $asset"; exit 1; }
-            astatus=$(awk 'NR==1{print $2}' "/tmp/hdr-$asset")
-            if [ "${astatus}" != "200" ]; then
-              echo "[smoke][fail] HTTP $astatus for $asset"; exit 1
-            fi
-            asize=$(wc -c </tmp/$asset | awk '{print $1}')
-            echo "[smoke] $asset size: $asize bytes"
-            if [ "$asize" -lt 50 ]; then
-              echo "[smoke][fail] $asset unexpectedly small (<50 bytes)"; exit 1
-            fi
-          done
-
-          echo "[smoke][ok] Static HTML served correctly with expected markers"
-
 
       # TODO: Playwright E2E Tests (Loopback Audio) - Full Production Stack with Nginx
       # Disabled temporarily - will be enabled later

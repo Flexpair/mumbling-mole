@@ -77,3 +77,4 @@ Thumbs.db
 *.swo
 .bash_history
 .docker
+.sonarlint/telemetry/vscode/usage

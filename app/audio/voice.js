@@ -121,6 +121,10 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
   }
 }
 
+// TODO: REFACTOR - DOM element queried at module load time
+// This captures the select element when the module is imported, not when initVoice() is called.
+// Better approach: Query dynamically in initVoice() or pass as parameter.
+// Current limitation: Tests cannot easily mock different device selections.
 const audioInputSelect = document.querySelector("select#audioSource");
 const selectors = [audioInputSelect];
 
@@ -273,10 +277,8 @@ export function initVoice(onData, onUserMediaError) {
         if (ev.data?.type === "pcm" && ev.data.data) {
           const f32 = new Float32Array(ev.data.data);
           pcmFrameCount++;
-          // DEBUG: Log only in loopback mode to avoid performance impact
-          if (this._isLoopbackMode && pcmFrameCount % 50 === 0) {  // Log every second (50 frames @ 20ms each)
-            console.log('[VOICE-DEBUG] PCM frames sent to encoder:', pcmFrameCount, 'latest sample count:', f32.length);
-          }
+          // NOTE: Debug logging removed - was using undefined 'this._isLoopbackMode'
+          // initVoice is not a class method and has no 'this' context
           onData(Buffer.from(f32.buffer));
         }
       };

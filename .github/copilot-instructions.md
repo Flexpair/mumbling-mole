@@ -49,14 +49,17 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Local dev**: `MUMBLE_SERVER=host:port ./start-dev-server.sh` → builds in dev mode, spawns `docker-entrypoint.sh`, opens `http://local.flexpair.app`, logs to `/tmp/entrypoint.log`  
 **Quick restart**: `./rebuild-and-restart.sh` convenience script rebuilds and restarts dev server (useful during active development)  
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  
-**Testing** (no unit tests exist; only integration/E2E):
-  - `npm run test:audio:system` = fastest; validates build artifacts, codecs, worker syntax (no server required)
-  - `npm run test` = runs `./scripts/run-all-tests.sh` (Playwright loopback + audit combined)
-  - `npm run test:quick` = fast subset (audio:system + audit:ci)
-  - `npm run test:audio` = single roundtrip test (sends 440 Hz sine wave to live server)
-  - `./scripts/quick-audio-test.sh` = all-in-one (starts test server, runs tests, cleans up)
-  - `npx playwright test tests/playwright/loopback-frequency.spec.js` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
+**Testing**:
+  - `npm test` = Unit tests + Playwright loopback + audit:ci (full test suite)
+  - `npm run test:unit` = Jest unit tests (characterization tests for critical components)
+  - `npm run test:unit:watch` = Jest watch mode for TDD
+  - `npm run test:unit:coverage` = Generate coverage reports (text + lcov + html in `coverage/`)
+  - `npm run test:loopback` = automated UI loopback test (440 Hz piano button validation with mute/deaf state testing)
+  - `npm run test:loopback:headed` = same test with visible browser (debugging)
+  - `npm run test:loopback:debug` = step-through debugging mode
+  - `npm run audit:ci` = dependency vulnerability check
 **Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
+**Jest unit tests**: ES modules with jsdom environment; mocks for Web Audio API, AudioWorkletNode, localStorage; characterization tests document current behavior for regression protection during refactoring  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
@@ -170,10 +173,23 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **State modules**: `app/state/AppState.js` (coordinator), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/selections), `app/state/UserState.js` (thisUser/mute/deaf), `app/state/ChannelState.js` (root channel/links)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
-**Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher), `scripts/e2e-check.cjs` (smoke test)  
-**Testing**: `scripts/audio-system-test.cjs` (offline validation), `scripts/audio-test.cjs` (live roundtrip), `scripts/audio-monitor.cjs` (realtime VU meter), `scripts/run-all-tests.sh` (primary test runner), `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation)  
+**Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
+**Testing**: `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation), `scripts/audit-ci.cjs` (dependency vulnerability checks)  
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
+## Test infrastructure (Jest + Playwright)
+**Unit tests** (Jest 30.2.0): 343 tests, 43.35% overall coverage. ES modules with jsdom environment.
+- **High coverage** (>90%): AudioState (93.64%), ChannelState (96.49%), ConnectionState (100%), UIState (100%), UserState (95.51%)
+- **Good coverage** (>80%): AuthProvider (82.35%), decoder-stream (82.53%), encoder-stream (94.11%)
+- **Needs coverage** (<50%): AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%), getusermedia.js (0%)
+- **Test patterns**: Use `jest.unstable_mockModule()` before imports for ES module mocking; characterization tests document behavior for regression protection
+- **Running tests**: `npm run test:unit` (all tests), `npm run test:unit:watch` (TDD mode), `npm run test:unit:coverage` (with reports)
+
+**E2E tests** (Playwright): `tests/playwright/loopback-frequency.spec.js` validates full audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → UI). Tests 440 Hz frequency detection, mute/deaf states, frequency display. Run with `npm run test:loopback` (headless) or `npm run test:loopback:headed` (visible browser).
+
+**CI pipeline** (`.github/workflows/docker-image.yml`): Runs security audit → dependency check → unit tests → Docker build & push. Unit tests run on every push/PR.
+
 ## Known technical debt
-- **No unit tests**: Zero test files for application code; only integration tests exist (see `tests/README.md`)
+- **Missing unit tests**: AppState, VoiceState, worker-client.js, worker.js need characterization tests before major refactoring
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
+- **NetlifyIdentityAdapter**: 9.09% coverage (deprecated, migrating to Supabase Auth Q1 2026)

@@ -5,7 +5,11 @@
     "brfs",
     "netlify-identity-widget",
     "depcheck",
-    "sass"
+    "sass",
+    "jest",
+    "jest-environment-jsdom",
+    "wait-port",
+    "ws"
   ],
   "specials": [
     "babel"

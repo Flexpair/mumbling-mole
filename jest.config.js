@@ -1,0 +1,73 @@
+/**
+ * Jest Configuration
+ * 
+ * Browser-first web application testing setup:
+ * - jsdom environment for Web APIs (AudioContext, localStorage, etc.)
+ * - ES modules support via Node.js --experimental-vm-modules
+ * - Coverage reporting for critical audio pipeline components
+ */
+
+export default {
+  // Use jsdom to simulate browser environment
+  testEnvironment: 'jsdom',
+
+  // ES modules support
+  transform: {},
+  moduleNameMapper: {
+    // Mock fs module to avoid graceful-fs import issues
+    '^fs$': '<rootDir>/__mocks__/fs.cjs',
+  },
+
+  // Test file patterns
+  testMatch: [
+    '**/__tests__/**/*.test.js',
+  ],
+
+  // Ignore patterns
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/dist/',
+    '/vendors/',
+    '/test-results/',
+    '/playwright-report/',
+    '/tests/playwright/', // Playwright tests use their own runner
+  ],
+
+  // Coverage configuration
+  collectCoverageFrom: [
+    'app/**/*.js',
+    '!app/config*.js',
+    '!app/theme.js',
+    '!app/localize.js',
+    '!app/audio/recorder-worker.js', // AudioWorklet processor - no imports allowed
+    '!app/audio/playback-buffer-processor.js', // AudioWorklet processor
+    '!app/index.js', // Entry point - hard to test in isolation
+  ],
+
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+
+  // Coverage thresholds (start conservative, increase over time)
+  coverageThreshold: {
+    global: {
+      statements: 20,
+      branches: 15,
+      functions: 20,
+      lines: 20
+    }
+  },
+
+  // Setup files
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+
+  // Timeouts
+  testTimeout: 10000,
+
+  // Show individual test results
+  verbose: true,
+
+  // Clear mocks between tests
+  clearMocks: true,
+  resetMocks: false,
+  restoreMocks: false,
+};
