@@ -1,4 +1,4 @@
-module.exports = function (constraints, cb) {
+export default function (constraints, cb) {
   var error;
   var haveOpts = arguments.length === 2;
   var defaultOpts = { video: true, audio: true };
@@ -71,4 +71,4 @@ module.exports = function (constraints, cb) {
 
       cb(error);
     });
-};
+}
