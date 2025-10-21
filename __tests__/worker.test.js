@@ -185,52 +185,6 @@ describe("worker.js", () => {
     });
   });
 
-  describe("Client connection flow", () => {
-    // Note: These tests fail due to ESM/require() compatibility issues in Jest
-    // worker.js uses dynamic require() for codecs which Jest ESM cannot mock properly
-    // Integration tests (Playwright) provide end-to-end validation instead
-    test.skip("should handle connect request", async () => {
-      const msg = {
-        reqId: 1,
-        method: "_connect",
-        payload: {
-          host: "localhost",
-          args: {
-            port: 64738,
-          },
-        },
-      };
-
-      messageHandler({ data: msg });
-
-      // Wait for async connect to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(mumbleConnectMock).toHaveBeenCalled();
-    });
-
-    test.skip("should create multiple clients for multiple connections", async () => {
-      const msg1 = {
-        reqId: 2,
-        method: "_connect",
-        payload: { host: "server1.example.com", args: { port: 64738 } },
-      };
-      const msg2 = {
-        reqId: 3,
-        method: "_connect",
-        payload: { host: "server2.example.com", args: { port: 64738 } },
-      };
-
-      messageHandler({ data: msg1 });
-      messageHandler({ data: msg2 });
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(mumbleConnectMock).toHaveBeenCalledTimes(2);
-      expect(mockClients.length).toBeGreaterThanOrEqual(2);
-    });
-  });
-
   describe("Voice stream setup", () => {
     test("should handle createVoiceStream message", () => {
       const msg = {
@@ -370,31 +324,6 @@ describe("worker.js", () => {
       };
 
       expect(() => messageHandler({ data: msg })).not.toThrow();
-    });
-
-    // Note: Skipped due to ESM/require() compatibility issues - see above note
-    test.skip("should cleanup on disconnect", async () => {
-      // Connect first
-      const connectMsg = {
-        reqId: 15,
-        method: "_connect",
-        payload: { host: "localhost", args: { port: 64738 } },
-      };
-      messageHandler({ data: connectMsg });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const clientCountBefore = mockClients.length;
-
-      // Then disconnect
-      const disconnectMsg = {
-        clientId: 1,
-        method: "disconnect",
-        payload: [],
-      };
-      messageHandler({ data: disconnectMsg });
-
-      // At least one client should have been created
-      expect(clientCountBefore).toBeGreaterThan(0);
     });
   });
 });
