@@ -501,3 +501,29 @@ describe('DecoderStream - Integration', () => {
     expect(nullFrameCall.buffer).toBe(null);
   });
 });
+
+describe('DecoderStream - Worker Error Handling', () => {
+  let mockWorker;
+  let stream;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockWorkerInstances.length = 0;
+    mockWorker = new MockWorker();
+    mockPool.get.mockReturnValue(mockWorker);
+    stream = new DecoderStream();
+  });
+
+  test('handles worker postMessage error in _final', (done) => {
+    // Make postMessage throw an error (worker terminated)
+    mockWorker.postMessage.mockImplementation(() => {
+      throw new Error('Worker terminated');
+    });
+
+    stream.end(() => {
+      // Should still complete cleanup
+      expect(mockPool.recycle).toHaveBeenCalledWith(mockWorker);
+      done();
+    });
+  });
+});
