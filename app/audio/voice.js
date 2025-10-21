@@ -136,7 +136,7 @@ function gotDevices(deviceInfos) {
       select.removeChild(select.firstChild);
     }
   });
-  for (let i = 0; i !== deviceInfos.length; ++i) {
+  for (let i = 0; i < deviceInfos.length; ++i) {
     const deviceInfo = deviceInfos[i];
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
