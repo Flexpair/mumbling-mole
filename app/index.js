@@ -2,19 +2,13 @@
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "url";
 import MumbleClient from "mumble-client";
-import WorkerBasedMumbleConnector from "./worker-client";
-import audioContextManager, { ensureAudioContext } from "./audio/audio-context-manager";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
-import BufferQueueNode from "./audio/buffer-queue-node";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 
 
 import {
-  ContinuousVoiceHandler,
-  PushToTalkVoiceHandler,
-  initVoice,
   enumMicrophones,
 } from "./audio/voice";
 import {
@@ -422,9 +416,6 @@ class SettingsDialog {
     settings.userCountInChannelName(this.userCountInChannelName());
     settings.audioBitrate = this.audioBitrate();
     settings.samplesPerPacket = this.samplesPerPacket();
-  }
-
-  end() {
   }
 
   recordPttKey() {

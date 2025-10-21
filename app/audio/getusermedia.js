@@ -1,4 +1,4 @@
-export default function (constraints, cb) {
+export default function getUserMedia(constraints, cb) {
   let error;
   let haveOpts = arguments.length === 2;
   let defaultOpts = { video: true, audio: true };

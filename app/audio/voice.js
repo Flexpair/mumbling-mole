@@ -2,7 +2,7 @@ import { Writable } from "stream";
 import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
-import audioContextManager, { getAudioContext, ensureAudioContext } from "./audio-context-manager";
+import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 
 // VOICE-HANDLER: Base class for voice transmission handling
 // Manages outbound audio streams and routing to different targets (channels, users, or loopback)
@@ -136,8 +136,8 @@ function gotDevices(deviceInfos) {
       select.removeChild(select.firstChild);
     }
   });
-  for (let i = 0; i < deviceInfos.length; ++i) {
-    const deviceInfo = deviceInfos[i];
+  for (const element of deviceInfos) {
+    const deviceInfo = element;
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
     if (deviceInfo.kind === "audioinput") {
