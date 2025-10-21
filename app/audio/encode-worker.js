@@ -3,8 +3,8 @@ import toArrayBuffer from "to-arraybuffer";
 
 const MUMBLE_SAMPLE_RATE = 48000;
 
-var opusEncoder;
-var bitrate;
+let opusEncoder;
+let bitrate;
 self.addEventListener("message", (e) => {
   const data = e.data;
   if (data.action === "reset") {

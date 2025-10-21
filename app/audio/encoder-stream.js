@@ -38,7 +38,7 @@ class EncoderStream extends Transform {
   }
 
   _transform(chunk, encoding, callback) {
-    var buffer = chunk.pcm.slice().buffer;
+    let buffer = chunk.pcm.slice().buffer;
     this._worker.postMessage(
       {
         action: "encode" + this._codec,

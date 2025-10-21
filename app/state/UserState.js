@@ -61,7 +61,7 @@ export default class UserState {
       selfDeaf: "selfDeaf",
     };
     
-    var ui = (user.__ui = {
+    let ui = (user.__ui = {
       model: user,
       talking: ko.observable("off"),
       channel: ko.observable(),
@@ -147,20 +147,20 @@ export default class UserState {
         this._cleanupVoiceStream(user.session);
         
         // Create audio node for playing back received voice
-        var userNode = new BufferQueueNode({
+        let userNode = new BufferQueueNode({
           audioContext: this.audioState.audioContext,
         });
         
         // Create a GainNode to control volume (for deafen functionality)
-        var gainNode = this.audioState.audioContext.createGain();
+        let gainNode = this.audioState.audioContext.createGain();
         
         // Set initial gain based on current deafen state
         gainNode.gain.value = this.selfDeaf() ? 0 : 1;
         debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value);
         
         // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
-        var analyserNode = null;
-        var frequencyAnalysisInterval = null;
+        let analyserNode = null;
+        let frequencyAnalysisInterval = null;
         
         if (this.voiceState.isLoopbackMode()) {
           analyserNode = this.audioState.audioContext.createAnalyser();

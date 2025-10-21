@@ -1,11 +1,11 @@
 export default function (constraints, cb) {
-  var error;
-  var haveOpts = arguments.length === 2;
-  var defaultOpts = { video: true, audio: true };
+  let error;
+  let haveOpts = arguments.length === 2;
+  let defaultOpts = { video: true, audio: true };
 
-  var denied = "PermissionDeniedError";
-  var altDenied = "PERMISSION_DENIED";
-  var notSatisfied = "ConstraintNotSatisfiedError";
+  let denied = "PermissionDeniedError";
+  let altDenied = "PERMISSION_DENIED";
+  let notSatisfied = "ConstraintNotSatisfiedError";
 
   // make constraints optional
   if (!haveOpts) {

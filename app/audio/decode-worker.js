@@ -2,7 +2,7 @@ import { Decoder as OpusDecoder } from "libopus.js";
 
 const MUMBLE_SAMPLE_RATE = 48000;
 
-var opusDecoder;
+let opusDecoder;
 self.addEventListener("message", (e) => {
   const data = e.data;
   if (data.action === "reset") {

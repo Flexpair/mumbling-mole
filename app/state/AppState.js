@@ -93,7 +93,7 @@ export default class AppState {
       return;
     }
 
-    var user_roles = identity.app_metadata.roles || [];
+    let user_roles = identity.app_metadata.roles || [];
     if (!Array.isArray(user_roles)) {
       user_roles = [];
     }
@@ -155,7 +155,7 @@ export default class AppState {
       return;
     }
 
-    var user_roles = identity.app_metadata.roles || [];
+    let user_roles = identity.app_metadata.roles || [];
     if (!Array.isArray(user_roles)) {
       user_roles = [];
     }
@@ -305,7 +305,7 @@ export default class AppState {
     try {
       const client = await this.connection.connect(host, port, username, password, tokens);
       
-      var user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
+      let user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
       let guac_login = false;
       if (user_roles.includes("admin")) {
         guac_login = "admin";
@@ -610,7 +610,7 @@ export default class AppState {
     if (!this.user.thisUser()) {
       return "";
     }
-    var target = this.ui.selected();
+    let target = this.ui.selected();
     if (!target) {
       target = this.user.thisUser();
     }

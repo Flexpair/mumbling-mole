@@ -80,20 +80,19 @@ function getUsernameFromMetadata(user) {
 }
 
 function GuacamoleFrame() {
-  var self = this;
   // Start with null source to avoid the browser immediately requesting /guacamole/.
   // The iframe src is only assigned after a successful Mumble connect + role gating.
   // (HTML binding uses fallback about:blank when null/empty.)
-  self.guacSource = ko.observable(null);
-  self.visible = ko.observable(false);
-  self.show = self.visible.bind(self.visible, true);
-  self.hide = self.visible.bind(self.visible, false);
-  self.loading = ko.observable(false);
-  self.error = ko.observable(null);
+  this.guacSource = ko.observable(null);
+  this.visible = ko.observable(false);
+  this.show = this.visible.bind(this.visible, true);
+  this.hide = this.visible.bind(this.visible, false);
+  this.loading = ko.observable(false);
+  this.error = ko.observable(null);
 
-  self.start = function (guacUser, password) {
-    self.loading(true);
-    self.error(null);
+  this.start = function (guacUser, password) {
+    this.loading(true);
+    this.error(null);
     // Sanitize previously bad localStorage entries that break Guacamole's JSON.parse
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -114,11 +113,11 @@ function GuacamoleFrame() {
       guacUser +
       "&password=" +
       encodeURIComponent(password || "");
-    self.guacSource(src);
+    this.guacSource(src);
   };
 
-  self.onLoad = function () {
-    self.loading(false);
+  this.onLoad = function () {
+    this.loading(false);
     try {
       const frame = document.getElementById("guacframe");
       const doc = frame && frame.contentDocument;
@@ -129,25 +128,24 @@ function GuacamoleFrame() {
 }
 
 function ConnectDialog() {
-  var self = this;
-  self.address = ko.observable("");
-  self.port = ko.observable("");
-  self.username = ko.observable("");
-  self.password = ko.observable("");
+  this.address = ko.observable("");
+  this.port = ko.observable("");
+  this.username = ko.observable("");
+  this.password = ko.observable("");
   // Start hidden - will be shown after authentication
-  self.visible = ko.observable(false);
+  this.visible = ko.observable(false);
   // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
-  self.isTestActive = ko.observable(false);
-  self.show = self.visible.bind(self.visible, true);
-  self.hide = self.visible.bind(self.visible, false);
+  this.isTestActive = ko.observable(false);
+  this.show = this.visible.bind(this.visible, true);
+  this.hide = this.visible.bind(this.visible, false);
   
-  self.connect = function () {
-    self.hide();
+  this.connect = () => {
+    this.hide();
     
     // LOOPBACK-FEATURE: When already connected, this transitions from test mode back to normal mode
     if (ui.connected()) {
       // Switch from loopback test mode back to normal voice routing
-      self.isTestActive(false);
+      this.isTestActive(false);
       ui.isLoopbackMode(false);
       
       // Recreate voice handler with normal target (not loopback target 31)
@@ -164,15 +162,15 @@ function ConnectDialog() {
       }
     } else {
       // Normal connection flow - not yet connected to server
-      self.isTestActive(false);
-      ui.connect(self.address(), self.port(), self.username(), self.password());
+      this.isTestActive(false);
+      ui.connect(this.address(), this.port(), this.username(), this.password());
     }
   };
   
   // LOOPBACK-FEATURE: Toggle button handler - activates loopback test mode
-  self.toggleLoopback = async function () {
+  this.toggleLoopback = async () => {
       // One-way activation: prevent deactivation via this button (use Connect button instead)
-      if (self.isTestActive()) {
+      if (this.isTestActive()) {
         return;
       }
       
@@ -202,41 +200,39 @@ function ConnectDialog() {
       }
       
       // Mark test as active and connect in loopback mode
-      self.isTestActive(true);
+      this.isTestActive(true);
       
       // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
       // This allows user to see connection status and switch back to normal mode
-      ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
+      ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
     };  
   
   // LEGACY-COMPAT: Legacy function for backward compatibility (closes dialog like old behavior)
-  self.connectLoopback = function () {
-    self.hide();
-    ui.connectLoopback(self.address(), self.port(), self.username(), self.password());
+  this.connectLoopback = () => {
+    this.hide();
+    ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
   };
 }
 
 function ConnectErrorDialog(connectDialog) {
-  var self = this;
-  self.type = ko.observable(0);
-  self.reason = ko.observable("");
-  self.username = connectDialog.username;
-  self.password = connectDialog.password;
-  self.visible = ko.observable(false);
-  self.show = self.visible.bind(self.visible, true);
-  self.hide = self.visible.bind(self.visible, false);
-  self.connect = () => {
-    self.hide();
+  this.type = ko.observable(0);
+  this.reason = ko.observable("");
+  this.username = connectDialog.username;
+  this.password = connectDialog.password;
+  this.visible = ko.observable(false);
+  this.show = this.visible.bind(this.visible, true);
+  this.hide = this.visible.bind(this.visible, false);
+  this.connect = () => {
+    this.hide();
     connectDialog.connect();
   };
 }
 
 function SampleRateWarningDialog(ui) {
-  var self = this;
-  self.visible = ko.observable(false);
-  self.mode = ko.observable("confirm");
-  self.sampleRate = ko.observable(null);
-  self.pendingConnection = null;
+  this.visible = ko.observable(false);
+  this.mode = ko.observable("confirm");
+  this.sampleRate = ko.observable(null);
+  this.pendingConnection = null;
 
   const formatSampleRate = (value) => {
     if (typeof value === "number" && !Number.isNaN(value) && value > 0) {
@@ -245,24 +241,24 @@ function SampleRateWarningDialog(ui) {
     return translate("audio.sample_rate.warning.unknown_rate");
   };
 
-  self.title = ko.pureComputed(() => translate("audio.sample_rate.warning.title"));
-  self.isConfirm = ko.pureComputed(() => self.mode() === "confirm");
-  self.description = ko.pureComputed(() => {
-    const key = self.isConfirm()
+  this.title = ko.pureComputed(() => translate("audio.sample_rate.warning.title"));
+  this.isConfirm = ko.pureComputed(() => this.mode() === "confirm");
+  this.description = ko.pureComputed(() => {
+    const key = this.isConfirm()
       ? "audio.sample_rate.warning.body"
       : "audio.sample_rate.warning.info";
     const template = translate(key);
-    return template.replace("%1", formatSampleRate(self.sampleRate()));
+    return template.replace("%1", formatSampleRate(this.sampleRate()));
   });
-  self.primaryLabel = ko.pureComputed(() => translate("audio.sample_rate.warning.accept"));
-  self.secondaryLabel = ko.pureComputed(() => {
-    const key = self.isConfirm()
+  this.primaryLabel = ko.pureComputed(() => translate("audio.sample_rate.warning.accept"));
+  this.secondaryLabel = ko.pureComputed(() => {
+    const key = this.isConfirm()
       ? "audio.sample_rate.warning.cancel"
       : "audio.sample_rate.warning.close";
     return translate(key);
   });
-  self.hintsTitle = ko.pureComputed(() => translate("audio.sample_rate.warning.hints_title"));
-  self.hints = ko.pureComputed(() => {
+  this.hintsTitle = ko.pureComputed(() => translate("audio.sample_rate.warning.hints_title"));
+  this.hints = ko.pureComputed(() => {
     const hintKeys = [
       "audio.sample_rate.warning.hints.item1",
       "audio.sample_rate.warning.hints.item2",
@@ -273,40 +269,40 @@ function SampleRateWarningDialog(ui) {
       .filter((text) => text && !/^\{\{.*\}\}$/.test(text));
   });
 
-  self.show = (sampleRate, params) => {
+  this.show = (sampleRate, params) => {
     if (ui.currentOpenModal() !== null) {
       return;
     }
-    self.mode("confirm");
-    self.sampleRate(sampleRate || null);
-    self.pendingConnection = params || null;
-    self.visible(true);
+    this.mode("confirm");
+    this.sampleRate(sampleRate || null);
+    this.pendingConnection = params || null;
+    this.visible(true);
     ui.currentOpenModal('sampleRateWarning');
   };
 
-  self.showInfo = (sampleRate) => {
+  this.showInfo = (sampleRate) => {
     if (ui.currentOpenModal() !== null) {
       return;
     }
-    self.mode("info");
-    self.sampleRate(sampleRate || null);
-    self.pendingConnection = null;
-    self.visible(true);
+    this.mode("info");
+    this.sampleRate(sampleRate || null);
+    this.pendingConnection = null;
+    this.visible(true);
     ui.currentOpenModal('sampleRateWarning');
   };
 
-  self.hide = () => {
-    self.visible(false);
+  this.hide = () => {
+    this.visible(false);
     if (ui.currentOpenModal() === 'sampleRateWarning') {
       ui.currentOpenModal(null);
     }
-    self.pendingConnection = null;
+    this.pendingConnection = null;
   };
 
-  self.joinWithoutAudio = () => {
-    const params = self.pendingConnection;
-    const sampleRate = self.sampleRate();
-    self.hide();
+  this.joinWithoutAudio = () => {
+    const params = this.pendingConnection;
+    const sampleRate = this.sampleRate();
+    this.hide();
     if (params) {
       ui._performConnect(params, {
         audioEnabled: false,
@@ -315,8 +311,8 @@ function SampleRateWarningDialog(ui) {
     }
   };
 
-  self.cancel = () => {
-    self.hide();
+  this.cancel = () => {
+    this.hide();
   };
 }
 
@@ -432,7 +428,7 @@ class SettingsDialog {
   }
 
   recordPttKey() {
-    var combo = [];
+    let combo = [];
     const keydown = (e) => {
       combo = e.pressedKeys;
       let comboStr = combo.join(" + ");
@@ -504,7 +500,7 @@ class Settings {
 }
 
 // Initialize UI with modular AppState architecture
-var ui = new AppState(window.mumbleWebConfig, log);
+const ui = new AppState(window.mumbleWebConfig, log);
 
 // Wire up dependencies that AppState expects
 ui.connectDialog = new ConnectDialog();
@@ -592,7 +588,7 @@ async function initializeUI() {
     ui.connectDialog.show();
   }
 
-  var queryParams = url.parse(document.location.href, true).query;
+  let queryParams = url.parse(document.location.href, true).query;
   queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
@@ -622,7 +618,7 @@ function compareUsers(u1, u2) {
 }
 
 function userToState() {
-  var flags = [];
+  let flags = [];
   if (this.uid()) {
     flags.push("Authenticated");
   }
@@ -641,7 +637,7 @@ function userToState() {
   return flags.join(", ");
 }
 
-var voiceHandler;
+let voiceHandler;
 
 async function main() {
   document.title = window.location.hostname;
