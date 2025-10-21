@@ -40,7 +40,7 @@ export default class ChannelState {
       description: "description",
     };
     
-    var ui = (channel.__ui = {
+    let ui = (channel.__ui = {
       model: channel,
       expanded: ko.observable(true),
       parent: ko.observable(),
@@ -107,9 +107,9 @@ export default class ChannelState {
       return;
     }
 
-    var allChannels = this._getAllChannels(this.root(), []);
-    var thisUserChannel = this.root().model;
-    var allLinked = this._findLinks(thisUserChannel, [], allChannels);
+    let allChannels = this._getAllChannels(this.root(), []);
+    let thisUserChannel = this.root().model;
+    let allLinked = this._findLinks(thisUserChannel, [], allChannels);
     
     allChannels.forEach((channel) => {
       channel.linked(allLinked.indexOf(channel.model) !== -1);
