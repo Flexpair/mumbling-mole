@@ -50,7 +50,7 @@ function registerEventProxy(id, obj, event, transform) {
       userId: id.user,
       event: event,
       value: transform
-        ? transform.apply(null, arguments)
+        ? transform(...arguments)
         : Array.from(arguments),
     });
   });
@@ -89,7 +89,7 @@ function setupOutboundVoice(voiceId, samplesPerPacket, stream) {
 }
 
 function setupChannel(id, channel) {
-  id = Object.assign({}, id, { channel: channel.id });
+  id = { ...id, channel: channel.id};
 
   registerEventProxy(id, channel, "update", (props) => {
     if (props.parent) {
@@ -134,7 +134,7 @@ function setupUser(id, user) {
     let target;
 
     // We want to do as little on the UI thread as possible, so do resampling here as well
-    var resampler = new PassThrough();
+    let resampler = new PassThrough();
 
     // Pipe stream into resampler
     stream
@@ -280,7 +280,8 @@ function setupClient(id, client) {
     }
 
     // PROP-SYNC: Push initial state to main thread
-    pushProp(id, client, "root", (it) => it ? it.id : (rootChannel ? rootChannel.id : undefined));
+    const rootId = it ? it.id : (rootChannel ? rootChannel.id : undefined);
+    pushProp(id, client, "root", () => rootId);
     pushProp(id, client, "self", (it) => it.id);
     pushProp(id, client, "serverVersion");
     pushProp(id, client, "maxBandwidth");
@@ -421,7 +422,7 @@ function onMessage(data) {
       }
     }
 
-    target[method].apply(target, payload);
+    target[method](...payload);
   } else if (data.voiceId != null) {
     let stream = voiceStreams[data.voiceId];
     let buffer = data.chunk;

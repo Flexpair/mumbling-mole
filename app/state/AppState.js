@@ -88,7 +88,7 @@ export default class AppState {
   async connect(host, port, username, password, tokens = [], channelName = "") {
     // Auth check
     const identity = this.auth.currentUser();
-    if (!identity || !identity.app_metadata) {
+    if (!identity?.app_metadata) {
       alert("You do not have permission to connect to the server. Please contact the administrator.");
       return;
     }
@@ -121,7 +121,7 @@ export default class AppState {
     const connectionId = Symbol('connection');
     this._currentConnectionId = connectionId;
     
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
@@ -130,7 +130,9 @@ export default class AppState {
             this.audio.micPermissionDenied(false);
           }
           // Always stop tracks to avoid mic staying active
-          stream.getTracks().forEach((track) => track.stop());
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
@@ -150,7 +152,7 @@ export default class AppState {
    */
   async connectLoopback(host, port, username, password, tokens = [], channelName = "") {
     const identity = this.auth.currentUser();
-    if (!identity || !identity.app_metadata) {
+    if (!identity?.app_metadata) {
       alert("You do not have permission to connect to the server. Please contact the administrator.");
       return;
     }
@@ -177,7 +179,7 @@ export default class AppState {
     const connectionId = Symbol('loopback-connection');
     this._currentConnectionId = connectionId;
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
@@ -186,7 +188,9 @@ export default class AppState {
             this.audio.micPermissionDenied(false);
           }
           // Always stop tracks to avoid mic staying active
-          stream.getTracks().forEach((track) => track.stop());
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
@@ -345,9 +349,9 @@ export default class AppState {
         if (channelPath === channelName) {
           client.self.setChannel(channel);
         }
-        channel.children.forEach((ch) =>
-          registerChannel(ch, channelPath + "/" + ch.name)
-        );
+        for (const ch of channel.children) {
+          registerChannel(ch, channelPath + "/" + ch.name);
+        }
       };
       registerChannel(client.root, "");
 
@@ -579,9 +583,7 @@ export default class AppState {
   // Helpers
   notifyAudioLock = () => {
     const details = this.audio.audioLockDetails() || {};
-    const sr = details.sampleRate !== undefined
-      ? details.sampleRate
-      : this.audio.audioContext && this.audio.audioContext.sampleRate;
+    const sr = details.sampleRate ?? this.audio.audioContext?.sampleRate;
     this.sampleRateWarningDialog.showInfo(sr);
   }
 
@@ -626,7 +628,7 @@ export default class AppState {
 
   mailToDesktop = ko.observable(
     "mailto:mail@" +
-    window.location.hostname +
+    globalThis.location.hostname +
     "?subject=Send%20attachment%20to%20desktop"
   );
 

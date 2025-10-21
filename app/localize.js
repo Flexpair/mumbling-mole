@@ -54,23 +54,24 @@ export function translate(key, _languageChosen) {
  */
 function translatePiece(selector, kind, parameters, key) {
   let element = document.querySelector(selector);
-  if (element !== null) {
-    const translation = translate(key);
-    switch (kind) {
-      default:
-        console.warn('unhandled dom translation kind "' + kind + '"');
-        break;
-      case "textcontent":
-        element.textContent = translation;
-        break;
-      case "attribute":
-        element.setAttribute(parameters.name || "value", translation);
-        break;
-    }
-  } else {
+  if (!element) {
     console.warn(
       `translation selector "${selector}" for "${key}" did not match any element`
     );
+    return;
+  }
+  
+  const translation = translate(key);
+  switch (kind) {
+    case "textcontent":
+      element.textContent = translation;
+      break;
+    case "attribute":
+      element.setAttribute(parameters.name || "value", translation);
+      break;
+    default:
+      console.warn('unhandled dom translation kind "' + kind + '"');
+      break;
   }
 }
 
