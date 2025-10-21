@@ -107,6 +107,63 @@ describe('AuthProvider', () => {
       expect(() => provider.off('login', () => {})).toThrow('must be implemented');
     });
   });
+
+  describe('Utility Methods', () => {
+    class TestProvider extends AuthProvider {
+      constructor() {
+        super();
+        this._currentUser = null;
+      }
+      async init() { return Promise.resolve(); }
+      async getCurrentUser() { return Promise.resolve(this._currentUser); }
+      async openAuth() { return Promise.resolve(); }
+      async closeAuth() { return Promise.resolve(); }
+      async signup() { return Promise.resolve({}); }
+      async login(email) { 
+        this._currentUser = { email, id: '123' };
+        return Promise.resolve(this._currentUser); 
+      }
+      async logout() { 
+        this._currentUser = null;
+        return Promise.resolve(); 
+      }
+      async updateUser() { return Promise.resolve({}); }
+      async requestPasswordReset() { return Promise.resolve(); }
+      async refreshToken() { return Promise.resolve(); }
+      on() { return () => {}; }
+      off() {}
+    }
+
+    test('isAuthenticated returns true when user is logged in', async () => {
+      const provider = new TestProvider();
+      await provider.login('test@example.com');
+      
+      const authenticated = await provider.isAuthenticated();
+      expect(authenticated).toBe(true);
+    });
+
+    test('isAuthenticated returns false when user is logged out', async () => {
+      const provider = new TestProvider();
+      
+      const authenticated = await provider.isAuthenticated();
+      expect(authenticated).toBe(false);
+    });
+
+    test('isAuthenticated returns false when user is undefined', async () => {
+      class UndefinedUserProvider extends TestProvider {
+        async getCurrentUser() { return Promise.resolve(undefined); }
+      }
+      
+      const provider = new UndefinedUserProvider();
+      const authenticated = await provider.isAuthenticated();
+      expect(authenticated).toBe(false);
+    });
+
+    test('getProviderName returns class name', () => {
+      const provider = new TestProvider();
+      expect(provider.getProviderName()).toBe('TestProvider');
+    });
+  });
 });
 
 describe('AuthFactory', () => {
