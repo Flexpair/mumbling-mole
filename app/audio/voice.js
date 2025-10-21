@@ -198,9 +198,9 @@ export function onAudioMixerReady(callback) {
   }
   
   // If mixer is already available, call immediately
-  if (window._audioMixer) {
+  if (globalThis._audioMixer) {
     try {
-      callback(window._audioMixer);
+      callback(globalThis._audioMixer);
     } catch (err) {
       console.error('[VOICE] Error in mixer ready callback:', err);
     }
@@ -258,7 +258,7 @@ export function initVoice(onData, onUserMediaError) {
 
       // BEEP-MIXER: Create a mixer node to combine microphone + beep signals
       const mixer = ac.createGain();
-      mixer.gain.setValueAtTime(1.0, ac.currentTime);
+      mixer.gain.setValueAtTime(1, ac.currentTime);
 
       // WORKLET-NODE: Create AudioWorklet node for mono audio processing
       // Processes audio in audio thread, not main thread
@@ -292,7 +292,7 @@ export function initVoice(onData, onUserMediaError) {
       currentMixerTimestamp = mixerTimestamp;
       
       // BACKWARD-COMPAT: Also set global for existing code (will be deprecated)
-      window._audioMixer = mixer;
+      globalThis._audioMixer = mixer;
       console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
 
       // CALLBACK-NOTIFICATION: Notify all registered callbacks that mixer is ready
@@ -324,7 +324,7 @@ export function initVoice(onData, onUserMediaError) {
             
             // Clear global references only if this is still the active instance
             currentMixerInstance = null;
-            window._audioMixer = null;
+            globalThis._audioMixer = null;
             
             // Don't close the shared/global AudioContext here. Suspending saves power without
             // invalidating the shared instance held by the AudioContextManager.

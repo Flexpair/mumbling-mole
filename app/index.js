@@ -552,7 +552,7 @@ async function initializeUI() {
   }
 
   let queryParams = url.parse(document.location.href, true).query;
-  queryParams = { ...window.mumbleWebConfig.defaults, ...queryParams};
+  queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams};
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
   }
@@ -568,10 +568,6 @@ async function initializeUI() {
 function log() {
   console.log(...arguments);
 }
-
-
-
-
 
 async function main() {
   document.title = window.location.hostname;
