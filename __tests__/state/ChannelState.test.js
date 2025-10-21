@@ -10,6 +10,7 @@
 
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'events';
+import ko from 'knockout';
 
 const { default: ChannelState } = await import('../../app/state/ChannelState.js');
 
@@ -134,10 +135,12 @@ describe('ChannelState - Channel Events', () => {
     channelState.registerChannel(child, jest.fn(), jest.fn(), jest.fn());
     
     expect(child.__ui.parent()).toBe(parent1.__ui);
+    expect(parent1.__ui.channels()).toContain(child.__ui);
     
     child.emit('update', { parent: parent2 });
     
-    expect(parent1.__ui.channels.remove).toHaveBeenCalledWith(child.__ui);
+    expect(child.__ui.parent()).toBe(parent2.__ui);
+    expect(parent1.__ui.channels()).not.toContain(child.__ui);
     expect(parent2.__ui.channels()).toContain(child.__ui);
   });
 
@@ -159,9 +162,11 @@ describe('ChannelState - Channel Events', () => {
     const child = createMockChannel('Child', 1, parent);
     channelState.registerChannel(child, jest.fn(), jest.fn(), jest.fn());
     
+    expect(parent.__ui.channels()).toContain(child.__ui);
+    
     child.emit('remove');
     
-    expect(parent.__ui.channels.remove).toHaveBeenCalledWith(child.__ui);
+    expect(parent.__ui.channels()).not.toContain(child.__ui);
   });
 
   test('remove event triggers updateLinks', () => {
@@ -224,72 +229,81 @@ describe('ChannelState - Channel Links', () => {
   });
 
   test('updateLinks marks linked channels', () => {
-    const channel1 = createMockChannel('Channel1', 0);
-    const channel2 = createMockChannel('Channel2', 1);
+    const root = createMockChannel('Root', 0);
+    const channel1 = createMockChannel('Channel1', 1, root);
+    const channel2 = createMockChannel('Channel2', 2, root);
+    
+    channelState.registerChannel(root, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel1, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel2, jest.fn(), jest.fn(), jest.fn());
     
-    channelState.root(channel1.__ui);
-    channel1.links = [channel2];
+    channelState.root(root.__ui);
+    root.links = [channel1];
     
     channelState.updateLinks();
     
+    expect(root.__ui.linked()).toBe(true);
     expect(channel1.__ui.linked()).toBe(true);
-    expect(channel2.__ui.linked()).toBe(true);
+    expect(channel2.__ui.linked()).toBe(false);
   });
 
   test('updateLinks handles bidirectional links', () => {
-    const channel1 = createMockChannel('Channel1', 0);
-    const channel2 = createMockChannel('Channel2', 1);
+    const root = createMockChannel('Root', 0);
+    const channel1 = createMockChannel('Channel1', 1, root);
+    const channel2 = createMockChannel('Channel2', 2, root);
+    
+    channelState.registerChannel(root, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel1, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel2, jest.fn(), jest.fn(), jest.fn());
     
-    channelState.root(channel1.__ui);
-    channel1.links = [channel2];
-    channel2.links = [channel1];
+    channelState.root(root.__ui);
+    root.links = [channel1];
+    channel1.links = [root];
     
     channelState.updateLinks();
     
+    expect(root.__ui.linked()).toBe(true);
     expect(channel1.__ui.linked()).toBe(true);
-    expect(channel2.__ui.linked()).toBe(true);
   });
 
   test('updateLinks handles transitive links', () => {
-    const channel1 = createMockChannel('Channel1', 0);
-    const channel2 = createMockChannel('Channel2', 1);
-    const channel3 = createMockChannel('Channel3', 2);
+    const root = createMockChannel('Root', 0);
+    const channel1 = createMockChannel('Channel1', 1, root);
+    const channel2 = createMockChannel('Channel2', 2, root);
+    
+    channelState.registerChannel(root, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel1, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel2, jest.fn(), jest.fn(), jest.fn());
-    channelState.registerChannel(channel3, jest.fn(), jest.fn(), jest.fn());
     
-    channelState.root(channel1.__ui);
+    channelState.root(root.__ui);
+    root.links = [channel1];
     channel1.links = [channel2];
-    channel2.links = [channel3];
     
     channelState.updateLinks();
     
+    expect(root.__ui.linked()).toBe(true);
     expect(channel1.__ui.linked()).toBe(true);
     expect(channel2.__ui.linked()).toBe(true);
-    expect(channel3.__ui.linked()).toBe(true);
   });
 
   test('updateLinks marks unlinked channels as false', () => {
-    const channel1 = createMockChannel('Channel1', 0);
-    const channel2 = createMockChannel('Channel2', 1);
-    const channel3 = createMockChannel('Channel3', 2);
+    const root = createMockChannel('Root', 0);
+    const channel1 = createMockChannel('Channel1', 1, root);
+    const channel2 = createMockChannel('Channel2', 2, root);
+    
+    channelState.registerChannel(root, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel1, jest.fn(), jest.fn(), jest.fn());
     channelState.registerChannel(channel2, jest.fn(), jest.fn(), jest.fn());
-    channelState.registerChannel(channel3, jest.fn(), jest.fn(), jest.fn());
     
-    channelState.root(channel1.__ui);
-    channel1.links = [channel2];
-    // channel3 is NOT linked
+    channelState.root(root.__ui);
+    root.links = [channel1];
+    // channel2 is NOT linked
     
     channelState.updateLinks();
     
+    expect(root.__ui.linked()).toBe(true);
     expect(channel1.__ui.linked()).toBe(true);
-    expect(channel2.__ui.linked()).toBe(true);
-    expect(channel3.__ui.linked()).toBe(false);
+    expect(channel2.__ui.linked()).toBe(false);
   });
 });
 
@@ -305,15 +319,17 @@ describe('ChannelState - Reset', () => {
     channelState.registerChannel(channel, jest.fn(), jest.fn(), jest.fn());
     channelState.root(channel.__ui);
     
+    expect(channelState.root()).toBeDefined();
+    
     channelState.reset();
     
-    expect(channelState.root()).toBeUndefined();
+    expect(channelState.root()).toBeNull();
   });
 
   test('reset can be called multiple times safely', () => {
     channelState.reset();
     channelState.reset();
     
-    expect(channelState.root()).toBeUndefined();
+    expect(channelState.root()).toBeNull();
   });
 });
