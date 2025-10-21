@@ -13,15 +13,15 @@ const AUDIO_CONFIG = {
 };
 
 class AudioContextManager {
+  audioContext = null;
+  isInitialized = false;
+  userInteractionDetected = false;
+  resumeAttempts = 0;
+  onReadyCallbacks = [];
+  onSuspendCallbacks = [];
+  onResumeCallbacks = [];
+
   constructor() {
-    this.audioContext = null;
-    this.isInitialized = false;
-    this.userInteractionDetected = false;
-    this.resumeAttempts = 0;
-    this.onReadyCallbacks = [];
-    this.onSuspendCallbacks = [];
-    this.onResumeCallbacks = [];
-    
     this.setupUserInteractionDetection();
   }
 
