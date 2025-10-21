@@ -2,7 +2,7 @@ networks:
   guacamole_net:
     driver: bridge
     driver_opts:
-      com.docer.network.bridge.name: guac_bridge
+      com.docker.network.bridge.name: guac_bridge
     ipam:
       driver: default
       config:
