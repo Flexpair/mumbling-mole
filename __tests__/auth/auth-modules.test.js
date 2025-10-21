@@ -532,4 +532,230 @@ describe('MockAuthAdapter', () => {
       expect(duration).toBeGreaterThanOrEqual(250);
     });
   });
+
+  describe('User Profile Updates', () => {
+    beforeEach(async () => {
+      auth = new MockAuthAdapter();
+      await auth.init();
+      await auth.signup('user15@example.com', 'password123');
+    });
+
+    test('updateUser updates user metadata', async () => {
+      const updates = { name: 'Updated Name', role: 'editor' };
+      const updated = await auth.updateUser(updates);
+      
+      expect(updated.user_metadata.name).toBe('Updated Name');
+      expect(updated.user_metadata.role).toBe('editor');
+    });
+
+    test('updateUser merges with existing metadata', async () => {
+      // First update
+      await auth.updateUser({ field1: 'value1' });
+      
+      // Second update (should preserve field1)
+      const updated = await auth.updateUser({ field2: 'value2' });
+      
+      expect(updated.user_metadata.field1).toBe('value1');
+      expect(updated.user_metadata.field2).toBe('value2');
+    });
+
+    test('updateUser throws when not logged in', async () => {
+      await auth.logout();
+      
+      await expect(
+        auth.updateUser({ name: 'Test' })
+      ).rejects.toThrow('No user logged in');
+    });
+
+    test('updateUser has simulated delay', async () => {
+      const start = Date.now();
+      await auth.updateUser({ name: 'Test' });
+      const duration = Date.now() - start;
+      
+      expect(duration).toBeGreaterThanOrEqual(200);
+    });
+  });
+
+  describe('Password Reset', () => {
+    beforeEach(async () => {
+      auth = new MockAuthAdapter();
+      await auth.init();
+      await auth.signup('user16@example.com', 'password123');
+    });
+
+    test('requestPasswordReset succeeds for existing user', async () => {
+      await expect(
+        auth.requestPasswordReset('user16@example.com')
+      ).resolves.toBeUndefined();
+    });
+
+    test('requestPasswordReset throws for unknown user', async () => {
+      await expect(
+        auth.requestPasswordReset('unknown@example.com')
+      ).rejects.toThrow('User not found');
+    });
+
+    test('requestPasswordReset has simulated delay', async () => {
+      const start = Date.now();
+      await auth.requestPasswordReset('user16@example.com');
+      const duration = Date.now() - start;
+      
+      expect(duration).toBeGreaterThanOrEqual(300);
+    });
+  });
+
+  describe('Token Management', () => {
+    beforeEach(async () => {
+      auth = new MockAuthAdapter();
+      await auth.init();
+      await auth.signup('user17@example.com', 'password123');
+    });
+
+    test('refreshToken returns mock token when logged in', async () => {
+      const token = await auth.refreshToken();
+      
+      expect(token).toMatch(/^mock-jwt-token-\d+$/);
+    });
+
+    test('refreshToken throws when not logged in', async () => {
+      await auth.logout();
+      
+      await expect(auth.refreshToken()).rejects.toThrow('No user logged in');
+    });
+
+    test('refreshToken generates different tokens', async () => {
+      const token1 = await auth.refreshToken();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      const token2 = await auth.refreshToken();
+      
+      expect(token1).not.toBe(token2);
+    });
+
+    test('refreshToken has simulated delay', async () => {
+      const start = Date.now();
+      await auth.refreshToken();
+      const duration = Date.now() - start;
+      
+      expect(duration).toBeGreaterThanOrEqual(100);
+    });
+  });
+
+  describe('Provider Information', () => {
+    test('getProviderName returns correct name', () => {
+      auth = new MockAuthAdapter();
+      expect(auth.getProviderName()).toBe('Mock Auth (Testing)');
+    });
+  });
+
+  describe('Event Error Handling', () => {
+    beforeEach(async () => {
+      auth = new MockAuthAdapter();
+      await auth.init();
+    });
+
+    test('_emit handles listener errors gracefully', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const throwingCallback = jest.fn(() => {
+        throw new Error('Listener error');
+      });
+      const normalCallback = jest.fn();
+      
+      auth.on('login', throwingCallback);
+      auth.on('login', normalCallback);
+      
+      await auth.signup('user18@example.com', 'password123');
+      
+      // Both callbacks should have been called despite error
+      expect(throwingCallback).toHaveBeenCalled();
+      expect(normalCallback).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error in login listener'),
+        expect.any(Error)
+      );
+      
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('Testing Utilities', () => {
+    beforeEach(async () => {
+      auth = new MockAuthAdapter();
+      await auth.init();
+    });
+
+    test('reset() clears current user', async () => {
+      await auth.signup('user19@example.com', 'password123');
+      auth.reset();
+      
+      const user = await auth.getCurrentUser();
+      expect(user).toBeNull();
+    });
+
+    test('reset() clears listeners', async () => {
+      const callback = jest.fn();
+      auth.on('login', callback);
+      auth.reset();
+      
+      await auth.init(); // Re-initialize after reset
+      await auth.signup('user20@example.com', 'password123');
+      
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    test('reset() clears custom users but restores defaults', () => {
+      auth.users.set('custom@example.com', {
+        user: { email: 'custom@example.com' },
+        password: 'custom123'
+      });
+      
+      auth.reset();
+      
+      expect(auth.users.has('custom@example.com')).toBe(false);
+      expect(auth.users.has('test@example.com')).toBe(true); // Default restored
+    });
+
+    test('simulateError() enables error mode', async () => {
+      auth.simulateError();
+      
+      await expect(
+        auth.signup('user21@example.com', 'password123')
+      ).rejects.toThrow('Mock signup error');
+    });
+
+    test('clearErrors() disables error mode', async () => {
+      auth.simulateError();
+      auth.clearErrors();
+      
+      await expect(
+        auth.signup('user22@example.com', 'password123')
+      ).resolves.toBeDefined();
+    });
+
+    test('getAllUsers() returns all registered users', async () => {
+      const users = auth.getAllUsers();
+      
+      // Should include at least the default users
+      expect(users.length).toBeGreaterThan(0);
+      expect(users.some(u => u.email === 'test@example.com')).toBe(true);
+    });
+
+    test('currentUser() returns sync version of current user', async () => {
+      await auth.signup('user23@example.com', 'password123');
+      
+      const user = auth.currentUser();
+      expect(user).not.toBeNull();
+      expect(user.email).toBe('user23@example.com');
+    });
+
+    test('open() is alias for openAuth()', async () => {
+      await auth.open('signup');
+      expect(auth.isOpen).toBe(true);
+    });
+
+    test('close() is alias for closeAuth()', async () => {
+      await auth.openAuth();
+      await auth.close();
+      expect(auth.isOpen).toBe(false);
+    });
+  });
 });
