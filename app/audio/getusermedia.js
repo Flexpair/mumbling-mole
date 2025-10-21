@@ -42,7 +42,7 @@ export default function (constraints, cb) {
       cb(null, stream);
     })
     .catch(function (err) {
-      var error;
+      let error;
       // coerce into an error object since FF gives us a string
       // there are only two valid names according to the spec
       // we coerce all non-denied to "constraint not satisfied".

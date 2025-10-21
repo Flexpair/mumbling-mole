@@ -92,7 +92,7 @@ export default class UserState {
     });
     
     ui.state = ko.pureComputed(function() {
-      var flags = [];
+      let flags = [];
       if (this.uid()) {
         flags.push("Authenticated");
       }
@@ -235,7 +235,7 @@ export default class UserState {
         }
         
         // Subscribe to selfDeaf changes to update gain
-        var deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
+        let deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
           gainNode.gain.value = isDeaf ? 0 : 1;
           debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
         });
