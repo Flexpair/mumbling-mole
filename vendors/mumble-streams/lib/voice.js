@@ -80,17 +80,17 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
     return callback(null, buffer.slice(0, offset));
   }
 
-  var codecId; // Network ID of the codec
-  var voiceData; // All voice frames encoded into a single buffer
+  let codecId; // Network ID of the codec
+  let voiceData; // All voice frames encoded into a single buffer
   if (chunk.codec == 'Opus') {
     if (chunk.frames.length > 1) {
       return callback(new Error('Opus only supports a single frame per packet'));
     }
-    var endBit = chunk.end ? 0x2000 : 0
+    const endBit = chunk.end ? 0x2000 : 0
     if (chunk.frames.length == 0) {
       voiceData = toVarint(endBit).value;
     } else {
-      var frameSize = toVarint(chunk.frames[0].length | endBit);
+      const frameSize = toVarint(chunk.frames[0].length | endBit);
       // Opus packets are just the size and the data concatenated
       voiceData = Buffer.concat([frameSize.value, chunk.frames[0]]);
     }
@@ -101,13 +101,11 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
     if (chunk.frames.length == 0 && !chunk.end) {
       return callback(new Error('No frames given but end bit is not set'));
     }
-    for (var i = 0; i < chunk.frames.length; i++) {
-      var frame = chunk.frames[i]
+    for (const frame of chunk.frames) {
       if (frame.length > 127) {
         return callback(new Error('Frame size is greater than 127 bytes'));
       }
-      voiceData.push(Buffer.from([frame.length | 0x80]))
-      voiceData.push(frame)
+      voiceData.push(Buffer.from([frame.length | 0x80]), frame)
     }
     // Append empty frame if end bit is set
     if (chunk.end) {
@@ -166,42 +164,42 @@ function Decoder(orig) {
 util.inherits(Decoder, Transform);
 
 Decoder.prototype._transform = function(chunk, encoding, callback) {
-  var self = this
-  var reject = function(reason) {
+  const self = this
+  const reject = function(reason) {
     self.emit('debug', 'Failed to parse voice packet', reason, chunk);
     callback();
   };
 
-  var packet = {};
+  const packet = {};
   try {
     if (chunk.length == 0) return reject('empty');
-    var codecId = chunk[0] >> 5;
+    const codecId = chunk[0] >> 5;
     if (codecId == 1) { // Ping packet
-      var val = fromVarint(chunk.slice(1));
+      const val = fromVarint(chunk.slice(1));
       if (!val) return reject('invalid timestamp');
       packet.timestamp = val.value;
     } else { // Voice packet
-      var target = chunk[0] & 0x1f
+      const target = chunk[0] & 0x1f
       packet.target = ['normal', 'shout', 'whisper'][target] || 'loopback';
-      var offset = 1;
+      let offset = 1;
 
       // Parse source if this packet originated from the server
       if (this._orig == 'server') {
-        var source = fromVarint(chunk.slice(offset));
+        const source = fromVarint(chunk.slice(offset));
         if (!source) return reject('invalid source');
         offset += source.length;
         packet.source = source.value;
       }
 
       // Parse the sequence number of the first audio packet
-      var sequenceNumber = fromVarint(chunk.slice(offset));
+      const sequenceNumber = fromVarint(chunk.slice(offset));
       if (!sequenceNumber) return reject('invalid sequence number');
       offset += sequenceNumber.length;
       packet.seqNum = sequenceNumber.value;
 
       // Parse the voice frames depending on the audio codec
       if (codecId == 4) {
-        var voiceLength = fromVarint(chunk.slice(offset));
+        const voiceLength = fromVarint(chunk.slice(offset));
         if (!voiceLength) return reject('invalid voice length');
         packet.end = (voiceLength.value & 0x2000) > 0;
         voiceLength.value &= 0x1fff;
@@ -209,7 +207,7 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
         if (chunk.length < offset + voiceLength.value) {
           return reject('not enough voice data')
         }
-        var voice = chunk.slice(offset, offset + voiceLength.value);
+        const voice = chunk.slice(offset, offset + voiceLength.value);
         offset += voiceLength.value;
         packet.frames = voice.length ? [voice] : [];
         packet.codec = 'Opus';
@@ -223,8 +221,8 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
             packet.end = true;
             break;
           }
-          var more = (header & 0x80) > 0;
-          var frameLength = header & 0x7F;
+          const more = (header & 0x80) > 0;
+          const frameLength = header & 0x7F;
 
           if (chunk.length < offset + frameLength) {
             return reject('not enough voice data');
@@ -279,7 +277,7 @@ module.exports = {
  */
 function toVarint( i ) {
 
-    var arr = [];
+    const arr = [];
     if( i < 0 ) {
         i = ~i;
         if( i <= 0x3 ) { return Buffer.from( [ 0xFC | i ] ); }
@@ -327,8 +325,8 @@ function toVarint( i ) {
  */
 function fromVarint( b ) {
     if (b.length == 0) return null;
-    var length = 1;
-    var i, v = b[ 0 ];
+    let length = 1;
+    let i, v = b[ 0 ];
     if( ( v & 0x80 ) === 0x00 ) {
         i = ( v & 0x7F );
     } else if( ( v & 0xC0 ) === 0x80 ) {
@@ -341,7 +339,7 @@ function fromVarint( b ) {
             length = 5;
             break;
         case 0xF8:
-            var ret = fromVarint( b.slice( 1 ) );
+            const ret = fromVarint( b.slice( 1 ) );
             if (!ret) return ret;
             return {
                 value: ~ret.value,
