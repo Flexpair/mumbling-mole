@@ -1,10 +1,10 @@
-var fs = require('fs');
-var path = require('path');
-var protobufjs = require('protobufjs');
-var util = require('util');
-var Transform = require('stream').Transform;
+const fs = require('node:fs');
+const path = require('node:path');
+const protobufjs = require('protobufjs');
+const util = require('node:util');
+const Transform = require('node:stream').Transform;
 
-var nameById = {
+const nameById = {
     0: 'Version',
     1: 'UDPTunnel',
     2: 'Authenticate',
@@ -32,48 +32,48 @@ var nameById = {
     24: 'ServerConfig',
     25: 'SuggestConfig'
 };
-var idByName = {};
-for (var id in nameById) {
+const idByName = {};
+for (const id in nameById) {
 	idByName[nameById[id]] = id;
 }
 
-var mumbleProto = fs.readFileSync(path.join(__dirname, 'Mumble.proto'), 'utf8');
-var root = protobufjs.parse(mumbleProto, { alternateCommentMode: true }).root;
-var mumbleNamespace = root.lookup('MumbleProto');
+const mumbleProto = fs.readFileSync(path.join(__dirname, 'Mumble.proto'), 'utf8');
+const root = protobufjs.parse(mumbleProto, { alternateCommentMode: true }).root;
+const mumbleNamespace = root.lookup('MumbleProto');
 if (!mumbleNamespace) {
   throw new Error('Failed to load MumbleProto definitions');
 }
-var typeByName = {};
-Object.keys(nameById).forEach(function (key) {
-  var name = nameById[key];
+const typeByName = {};
+for (const key of Object.keys(nameById)) {
+  const name = nameById[key];
   typeByName[name] = mumbleNamespace.lookupType(name);
-});
+};
 
 function encode(name, payload) {
-  var type = typeByName[name];
+  const type = typeByName[name];
   if (!type) {
     throw new Error('Unknown message: ' + name);
   }
-  var data = payload || {};
-  var err = type.verify(data);
+  const data = payload || {};
+  const err = type.verify(data);
   if (err) {
     throw new Error(err);
   }
-  var message = type.create(data);
-  var buffer = type.encode(message).finish();
+  const message = type.create(data);
+  const buffer = type.encode(message).finish();
   return Buffer.from(buffer);
 }
 
 function decode(id, payload) {
-	var name = nameById[id];
+	const name = nameById[id];
   if (!name) {
     throw new Error('Unknown message id: ' + id);
   }
-  var type = typeByName[name];
+  const type = typeByName[name];
   if (!type) {
     throw new Error('Unknown message: ' + name);
   }
-  var data = payload || Buffer.alloc(0);
+  const data = payload || Buffer.alloc(0);
 	return type.decode(data);
 }
 
@@ -92,7 +92,7 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
   }
   chunk.payload = chunk.payload || {};
 
-  var data;
+  let data;
   if (chunk.name === 'UDPTunnel') {
     data = chunk.payload;
   } else {
@@ -104,7 +104,7 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
     }
   }
 
-  var header = Buffer.allocUnsafe(6);
+  const header = Buffer.allocUnsafe(6);
   header.writeUInt16BE(idByName[chunk.name], 0);
   header.writeUInt32BE(data.length, 2);
 
@@ -125,22 +125,22 @@ util.inherits(Decoder, Transform);
 
 Decoder.prototype._transform = function(chunk, encoding, callback) {
   if (this._buffer.length - this._bufferSize < chunk.length) {
-		var oldBuffer = this._buffer;
+		const oldBuffer = this._buffer;
 		this._buffer = Buffer.allocUnsafe(this._bufferSize + chunk.length);
 		oldBuffer.copy(this._buffer, 0, 0, this._bufferSize);
 	}
 	this._bufferSize += chunk.copy(this._buffer, this._bufferSize);
 
 	while (this._bufferSize >= 6) {
-		var type = this._buffer.readUInt16BE(0);
-		var size = this._buffer.readUInt32BE(2);
+		const type = this._buffer.readUInt16BE(0);
+		const size = this._buffer.readUInt32BE(2);
 		if (this._bufferSize < 6 + size) {
 			break;
 		}
 
-		var typeName = nameById[type];
-		var data = this._buffer.slice(6, 6 + size);
-		var message;
+		const typeName = nameById[type];
+		const data = this._buffer.slice(6, 6 + size);
+		let message;
     if (typeName === 'UDPTunnel') {
 			message = Buffer.from(data);
     } else {

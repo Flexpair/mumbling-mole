@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import DropStream from 'drop-stream'
 import removeValue from 'remove-value'
 import Timer from 'rtimer'
@@ -81,23 +81,23 @@ class User extends EventEmitter {
   _getOrCreateVoiceStream () {
     if (!this._voice) {
       // New transmission
-      if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
         console.log('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
       }
       if (!this._client._codecs) {
         // No codecs available, cannot decode
-        if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
           console.warn('[MUMBLE-USER-DEBUG] WARNING: No codecs available, using DropStream');
         }
         this._voice = DropStream.obj()
       } else {
-        if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
           console.log('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
         }
         this._voice = this._client._codecs.createDecoderStream(this)
       }
       this._voice.once('close', () => {
-        if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
           console.log('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
         }
         this._voice = null
@@ -108,12 +108,12 @@ class User extends EventEmitter {
           this._voice = null
         }
       }, this._client._options.userVoiceTimeout || 200).set()
-      if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
         console.log('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
       }
       this.emit('voice', this._voice)
     } else {
-      if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
         console.log('[MUMBLE-USER-DEBUG] Voice stream already exists, reusing existing stream');
       }
     }
@@ -139,7 +139,7 @@ class User extends EventEmitter {
    * the transmission has ended it closes the stream.
    */
   _onVoice (seqNum, codec, target, frames, position, end) {
-    if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
       console.log('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end);
     }
     if (frames.length > 0) {
@@ -176,7 +176,7 @@ class User extends EventEmitter {
           frame: frame,
           position: position
         };
-        if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
           console.log('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null');
         }
         this._getOrCreateVoiceStream().write(writeData)
