@@ -357,7 +357,7 @@ export default class AudioState {
   stopBeep() {
     debugLog('[BEEP]', 'Stop beep requested');
     
-    if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
+    if (!this._persistentBeeper?.isPlaying) {
       debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
       return;
     }
@@ -368,7 +368,7 @@ export default class AudioState {
       const currentTime = ac.currentTime;
       
       const initialDeclineTime = 0.3;
-      const mainDecayTime = 1.0;
+      const mainDecayTime = 1;
       const totalFadeTime = initialDeclineTime + mainDecayTime;
       
       beeper.gain.gain.cancelScheduledValues(currentTime);

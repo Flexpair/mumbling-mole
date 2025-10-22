@@ -1,6 +1,6 @@
 import MumbleClient from "mumble-client";
 import Promise from "promise";
-import EventEmitter from "events";
+import EventEmitter from "node:events";
 import { Writable, PassThrough } from "stream";
 import toArrayBuffer from "to-arraybuffer";
 // Import the compiled worker bundle. Rename to avoid confusing the global Worker constructor.
@@ -324,9 +324,9 @@ class WorkerBasedMumbleChannel extends EventEmitter {
   _dispatchEvent(name, args) {
     if (name === "update") {
       let [props] = args;
-      Object.entries(props).forEach((entry) => {
-        this._setProp(entry[0], entry[1]);
-      });
+      for (const [key, value] of Object.entries(props)) {
+        this._setProp(key, value);
+      }
       if (props.parent != null) {
         props.parent = this.parent;
       }
@@ -383,9 +383,9 @@ class WorkerBasedMumbleUser extends EventEmitter {
   _dispatchEvent(name, args) {
     if (name === "update") {
       let [actor, props] = args;
-      Object.entries(props).forEach((entry) => {
-        this._setProp(entry[0], entry[1]);
-      });
+      for (const [key, value] of Object.entries(props)) {
+        this._setProp(key, value);
+      }
       if (props.channel != null) {
         props.channel = this.channel;
       }
