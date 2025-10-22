@@ -149,18 +149,14 @@ export default class ChannelState {
         }
       }
     }
-    allChannels
-      .map((c) => c.model)
-      .forEach((next) => {
-        if (
-          next &&
-          next.links &&
-          !knownLinks.includes(next) &&
-          next.links.includes(channel)
-        ) {
-          this._findLinks(next, knownLinks, allChannels);
-        }
-      });
+    for (const next of allChannels.map((c) => c.model)) {
+      if (
+        !knownLinks.includes(next) &&
+        next?.links?.includes(channel)
+      ) {
+        this._findLinks(next, knownLinks, allChannels);
+      }
+    }
     return knownLinks;
   }
 
