@@ -1,4 +1,4 @@
-import { Transform, PassThrough } from "stream";
+import { Transform, PassThrough } from "node:stream";
 import mumbleConnect from "./mumble-websocket.js";
 import toArrayBuffer from "to-arraybuffer";
 import chunker from "stream-chunker";
@@ -448,6 +448,25 @@ function onMessage(data) {
 }
 
 self.addEventListener("message", (ev) => {
+  // Verify message origin - workers should only accept messages from their parent context
+  // In a worker context, ev.origin is not available, but we can verify ev.source exists
+  // and that the data structure matches our expected format
+  if (!ev.data || typeof ev.data !== 'object') {
+    console.warn('[WORKER] Rejected message: invalid data format');
+    return;
+  }
+  
+  // Validate message structure - all valid messages should have at least one of these properties
+  const hasValidStructure = 
+    ev.data.reqId !== undefined || 
+    ev.data.clientId !== undefined || 
+    ev.data.voiceId !== undefined;
+  
+  if (!hasValidStructure) {
+    console.warn('[WORKER] Rejected message: invalid message structure', ev.data);
+    return;
+  }
+  
   try {
     onMessage(ev.data);
   } catch (ex) {
