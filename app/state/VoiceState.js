@@ -25,19 +25,17 @@ function debugLog(tag, ...args) {
  * - Voice data routing (normal vs loopback target)
  */
 export default class VoiceState {
-  constructor() {
-    // Voice handler instance (created dynamically based on mode)
-    this.voiceHandler = null;
-    
-    // Loopback mode - routes voice to server echo (target=31)
-    this.isLoopbackMode = ko.observable(false);
-    
-    // Voice handler ready state
-    this.voiceHandlerReady = ko.observable(false);
-    
-    // Loopback frequency analysis - tracks dominant frequency in returned audio
-    this.loopbackDominantFrequency = ko.observable(0);
-  }
+  // Voice handler instance (created dynamically based on mode)
+  voiceHandler = null;
+  
+  // Loopback mode - routes voice to server echo (target=31)
+  isLoopbackMode = ko.observable(false);
+  
+  // Voice handler ready state
+  voiceHandlerReady = ko.observable(false);
+  
+  // Loopback frequency analysis - tracks dominant frequency in returned audio
+  loopbackDominantFrequency = ko.observable(0);
 
   /**
    * Initialize voice input capture
