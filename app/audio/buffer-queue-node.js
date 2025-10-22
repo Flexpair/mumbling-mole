@@ -170,7 +170,7 @@ class BufferQueueNode extends EventEmitter {
     this._workletNode = null;
     this._isReady = false;
     this._isFinished = false;
-    this._initializePromise = null; // PROMISE-CACHING: Prevent duplicate async initialization
+    this._isInitializing = false; // PROMISE-CACHING: Flag to prevent duplicate async initialization
 
     if (!this._audioContext) {
       throw new Error('AudioContext is required; pass options.audioContext explicitly.');
@@ -193,56 +193,70 @@ class BufferQueueNode extends EventEmitter {
 
   /**
    * Initialize AudioWorklet asynchronously
-   * Uses promise caching to prevent duplicate initialization attempts
+   * Uses initialization flag to prevent duplicate initialization attempts
    */
   async initialize() {
-    // PROMISE-CACHING: Return cached promise if already initializing
-    if (this._initializePromise) {
-      return this._initializePromise;
-    }
-
-    // PROMISE-CACHING: Cache the initialization promise
-    this._initializePromise = (async () => {
-      try {
-        // LAZY-LOAD: Try to load AudioWorklet module (may already be loaded during connection)
-        // Use direct path since file is copied as-is by esbuild
-        // InvalidStateError means already loaded - that's fine, we can proceed
-        try {
-          await this._audioContext.audioWorklet.addModule('playback-buffer-processor.js');
-        } catch (err) {
-          // Ignore "already loaded" error - module was pre-warmed during connection
-          if (err.name !== 'InvalidStateError') {
-            throw err; // Re-throw other errors
-          }
-        }
-        
-        // Create the AudioWorkletNode
-        this._workletNode = new AudioWorkletNode(this._audioContext, 'playback-buffer-processor', {
-          numberOfInputs: 0,
-          numberOfOutputs: 1,
-          outputChannelCount: [this._channels]
-        });
-        
-        // Listen for messages from the worklet
-        this._workletNode.port.onmessage = (event) => {
-          const { type } = event.data;
-          if (type === 'close') {
-            this.emit('close');
-          } else if (type === 'closed') {
-            // Worklet confirmed shutdown
+    // PROMISE-CACHING: Skip if already initializing or ready
+    if (this._isInitializing || this._isReady) {
+      // If ready, return immediately
+      if (this._isReady) {
+        return;
+      }
+      // If initializing, wait for completion by re-checking periodically
+      // (In practice, callers should await the first initialize() call)
+      return new Promise((resolve) => {
+        const checkReady = () => {
+          if (this._isReady) {
+            resolve();
+          } else {
+            setTimeout(checkReady, 10);
           }
         };
-        
-        this._isReady = true;
-        this.emit('ready');
-      } catch (error) {
-        console.error('[BufferQueueNode] Failed to initialize AudioWorklet:', error);
-        this.emit('error', error);
-        throw error;
-      }
-    })();
+        checkReady();
+      });
+    }
 
-    return this._initializePromise;
+    this._isInitializing = true;
+
+    try {
+      // LAZY-LOAD: Try to load AudioWorklet module (may already be loaded during connection)
+      // Use direct path since file is copied as-is by esbuild
+      // InvalidStateError means already loaded - that's fine, we can proceed
+      try {
+        await this._audioContext.audioWorklet.addModule('playback-buffer-processor.js');
+      } catch (err) {
+        // Ignore "already loaded" error - module was pre-warmed during connection
+        if (err.name !== 'InvalidStateError') {
+          throw err; // Re-throw other errors
+        }
+      }
+      
+      // Create the AudioWorkletNode
+      this._workletNode = new AudioWorkletNode(this._audioContext, 'playback-buffer-processor', {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [this._channels]
+      });
+      
+      // Listen for messages from the worklet
+      this._workletNode.port.onmessage = (event) => {
+        const { type } = event.data;
+        if (type === 'close') {
+          this.emit('close');
+        } else if (type === 'closed') {
+          // Worklet confirmed shutdown
+        }
+      };
+      
+      this._isReady = true;
+      this.emit('ready');
+    } catch (error) {
+      console.error('[BufferQueueNode] Failed to initialize AudioWorklet:', error);
+      this.emit('error', error);
+      throw error;
+    } finally {
+      this._isInitializing = false;
+    }
   }
 
   connect(...args) {
