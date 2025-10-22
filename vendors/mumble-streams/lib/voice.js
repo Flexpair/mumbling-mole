@@ -225,7 +225,8 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
           if (chunk.length < offset + frameLength) {
             return reject('not enough voice data');
           }
-          packet.frames.push(chunk.slice(offset, offset += frameLength));
+          packet.frames.push(chunk.slice(offset, offset + frameLength));
+          offset += frameLength;
 
           if (!more) {
             packet.end = false;
@@ -251,7 +252,7 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
   }
   // DEBUG: Log only when MUMBLE_DEBUG_AUDIO flag is set (via ?debug-audio URL parameter)
   // This prevents performance impact from logging every voice packet in production
-  if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+  if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
     console.log('[MUMBLE-STREAMS-DEBUG] Voice packet parsed successfully - source:', packet.source, 'target:', packet.target, 'codec:', packet.codec, 'frames:', packet.frames?.length, 'seqNum:', packet.seqNum);
   }
   return callback(null, packet);
@@ -326,13 +327,14 @@ function fromVarint( b ) {
             i = b[ 1 ] << 24 | b[ 2 ] << 16 | b[ 3 ] << 8 | b[ 4 ];
             length = 5;
             break;
-        case 0xF8:
+        case 0xF8: {
             const ret = fromVarint( b.slice( 1 ) );
             if (!ret) return ret;
             return {
                 value: ~ret.value,
                 length: 1 + ret.length
             };
+        }
         case 0xFC:
             i = v & 0x03;
             i = ~i;
