@@ -17,7 +17,6 @@ import {
   translate,
 } from "./localize";
 
-
 // Debug flag for controlling verbose logging in voice handlers
 const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
@@ -39,7 +38,7 @@ if (isDebugAudio) {
  * @returns {string|null} - Sanitized username or null if not available
  */
 function getUsernameFromMetadata(user) {
-  if (!user || !user.user_metadata || !user.user_metadata.full_name) {
+  if (!user?.user_metadata?.full_name) {
     return null;
   }
   // Consistent sanitization: replace non-alphanumeric characters with underscore
@@ -85,11 +84,6 @@ function GuacamoleFrame() {
 
   this.onLoad = function () {
     this.loading(false);
-    try {
-      const frame = document.getElementById("guacframe");
-    } catch (e) {
-      console.warn("[Guac] cannot inspect iframe content", e);
-    }
   };
 }
 
@@ -287,14 +281,14 @@ class ConnectionInfo {
     this._ui = ui;
     this.visible = ko.observable(false);
     this.serverVersion = ko.observable();
-    this.latencyMs = ko.observable(NaN);
-    this.latencyDeviation = ko.observable(NaN);
+    this.latencyMs = ko.observable(Number.NaN);
+    this.latencyDeviation = ko.observable(Number.NaN);
     this.remoteHost = ko.observable();
     this.remotePort = ko.observable();
-    this.maxBitrate = ko.observable(NaN);
-    this.currentBitrate = ko.observable(NaN);
-    this.maxBandwidth = ko.observable(NaN);
-    this.currentBandwidth = ko.observable(NaN);
+    this.maxBitrate = ko.observable(Number.NaN);
+    this.currentBitrate = ko.observable(Number.NaN);
+    this.maxBandwidth = ko.observable(Number.NaN);
+    this.currentBandwidth = ko.observable(Number.NaN);
     this.codec = ko.observable();
 
     this.show = () => {
@@ -329,8 +323,8 @@ class ConnectionInfo {
     } else {
       // Handle case when not connected to server
       this.serverVersion(null);
-      this.latencyMs(NaN);
-      this.latencyDeviation(NaN);
+      this.latencyMs(Number.NaN);
+      this.latencyDeviation(Number.NaN);
     }
     this.remoteHost(this._ui.remoteHost());
     this.remotePort(this._ui.remotePort());
@@ -338,7 +332,7 @@ class ConnectionInfo {
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
       let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = client.maxBandwidth !== undefined ? client.getMaxBitrate(spp, false) : NaN;
+      let maxBitrate = client.maxBandwidth !== undefined ? client.getMaxBitrate(spp, false) : Number.NaN;
       let actualBitrate = client.getActualBitrate(spp, false);
       let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
         actualBitrate,
@@ -352,10 +346,10 @@ class ConnectionInfo {
       this.codec("Opus"); // only one supported for sending
     } else {
       // Handle case when not connected to server
-      this.maxBitrate(NaN);
-      this.currentBitrate(NaN);
-      this.maxBandwidth(NaN);
-      this.currentBandwidth(NaN);
+      this.maxBitrate(Number.NaN);
+      this.currentBitrate(Number.NaN);
+      this.maxBandwidth(Number.NaN);
+      this.currentBandwidth(Number.NaN);
       this.codec("Unknown");
     }
   }
@@ -512,11 +506,11 @@ async function initializeUI() {
   });
 
   ui.auth.on("close", () => {
-    if (!ui.connectDialog.username()) {
-      ui.auth.open("login"); // open the modal to the login tab
-    } else {
+    if (ui.connectDialog.username()) {
       // Show connect dialog when auth modal is closed and user is authenticated
       ui.connectDialog.show();
+    } else {
+      ui.auth.open("login"); // open the modal to the login tab
     }
   });
 
