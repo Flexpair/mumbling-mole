@@ -90,7 +90,7 @@ describe('codecs-browser - Stream Factories', () => {
     DecoderStream.mockClear();
     
     const user = { id: 123, name: 'TestUser' };
-    const stream = codecsModule.createDecoderStream(user);
+    codecsModule.createDecoderStream(user);
     
     // User parameter is accepted but not used in current implementation
     expect(DecoderStream).toHaveBeenCalled();

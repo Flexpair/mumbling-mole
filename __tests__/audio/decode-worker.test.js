@@ -46,8 +46,8 @@ describe('decode-worker', () => {
       postMessage: jest.fn()
     };
 
-    global.self = mockSelf;
-    global.Buffer = {
+    globalThis.self = mockSelf;
+    globalThis.Buffer = {
       from: jest.fn((data) => data)
     };
 
@@ -56,8 +56,8 @@ describe('decode-worker', () => {
   });
 
   afterEach(() => {
-    delete global.self;
-    delete global.Buffer;
+    delete globalThis.self;
+    delete globalThis.Buffer;
   });
 
   describe('Initialization', () => {
@@ -145,7 +145,7 @@ describe('decode-worker', () => {
         }
       });
 
-      expect(global.Buffer.from).toHaveBeenCalledWith(opusData.buffer);
+      expect(globalThis.Buffer.from).toHaveBeenCalledWith(opusData.buffer);
     });
   });
 
@@ -192,7 +192,7 @@ describe('decode-worker', () => {
         }
       });
 
-      expect(global.Buffer.from).not.toHaveBeenCalled();
+      expect(globalThis.Buffer.from).not.toHaveBeenCalled();
     });
   });
 
