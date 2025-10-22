@@ -89,7 +89,7 @@ function setupOutboundVoice(voiceId, samplesPerPacket, stream) {
 }
 
 function setupChannel(id, channel) {
-  id = { ...id, channel: channel.id};
+  id = { ...id, channel: channel.id };
 
   registerEventProxy(id, channel, "update", (props) => {
     if (props.parent) {
@@ -394,18 +394,33 @@ function handleConnect(reqId, payload) {
     );
 }
 
+// Whitelist of allowed RPC methods to prevent arbitrary method invocation
+const ALLOWED_CLIENT_METHODS = new Set([
+  'setSelfMute', 'setSelfDeaf', 'setAudioQuality', 'disconnect', 'createVoiceStream'
+]);
+const ALLOWED_USER_METHODS = new Set([
+  'setMute', 'setDeaf', 'sendMessage', 'setChannel'
+]);
+const ALLOWED_CHANNEL_METHODS = new Set([
+  'sendMessage', 'join', 'link'
+]);
+
 function handleClientMessage(data) {
   const { clientId, userId, channelId, method, payload } = data;
   let client = clients[clientId];
 
   let target;
+  let allowedMethods;
+  
   if (userId != null) {
     target = client.getUserById(userId);
+    allowedMethods = ALLOWED_USER_METHODS;
     if (method === "setChannel") {
       payload[0] = client.getChannelById(payload[0]);
     }
   } else if (channelId === null || channelId === undefined) {
     target = client;
+    allowedMethods = ALLOWED_CLIENT_METHODS;
     if (method === "createVoiceStream") {
       let voiceId = payload.shift();
       let samplesPerPacket = payload.shift();
@@ -414,10 +429,17 @@ function handleClientMessage(data) {
       return;
     }
     if (method === "disconnect") {
-      clients[clientId] = undefined;
+      delete clients[clientId];
     }
   } else {
     target = client.getChannelById(channelId);
+    allowedMethods = ALLOWED_CHANNEL_METHODS;
+  }
+
+  // Validate method against whitelist
+  if (!allowedMethods.has(method)) {
+    console.error(`[WORKER] Attempted to call disallowed method: ${method}`);
+    return;
   }
 
   target[method](...payload);
@@ -429,7 +451,7 @@ function handleVoiceStream(data) {
   if (buffer) {
     stream.write(Buffer.from(buffer));
   } else {
-    voiceStreams[data.voiceId] = undefined;
+    delete voiceStreams[data.voiceId];
     stream.end();
   }
 }

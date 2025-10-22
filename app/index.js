@@ -41,8 +41,8 @@ function getUsernameFromMetadata(user) {
   if (!user?.user_metadata?.full_name) {
     return null;
   }
-  // Consistent sanitization: replace non-alphanumeric characters with underscore
-  return user.user_metadata.full_name.replaceAll(/\W/g, "_");
+  // Replace sequences of non-alphanumeric characters with single underscore
+  return user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
 }
 
 function GuacamoleFrame() {
@@ -546,7 +546,7 @@ async function initializeUI() {
   }
 
   let queryParams = url.parse(document.location.href, true).query;
-  queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams};
+  queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
   }
