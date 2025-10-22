@@ -43,7 +43,7 @@ function getUsernameFromMetadata(user) {
     return null;
   }
   // Consistent sanitization: replace non-alphanumeric characters with underscore
-  return user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+  return user.user_metadata.full_name.replaceAll(/\W/g, "_");
 }
 
 function GuacamoleFrame() {

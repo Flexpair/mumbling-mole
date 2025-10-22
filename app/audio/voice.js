@@ -144,7 +144,8 @@ function gotDevices(deviceInfos) {
       audioInputSelect.appendChild(option);
     }
   }
-  selectors.forEach((select, selectorIndex) => {
+  for (let selectorIndex = 0; selectorIndex < selectors.length; selectorIndex++) {
+    const select = selectors[selectorIndex];
     if (
       Array.prototype.slice
         .call(select.childNodes)
@@ -152,7 +153,7 @@ function gotDevices(deviceInfos) {
     ) {
       select.value = values[selectorIndex];
     }
-  });
+  }
 }
 
 function handleError(error) {
@@ -296,18 +297,18 @@ export function initVoice(onData, onUserMediaError) {
       console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
 
       // CALLBACK-NOTIFICATION: Notify all registered callbacks that mixer is ready
-      audioMixerReadyCallbacks.forEach(callback => {
+      for (const callback of audioMixerReadyCallbacks) {
         try {
           callback(mixer);
         } catch (err) {
           console.error('[VOICE] Error in mixer ready callback:', err);
         }
-      });
+      }
       // Clear callbacks after notification (one-time use)
       audioMixerReadyCallbacks.length = 0;
 
       // optional: aufräumen, wenn das mediastream endet
-      userMedia.getTracks().forEach((t) =>
+      for (const t of userMedia.getTracks()) {
         t.addEventListener("ended", () => {
           // RACE-SAFE: Only clean up if this is still the current mixer instance
           // Prevents newer mixer from being invalidated by older instance cleanup
@@ -332,8 +333,8 @@ export function initVoice(onData, onUserMediaError) {
               audioContextManager.suspendAudioContext();
             } catch {}
           }
-        })
-      );
+        });
+      }
     } catch (e) {
       console.error("AudioWorklet init failed:", e);
       onUserMediaError(e);
