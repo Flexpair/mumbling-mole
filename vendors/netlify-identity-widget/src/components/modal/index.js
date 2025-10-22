@@ -1,8 +1,8 @@
-import { h, Component } from "preact";
+import { Component } from "preact";
 
 function formatError(error) {
   return (
-    (error.json && error.json.error_description) ||
+    error.json?.error_description ||
     error.message ||
     error.toString()
   );
@@ -12,6 +12,12 @@ export default class Modal extends Component {
   handleClose = (e) => {
     e.preventDefault();
     this.props.onClose();
+  };
+
+  handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      this.handleClose(e);
+    }
   };
 
   blockEvent = (e) => {
@@ -44,13 +50,17 @@ export default class Modal extends Component {
     return (
       <div
         className="modalContainer"
-        role="dialog"
-        aria-hidden={`${hidden}`}
+        role="presentation"
+        aria-hidden={hidden}
         onClick={this.handleClose}
+        onKeyDown={this.handleKeyDown}
+        tabIndex={-1}
       >
         <div
           className={`modalDialog${loading ? " visuallyHidden" : ""}`}
           onClick={this.blockEvent}
+          role="dialog"
+          aria-modal="true"
         >
           <div className="modalContent">
             <button onclick={this.handleClose} className="btn btnClose">

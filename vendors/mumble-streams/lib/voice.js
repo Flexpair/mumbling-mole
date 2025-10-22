@@ -1,5 +1,5 @@
-var util = require('util'),
-    Transform = require('stream').Transform;
+const util = require('node:util');
+const Transform = require('node:stream').Transform;
 
 
 
@@ -68,8 +68,8 @@ function Encoder(dest) {
 util.inherits(Encoder, Transform);
 
 Encoder.prototype._transform = function(chunk, encoding, callback) {
-  var buffer;
-  var offset = 0;
+  let buffer;
+  let offset = 0;
 
   // Special case: Ping packets
   if (chunk.timestamp !== undefined) {
@@ -218,7 +218,7 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
         packet.frames = [];
         while (true) {
           if (chunk.length < offset + 1) return reject('missing frame header');
-          var header = chunk[offset++];
+          const header = chunk[offset++];
           if (header == 0) {
             packet.end = true;
             break;

@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import removeValue from 'remove-value'
 
 class Channel extends EventEmitter {
@@ -17,6 +17,24 @@ class Channel extends EventEmitter {
       removeValue(this.parent.children, this)
     }
     this.emit('remove')
+  }
+
+  _updateLinks (msg, changes) {
+    if (msg.links) {
+      this._links = msg.links
+      changes.links = this.links
+    }
+    if (msg.links_remove) {
+      this._links = this._links.filter(e => !msg.links_remove.includes(e))
+      changes.links = this.links
+    }
+    if (msg.links_add) {
+      const newLinks = msg.links_add.filter(e => !this._links.includes(e))
+      for (const link of newLinks) {
+        this._links.push(link)
+      }
+      changes.links = this.links
+    }
   }
 
   _update (msg) {
@@ -40,20 +58,7 @@ class Channel extends EventEmitter {
     if (msg.max_users != null) {
       changes.maxUsers = this._maxUsers = msg.max_users
     }
-    if (msg.links) {
-      this._links = msg.links
-      changes.links = this.links
-    }
-    if (msg.links_remove) {
-      this._links = this._links.filter(e => !msg.links_remove.includes(e))
-      changes.links = this.links
-    }
-    if (msg.links_add) {
-      msg.links_add
-        .filter(e => !this._links.includes(e))
-        .forEach(e => this._links.push(e))
-      changes.links = this.links
-    }
+    this._updateLinks(msg, changes)
     if (msg.parent != null) {
       if (this.parent) {
         removeValue(this.parent.children, this)

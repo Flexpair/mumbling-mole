@@ -1,4 +1,4 @@
-import { h, render } from "preact";
+import { render } from "preact";
 import { observe } from "mobx";
 import { Provider } from "mobx-preact";
 import GoTrue from "gotrue-js";
@@ -10,9 +10,9 @@ import modalCSS from "./components/modal.css";
 const callbacks = {};
 function trigger(callback) {
   const cbMap = callbacks[callback] || new Set();
-  Array.from(cbMap.values()).forEach((cb) => {
+  for (const cb of cbMap.values()) {
     cb.apply(cb, Array.prototype.slice.call(arguments, 1));
-  });
+  }
 }
 
 const validActions = {

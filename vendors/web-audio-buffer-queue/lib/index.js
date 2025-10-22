@@ -1,4 +1,4 @@
-import { Writable } from 'stream';
+import { Writable } from 'node:stream';
 import extend from 'extend';
 
 let defaultAudioContext = null;
@@ -8,11 +8,11 @@ function getDefaultAudioContext() {
     return defaultAudioContext;
   }
 
-  if (typeof window === 'undefined') {
+  if (globalThis.window === undefined) {
     return null;
   }
 
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const AudioContextClass = globalThis.window.AudioContext || globalThis.window.webkitAudioContext;
   if (!AudioContextClass) {
     return null;
   }
@@ -81,7 +81,7 @@ class Float32ArrayWrapper extends TypedArrayWrapper {
     if (Buffer.isBuffer(data)) {
       view = new Float32Array(data.buffer, data.byteOffset, data.byteLength / 4);
     } else if (!(data instanceof Float32Array)) {
-      throw new Error('Unsupported buffer type for Float32ArrayWrapper');
+      throw new TypeError('Unsupported buffer type for Float32ArrayWrapper');
     }
     super(channels, interleaved, view);
   }
@@ -93,7 +93,7 @@ class Int16ArrayWrapper extends TypedArrayWrapper {
     if (Buffer.isBuffer(data)) {
       view = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
     } else if (!(data instanceof Int16Array)) {
-      throw new Error('Unsupported buffer type for Int16ArrayWrapper');
+      throw new TypeError('Unsupported buffer type for Int16ArrayWrapper');
     }
     super(channels, interleaved, view);
   }
