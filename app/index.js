@@ -138,18 +138,18 @@ function ConnectDialog() {
       // This must happen before any async operations that might lose the user gesture context
       try {
         // Mark user interaction for audio-context-manager
-        if (ui.audio && ui.audio.audioContextManager) {
+        if (ui.audio?.audioContextManager) {
           ui.audio.audioContextManager.userInteractionDetected = true;
         }
         
         // Create AudioContext if not exists
-        if (!ui.audio.audioContext) {
+        if (!ui.audio?.audioContext) {
           console.log('[LOOPBACK] Creating AudioContext on user click');
           await ui.audio.initializeAudioContext();
         }
         
         // Resume if suspended
-        if (ui.audio.audioContext && ui.audio.audioContext.state === 'suspended') {
+        if (ui.audio?.audioContext && ui.audio.audioContext.state === 'suspended') {
           console.log('[LOOPBACK] Resuming AudioContext on user click');
           await ui.audio.audioContext.resume();
         }
@@ -196,7 +196,7 @@ function SampleRateWarningDialog(ui) {
 
   const formatSampleRate = (value) => {
     if (typeof value === "number" && !Number.isNaN(value) && value > 0) {
-      return Math.round(value);
+      return String(Math.round(value));
     }
     return translate("audio.sample_rate.warning.unknown_rate");
   };

@@ -2,7 +2,7 @@
 //       file might need to be updated with new default values for new
 //       configuration options. Use the [config.local.js] file instead!
 
-window.mumbleWebConfig = {
+globalThis.mumbleWebConfig = {
   // Which fields to show on the Connect to Server dialog
   connectDialog: {
     address: false,
@@ -24,7 +24,7 @@ window.mumbleWebConfig = {
   // Default values (can be changed by passing a query parameter of the same name)
   defaults: {
     // Connect Dialog
-    address: window.location.hostname,
+    address: globalThis.location.hostname,
     port: "443/murmur",
     username: "",
     password: "",
