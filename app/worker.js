@@ -29,7 +29,7 @@ function resolve(reqId, value, transfer) {
 
 function reject(reqId, value, transfer) {
   console.error(value);
-  let jsonValue = JSON.parse(JSON.stringify(value));
+  let jsonValue = structuredClone(value);
   if (value.$type) {
     jsonValue.$type = { name: value.$type.name };
   }
@@ -280,8 +280,7 @@ function setupClient(id, client) {
     }
 
     // PROP-SYNC: Push initial state to main thread
-    const rootId = it ? it.id : (rootChannel ? rootChannel.id : undefined);
-    pushProp(id, client, "root", () => rootId);
+    pushProp(id, client, "root", () => rootChannel.id);
     pushProp(id, client, "self", (it) => it.id);
     pushProp(id, client, "serverVersion");
     pushProp(id, client, "maxBandwidth");
@@ -336,7 +335,7 @@ function setupClient(id, client) {
           const rootCandidates = channelEntries.filter(([id, ch]) => !ch.parent || ch.parent === null || ch.parent === undefined);
           
           if (rootCandidates.length > 0) {
-            const [rootId, rootChannel] = rootCandidates[0];
+            const [, rootChannel] = rootCandidates[0];
             
             // SUCCESS: Found root channel via alternative method
             clearInterval(rootCheckInterval);
@@ -405,9 +404,7 @@ function handleClientMessage(data) {
     if (method === "setChannel") {
       payload[0] = client.getChannelById(payload[0]);
     }
-  } else if (channelId != null) {
-    target = client.getChannelById(channelId);
-  } else {
+  } else if (channelId === null || channelId === undefined) {
     target = client;
     if (method === "createVoiceStream") {
       let voiceId = payload.shift();
@@ -419,6 +416,8 @@ function handleClientMessage(data) {
     if (method === "disconnect") {
       delete clients[clientId];
     }
+  } else {
+    target = client.getChannelById(channelId);
   }
 
   target[method](...payload);
@@ -448,22 +447,40 @@ function onMessage(data) {
 }
 
 self.addEventListener("message", (ev) => {
-  // Verify message origin - workers should only accept messages from their parent context
-  // In a worker context, ev.origin is not available, but we can verify ev.source exists
-  // and that the data structure matches our expected format
+  // SECURITY-NOTE: Origin verification in worker context
+  // ------------------------------------------------
+  // Workers can ONLY receive messages from their creating parent context.
+  // Unlike window.postMessage(), there is no cross-origin risk here because:
+  // 1. Workers cannot be accessed by other origins
+  // 2. The 'origin' property doesn't exist on worker MessageEvent objects
+  // 3. The worker can only communicate with the script that instantiated it
+  //
+  // Instead, we validate the message structure to prevent processing malformed data
+  // that could cause errors or unexpected behavior.
+  
+  // VALIDATION-STEP-1: Ensure data exists and is an object
   if (!ev.data || typeof ev.data !== 'object') {
     console.warn('[WORKER] Rejected message: invalid data format');
     return;
   }
   
-  // Validate message structure - all valid messages should have at least one of these properties
+  // VALIDATION-STEP-2: Verify message conforms to expected protocol
+  // All valid messages must be one of three types:
+  // - RPC request (has reqId + method)
+  // - Client command (has clientId)
+  // - Voice stream data (has voiceId)
   const hasValidStructure = 
-    ev.data.reqId !== undefined || 
-    ev.data.clientId !== undefined || 
-    ev.data.voiceId !== undefined;
+    (ev.data.reqId !== undefined && ev.data.method !== undefined) || // RPC call
+    ev.data.clientId !== undefined || // Client method invocation
+    ev.data.voiceId !== undefined; // Voice stream chunk
   
   if (!hasValidStructure) {
-    console.warn('[WORKER] Rejected message: invalid message structure', ev.data);
+    console.warn('[WORKER] Rejected message: invalid message structure', {
+      hasReqId: ev.data.reqId !== undefined,
+      hasMethod: ev.data.method !== undefined,
+      hasClientId: ev.data.clientId !== undefined,
+      hasVoiceId: ev.data.voiceId !== undefined
+    });
     return;
   }
   
