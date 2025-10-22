@@ -77,13 +77,4 @@ Thumbs.db
 *.swo
 .bash_history
 .docker
-.sonarlint/telemetry/vscode/usage
-.sonarlint/work/.sonarlinttmp_1725070020237586578/7495669684540958287/sonar-go-to-slang-linux-amd64
-.gitignore
-.sonarlint/work/known-findings-store11551543194812929829/xd.lck
-.sonarlint/work/known-findings-store11551543194812929829/00000000000.xd
-.sonarlint/work/xodus-local-only-issue-store18095995577742543594/00000000000.xd
-.gitignore
-.sonarlint/work/xodus-local-only-issue-store18095995577742543594/blobs/version
-.sonarlint/work/known-findings-store11551543194812929829/blobs/version
-.sonarlint/work/xodus-local-only-issue-store18095995577742543594/xd.lck
+.sonarlint
