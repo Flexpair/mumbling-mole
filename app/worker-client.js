@@ -1,7 +1,7 @@
 import MumbleClient from "mumble-client";
 import Promise from "promise";
 import EventEmitter from "node:events";
-import { Writable, PassThrough } from "stream";
+import { Writable, PassThrough } from "node:stream";
 import toArrayBuffer from "to-arraybuffer";
 // Import the compiled worker bundle. Rename to avoid confusing the global Worker constructor.
 // Native Worker constructor syntax (esbuild compatible)
@@ -24,10 +24,6 @@ class WorkerBasedMumbleConnector {
   constructor() {
   // WORKER-CREATION: Create the underlying worker (single strategy, subworkers removed for simplicity)
   try {
-    const globalWorker = typeof Worker !== 'undefined' ? Worker : undefined;
-    if (!globalWorker) {
-      console.warn('[worker] global Worker constructor missing in this environment');
-    }
     this._worker = createWorker();
   } catch (e) {
     console.error('[worker] constructor-level failure creating worker', e);
