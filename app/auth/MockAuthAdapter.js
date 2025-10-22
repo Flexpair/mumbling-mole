@@ -65,7 +65,6 @@ class MockAuthAdapter extends AuthProvider {
   async openAuth(view = 'login') {
     this.isOpen = true;
     this._emit('open', { view });
-    return;
   }
 
   /**
@@ -75,7 +74,6 @@ class MockAuthAdapter extends AuthProvider {
   async closeAuth() {
     this.isOpen = false;
     this._emit('close');
-    return;
   }
 
   /**
@@ -140,7 +138,6 @@ class MockAuthAdapter extends AuthProvider {
     
     this._currentUser = null;
     this._emit('logout');
-    return;
   }
 
   /**
@@ -179,7 +176,6 @@ class MockAuthAdapter extends AuthProvider {
     }
     
     console.log(`[MockAuth] Password reset email sent to ${email}`);
-    return;
   }
 
   /**
@@ -240,13 +236,13 @@ class MockAuthAdapter extends AuthProvider {
   _emit(event, data) {
     if (!this.listeners[event]) return;
     
-    this.listeners[event].forEach(callback => {
+    for (const callback of this.listeners[event]) {
       try {
         callback(data);
       } catch (err) {
         console.error(`Error in ${event} listener:`, err);
       }
-    });
+    }
   }
 
   /**
@@ -289,10 +285,10 @@ class MockAuthAdapter extends AuthProvider {
       { email: 'user@example.com', password: 'user123' }
     ];
     
-    testUsers.forEach(({ email, password }) => {
+    for (const { email, password } of testUsers) {
       const user = this._createUser(email);
       this.users.set(email, { password, user });
-    });
+    }
   }
 
   // Testing utilities
