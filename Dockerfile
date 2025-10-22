@@ -5,25 +5,22 @@ FROM ubuntu:24.04 AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Deadsnakes PPA für Python 3.11
+# Deadsnakes PPA für Python 3.11 + Runtime-Pakete + Python venv + websockify in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
+    apt-get install -y --no-install-recommends \
+        bash \
+        python3.11 \
+        python3.11-venv \
+        tini && \
     apt-get remove -y software-properties-common && \
-    apt-get autoremove -y
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/* && \
+    /usr/bin/python3.11 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir websockify==0.12.0
 
-# Runtime-Pakete (nur was prod wirklich braucht)
-RUN apt-get install -y --no-install-recommends \
-    tini \
-    bash \
-    python3.11 \
-    python3.11-venv && \
-    rm -rf /var/lib/apt/lists/*
-
-# Python 3.11 venv + websockify
-RUN /usr/bin/python3.11 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
-RUN pip install --no-cache-dir websockify==0.12.0
 
 # User node anlegen
 RUN useradd -m -U -s /bin/bash node && \
@@ -39,26 +36,21 @@ FROM base-runtime AS builder
 
 USER root
 
-# Build-Tools installieren
+# Build-Tools + Node.js Installation in einem Layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
     xz-utils && \
-    rm -rf /var/lib/apt/lists/*
-
-# ---------------------------------------------------------------------
-# Node.js 22 Installation (nur für Build)
-# ---------------------------------------------------------------------
-ENV NODE_VERSION=22.20.0
-
-RUN set -eux; \
+    rm -rf /var/lib/apt/lists/* && \
+    set -eux; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
       amd64) node_arch="x64" ;; \
       arm64) node_arch="arm64" ;; \
       *) echo "Unsupported arch: $arch" >&2; exit 1 ;; \
     esac; \
+    NODE_VERSION=22.20.0; \
     curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
     mkdir -p /usr/local/lib/nodejs; \
     tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs; \
@@ -88,19 +80,22 @@ USER root
 
 # Install development tools and GitHub CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
     curl \
+    gh \
     gnupg \
-    build-essential \
-    vim \
     nano \
-    sudo \
     net-tools \
     openssh-client \
+    sudo \
+    vim \
     && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
     && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
