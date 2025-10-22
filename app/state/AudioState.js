@@ -85,7 +85,7 @@ export default class AudioState {
         
         // Fallback: Try legacy AudioContext creation
         try {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
           if (!AudioContextClass) {
             throw new Error("AudioContext is not supported in this browser");
           }
@@ -166,7 +166,7 @@ export default class AudioState {
    * Attempt to get microphone permission
    */
   attemptMicrophonePermission() {
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       return;
     }
 
@@ -176,7 +176,9 @@ export default class AudioState {
         this.micPermissionRetryCount = 0;
         this.micPermissionDenied(false);
         this.micPermissionErrorMessage("");
-        stream.getTracks().forEach((track) => track.stop());
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
       })
       .catch((err) => {
         console.error("Microphone permission denied on retry:", err);
