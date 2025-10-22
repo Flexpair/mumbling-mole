@@ -117,7 +117,7 @@ function setupChannel(id, channel) {
 }
 
 function setupUser(id, user) {
-  id = Object.assign({}, id, { user: user.id });
+  id = { ...id, user: user.id };
 
   registerEventProxy(id, user, "update", (actor, props) => {
     if (actor) {
@@ -368,70 +368,82 @@ function setupClient(id, client) {
   }
 }
 
+function handleConnect(reqId, payload) {
+  payload.args.codecs = require("./audio/codecs-browser.js");
+  mumbleConnect(payload.host, payload.args)
+    .then((client) => {
+      let id = nextClientId++;
+      clients[id] = client;
+      setupClient(id, client);
+      // Push maxBandwidth and serverVersion immediately after setup since events may have already fired
+      const idObj = { client: id };
+      if (client.maxBandwidth !== undefined) {
+        pushProp(idObj, client, "maxBandwidth");
+      }
+      if (client.serverVersion !== undefined) {
+        pushProp(idObj, client, "serverVersion");
+      }
+      return id;
+    })
+    .then(
+      (id) => {
+        resolve(reqId, id);
+      },
+      (err) => {
+        reject(reqId, err);
+      }
+    );
+}
+
+function handleClientMessage(data) {
+  const { clientId, userId, channelId, method, payload } = data;
+  let client = clients[clientId];
+
+  let target;
+  if (userId != null) {
+    target = client.getUserById(userId);
+    if (method === "setChannel") {
+      payload[0] = client.getChannelById(payload[0]);
+    }
+  } else if (channelId != null) {
+    target = client.getChannelById(channelId);
+  } else {
+    target = client;
+    if (method === "createVoiceStream") {
+      let voiceId = payload.shift();
+      let samplesPerPacket = payload.shift();
+      let stream = target.createVoiceStream(...payload);
+      setupOutboundVoice(voiceId, samplesPerPacket, stream);
+      return;
+    }
+    if (method === "disconnect") {
+      delete clients[clientId];
+    }
+  }
+
+  target[method](...payload);
+}
+
+function handleVoiceStream(data) {
+  let stream = voiceStreams[data.voiceId];
+  let buffer = data.chunk;
+  if (buffer) {
+    stream.write(Buffer.from(buffer));
+  } else {
+    delete voiceStreams[data.voiceId];
+    stream.end();
+  }
+}
+
 function onMessage(data) {
   let { reqId, method, payload } = data;
+  
   if (method === "_connect") {
-    payload.args.codecs = require("./audio/codecs-browser.js");
-    mumbleConnect(payload.host, payload.args)
-      .then((client) => {
-        let id = nextClientId++;
-        clients[id] = client;
-        setupClient(id, client);
-        // Push maxBandwidth and serverVersion immediately after setup since events may have already fired
-        const idObj = { client: id };
-        if (client.maxBandwidth !== undefined) {
-          pushProp(idObj, client, "maxBandwidth");
-        }
-        if (client.serverVersion !== undefined) {
-          pushProp(idObj, client, "serverVersion");
-        }
-        return id;
-      })
-      .then(
-        (id) => {
-          resolve(reqId, id);
-        },
-        (err) => {
-          reject(reqId, err);
-        }
-      );
+    handleConnect(reqId, payload);
   } else if (data.clientId != null) {
-    let client = clients[data.clientId];
-
-    let target;
-    if (data.userId != null) {
-      target = client.getUserById(data.userId);
-      if (method === "setChannel") {
-        payload = [client.getChannelById(payload)];
-      }
-    } else if (data.channelId != null) {
-      target = client.getChannelById(data.channelId);
-    } else {
-      target = client;
-      if (method === "createVoiceStream") {
-        let voiceId = payload.shift();
-        let samplesPerPacket = payload.shift();
-
-        let stream = target.createVoiceStream.apply(target, payload);
-
-        setupOutboundVoice(voiceId, samplesPerPacket, stream);
-        return;
-      }
-      if (method === "disconnect") {
-        delete clients[data.clientId];
-      }
-    }
-
-    target[method](...payload);
+    handleClientMessage(data);
   } else if (data.voiceId != null) {
-    let stream = voiceStreams[data.voiceId];
-    let buffer = data.chunk;
-    if (buffer) {
-      stream.write(Buffer.from(buffer));
-    } else {
-      delete voiceStreams[data.voiceId];
-      stream.end();
-    }
+    handleVoiceStream(data);
   }
 }
 
