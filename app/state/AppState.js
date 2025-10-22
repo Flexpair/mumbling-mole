@@ -253,10 +253,10 @@ export default class AppState {
     if (audioEnabled) {
       this.voice.initVoiceInput(
         (data) => {
-          if (!this.connection.client) {
-            this.voice.endVoiceHandler();
-          } else {
+          if (this.connection.client) {
             this.voice.writeVoiceData(data);
+          } else {
+            this.voice.endVoiceHandler();
           }
         },
         (err) => {
@@ -355,13 +355,13 @@ export default class AppState {
       };
       registerChannel(client.root, "");
 
-      client.users.forEach((user) => {
+      for (const user of client.users) {
         this.user.registerUser(
           user,
           (event, menu, ui) => this._openContextMenu(event, menu, ui),
           () => this.userContextMenu
         );
-      });
+      }
 
       client.on("newChannel", (channel) => {
         this.channel.registerChannel(

@@ -20,30 +20,30 @@ function debugLog(tag, ...args) {
  * - Beeper/tone generator for latency testing
  */
 export default class AudioState {
+  // Audio context
+  audioContext = null;
+  _audioContextInitPromise = null; // Track pending initialization
+  _audioWorkletModulesLoaded = new Set(); // Track loaded AudioWorklet modules
+  
+  // Audio lock state
+  audioLockActive = ko.observable(false);
+  audioLockReason = ko.observable(null);
+  audioLockDetails = ko.observable(null);
+  
+  // Microphone permission state
+  micPermissionDenied = ko.observable(false);
+  micPermissionErrorMessage = ko.observable("");
+  micPermissionRetryCount = 0;
+  maxMicPermissionRetryCount = 3;
+  micPermissionRetryDelayMs = 1000;
+  
+  // Beeper state
+  isBeeping = ko.observable(false);
+  beeperReady = ko.observable(false);
+  _persistentBeeper = null;
+  _beeperInitPromise = null; // Track pending beeper initialization
+
   constructor() {
-    // Audio context
-    this.audioContext = null;
-    this._audioContextInitPromise = null; // Track pending initialization
-    this._audioWorkletModulesLoaded = new Set(); // Track loaded AudioWorklet modules
-    
-    // Audio lock state
-    this.audioLockActive = ko.observable(false);
-    this.audioLockReason = ko.observable(null);
-    this.audioLockDetails = ko.observable(null);
-    
-    // Microphone permission state
-    this.micPermissionDenied = ko.observable(false);
-    this.micPermissionErrorMessage = ko.observable("");
-    this.micPermissionRetryCount = 0;
-    this.maxMicPermissionRetryCount = 3;
-    this.micPermissionRetryDelayMs = 1000;
-    
-    // Beeper state
-    this.isBeeping = ko.observable(false);
-    this.beeperReady = ko.observable(false);
-    this._persistentBeeper = null;
-    this._beeperInitPromise = null; // Track pending beeper initialization
-    
     // Initialize audio context
     this.initializeAudioContext();
   }
@@ -243,7 +243,7 @@ export default class AudioState {
         return;
       }
       
-      const ac = await window.audioContextManager.getAudioContext();
+      const ac = await globalThis.audioContextManager.getAudioContext();
       if (!ac) {
         debugLog('[BEEP]', 'AudioContext not available');
         this.beeperReady(false);
