@@ -109,11 +109,10 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
     }
     // Append empty frame if end bit is set
     if (chunk.end) {
-      voiceData.push(Buffer.from([0]))
-      voiceData.push(Buffer.from([]))
+      voiceData.push(Buffer.from([0]), Buffer.from([]))
     }
     // Unset continuation bit of last frame
-    voiceData[voiceData.length - 2][0] &= 0x7F
+    voiceData.at(-2)[0] &= 0x7F
     // Concat all frames
     voiceData = Buffer.concat(voiceData)
   } else {
@@ -164,9 +163,8 @@ function Decoder(orig) {
 util.inherits(Decoder, Transform);
 
 Decoder.prototype._transform = function(chunk, encoding, callback) {
-  const self = this
-  const reject = function(reason) {
-    self.emit('debug', 'Failed to parse voice packet', reason, chunk);
+  const reject = (reason) => {
+    this.emit('debug', 'Failed to parse voice packet', reason, chunk);
     callback();
   };
 
@@ -288,23 +286,13 @@ function toVarint( i ) {
     if( i < 0x80 ) {
         arr.push( i );
     } else if( i < 0x4000 ) {
-        arr.push( ( i >> 8 ) | 0x80 );
-        arr.push( i & 0xFF );
+        arr.push( ( i >> 8 ) | 0x80, i & 0xFF );
     } else if( i < 0x200000 ) {
-        arr.push( ( i >> 16 ) | 0xC0 );
-        arr.push( ( i >> 8 ) & 0xFF );
-        arr.push( i & 0xFF );
+        arr.push( ( i >> 16 ) | 0xC0, ( i >> 8 ) & 0xFF, i & 0xFF );
     } else if( i < 0x10000000 ) {
-        arr.push( ( i >> 24 ) | 0xE0 );
-        arr.push( ( i >> 16 ) & 0xFF );
-        arr.push( ( i >> 8 ) & 0xFF );
-        arr.push( i & 0xFF );
+        arr.push( ( i >> 24 ) | 0xE0, ( i >> 16 ) & 0xFF, ( i >> 8 ) & 0xFF, i & 0xFF );
     } else if( i < 0x100000000 ) {
-        arr.push( 0xF0 );
-        arr.push( ( i >> 24 ) & 0xFF );
-        arr.push( ( i >> 16 ) & 0xFF );
-        arr.push( ( i >> 8 ) & 0xFF );
-        arr.push( i & 0xFF );
+        arr.push( 0xF0, ( i >> 24 ) & 0xFF, ( i >> 16 ) & 0xFF, ( i >> 8 ) & 0xFF, i & 0xFF );
     } else {
         throw new TypeError( 'Non-integer values are not supported. (' + i + ')' );
     }
