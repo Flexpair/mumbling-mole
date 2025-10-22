@@ -10,7 +10,10 @@ function debugLog(tag, ...args) {
 }
 
 function compareUsers(u1, u2) {
-  return u1.name() === u2.name() ? 0 : u1.name() < u2.name() ? -1 : 1;
+  if (u1.name() === u2.name()) {
+    return 0;
+  }
+  return u1.name() < u2.name() ? -1 : 1;
 }
 
 /**
@@ -87,9 +90,9 @@ export default class UserState {
     };
     
     // Set up observables for simple properties
-    Object.entries(simpleProperties).forEach((key) => {
-      ui[key[1]] = ko.observable(user[key[0]]);
-    });
+    for (const [key, value] of Object.entries(simpleProperties)) {
+      ui[value] = ko.observable(user[key]);
+    }
     
     ui.state = ko.pureComputed(function() {
       let flags = [];
@@ -120,11 +123,11 @@ export default class UserState {
     // Set up event handlers
     user
       .on("update", (actor, properties) => {
-        Object.entries(simpleProperties).forEach((key) => {
-          if (properties[key[0]] !== undefined) {
-            ui[key[1]](properties[key[0]]);
+        for (const [key, value] of Object.entries(simpleProperties)) {
+          if (properties[key] !== undefined) {
+            ui[value](properties[key]);
           }
-        });
+        }
         if (properties.channel !== undefined) {
           if (ui.channel()) {
             ui.channel().users.remove(ui);

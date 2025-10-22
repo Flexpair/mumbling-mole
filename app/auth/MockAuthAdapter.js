@@ -259,7 +259,7 @@ class MockAuthAdapter extends AuthProvider {
    */
   _createUser(email, metadata = {}) {
     return {
-      id: 'mock-user-' + Math.random().toString(36).substr(2, 9),
+      id: 'mock-user-' + Math.random().toString(36).slice(2, 11),
       email: email,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
