@@ -122,7 +122,7 @@ class Float32ArrayWrapper extends TypedArrayWrapper {
     if (typeof Buffer !== 'undefined' && Buffer.isBuffer(data)) {
       view = new Float32Array(data.buffer, data.byteOffset, data.byteLength / 4);
     } else if (!(data instanceof Float32Array)) {
-      throw new Error('Unsupported buffer type for Float32ArrayWrapper');
+      throw new TypeError('Unsupported buffer type for Float32ArrayWrapper');
     }
     super(channels, interleaved, view);
   }
@@ -134,7 +134,7 @@ class Int16ArrayWrapper extends TypedArrayWrapper {
     if (typeof Buffer !== 'undefined' && Buffer.isBuffer(data)) {
       view = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
     } else if (!(data instanceof Int16Array)) {
-      throw new Error('Unsupported buffer type for Int16ArrayWrapper');
+      throw new TypeError('Unsupported buffer type for Int16ArrayWrapper');
     }
     super(channels, interleaved, view);
   }
@@ -170,13 +170,11 @@ class BufferQueueNode extends EventEmitter {
     this._workletNode = null;
     this._isReady = false;
     this._isFinished = false;
+    this._initializePromise = null; // PROMISE-CACHING: Prevent duplicate async initialization
 
     if (!this._audioContext) {
       throw new Error('AudioContext is required; pass options.audioContext explicitly.');
     }
-
-    // Initialize AudioWorklet
-    this._initializeWorklet();
 
     this.on('finish', () => {
       this._isFinished = true;
@@ -193,49 +191,64 @@ class BufferQueueNode extends EventEmitter {
     });
   }
 
-  async _initializeWorklet() {
-    try {
-      // LAZY-LOAD: Try to load AudioWorklet module (may already be loaded during connection)
-      // Use direct path since file is copied as-is by esbuild
-      // InvalidStateError means already loaded - that's fine, we can proceed
-      try {
-        await this._audioContext.audioWorklet.addModule('playback-buffer-processor.js');
-      } catch (err) {
-        // Ignore "already loaded" error - module was pre-warmed during connection
-        if (err.name !== 'InvalidStateError') {
-          throw err; // Re-throw other errors
-        }
-      }
-      
-      // Create the AudioWorkletNode
-      this._workletNode = new AudioWorkletNode(this._audioContext, 'playback-buffer-processor', {
-        numberOfInputs: 0,
-        numberOfOutputs: 1,
-        outputChannelCount: [this._channels]
-      });
-      
-      // Listen for messages from the worklet
-      this._workletNode.port.onmessage = (event) => {
-        const { type } = event.data;
-        if (type === 'close') {
-          this.emit('close');
-        } else if (type === 'closed') {
-          // Worklet confirmed shutdown
-        }
-      };
-      
-      this._isReady = true;
-      this.emit('ready');
-    } catch (error) {
-      console.error('[BufferQueueNode] Failed to initialize AudioWorklet:', error);
-      this.emit('error', error);
+  /**
+   * Initialize AudioWorklet asynchronously
+   * Uses promise caching to prevent duplicate initialization attempts
+   */
+  async initialize() {
+    // PROMISE-CACHING: Return cached promise if already initializing
+    if (this._initializePromise) {
+      return this._initializePromise;
     }
+
+    // PROMISE-CACHING: Cache the initialization promise
+    this._initializePromise = (async () => {
+      try {
+        // LAZY-LOAD: Try to load AudioWorklet module (may already be loaded during connection)
+        // Use direct path since file is copied as-is by esbuild
+        // InvalidStateError means already loaded - that's fine, we can proceed
+        try {
+          await this._audioContext.audioWorklet.addModule('playback-buffer-processor.js');
+        } catch (err) {
+          // Ignore "already loaded" error - module was pre-warmed during connection
+          if (err.name !== 'InvalidStateError') {
+            throw err; // Re-throw other errors
+          }
+        }
+        
+        // Create the AudioWorkletNode
+        this._workletNode = new AudioWorkletNode(this._audioContext, 'playback-buffer-processor', {
+          numberOfInputs: 0,
+          numberOfOutputs: 1,
+          outputChannelCount: [this._channels]
+        });
+        
+        // Listen for messages from the worklet
+        this._workletNode.port.onmessage = (event) => {
+          const { type } = event.data;
+          if (type === 'close') {
+            this.emit('close');
+          } else if (type === 'closed') {
+            // Worklet confirmed shutdown
+          }
+        };
+        
+        this._isReady = true;
+        this.emit('ready');
+      } catch (error) {
+        console.error('[BufferQueueNode] Failed to initialize AudioWorklet:', error);
+        this.emit('error', error);
+        throw error;
+      }
+    })();
+
+    return this._initializePromise;
   }
 
   connect(...args) {
     if (!this._workletNode) {
       // If worklet not ready yet, wait for it
-      this.once('ready', () => this.connect(...args));
+      this.initialize().then(() => this.connect(...args)).catch(err => this.emit('error', err));
       return this;
     }
     return this._workletNode.connect(...args);
@@ -249,9 +262,17 @@ class BufferQueueNode extends EventEmitter {
   }
 
   _write(chunk, encoding, callback) {
-    // If worklet not ready yet, wait for it
+    // ASYNC-GATE: Ensure initialization before writing
     if (!this._isReady) {
-      this.once('ready', () => this._write(chunk, encoding, callback));
+      this.initialize()
+        .then(() => this._write(chunk, encoding, callback))
+        .catch(err => {
+          if (typeof callback === 'function') {
+            callback(err);
+          } else {
+            this.emit('error', err);
+          }
+        });
       return;
     }
 

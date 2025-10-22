@@ -194,8 +194,8 @@ describe('BufferQueueNode - Basic Functionality', () => {
   test('loads AudioWorklet module', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
     
-    // Wait for async initialization
-    await new Promise(resolve => setTimeout(resolve, 10));
+    // Explicitly initialize the node
+    await node.initialize();
     
     expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith(
       'playback-buffer-processor.js'
@@ -208,7 +208,8 @@ describe('BufferQueueNode - Basic Functionality', () => {
       channels: 2
     });
     
-    await new Promise(resolve => setTimeout(resolve, 10));
+    // Explicitly initialize the node
+    await node.initialize();
     
     expect(global.AudioWorkletNode).toHaveBeenCalledWith(
       mockAudioContext,
@@ -226,6 +227,9 @@ describe('BufferQueueNode - Basic Functionality', () => {
     
     const readyPromise = new Promise(resolve => node.on('ready', resolve));
     
+    // Trigger initialization
+    node.initialize();
+    
     await readyPromise;
     expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalled();
   });
@@ -238,8 +242,10 @@ describe('BufferQueueNode - Basic Functionality', () => {
     
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
     
+    // Trigger initialization
+    await node.initialize();
+    
     // Should still emit ready despite error
-    await new Promise(resolve => node.on('ready', resolve));
     expect(node._isReady).toBe(true);
   });
 });
@@ -273,7 +279,7 @@ describe('BufferQueueNode - Audio Connection', () => {
 
   test('connect forwards to worklet node', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     const destination = { name: 'destination' };
     node.connect(destination);
@@ -283,7 +289,7 @@ describe('BufferQueueNode - Audio Connection', () => {
 
   test('disconnect forwards to worklet node', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     node.disconnect();
     
@@ -344,6 +350,10 @@ describe('BufferQueueNode - Error Handling', () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
     
     const errorPromise = new Promise(resolve => node.on('error', resolve));
+    
+    // Trigger initialization
+    node.initialize().catch(() => {}); // catch to prevent unhandled rejection
+    
     const error = await errorPromise;
     
     expect(error).toBe(testError);
@@ -392,7 +402,7 @@ describe('BufferQueueNode - Stream Events', () => {
 
   test('sends finish message on stream finish', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     node.emit('finish');
     
@@ -401,7 +411,7 @@ describe('BufferQueueNode - Stream Events', () => {
 
   test('sends close message and disconnects on stream close', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     node.emit('close');
     
@@ -411,7 +421,7 @@ describe('BufferQueueNode - Stream Events', () => {
 
   test('handles close message from worklet', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     const closePromise = new Promise(resolve => node.on('close', resolve));
     
@@ -423,7 +433,7 @@ describe('BufferQueueNode - Stream Events', () => {
 
   test('handles closed confirmation from worklet', async () => {
     const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     // Should not emit close event for 'closed' type (just confirmation)
     const closeListener = jest.fn();
@@ -469,7 +479,7 @@ describe('BufferQueueNode - _write() Method', () => {
       objectMode: true,
       channels: 1
     });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     const data = new Float32Array([0.1, 0.2, 0.3, 0.4]);
     const callback = jest.fn();
@@ -492,7 +502,7 @@ describe('BufferQueueNode - _write() Method', () => {
       objectMode: true,
       channels: 1
     });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     const data = new Int16Array([16384, -16384, 0, 32767]);
     const callback = jest.fn();
@@ -509,7 +519,7 @@ describe('BufferQueueNode - _write() Method', () => {
       objectMode: true,
       channels: 1
     });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     const audioBuffer = {
       numberOfChannels: 1,
@@ -538,7 +548,7 @@ describe('BufferQueueNode - _write() Method', () => {
       dataType: Float32ArrayWrapper,
       channels: 1
     });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     const data = new Float32Array([0.5, 0.6]);
     const callback = jest.fn();
@@ -555,7 +565,7 @@ describe('BufferQueueNode - _write() Method', () => {
     const data = new Float32Array([0.1, 0.2]);
     const callback = jest.fn();
     
-    // Write before ready
+    // Write before ready - should trigger initialization internally
     node._write(data, null, callback);
     
     // Callback should not be called yet
@@ -575,7 +585,7 @@ describe('BufferQueueNode - _write() Method', () => {
       objectMode: false,
       dataType: Float32ArrayWrapper
     });
-    await new Promise(resolve => node.on('ready', resolve));
+    await node.initialize();
     
     // Mock postMessage to throw an error
     mockWorkletNode.port.postMessage.mockImplementation(() => {
