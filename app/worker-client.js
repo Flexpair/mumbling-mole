@@ -76,9 +76,8 @@ class WorkerBasedMumbleConnector {
   }
 
   _addCall(proxy, name, id) {
-    let self = this;
-    proxy[name] = function () {
-      self._call(id, name, Array.from(arguments));
+    proxy[name] = (...args) => {
+      this._call(id, name, args);
     };
   }
 
@@ -347,6 +346,7 @@ class WorkerBasedMumbleChannel extends EventEmitter {
     if (this._parentId != null) {
       return this._client._channel(this._parentId);
     }
+    return undefined;
   }
 
   get children() {

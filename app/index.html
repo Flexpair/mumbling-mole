@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mumble Web Client</title>
     <link
       rel="apple-touch-icon"
       sizes="180x180"
@@ -42,7 +43,6 @@
         <div></div>
       </div>
     </div>
-  <!-- NOTE: Removed previous inline style="display:none" so the base UI remains visible even if Knockout bindings fail -->
   <div id="container" data-bind="visible: true">
       <!-- ko with: guacamoleFrame -->
       <div class="guacamole-placeholder" data-bind="visible: !visible()">
@@ -50,7 +50,8 @@
       </div>
       <div
         class="guacamole"
-        onmouseover="document.getElementById('guacframe').focus();"
+        role="application"
+        aria-label="Guacamole Remote Desktop Container"
         data-bind="visible: visible()"
       >
         <!-- ko if: loading -->
@@ -75,12 +76,19 @@
         </div>
         <form data-bind="submit: connect">
           <table>
+            <thead>
+              <tr>
+                <th scope="col">Setting</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
             <tr data-bind="if: $root.config.connectDialog.username">
-              <td>
+              <th scope="row">
                 <label for="username" id="connect-dialog_input_username"
                   >Username</label
                 >
-              </td>
+              </th>
               <td>
                 <input
                   id="username"
@@ -92,11 +100,11 @@
               </td>
             </tr>
             <tr data-bind="if: $root.config.connectDialog.password">
-              <td>
+              <th scope="row">
                 <label for="password" id="connect-dialog_input_password"
                   >Password</label
                 >
-              </td>
+              </th>
               <td>
                 <input
                   id="password"
@@ -107,11 +115,11 @@
               </td>
             </tr>
             <tr>
-              <td>
+              <th scope="row">
                 <label for="audioSource" id="connect-dialog_select_microphone"
                   >Microphone</label
                 >
-              </td>
+              </th>
               <td><select id="audioSource" style="width: 100%; box-sizing: border-box;"></select></td>
             </tr>
             <tr>
@@ -120,6 +128,7 @@
                 Please use headphones. Thank you.
               </td>
             </tr>
+          </tbody>
           </table>
           <div class="dialog-footer">
             <div class="test-toggle-container">
@@ -533,11 +542,6 @@
           src="svg/logout.svg"
       />
       </form>
-      <!-- Microphone permission overlay - DISABLED for seamless experience
-      <div class="mic-permission-overlay" data-bind="visible: false">
-        <!-- ...overlay content...
-      </div>
-      -->
 
       <!-- Microphone permission retry overlay (bottom-left, only shown when denied) -->
       <div class="mic-permission-retry" data-bind="visible: micPermissionDenied">
@@ -562,13 +566,15 @@
           if (!pre) return;
           pre.classList.add('loaded');
           setTimeout(function(){
-            if (pre && pre.parentNode) pre.parentNode.removeChild(pre);
+            if (pre) pre.remove();
             pre = null;
           }, 400);
         }
         if (document.readyState === 'complete') finalize();
         else window.addEventListener('load', finalize, { once: true });
-      } catch (_) {}
+      } catch (error) {
+        console.error('[Preloader] Failed to remove preloader:', error);
+      }
     })();
   </script>
   <script src="index.js"></script>
