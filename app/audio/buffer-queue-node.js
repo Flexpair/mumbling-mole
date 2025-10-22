@@ -3,7 +3,50 @@
  * Maintains API compatibility while using modern AudioWorkletNode instead of deprecated ScriptProcessorNode
  */
 
-import { Writable } from 'stream';
+/**
+ * Simple EventEmitter for browser compatibility (replaces Node.js Writable)
+ */
+class EventEmitter {
+  constructor() {
+    this._listeners = {};
+  }
+
+  on(event, callback) {
+    if (!this._listeners[event]) {
+      this._listeners[event] = [];
+    }
+    this._listeners[event].push(callback);
+    return this;
+  }
+
+  once(event, callback) {
+    const wrapper = (...args) => {
+      callback(...args);
+      this.removeListener(event, wrapper);
+    };
+    return this.on(event, wrapper);
+  }
+
+  emit(event, ...args) {
+    if (this._listeners[event]) {
+      for (const callback of this._listeners[event]) {
+        try {
+          callback(...args);
+        } catch (err) {
+          console.error(`Error in ${event} listener:`, err);
+        }
+      }
+    }
+    return this;
+  }
+
+  removeListener(event, callback) {
+    if (this._listeners[event]) {
+      this._listeners[event] = this._listeners[event].filter(cb => cb !== callback);
+    }
+    return this;
+  }
+}
 
 /**
  * Wrapper classes for different audio buffer formats
@@ -103,10 +146,12 @@ class Int16ArrayWrapper extends TypedArrayWrapper {
 }
 
 /**
- * BufferQueueNode - Writable stream that plays audio through AudioWorklet
+ * BufferQueueNode - AudioWorklet-based audio playback queue
  */
-class BufferQueueNode extends Writable {
+class BufferQueueNode extends EventEmitter {
   constructor(options = {}) {
+    super();
+    
     const opts = {
       dataType: Float32ArrayWrapper,
       objectMode: false,
@@ -117,12 +162,6 @@ class BufferQueueNode extends Writable {
       ...options
     };
 
-    super({
-      objectMode: opts.objectMode,
-      highWaterMark: opts.highWaterMark,
-      decodeStrings: opts.decodeStrings,
-    });
-
     this._dataType = opts.dataType;
     this._objectMode = Boolean(opts.objectMode);
     this._interleaved = Boolean(opts.interleaved);
@@ -130,6 +169,7 @@ class BufferQueueNode extends Writable {
     this._audioContext = opts.audioContext;
     this._workletNode = null;
     this._isReady = false;
+    this._isFinished = false;
 
     if (!this._audioContext) {
       throw new Error('AudioContext is required; pass options.audioContext explicitly.');
@@ -139,6 +179,7 @@ class BufferQueueNode extends Writable {
     this._initializeWorklet();
 
     this.on('finish', () => {
+      this._isFinished = true;
       if (this._workletNode) {
         this._workletNode.port.postMessage({ type: 'finish' });
       }
@@ -237,9 +278,38 @@ class BufferQueueNode extends Writable {
         data: channelData
       });
       
-      callback();
+      if (typeof callback === 'function') {
+        callback();
+      }
     } catch (error) {
-      callback(error);
+      if (typeof callback === 'function') {
+        callback(error);
+      } else {
+        this.emit('error', error);
+      }
+    }
+  }
+
+  /**
+   * Write data to the buffer queue (public API for stream-like interface)
+   */
+  write(chunk, encoding, callback) {
+    this._write(chunk, encoding, callback);
+    return !this._isFinished;
+  }
+
+  /**
+   * Signal end of stream
+   */
+  end(chunk, encoding, callback) {
+    if (chunk === undefined) {
+      this.emit('finish');
+      if (typeof callback === 'function') callback();
+    } else {
+      this.write(chunk, encoding, () => {
+        this.emit('finish');
+        if (typeof callback === 'function') callback();
+      });
     }
   }
 }

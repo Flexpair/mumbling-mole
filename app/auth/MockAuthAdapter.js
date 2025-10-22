@@ -54,7 +54,7 @@ class MockAuthAdapter extends AuthProvider {
    * @returns {Promise<Object|null>}
    */
   async getCurrentUser() {
-    return Promise.resolve(this._currentUser);
+    return this._currentUser;
   }
 
   /**
@@ -65,7 +65,7 @@ class MockAuthAdapter extends AuthProvider {
   async openAuth(view = 'login') {
     this.isOpen = true;
     this._emit('open', { view });
-    return Promise.resolve();
+    return;
   }
 
   /**
@@ -75,7 +75,7 @@ class MockAuthAdapter extends AuthProvider {
   async closeAuth() {
     this.isOpen = false;
     this._emit('close');
-    return Promise.resolve();
+    return;
   }
 
   /**
@@ -140,7 +140,7 @@ class MockAuthAdapter extends AuthProvider {
     
     this._currentUser = null;
     this._emit('logout');
-    return Promise.resolve();
+    return;
   }
 
   /**
@@ -175,13 +175,11 @@ class MockAuthAdapter extends AuthProvider {
     await this._delay(300);
     
     if (!this.users.has(email)) {
-      // In real systems, don't reveal if user exists
-      // But for testing, we'll throw
       throw new Error('User not found');
     }
     
     console.log(`[MockAuth] Password reset email sent to ${email}`);
-    return Promise.resolve();
+    return;
   }
 
   /**
@@ -195,7 +193,7 @@ class MockAuthAdapter extends AuthProvider {
       throw new Error('No user logged in');
     }
     
-    return Promise.resolve('mock-jwt-token-' + Date.now());
+    return 'mock-jwt-token-' + Date.now();
   }
 
   /**
