@@ -1,6 +1,6 @@
 # Vendored Dependencies Overview
 
-This directory contains four vendored dependencies used by Mumbling Mole. Each has been analyzed and documented with rationale for vendoring and maintenance strategies.
+This directory contains three vendored dependencies used by Mumbling Mole. Each has been analyzed and documented with rationale for vendoring and maintenance strategies.
 
 ---
 
@@ -10,7 +10,6 @@ This directory contains four vendored dependencies used by Mumbling Mole. Each h
 |---------|------|-----------------|-------------|--------|----------|
 | **mumble-client** | Fork | v1.3.0 | v1.4.1 | 🟡 Modified | High |
 | **mumble-streams** | Fork | v0.0.4 | v0.0.5 | 🔴 Security Fork | Critical |
-| **web-audio-buffer-queue** | Fork | v1.1.0 | v1.1.1 | 🟡 Refactored | Medium |
 | **netlify-identity-widget** | Vendored | v1.9.2 | v1.9.2 | 🟢 Unmodified | Low |
 
 ### Status Legend
@@ -46,14 +45,6 @@ Each vendored dependency has detailed documentation:
   - API migration required for ProtobufJS compatibility
   - **DO NOT sync with upstream** without careful review
 
-### 📁 web-audio-buffer-queue/
-- **[FORK_RATIONALE.md](web-audio-buffer-queue/FORK_RATIONALE.md)** - Refactored fork analysis
-- **Key Points:**
-  - Removed `audio-context` polyfill dependency (~15KB savings)
-  - Pre-compiled distribution (no build step needed)
-  - Native AudioContext detection for modern browsers
-  - Internal refactoring for better performance
-
 ### 📁 netlify-identity-widget/
 - **[VENDOR_STATUS.md](netlify-identity-widget/VENDOR_STATUS.md)** - Unmodified vendor documentation
 - **Key Points:**
@@ -79,10 +70,6 @@ Each vendored dependency has detailed documentation:
 - Review upstream for bug fixes
 - Test integration after updates
 - Track upstream version in documentation
-
-**web-audio-buffer-queue:**
-- Monitor for critical fixes (low likelihood - stable)
-- Check dependency security (only `extend`)
 
 **netlify-identity-widget:**
 - Check for new releases
@@ -163,6 +150,7 @@ npm run test:audio
 ## Dependency Relationships
 
 ### Dependency Tree
+
 ```
 Mumbling Mole
 │
@@ -172,21 +160,20 @@ Mumbling Mole
 │           └── protobufjs@7.2.6 (node_modules)
 │
 ├── app/index.js
-│   ├── web-audio-buffer-queue (vendors/web-audio-buffer-queue)
-│   │   └── extend@3.0.0 (node_modules)
-│   │
 │   └── netlify-identity-widget (vendors/netlify-identity-widget)
 │       └── window.netlifyIdentity (global)
+│
+├── app/audio/buffer-queue-node.js (native implementation, replaces web-audio-buffer-queue)
 ```
 
 ### Build Order
+
 1. **mumble-streams** - No build needed (pre-compiled lib/)
 2. **mumble-client** - Babel transpile src/ → lib/
    ```bash
    npm run build:vendor:mumble-client
    ```
-3. **web-audio-buffer-queue** - No build needed (pre-compiled lib/)
-4. **netlify-identity-widget** - No build needed (pre-built bundle)
+3. **netlify-identity-widget** - No build needed (pre-built bundle)
 
 ---
 
@@ -256,24 +243,24 @@ Cons:
 ## Build Integration
 
 ### esbuild Configuration
+
 ```javascript
 // build-esbuild.mjs
 resolve: {
   alias: {
     'mumble-client': path.resolve(__dirname, 'vendors/mumble-client'),
-    'mumble-streams': path.resolve(__dirname, 'vendors/mumble-streams'),
-    'web-audio-buffer-queue': path.resolve(__dirname, 'vendors/web-audio-buffer-queue')
+    'mumble-streams': path.resolve(__dirname, 'vendors/mumble-streams')
   }
 }
 ```
 
 ### Package.json
+
 ```json
 {
   "dependencies": {
     "mumble-client": "file:vendors/mumble-client",
     "mumble-streams": "file:vendors/mumble-streams",
-    "web-audio-buffer-queue": "file:vendors/web-audio-buffer-queue",
     "netlify-identity-widget": "file:vendors/netlify-identity-widget"
   }
 }
@@ -297,14 +284,16 @@ After updating any vendored dependency:
   - Verifies worker scripts
 
 ### Integration Tests
+
 - [ ] `npm run test:e2e` passes
   - WebSocket connection works
   - Data stream functional (mumble-streams)
 
 ### Audio Tests
+
 - [ ] `npm run test:audio` passes
   - Voice encoding/decoding works
-  - Buffer queue functional (web-audio-buffer-queue)
+  - Buffer queue functional (native buffer-queue-node.js)
 
 ### Auth Tests (Manual)
 - [ ] Login modal opens (netlify-identity-widget)
@@ -341,6 +330,7 @@ npm install
 **Symptom:** WebSocket connection fails, protocol mismatch
 
 **Fix:**
+
 - Check mumble-streams changes
 - Verify ProtobufJS compatibility
 - Review upstream protocol changes
@@ -351,9 +341,11 @@ npm install
 **Symptom:** No audio or distorted audio
 
 **Fix:**
-- Check web-audio-buffer-queue changes
-- Verify AudioContext compatibility
+
+- Check buffer-queue-node.js implementation
+- Verify AudioWorklet compatibility
 - Test buffer queue in isolation
+- Review AudioContext state management
 
 ---
 

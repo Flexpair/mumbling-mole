@@ -19,6 +19,33 @@ Integration tests for the vendored `mumble-client` library (`vendors/mumble-clie
 - **Error Handling**: Username validation and stream errors
 - **Resource Management**: Instance independence and garbage collection
 
+**Test Count**: 24 tests
+
+### `mumble-streams-integration.test.js`
+
+Integration tests for the vendored `mumble-streams` library (`vendors/mumble-streams/`). These tests validate:
+
+- **Version Information**: Semver format and uint8 conversion for protocol negotiation
+- **Data Module**: Protobuf message encoding/decoding (Mumble protocol)
+  - Message types (Version, Authenticate, ChannelState, UserState, etc.)
+  - Encoder/Decoder Transform streams
+  - PermissionDenied.DenyType enum (used by mumble-client)
+- **Voice Module**: Voice packet encoding/decoding
+  - Opus codec support
+  - Server/client direction handling
+  - Transform stream compatibility
+- **UDP Crypto Module**: OCB-AES128 encryption/decryption
+  - UdpCrypt constructor and methods
+  - Key and IV validation
+  - Block cipher operations
+- **Integration Points**:
+  - Version negotiation in mumble-client
+  - Protocol message handling
+  - Stream pipeline compatibility
+- **Message Types Coverage**: Authentication, channel/user management, communication, permissions, configuration, network messages
+
+**Test Count**: 61 tests
+
 ## Why Integration Tests?
 
 `mumble-client` is a vendored dependency (external library copied into this repo). Its original tests use Mocha/Chai, while this project uses Jest. Rather than migrating the vendor's tests (which would create maintenance overhead during updates), we:
@@ -48,7 +75,9 @@ npm run test:unit:coverage -- __tests__/integration
 
 ## Test Coverage
 
-Current coverage: 24 tests covering:
+Current coverage: **85 tests** across 2 vendor libraries
+
+### mumble-client (24 tests)
 
 - 5 bandwidth calculation scenarios
 - 4 client construction patterns
@@ -58,6 +87,20 @@ Current coverage: 24 tests covering:
 - 3 error handling cases
 - 2 resource management validations
 - 3 codebase pattern compatibility checks
+
+### mumble-streams (61 tests)
+
+- 4 module export validations
+- 5 version information tests
+- 8 data module (protobuf) tests
+- 8 voice module tests
+- 11 UDP crypto module tests
+- 3 mumble-client integration tests
+- 4 stream compatibility tests
+- 7 message types coverage tests
+- 5 error handling tests
+- 1 codec support test
+- 3 resource management tests
 
 ## Adding More Integration Tests
 

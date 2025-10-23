@@ -148,7 +148,6 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 - `vendors/mumble-client` is `file:` protocol dep (not npm registry); after editing `src/`, run `npm run build:vendor:mumble-client` to refresh `lib/`
 - `vendors/netlify-identity-widget` ships as-is; UI expects `window.netlifyIdentity` global before auth flows
 - `vendors/mumble-streams` used internally by mumble-client
-- **Deprecated**: `vendors/web-audio-buffer-queue` (replaced by native `app/audio/buffer-queue-node.js` using AudioWorklet instead of deprecated ScriptProcessorNode)
 
 ## Config, localization, theming
 **Config**: Source defaults in `app/config.js`; runtime overrides in generated `dist/config.local.js` (back up before clean builds!)  
