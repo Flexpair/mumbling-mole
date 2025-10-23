@@ -1,119 +1,79 @@
 # Integration Tests
 
-This directory contains integration tests that validate how external dependencies and modules work together within the application context.
+This folder contains integration tests for vendored dependencies. Unlike unit tests that focus on internal implementation details, integration tests validate that the vendored libraries work correctly with our codebase's actual usage patterns.
 
-## Structure
+## Test Files
 
-### `mumble-client-integration.test.js`
+### mumble-client-integration.test.js (24 tests)
 
-Integration tests for the vendored `mumble-client` library (`vendors/mumble-client/`). These tests validate:
+Tests integration of the `mumble-client` vendored library with our codebase. Validates:
 
-- **Bandwidth Calculation**: Static methods used throughout the app for calculating enforceable bandwidth based on bitrate, frames per packet, and voice activity detection
-- **Client Construction**: Proper initialization with various option combinations
-- **Event System**: EventEmitter compatibility and event registration
-- **Property/Method Access**: Verification that expected APIs are available
-- **Integration Points**:
-  - `ConnectionState` interface compatibility
-  - `WorkerBasedMumbleClient` usage patterns
-  - `mumble-websocket.js` connection patterns
-- **Error Handling**: Username validation and stream errors
-- **Resource Management**: Instance independence and garbage collection
+- Static utility methods (bandwidth calculations)
+- Client construction patterns
+- Event system compatibility
+- Integration with ConnectionState and WorkerBasedMumbleClient
+- Error handling behaviors
 
-**Test Count**: 24 tests
+### mumble-streams-integration.test.js (61 tests)
 
-### `mumble-streams-integration.test.js`
+Tests integration of the `mumble-streams` vendored library. Validates:
 
-Integration tests for the vendored `mumble-streams` library (`vendors/mumble-streams/`). These tests validate:
+- Module exports and API surface
+- Version information handling
+- Protobuf message encoding/decoding (data module)
+- Voice packet encoding/decoding
+- UDP crypto operations
+- Stream compatibility (piping, Transform streams)
+- Codec support and error handling
 
-- **Version Information**: Semver format and uint8 conversion for protocol negotiation
-- **Data Module**: Protobuf message encoding/decoding (Mumble protocol)
-  - Message types (Version, Authenticate, ChannelState, UserState, etc.)
-  - Encoder/Decoder Transform streams
-  - PermissionDenied.DenyType enum (used by mumble-client)
-- **Voice Module**: Voice packet encoding/decoding
-  - Opus codec support
-  - Server/client direction handling
-  - Transform stream compatibility
-- **UDP Crypto Module**: OCB-AES128 encryption/decryption
-  - UdpCrypt constructor and methods
-  - Key and IV validation
-  - Block cipher operations
-- **Integration Points**:
-  - Version negotiation in mumble-client
-  - Protocol message handling
-  - Stream pipeline compatibility
-- **Message Types Coverage**: Authentication, channel/user management, communication, permissions, configuration, network messages
+## Test Summary
 
-**Test Count**: 61 tests
+**Total Integration Tests: 85**
+
+## Unit Tests
+
+For deeper internal testing, see the unit test suite:
+
+### mumble-streams-unit.test.js (72 tests)
+
+Comprehensive unit tests for mumble-streams internal functions:
+
+- Voice Encoder/Decoder: Constructor validation, codec handling (Opus/CELT/Speex), ping packets, loopback mode, position data, error handling
+- Data Module: Protobuf message encoding/decoding, round-trip testing, message type coverage
+- UDP Crypto: Key management, encryption/decryption, IV handling, ready state, key generation
+- Version Object: Version encoding and consistency
+
+**Total Vendor Tests: 157 (85 integration + 72 unit)**
 
 ## Why Integration Tests?
 
-`mumble-client` is a vendored dependency (external library copied into this repo). Its original tests use Mocha/Chai, while this project uses Jest. Rather than migrating the vendor's tests (which would create maintenance overhead during updates), we:
+We chose integration tests over migrating the vendor's original test suites because:
 
-1. **Keep vendor tests intact** - Original Mocha/Chai tests in `vendors/mumble-client/test/`
-2. **Add integration tests** - Jest-based tests validating how WE use mumble-client in OUR codebase
+1. **Actual Usage**: Tests validate how we actually use these libraries, not their full API surface
+2. **Maintainability**: No need to update tests when vendored library structure changes
+3. **Focused Coverage**: Only tests features and patterns we rely on in production
+4. **Decoupling**: Vendor updates don't break our tests unless they break our actual usage
 
-## Benefits
+Unit tests complement integration tests by:
 
-- ✅ **Single test framework**: All our tests use Jest
-- ✅ **Real-world validation**: Tests actual usage patterns from the codebase
-- ✅ **Easy maintenance**: No need to update vendor tests when updating mumble-client
-- ✅ **Regression protection**: Catches breaking changes in how we integrate with mumble-client
+- Testing internal functions and edge cases
+- Documenting expected behavior (characterization tests)
+- Providing regression protection during refactoring
+- Validating error handling paths
 
 ## Running Tests
 
 ```bash
-# Run all integration tests
-npm run test:unit -- __tests__/integration
+# Run all vendor tests (integration + unit)
+npm run test:unit -- __tests__/integration/ __tests__/mumble-streams-unit.test.js
 
-# Run specific integration test file
+# Run only integration tests
+npm run test:unit -- __tests__/integration/
+
+# Run only unit tests
+npm run test:unit -- __tests__/mumble-streams-unit.test.js
+
+# Run specific test file
 npm run test:unit -- __tests__/integration/mumble-client-integration.test.js
-
-# Run with coverage
-npm run test:unit:coverage -- __tests__/integration
+npm run test:unit -- __tests__/integration/mumble-streams-integration.test.js
 ```
-
-## Test Coverage
-
-Current coverage: **85 tests** across 2 vendor libraries
-
-### mumble-client (24 tests)
-
-- 5 bandwidth calculation scenarios
-- 4 client construction patterns
-- 3 event system validations
-- 2 property/method checks
-- 3 integration compatibility checks
-- 3 error handling cases
-- 2 resource management validations
-- 3 codebase pattern compatibility checks
-
-### mumble-streams (61 tests)
-
-- 4 module export validations
-- 5 version information tests
-- 8 data module (protobuf) tests
-- 8 voice module tests
-- 11 UDP crypto module tests
-- 3 mumble-client integration tests
-- 4 stream compatibility tests
-- 7 message types coverage tests
-- 5 error handling tests
-- 1 codec support test
-- 3 resource management tests
-
-## Adding More Integration Tests
-
-When adding integration tests for other vendors or modules:
-
-1. Create a new test file: `__tests__/integration/<module>-integration.test.js`
-2. Focus on how the module integrates with the codebase
-3. Test actual usage patterns from the app
-4. Document critical integration points
-5. Update this README with the new test file
-
-## Related Documentation
-
-- Main test documentation: `tests/README.md`
-- Audio integration testing: `app/audio/README.md`
-- State architecture: `app/state/README.md`

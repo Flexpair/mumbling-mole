@@ -198,7 +198,7 @@ class MumbleClient extends EventEmitter {
    * @param callback - Optional callback that is invoked when the connection has been established.
    */
   connectDataStream (stream, callback) {
-    if (this._dataStream) throw Error('Already connected!')
+    if (this._dataStream) throw new Error('Already connected!')
     this._dataStream = stream
 
     // Connect the supplied stream to the data channel encoder and decoder
