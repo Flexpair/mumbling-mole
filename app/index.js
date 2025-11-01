@@ -149,7 +149,7 @@ function ConnectDialog() {
         }
         
         // Resume if suspended
-        if (ui.audio?.audioContext && ui.audio.audioContext.state === 'suspended') {
+        if (ui.audio?.audioContext?.state === 'suspended') {
           console.log('[LOOPBACK] Resuming AudioContext on user click');
           await ui.audio.audioContext.resume();
         }
@@ -332,7 +332,7 @@ class ConnectionInfo {
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
       let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = client.maxBandwidth !== undefined ? client.getMaxBitrate(spp, false) : Number.NaN;
+      let maxBitrate = client.maxBandwidth != null ? client.getMaxBitrate(spp, false) : Number.NaN;
       let actualBitrate = client.getActualBitrate(spp, false);
       let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
         actualBitrate,
@@ -439,7 +439,7 @@ class SettingsDialog {
 
 class Settings {
   constructor(defaults) {
-    const load = (key) => window.localStorage.getItem("mumble." + key);
+    const load = (key) => globalThis.localStorage.getItem("mumble." + key);
     this.voiceMode = load("voiceMode") || defaults.voiceMode;
     this.pttKey = load("pttKey") || defaults.pttKey;
     this.userCountInChannelName = ko.observable(
@@ -452,7 +452,7 @@ class Settings {
 
   save() {
     const save = (key, val) =>
-      window.localStorage.setItem("mumble." + key, val);
+      globalThis.localStorage.setItem("mumble." + key, val);
     save("voiceMode", this.voiceMode);
     save("pttKey", this.pttKey);
     save("userCountInChannelName", this.userCountInChannelName());

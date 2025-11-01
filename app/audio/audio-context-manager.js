@@ -37,7 +37,7 @@ class AudioContextManager {
         
         // AUTO-RESUME: Try to resume suspended AudioContext after first user interaction
         // This handles browsers that auto-suspend AudioContext until user interacts
-        if (this.audioContext && this.audioContext.state === 'suspended') {
+        if (this.audioContext?.state === 'suspended') {
           this.resumeAudioContext();
         }
         
@@ -65,7 +65,7 @@ class AudioContextManager {
 
     // RECOVERY: If cached context was closed elsewhere, recreate it
     // This handles edge cases where AudioContext is closed unexpectedly
-    if (this.audioContext && this.audioContext.state === 'closed') {
+    if (this.audioContext?.state === 'closed') {
       console.warn('AudioContext was closed; recreating...');
       await this.createAudioContext(options);
     }
@@ -175,7 +175,7 @@ class AudioContextManager {
   // RESUME-LOGIC: Attempt to resume suspended AudioContext with retry logic
   // Uses exponential backoff to handle transient browser restrictions
   async resumeAudioContext() {
-    if (!this.audioContext || this.audioContext.state !== 'suspended') {
+    if (this.audioContext?.state !== 'suspended') {
       return this.audioContext;
     }
 

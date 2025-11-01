@@ -1,4 +1,4 @@
-import { Writable } from "stream";
+import { Writable } from "node:stream";
 import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
@@ -77,12 +77,17 @@ export class ContinuousVoiceHandler extends VoiceHandler {
     if (this._mute) {
       callback();
     } else {
-      // ERROR-HANDLING: Wrap stream write in try-catch to prevent uncaught exceptions
-      // Helps diagnose issues when voice stream fails unexpectedly
+      // ERROR-HANDLING: Stream.write() is callback-based, handle errors in callback
       try {
-        this._getOrCreateOutbound().write(data, callback);
+        const stream = this._getOrCreateOutbound();
+        stream.write(data, (err) => {
+          if (err) {
+            console.error("[VOICE-HANDLER] Error writing to outbound stream:", err);
+          }
+          callback(err);
+        });
       } catch (err) {
-        console.error("[VOICE-HANDLER] Error in _getOrCreateOutbound:", err);
+        console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
         callback(err);
       }
     }
@@ -107,7 +112,19 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
 
   _write(data, _, callback) {
     if (this._pushed && !this._mute) {
-      this._getOrCreateOutbound().write(data, callback);
+      // ERROR-HANDLING: Stream.write() is callback-based, handle errors in callback
+      try {
+        const stream = this._getOrCreateOutbound();
+        stream.write(data, (err) => {
+          if (err) {
+            console.error("[VOICE-HANDLER] Error writing to outbound stream:", err);
+          }
+          callback(err);
+        });
+      } catch (err) {
+        console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
+        callback(err);
+      }
     } else {
       callback();
     }
@@ -313,15 +330,22 @@ export function initVoice(onData, onUserMediaError) {
           // RACE-SAFE: Only clean up if this is still the current mixer instance
           // Prevents newer mixer from being invalidated by older instance cleanup
           if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
+            // Wrap disconnects in individual try-catch to continue cleanup on errors
             try {
               node.disconnect();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error disconnecting AudioWorkletNode:', error_);
+            }
             try {
               mixer.disconnect();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error disconnecting mixer:', error_);
+            }
             try {
               src.disconnect();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error disconnecting source:', error_);
+            }
             
             // Clear global references only if this is still the active instance
             currentMixerInstance = null;
@@ -331,7 +355,9 @@ export function initVoice(onData, onUserMediaError) {
             // invalidating the shared instance held by the AudioContextManager.
             try {
               audioContextManager.suspendAudioContext();
-            } catch {}
+            } catch (suspendErr) {
+              console.warn('[VOICE] Error suspending AudioContext:', suspendErr);
+            }
           }
         });
       }
