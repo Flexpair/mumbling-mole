@@ -12,52 +12,61 @@ class User extends EventEmitter {
     this._haveRequestedComment = false
   }
 
+  /**
+   * Updates a single field if the message contains it.
+   * @private
+   */
+  _updateField (msg, msgKey, changeKey, privateKey) {
+    if (msg[msgKey] != null) {
+      this[privateKey] = msg[msgKey]
+      return { [changeKey]: msg[msgKey] }
+    }
+    return {}
+  }
+
+  /**
+   * Updates boolean flags with optional invalidation side effects.
+   * @private
+   */
+  _updateWithInvalidation (msg, msgKey, changeKey, privateKey, shouldInvalidate) {
+    if (msg[msgKey] != null) {
+      this[privateKey] = msg[msgKey]
+      if (shouldInvalidate) {
+        shouldInvalidate.call(this)
+      }
+      return { [changeKey]: msg[msgKey] }
+    }
+    return {}
+  }
+
   _update (msg) {
     const changes = {}
-    if (msg.name != null) {
-      changes.username = this._username = msg.name
-    }
-    if (msg.user_id != null) {
-      changes.uniqueId = this._uniqueId = msg.user_id
-    }
-    if (msg.mute != null) {
-      changes.mute = this._mute = msg.mute
-    }
-    if (msg.deaf != null) {
-      changes.deaf = this._deaf = msg.deaf
-    }
-    if (msg.suppress != null) {
-      changes.suppress = this._suppress = msg.suppress
-    }
-    if (msg.self_mute != null) {
-      changes.selfMute = this._selfMute = msg.self_mute
-    }
-    if (msg.self_deaf != null) {
-      changes.selfDeaf = this._selfDeaf = msg.self_deaf
-    }
-    if (msg.texture != null) {
-      changes.texture = this._texture = msg.texture
-    }
-    if (msg.texture_hash != null) {
-      changes.textureHash = this._textureHash = msg.texture_hash
-      this._haveRequestedTexture = false // invalidate previous request
-    }
-    if (msg.comment != null) {
-      changes.comment = this._comment = msg.comment
-    }
-    if (msg.comment_hash != null) {
-      changes.commentHash = this._commentHash = msg.comment_hash
-      this._haveRequestedComment = false // invalidate previous request
-    }
-    if (msg.priority_speaker != null) {
-      changes.prioritySpeaker = this._prioritySpeaker = msg.priority_speaker
-    }
-    if (msg.recording != null) {
-      changes.recording = this._recording = msg.recording
-    }
-    if (msg.hash != null) {
-      changes.certHash = this._certHash = msg.hash
-    }
+    
+    // Simple field updates
+    Object.assign(changes,
+      this._updateField(msg, 'name', 'username', '_username'),
+      this._updateField(msg, 'user_id', 'uniqueId', '_uniqueId'),
+      this._updateField(msg, 'mute', 'mute', '_mute'),
+      this._updateField(msg, 'deaf', 'deaf', '_deaf'),
+      this._updateField(msg, 'suppress', 'suppress', '_suppress'),
+      this._updateField(msg, 'self_mute', 'selfMute', '_selfMute'),
+      this._updateField(msg, 'self_deaf', 'selfDeaf', '_selfDeaf'),
+      this._updateField(msg, 'texture', 'texture', '_texture'),
+      this._updateField(msg, 'comment', 'comment', '_comment'),
+      this._updateField(msg, 'priority_speaker', 'prioritySpeaker', '_prioritySpeaker'),
+      this._updateField(msg, 'recording', 'recording', '_recording'),
+      this._updateField(msg, 'hash', 'certHash', '_certHash')
+    )
+
+    // Hash updates with invalidation
+    Object.assign(changes,
+      this._updateWithInvalidation(msg, 'texture_hash', 'textureHash', '_textureHash', 
+        () => { this._haveRequestedTexture = false }),
+      this._updateWithInvalidation(msg, 'comment_hash', 'commentHash', '_commentHash',
+        () => { this._haveRequestedComment = false })
+    )
+
+    // Channel update (special case with side effects)
     if (msg.channel_id != null) {
       if (this.channel) {
         removeValue(this.channel.users, this)
@@ -68,6 +77,7 @@ class User extends EventEmitter {
       }
       changes.channel = this.channel
     }
+
     this.emit('update', this._client._userById[msg.actor], changes)
   }
 
@@ -78,45 +88,65 @@ class User extends EventEmitter {
     this.emit('remove', actor, reason, ban)
   }
 
-  _getOrCreateVoiceStream () {
-    if (!this._voice) {
-      // New transmission
+  /**
+   * Creates a codec stream or fallback DropStream if no codecs available.
+   * @private
+   */
+  _createVoiceCodecStream () {
+    if (!this._client._codecs) {
       if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-        console.log('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
+        console.warn('[MUMBLE-USER-DEBUG] WARNING: No codecs available, using DropStream');
       }
-      if (!this._client._codecs) {
-        // No codecs available, cannot decode
-        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-          console.warn('[MUMBLE-USER-DEBUG] WARNING: No codecs available, using DropStream');
-        }
-        this._voice = DropStream.obj()
-      } else {
-        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-          console.log('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
-        }
-        this._voice = this._client._codecs.createDecoderStream(this)
+      return DropStream.obj()
+    }
+    
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
+      console.log('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
+    }
+    return this._client._codecs.createDecoderStream(this)
+  }
+
+  /**
+   * Sets up voice stream lifecycle handlers and timeout.
+   * @private
+   */
+  _setupVoiceStream (stream) {
+    stream.once('close', () => {
+      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
+        console.log('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
       }
-      this._voice.once('close', () => {
-        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-          console.log('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
-        }
+      this._voice = null
+    })
+    
+    this._voiceTimeout = new Timer(() => {
+      if (this._voice != null) {
+        this._voice.end()
         this._voice = null
-      })
-      this._voiceTimeout = new Timer(() => {
-        if (this._voice != null) {
-          this._voice.end()
-          this._voice = null
-        }
-      }, this._client._options.userVoiceTimeout || 200).set()
-      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-        console.log('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
       }
-      this.emit('voice', this._voice)
-    } else {
+    }, this._client._options.userVoiceTimeout || 200).set()
+    
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
+      console.log('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
+    }
+    this.emit('voice', stream)
+  }
+
+  _getOrCreateVoiceStream () {
+    if (this._voice) {
       if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
         console.log('[MUMBLE-USER-DEBUG] Voice stream already exists, reusing existing stream');
       }
+      return this._voice
     }
+
+    // New transmission
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
+      console.log('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
+    }
+    
+    this._voice = this._createVoiceCodecStream()
+    this._setupVoiceStream(this._voice)
+    
     return this._voice
   }
 
@@ -133,62 +163,108 @@ class User extends EventEmitter {
   }
 
   /**
-   * This method filters and inserts empty frames as needed to accout
+   * Handles packet loss by inserting empty frames for lost packets.
+   * @param {number} seqNum - Current sequence number
+   * @param {number} duration - Duration of current packet
+   * @param {string} codec - Codec type
+   * @param {number} target - Target destination
+   * @param {*} position - Position data
+   */
+  _handlePacketLoss (seqNum, duration, codec, target, position) {
+    // Check if this is a late packet
+    if (this._lastVoiceSeqId > seqNum) {
+      return false // Packet is late, should be dropped
+    }
+
+    // Calculate lost packets
+    const expectedSeqNum = this._lastVoiceSeqId + 1
+    if (seqNum > expectedSeqNum) {
+      let lost = seqNum - this._lastVoiceSeqId - 1
+      // Cap at 10 lost frames, the audio will sound broken at that point anyway
+      if (lost > 10) {
+        lost = 10
+      }
+      this._insertEmptyFrames(lost, codec, target, position)
+    }
+    
+    return true // Packet is valid
+  }
+
+  /**
+   * Inserts empty frames to account for packet loss.
+   */
+  _insertEmptyFrames (count, codec, target, position) {
+    for (let i = 0; i < count; i++) {
+      this._getOrCreateVoiceStream().write({
+        target: target,
+        codec: codec,
+        frame: null,
+        position: position
+      })
+    }
+  }
+
+  /**
+   * Writes a single frame to the voice stream.
+   */
+  _writeFrame (frame, codec, target, position) {
+    const writeData = {
+      target: target,
+      codec: codec,
+      frame: frame,
+      position: position
+    }
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
+      console.log('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null')
+    }
+    this._getOrCreateVoiceStream().write(writeData)
+  }
+
+  /**
+   * Ends the voice transmission and cleans up the stream.
+   */
+  _endVoiceTransmission () {
+    if (this._voice) {
+      this._voiceTimeout.clear()
+      this._voiceTimeout = null
+      this._voice.end()
+      this._voice = null
+    }
+  }
+
+  /**
+   * This method filters and inserts empty frames as needed to account
    * for packet loss and then writes to the {@link #_voice} stream.
    * If this is a new transmission it emits the 'voice' event and if
    * the transmission has ended it closes the stream.
    */
   _onVoice (seqNum, codec, target, frames, position, end) {
     if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-      console.log('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end);
+      console.log('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end)
     }
+
     if (frames.length > 0) {
       const duration = this._getDuration(codec, frames)
+      
+      // Handle packet loss for ongoing transmissions
       if (this._voice != null) {
-        // This is not the first packet in this transmission
-
-        // So drop it if it's late
-        if (this._lastVoiceSeqId > seqNum) {
+        const isValid = this._handlePacketLoss(seqNum, duration, codec, target, position)
+        if (!isValid) {
           return
         }
-
-        // And make up for lost packets
-        if (this._lastVoiceSeqId < seqNum - duration / 10) {
-          let lost = seqNum - this._lastVoiceSeqId - 1
-          // Cap at 10 lost frames, the audio will sound broken at that point anyway
-          if (lost > 10) {
-            lost = 10
-          }
-          for (let i = 0; i < lost; i++) {
-            this._getOrCreateVoiceStream().write({
-              target: target,
-              codec: codec,
-              frame: null,
-              position: position
-            })
-          }
-        }
       }
+
+      // Write all frames to the stream
       frames.forEach(frame => {
-        const writeData = {
-          target: target,
-          codec: codec,
-          frame: frame,
-          position: position
-        };
-        if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-          console.log('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null');
-        }
-        this._getOrCreateVoiceStream().write(writeData)
+        this._writeFrame(frame, codec, target, position)
       })
+
       this._voiceTimeout.set()
       this._lastVoiceSeqId = seqNum + duration / 10 - 1
     }
-    if (end && this._voice) {
-      this._voiceTimeout.clear()
-      this._voiceTimeout = null
-      this._voice.end()
-      this._voice = null
+
+    if (end) {
+      this._endVoiceTransmission()
     }
   }
 
