@@ -51,7 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       *) echo "Unsupported arch: $arch" >&2; exit 1 ;; \
     esac; \
     NODE_VERSION=22.20.0; \
-    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
+    curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
     mkdir -p /usr/local/lib/nodejs; \
     tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs; \
     rm /tmp/node.tar.xz; \
