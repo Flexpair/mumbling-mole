@@ -414,7 +414,7 @@ function fromVarint(b) {
             i = ~i;
             break;
         default:
-            return null
+            return null;
         }
     } else if ((v & 0xF0) === 0xE0) {
         i = (v & 0x0F) << 24 | b[1] << 16 | b[2] << 8 | b[3];

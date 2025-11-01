@@ -13,7 +13,9 @@
 - Never suggest `docker-compose up` or `docker ps` commands - they won't work from inside the dev container
 
 ## Quick context
-Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI delegates audio transport to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames). Optional Guacamole iframe gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
+Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** - uses WebSocket tunnel (via websockify) to standard Mumble TCP protocol. Knockout.js MVVM UI with observable state. Audio transport delegated to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames = 960 samples). Optional Guacamole iframe (remote desktop) gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
+
+**Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline - changing this requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec, and Settings serialization.
 
 ## Getting started reading code
 **Entry points by use case:**
@@ -30,6 +32,7 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **State architecture**: Uses modular `AppState` composed of 6 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ChannelState`. See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
+**WebSocket tunneling**: `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**. This is how browser clients connect to standard Mumble servers without native TCP sockets - websockify proxies the Mumble TCP protocol over WebSocket connections that browsers can handle  
 **Worker instantiation**: Use native `new Worker(new URL('./worker.js', import.meta.url), {type: 'classic'})` syntax (esbuild compatible); avoid worker-loader wrappers  
 **Decoder pool**: `decoder-stream.js` uses `reuse-pool` to recycle decode workers; keeps first worker warm on init  
 **Event synchronization**: Worker events use `_dispatchEvent` (worker-client.js) → `registerEventProxy` (worker.js); property updates use `_setProp` → `pushProp`; both systems must stay in sync
@@ -65,6 +68,27 @@ Browser-first Mumble voice client replacing native desktop apps. Knockout.js UI 
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
 
 ## Implementation conventions
+**Knockout.js observables**: All reactive state uses `ko.observable()` or `ko.observableArray()`. Read via function call `value()`, write via `value(newVal)`. Subscribe with `value.subscribe(callback)` and **always** dispose subscriptions in cleanup. Wire to HTML via `data-bind` attributes. Example:
+```javascript
+// State module pattern
+this.connected = ko.observable(false);
+this.users = ko.observableArray([]);
+
+// Subscribe (don't forget to track for disposal)
+this._subscription = this.connected.subscribe((isConnected) => {
+  if (isConnected) this.initializeAudio();
+});
+
+// Cleanup
+dispose() {
+  if (this._subscription) this._subscription.dispose();
+}
+
+// HTML binding
+<div data-bind="visible: connected">Connected!</div>
+<div data-bind="foreach: users">...</div>
+```
+
 **UI state**: Observables live in modular state classes under `app/state/` (6 modules: Connection, Audio, Voice, UI, User, Channel). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
 ```javascript
 // Modular state (app/state/AppState.js)
@@ -145,14 +169,27 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **AudioContext singleton**: Never `new AudioContext()` directly—always use `ensureAudioContext()` from `audio-context-manager.js`. Creates exactly one context per app lifecycle; handles state transitions, autoplay policies, exponential backoff resume retries.
 
 ## Vendored dependencies
-- `vendors/mumble-client` is `file:` protocol dep (not npm registry); after editing `src/`, run `npm run build:vendor:mumble-client` to refresh `lib/`
-- `vendors/netlify-identity-widget` ships as-is; UI expects `window.netlifyIdentity` global before auth flows
-- `vendors/mumble-streams` used internally by mumble-client
+- `app/mumble-client/` forked vendored code (Mumble protocol implementation); manages channel/user trees, protocol messages, audio streaming
+- `app/mumble-streams/` low-level stream handling for Mumble protocol; used internally by mumble-client
+- Both are vendored in `app/` directory (not `node_modules/` or `vendors/`) and imported as local ES modules
+- If you need to modify these: changes go directly in `app/mumble-client/` or `app/mumble-streams/` - no separate build step required
 
 ## Config, localization, theming
 **Config**: Source defaults in `app/config.js`; runtime overrides in generated `dist/config.local.js` (back up before clean builds!)  
 **Localization**: English-only since PR #140 (multilanguage support disabled); UI strings in `localize/en.json`; missing keys log warnings  
 **Themes**: SCSS sources under `themes/MetroMumbleLight`; esbuild (sassPlugin) compiles to CSS; runtime selection via `?theme=` query param; supports Light/Dark variants
+
+## Critical "Never Do" rules
+1. **Never** `new AudioContext()` directly - always use `ensureAudioContext()` from `audio-context-manager.js`
+2. **Never** commit `dist/**` - it's generated by build process
+3. **Never** serialize full objects across worker boundary - only pass numeric IDs
+4. **Never** use imports/requires in AudioWorklet processors (`recorder-worker.js`, `playback-buffer-processor.js`) - must be vanilla ES5
+5. **Never** change 48 kHz / 960-sample constraint without coordinated updates across entire audio pipeline
+6. **Never** suggest `docker-compose` commands from inside dev container - we ARE in a container
+7. **Never** update worker events without updating BOTH `_dispatchEvent` (worker-client.js) AND `registerEventProxy` (worker.js)
+8. **Never** call `controller.enqueue()` after `controller.terminate()` in decoder streams
+9. **Never** use timeouts/polling for initialization - use event-based callbacks (e.g., `onAudioMixerReady`)
+10. **Never** forget to dispose Knockout subscriptions in cleanup methods
 
 ## Debugging patterns
 **Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  

@@ -14,7 +14,7 @@
  */
 
 import { jest } from '@jest/globals';
-import { Duplex, PassThrough } from 'stream';
+import { PassThrough } from 'stream';
 
 // Mock DropStream
 const mockDropStream = {

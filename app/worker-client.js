@@ -96,11 +96,11 @@ class WorkerBasedMumbleConnector {
   _onMessage(ev) {
     let data = ev.data;
     
-    if (data.reqId != null) {
+    if (data.reqId !== null && data.reqId !== undefined) {
       this._handleRpcResponse(data);
-    } else if (data.clientId != null) {
+    } else if (data.clientId !== null && data.clientId !== undefined) {
       this._handleEventDispatch(data);
-    } else if (data.voiceId != null) {
+    } else if (data.voiceId !== null && data.voiceId !== undefined) {
       this._handleVoiceData(data);
     }
   }
@@ -123,9 +123,9 @@ class WorkerBasedMumbleConnector {
 
     // TARGET-RESOLUTION: Determine which object (client/channel/user) to update
     let target;
-    if (data.userId != null) {
+    if (data.userId !== null && data.userId !== undefined) {
       target = client._user(data.userId);
-    } else if (data.channelId != null) {
+    } else if (data.channelId !== null && data.channelId !== undefined) {
       target = client._channel(data.channelId);
     } else {
       target = client;
@@ -347,7 +347,7 @@ class WorkerBasedMumbleChannel extends EventEmitter {
   }
 
   get parent() {
-    if (this._parentId != null) {
+    if (this._parentId !== null && this._parentId !== undefined) {
       return this._client._channel(this._parentId);
     }
     return undefined;
@@ -382,7 +382,7 @@ class WorkerBasedMumbleUser extends EventEmitter {
       for (const [key, value] of Object.entries(props)) {
         this._setProp(key, value);
       }
-      if (props.channel != null) {
+      if (props.channel !== null && props.channel !== undefined) {
         props.channel = this.channel;
       }
       args = [this._client._user(actor), props];

@@ -8,9 +8,6 @@
  * - Transform stream behavior
  */
 
-import { jest } from '@jest/globals';
-import { PassThrough } from 'node:stream';
-
 describe('mumble-streams Unit Tests', () => {
   describe('Voice Module - Encoder', () => {
     let voice;

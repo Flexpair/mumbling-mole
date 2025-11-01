@@ -9,8 +9,6 @@
  * - Integration with mumble-client
  */
 
-import { jest } from '@jest/globals';
-
 describe('mumble-streams Integration Tests', () => {
   describe('Module Exports', () => {
     let mumbleStreams;
