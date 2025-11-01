@@ -451,6 +451,22 @@ test.describe('Loopback Frequency Test', () => {
     // Final cleanup
     await pianoButton.dispatchEvent('mouseup');
     
+    // CLEANUP: Disconnect and clean up resources before test ends
+    console.log('\n🧹 Cleaning up resources...');
+    await page.evaluate(() => {
+      // Stop beeper if still running
+      if (window.mumbleUi?.audio?.isBeeping()) {
+        window.mumbleUi.audio.stopBeep();
+      }
+      
+      // Disconnect from server
+      if (window.mumbleUi?.connection?.client) {
+        window.mumbleUi.connection.resetClient();
+      }
+    });
+    await page.waitForTimeout(500); // Give time for cleanup
+    console.log('✅ Resources cleaned up');
+    
     console.log('\n✅ TEST PASSED: All scenarios validated successfully!\n');
   });
 });
