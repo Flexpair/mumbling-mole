@@ -81,88 +81,82 @@ UdpCrypt.prototype.encrypt = function(plainText) {
   return cipherText;
 };
 
-UdpCrypt.prototype.decrypt = function(cipherText) {
-  if (cipherText.length < 4) {
-    return null;
+UdpCrypt.prototype._handleIVUpdate = function(ivbyte) {
+  if (ivbyte > this._decryptIV[0]) {
+    this._decryptIV[0] = ivbyte;
+    return true;
+  } else if (ivbyte < this._decryptIV[0]) {
+    this._decryptIV[0] = ivbyte;
+    for (let i = 1; i < BLOCK_SIZE; i++) {
+      if (++this._decryptIV[i] == 256) {
+        this._decryptIV[i] = 0;
+      } else {
+        break;
+      }
+    }
+    return true;
+  }
+  return false;
+};
+
+UdpCrypt.prototype._handleOutOfOrderPacket = function(ivbyte, saveiv) {
+  let diff = ivbyte - this._decryptIV[0];
+  if (diff > 128) {
+    diff = diff - 256;
+  } else if (diff < -128) {
+    diff = diff + 256;
   }
 
-  const saveiv = Buffer.from(this._decryptIV);
-  const ivbyte = cipherText[0];
-  let restore = false;
-  let lost = 0;
-  let late = 0;
-  let i;
-  
-  if (((this._decryptIV[0] + 1) & 0xFF) == ivbyte) {
-    // In order as expected
-    if (ivbyte > this._decryptIV[0]) {
-      this._decryptIV[0] = ivbyte;
-    } else if (ivbyte < this._decryptIV[0]) {
-      this._decryptIV[0] = ivbyte;
-      for (i = 1; i < BLOCK_SIZE; i++) {
-        if (++this._decryptIV[i] == 256) {
-          this._encryptIV[i] = 0;
-        } else {
-          break;
-        }
-      }
-    } else {
-      return null;
-    }
-  } else {
-    // This is either out of order or a repeat.
+  const result = { restore: false, lost: 0, late: 0, success: false };
 
-    let diff = ivbyte - this._decryptIV[0];
-    if (diff > 128) {
-      diff = diff - 256;
-    } else if (diff < -128) {
-      diff = diff + 256;
-    }
-
-    if ((ivbyte < this._decryptIV[0]) && (diff > -30) && (diff < 0)) {
-      // Late packet, but no wraparound
-      late++;
-      lost--;
-      this._decryptIV[0] = ivbyte;
-      restore = true;
-    } else if ((ivbyte > this._decryptIV[0]) && (diff > -30) && (diff < 0)) {
-      // Late was 0x02, here comes 0xff from last round
-      late++;
-      lost--;
-      this._decryptIV[0] = ivbyte;
-      for (i = 0; i < BLOCK_SIZE; i++) {
-        if (this._decryptIV[i]-- == -1) {
-          this._decryptIV[i] = 255;
-        } else {
-          break;
-        }
+  if ((ivbyte < this._decryptIV[0]) && (diff > -30) && (diff < 0)) {
+    // Late packet, but no wraparound
+    result.late = 1;
+    result.lost = -1;
+    this._decryptIV[0] = ivbyte;
+    result.restore = true;
+    result.success = true;
+  } else if ((ivbyte > this._decryptIV[0]) && (diff > -30) && (diff < 0)) {
+    // Late packet with wraparound
+    result.late = 1;
+    result.lost = -1;
+    this._decryptIV[0] = ivbyte;
+    for (let i = 0; i < BLOCK_SIZE; i++) {
+      if (this._decryptIV[i]-- == -1) {
+        this._decryptIV[i] = 255;
+      } else {
+        break;
       }
-      restore = true;
-    } else if ((ivbyte > this._decryptIV[0]) && (diff > 0)) {
-      // Lost a few packets, but beyond that we're good.
-      lost += ivbyte - this._decryptIV[0] - 1;
-      this._decryptIV[0] = ivbyte;
-    } else if ((ivbyte < this._decryptIV[0]) && (diff > 0)) {
-      // Lost a few packets, and wrapped around
-      lost += 256 - this._decryptIV[0] + ivbyte - 1;
-      this._decryptIV[0] = ivbyte;
-      for (i = 0; i < BLOCK_SIZE; i++) {
-        if (++this._decryptIV[i] == 256) {
-          this._encryptIV[i] = 0;
-        } else {
-          break;
-        }
+    }
+    result.restore = true;
+    result.success = true;
+  } else if ((ivbyte > this._decryptIV[0]) && (diff > 0)) {
+    // Lost packets, no wraparound
+    result.lost = ivbyte - this._decryptIV[0] - 1;
+    this._decryptIV[0] = ivbyte;
+    result.success = true;
+  } else if ((ivbyte < this._decryptIV[0]) && (diff > 0)) {
+    // Lost packets with wraparound
+    result.lost = 256 - this._decryptIV[0] + ivbyte - 1;
+    this._decryptIV[0] = ivbyte;
+    for (let i = 0; i < BLOCK_SIZE; i++) {
+      if (++this._decryptIV[i] == 256) {
+        this._decryptIV[i] = 0;
+      } else {
+        break;
       }
-    } else {
-      return null;
     }
-
-    if (this._decryptHistory[this._decryptIV[0]] == this._decryptIV[1]) {
-      this._decryptIV = saveiv;
-      return null;
-    }
+    result.success = true;
   }
 
+  if (result.success && this._decryptHistory[this._decryptIV[0]] == this._decryptIV[1]) {
+    return { success: false, restore: false, lost: 0, late: 0 };
+  }
+
+  return result;
+};
+
+UdpCrypt.prototype._verifyAndDecryptPacket = function(cipherText, saveiv) {
   const encrypt = crypto.createCipheriv('AES-128-ECB', this._key, '')
     .setAutoPadding(false);
   const decrypt = crypto.createDecipheriv('AES-128-ECB', this._key, '')
@@ -176,7 +170,43 @@ UdpCrypt.prototype.decrypt = function(cipherText) {
     this._decryptIV = saveiv;
     return null;
   }
+
   this._decryptHistory[this._decryptIV[0]] = this._decryptIV[1];
+  return plainText;
+};
+
+UdpCrypt.prototype.decrypt = function(cipherText) {
+  if (cipherText.length < 4) {
+    return null;
+  }
+
+  const saveiv = Buffer.from(this._decryptIV);
+  const ivbyte = cipherText[0];
+  let restore = false;
+  let lost = 0;
+  let late = 0;
+  
+  if (((this._decryptIV[0] + 1) & 0xFF) == ivbyte) {
+    // In order as expected
+    if (!this._handleIVUpdate(ivbyte)) {
+      return null;
+    }
+  } else {
+    // Out of order or repeat
+    const result = this._handleOutOfOrderPacket(ivbyte, saveiv);
+    if (!result.success) {
+      this._decryptIV = saveiv;
+      return null;
+    }
+    restore = result.restore;
+    lost = result.lost;
+    late = result.late;
+  }
+
+  const plainText = this._verifyAndDecryptPacket(cipherText, saveiv);
+  if (!plainText) {
+    return null;
+  }
 
   if (restore) {
     this._decryptIV = saveiv;

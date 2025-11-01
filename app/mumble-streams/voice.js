@@ -67,75 +67,105 @@ function Encoder(dest) {
 } 
 util.inherits(Encoder, Transform);
 
-Encoder.prototype._transform = function(chunk, encoding, callback) {
-  let buffer;
+Encoder.prototype._encodePingPacket = function(chunk) {
+  // Header byte + Timestamp
+  const buffer = Buffer.alloc(1 + 9);
   let offset = 0;
+  offset += buffer.writeUInt8(0x20, offset); // Ping packet header
+  offset += toVarint(chunk.timestamp).value.copy(buffer, offset);
+  return buffer.slice(0, offset);
+};
 
-  // Special case: Ping packets
-  if (chunk.timestamp !== undefined) {
-    // Header byte + Timestamp
-    buffer = Buffer.alloc(1 + 9);
-    offset += buffer.writeUInt8(0x20, offset); // Ping packet header
-    offset += toVarint(chunk.timestamp).value.copy(buffer, offset);
-    return callback(null, buffer.slice(0, offset));
+Encoder.prototype._encodeOpusFrames = function(chunk, callback) {
+  if (chunk.frames.length > 1) {
+    return callback(new Error('Opus only supports a single frame per packet'));
   }
+  
+  const endBit = chunk.end ? 0x2000 : 0;
+  let voiceData;
+  
+  if (chunk.frames.length == 0) {
+    voiceData = toVarint(endBit).value;
+  } else {
+    const frameSize = toVarint(chunk.frames[0].length | endBit);
+    voiceData = Buffer.concat([frameSize.value, chunk.frames[0]]);
+  }
+  
+  return { codecId: 4, voiceData };
+};
 
-  let codecId; // Network ID of the codec
-  let voiceData; // All voice frames encoded into a single buffer
+Encoder.prototype._encodeCeltSpeexFrames = function(chunk, callback) {
+  const codecId = {'CELT_Alpha': 0, 'Speex': 2, 'CELT_Beta': 3}[chunk.codec];
+  const voiceData = [];
+  
+  if (chunk.frames.length == 0 && !chunk.end) {
+    return callback(new Error('No frames given but end bit is not set'));
+  }
+  
+  for (const frame of chunk.frames) {
+    if (frame.length > 127) {
+      return callback(new Error('Frame size is greater than 127 bytes'));
+    }
+    voiceData.push(Buffer.from([frame.length | 0x80]), frame);
+  }
+  
+  // Append empty frame if end bit is set
+  if (chunk.end) {
+    voiceData.push(Buffer.from([0]), Buffer.from([]));
+  }
+  
+  // Unset continuation bit of last frame
+  voiceData.at(-2)[0] &= 0x7F;
+  
+  return { codecId, voiceData: Buffer.concat(voiceData) };
+};
+
+Encoder.prototype._encodeVoiceData = function(chunk, callback) {
   if (chunk.codec == 'Opus') {
-    if (chunk.frames.length > 1) {
-      return callback(new Error('Opus only supports a single frame per packet'));
-    }
-    const endBit = chunk.end ? 0x2000 : 0
-    if (chunk.frames.length == 0) {
-      voiceData = toVarint(endBit).value;
-    } else {
-      const frameSize = toVarint(chunk.frames[0].length | endBit);
-      // Opus packets are just the size and the data concatenated
-      voiceData = Buffer.concat([frameSize.value, chunk.frames[0]]);
-    }
-    codecId = 4;
+    return this._encodeOpusFrames(chunk, callback);
   } else if (['CELT_Alpha', 'CELT_Beta', 'Speex'].indexOf(chunk.codec) >= 0) {
-    codecId = {'CELT_Alpha': 0, 'Speex': 2, 'CELT_Beta': 3}[chunk.codec]
-    voiceData = []
-    if (chunk.frames.length == 0 && !chunk.end) {
-      return callback(new Error('No frames given but end bit is not set'));
-    }
-    for (const frame of chunk.frames) {
-      if (frame.length > 127) {
-        return callback(new Error('Frame size is greater than 127 bytes'));
-      }
-      voiceData.push(Buffer.from([frame.length | 0x80]), frame)
-    }
-    // Append empty frame if end bit is set
-    if (chunk.end) {
-      voiceData.push(Buffer.from([0]), Buffer.from([]))
-    }
-    // Unset continuation bit of last frame
-    voiceData.at(-2)[0] &= 0x7F
-    // Concat all frames
-    voiceData = Buffer.concat(voiceData)
+    return this._encodeCeltSpeexFrames(chunk, callback);
   } else {
     return callback(new TypeError('Unknown codec: ' + chunk.codec));
   }
+};
 
+Encoder.prototype._buildVoicePacket = function(codecId, chunk, voiceData) {
   // Header byte + Source Session Id + Sequence Number + Voice + Position Data
-  buffer = Buffer.alloc(1 + 9 + 9 + voiceData.length + 3 * 4);
+  const buffer = Buffer.alloc(1 + 9 + 9 + voiceData.length + 3 * 4);
+  let offset = 0;
+  
   offset += buffer.writeUInt8(codecId << 5 | chunk.mode, offset);
+  
   if (this._dest == 'client') {
-    // Only server needs to send the source as the client is not allowed
-    // to send voice for anyone besides itself
     offset += toVarint(chunk.source).value.copy(buffer, offset);
   }
+  
   offset += toVarint(chunk.seqNum).value.copy(buffer, offset);
   offset += voiceData.copy(buffer, offset);
+  
   if (chunk.position) {
     offset += buffer.writeFloatBE(chunk.position.x, offset);
     offset += buffer.writeFloatBE(chunk.position.y, offset);
     offset += buffer.writeFloatBE(chunk.position.z, offset);
   }
-  // Trim buffer to actual length and pass through
-  callback(null, buffer.slice(0, offset));
+  
+  return buffer.slice(0, offset);
+};
+
+Encoder.prototype._transform = function(chunk, encoding, callback) {
+  // Special case: Ping packets
+  if (chunk.timestamp !== undefined) {
+    return callback(null, this._encodePingPacket(chunk));
+  }
+
+  const result = this._encodeVoiceData(chunk, callback);
+  if (!result) return; // Error already sent via callback
+  
+  const { codecId, voiceData } = result;
+  const buffer = this._buildVoicePacket(codecId, chunk, voiceData);
+  
+  callback(null, buffer);
 };
 
 /**
@@ -162,106 +192,151 @@ function Decoder(orig) {
 } 
 util.inherits(Decoder, Transform);
 
+Decoder.prototype._parsePingPacket = function(chunk) {
+  const val = fromVarint(chunk.slice(1));
+  if (!val) return { error: 'invalid timestamp' };
+  return { packet: { timestamp: val.value } };
+};
+
+Decoder.prototype._parseOpusFrames = function(chunk, offset) {
+  const voiceLength = fromVarint(chunk.slice(offset));
+  if (!voiceLength) return { error: 'invalid voice length' };
+  
+  const end = (voiceLength.value & 0x2000) > 0;
+  voiceLength.value &= 0x1fff;
+  offset += voiceLength.length;
+  
+  if (chunk.length < offset + voiceLength.value) {
+    return { error: 'not enough voice data' };
+  }
+  
+  const voice = chunk.slice(offset, offset + voiceLength.value);
+  offset += voiceLength.value;
+  
+  return {
+    frames: voice.length ? [voice] : [],
+    end: end,
+    codec: 'Opus',
+    offset: offset
+  };
+};
+
+Decoder.prototype._parseCeltSpeexFrames = function(chunk, offset, codecId) {
+  const codecMap = ['CELT_Alpha', '', 'Speex', 'CELT_Beta'];
+  const frames = [];
+  let end = false;
+  
+  while (true) {
+    if (chunk.length < offset + 1) return { error: 'missing frame header' };
+    const header = chunk[offset++];
+    
+    if (header === 0) {
+      end = true;
+      break;
+    }
+    
+    const more = (header & 0x80) > 0;
+    const frameLength = header & 0x7F;
+    
+    if (chunk.length < offset + frameLength) {
+      return { error: 'not enough voice data' };
+    }
+    
+    frames.push(chunk.slice(offset, offset + frameLength));
+    offset += frameLength;
+    
+    if (!more) {
+      end = false;
+      break;
+    }
+  }
+  
+  return {
+    frames: frames,
+    end: end,
+    codec: codecMap[codecId],
+    offset: offset
+  };
+};
+
+Decoder.prototype._parsePositionalData = function(chunk, offset) {
+  if (chunk.length > offset + 12) {
+    return {
+      x: chunk.readFloatBE(offset),
+      y: chunk.readFloatBE(offset + 4),
+      z: chunk.readFloatBE(offset + 8)
+    };
+  }
+  return null;
+};
+
+Decoder.prototype._parseVoicePacket = function(chunk) {
+  const packet = {};
+  const codecId = chunk[0] >> 5;
+  const target = chunk[0] & 0x1f;
+  packet.target = ['normal', 'shout', 'whisper'][target] || 'loopback';
+  
+  let offset = 1;
+  
+  // Parse source if from server
+  if (this._orig === 'server') {
+    const source = fromVarint(chunk.slice(offset));
+    if (!source) return { error: 'invalid source' };
+    offset += source.length;
+    packet.source = source.value;
+  }
+  
+  // Parse sequence number
+  const sequenceNumber = fromVarint(chunk.slice(offset));
+  if (!sequenceNumber) return { error: 'invalid sequence number' };
+  offset += sequenceNumber.length;
+  packet.seqNum = sequenceNumber.value;
+  
+  // Parse voice frames by codec
+  let voiceResult;
+  if (codecId === 4) {
+    voiceResult = this._parseOpusFrames(chunk, offset);
+  } else if (codecId === 0 || codecId === 2 || codecId === 3) {
+    voiceResult = this._parseCeltSpeexFrames(chunk, offset, codecId);
+  } else {
+    this.emit('unknown_codec', codecId);
+    return { error: 'unknown codec ' + codecId };
+  }
+  
+  if (voiceResult.error) return voiceResult;
+  
+  packet.frames = voiceResult.frames;
+  packet.end = voiceResult.end;
+  packet.codec = voiceResult.codec;
+  offset = voiceResult.offset;
+  
+  // Parse positional data
+  const position = this._parsePositionalData(chunk, offset);
+  if (position) packet.position = position;
+  
+  return { packet: packet };
+};
+
 Decoder.prototype._transform = function(chunk, encoding, callback) {
   const reject = (reason) => {
     this.emit('debug', 'Failed to parse voice packet', reason, chunk);
     callback();
   };
 
-  const packet = {};
   try {
-    if (chunk.length == 0) return reject('empty');
+    if (chunk.length === 0) return reject('empty');
+    
     const codecId = chunk[0] >> 5;
-    if (codecId == 1) { // Ping packet
-      const val = fromVarint(chunk.slice(1));
-      if (!val) return reject('invalid timestamp');
-      packet.timestamp = val.value;
-    } else { // Voice packet
-      const target = chunk[0] & 0x1f
-      packet.target = ['normal', 'shout', 'whisper'][target] || 'loopback';
-      let offset = 1;
-
-      // Parse source if this packet originated from the server
-      if (this._orig == 'server') {
-        const source = fromVarint(chunk.slice(offset));
-        if (!source) return reject('invalid source');
-        offset += source.length;
-        packet.source = source.value;
-      }
-
-      // Parse the sequence number of the first audio packet
-      const sequenceNumber = fromVarint(chunk.slice(offset));
-      if (!sequenceNumber) return reject('invalid sequence number');
-      offset += sequenceNumber.length;
-      packet.seqNum = sequenceNumber.value;
-
-      // Parse the voice frames depending on the audio codec
-      if (codecId == 4) {
-        const voiceLength = fromVarint(chunk.slice(offset));
-        if (!voiceLength) return reject('invalid voice length');
-        packet.end = (voiceLength.value & 0x2000) > 0;
-        voiceLength.value &= 0x1fff;
-        offset += voiceLength.length;
-        if (chunk.length < offset + voiceLength.value) {
-          return reject('not enough voice data')
-        }
-        const voice = chunk.slice(offset, offset + voiceLength.value);
-        offset += voiceLength.value;
-        packet.frames = voice.length ? [voice] : [];
-        packet.codec = 'Opus';
-      } else if (codecId == 0 || codecId == 2 || codecId == 3) {
-        packet.codec = ['CELT_Alpha', '', 'Speex', 'CELT_Beta'][codecId];
-        packet.frames = [];
-        while (true) {
-          if (chunk.length < offset + 1) return reject('missing frame header');
-          const header = chunk[offset++];
-          if (header == 0) {
-            packet.end = true;
-            break;
-          }
-          const more = (header & 0x80) > 0;
-          const frameLength = header & 0x7F;
-
-          if (chunk.length < offset + frameLength) {
-            return reject('not enough voice data');
-          }
-          packet.frames.push(chunk.slice(offset, offset + frameLength));
-          offset += frameLength;
-
-          if (!more) {
-            packet.end = false;
-            break;
-          }
-        }
-      } else {
-        this.emit('unknown_codec', codecId)
-        return reject('unknown codec ' + codecId)
-      }
-
-      // Parse positional data if existent
-      if (chunk.length > offset + 12) {
-        packet.position = {
-          x: chunk.readFloatBE(offset),
-          y: chunk.readFloatBE(offset + 4),
-          z: chunk.readFloatBE(offset + 8)
-        };
-      }
-    }
+    const result = (codecId === 1) 
+      ? this._parsePingPacket(chunk)
+      : this._parseVoicePacket(chunk);
+    
+    if (result.error) return reject(result.error);
+    
+    callback(null, result.packet);
   } catch (e) {
-    return callback(e);
+    reject(e.message);
   }
-  // DEBUG: Log only when MUMBLE_DEBUG_AUDIO flag is set (via ?debug-audio URL parameter)
-  // This prevents performance impact from logging every voice packet in production
-  if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-    console.log('[MUMBLE-STREAMS-DEBUG] Voice packet parsed successfully - source:', packet.source, 'target:', packet.target, 'codec:', packet.codec, 'frames:', packet.frames?.length, 'seqNum:', packet.seqNum);
-  }
-  return callback(null, packet);
-};
-
-export { Encoder, Decoder };
-export default {
-  Encoder,
-  Decoder
 };
 
 // Functions below from node-mumble
@@ -275,32 +350,30 @@ export default {
  * @param {number} i - Integer to convert
  * @returns {Buffer} Varint encoded number
  */
-function toVarint( i ) {
-
+function toVarint(i) {
     const arr = [];
-    if( i < 0 ) {
+    if (i < 0) {
         i = ~i;
-        if( i <= 0x3 ) { return Buffer.from( [ 0xFC | i ] ); }
-
-        arr.push( 0xF8 );
+        if (i <= 0x3) { return { value: Buffer.from([0xFC | i]), length: 1 }; }
+        arr.push(0xF8);
     }
 
-    if( i < 0x80 ) {
-        arr.push( i );
-    } else if( i < 0x4000 ) {
-        arr.push( ( i >> 8 ) | 0x80, i & 0xFF );
-    } else if( i < 0x200000 ) {
-        arr.push( ( i >> 16 ) | 0xC0, ( i >> 8 ) & 0xFF, i & 0xFF );
-    } else if( i < 0x10000000 ) {
-        arr.push( ( i >> 24 ) | 0xE0, ( i >> 16 ) & 0xFF, ( i >> 8 ) & 0xFF, i & 0xFF );
-    } else if( i < 0x100000000 ) {
-        arr.push( 0xF0, ( i >> 24 ) & 0xFF, ( i >> 16 ) & 0xFF, ( i >> 8 ) & 0xFF, i & 0xFF );
+    if (i < 0x80) {
+        arr.push(i);
+    } else if (i < 0x4000) {
+        arr.push((i >> 8) | 0x80, i & 0xFF);
+    } else if (i < 0x200000) {
+        arr.push((i >> 16) | 0xC0, (i >> 8) & 0xFF, i & 0xFF);
+    } else if (i < 0x10000000) {
+        arr.push((i >> 24) | 0xE0, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF);
+    } else if (i < 0x100000000) {
+        arr.push(0xF0, (i >> 24) & 0xFF, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF);
     } else {
-        throw new TypeError( 'Non-integer values are not supported. (' + i + ')' );
+        throw new TypeError('Non-integer values are not supported. (' + i + ')');
     }
 
-  return {
-        value: Buffer.from( arr ),
+    return {
+        value: Buffer.from(arr),
         length: arr.length
     };
 }
@@ -313,23 +386,23 @@ function toVarint( i ) {
  * @param {Buffer} b - Varint to convert
  * @returns {number} Decoded integer
  */
-function fromVarint( b ) {
+function fromVarint(b) {
     if (b.length == 0) return null;
     let length = 1;
-    let i, v = b[ 0 ];
-    if( ( v & 0x80 ) === 0x00 ) {
-        i = ( v & 0x7F );
-    } else if( ( v & 0xC0 ) === 0x80 ) {
-        i = ( v & 0x3F ) << 8 | b[ 1 ];
+    let i, v = b[0];
+    if ((v & 0x80) === 0x00) {
+        i = (v & 0x7F);
+    } else if ((v & 0xC0) === 0x80) {
+        i = (v & 0x3F) << 8 | b[1];
         length = 2;
-    } else if( ( v & 0xF0 ) === 0xF0 ) {
-        switch( v & 0xFC ) {
+    } else if ((v & 0xF0) === 0xF0) {
+        switch (v & 0xFC) {
         case 0xF0:
-            i = b[ 1 ] << 24 | b[ 2 ] << 16 | b[ 3 ] << 8 | b[ 4 ];
+            i = b[1] << 24 | b[2] << 16 | b[3] << 8 | b[4];
             length = 5;
             break;
         case 0xF8: {
-            const ret = fromVarint( b.slice( 1 ) );
+            const ret = fromVarint(b.slice(1));
             if (!ret) return ret;
             return {
                 value: ~ret.value,
@@ -343,11 +416,11 @@ function fromVarint( b ) {
         default:
             return null
         }
-    } else if( ( v & 0xF0 ) === 0xE0 ) {
-        i = ( v & 0x0F ) << 24 | b[ 1 ] << 16 | b[ 2 ] << 8 | b[ 3 ];
+    } else if ((v & 0xF0) === 0xE0) {
+        i = (v & 0x0F) << 24 | b[1] << 16 | b[2] << 8 | b[3];
         length = 4;
-    } else if( ( v & 0xE0 ) === 0xC0 ) {
-        i = ( v & 0x1F ) << 16 | b[ 1 ] << 8 | b[ 2 ];
+    } else if ((v & 0xE0) === 0xC0) {
+        i = (v & 0x1F) << 16 | b[1] << 8 | b[2];
         length = 3;
     }
 
@@ -356,3 +429,9 @@ function fromVarint( b ) {
         length: length
     };
 }
+
+export { Encoder, Decoder };
+export default {
+  Encoder,
+  Decoder
+};
