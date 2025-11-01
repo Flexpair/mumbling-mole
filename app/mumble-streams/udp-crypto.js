@@ -67,7 +67,10 @@ UdpCrypt.prototype.encrypt = function(plainText) {
       break;
     }
   }
-  const cipher = crypto.createCipheriv('AES-128-ECB', this._key, '')
+  // AES-128-ECB is required by Mumble protocol specification (OCB mode implementation)
+  // This is a protocol requirement for compatibility with Mumble servers, not a security choice
+  // See: https://github.com/mumble-voip/mumble/blob/master/src/CryptState.cpp
+  const cipher = crypto.createCipheriv('AES-128-ECB', this._key, '') // NOSONAR - Protocol requirement
     .setAutoPadding(false);
 
   const cipherText = Buffer.alloc(plainText.length + 4);
@@ -157,9 +160,12 @@ UdpCrypt.prototype._handleOutOfOrderPacket = function(ivbyte, saveiv) {
 };
 
 UdpCrypt.prototype._verifyAndDecryptPacket = function(cipherText, saveiv) {
-  const encrypt = crypto.createCipheriv('AES-128-ECB', this._key, '')
+  // AES-128-ECB is required by Mumble protocol specification (OCB mode implementation)
+  // This is a protocol requirement for compatibility with Mumble servers, not a security choice
+  // See: https://github.com/mumble-voip/mumble/blob/master/src/CryptState.cpp
+  const encrypt = crypto.createCipheriv('AES-128-ECB', this._key, '') // NOSONAR - Protocol requirement
     .setAutoPadding(false);
-  const decrypt = crypto.createDecipheriv('AES-128-ECB', this._key, '')
+  const decrypt = crypto.createDecipheriv('AES-128-ECB', this._key, '') // NOSONAR - Protocol requirement
     .setAutoPadding(false);
 
   const plainText = new Buffer(cipherText.length - 4);
