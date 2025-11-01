@@ -75,6 +75,12 @@
         </div>
         <form data-bind="submit: connect">
           <table>
+            <thead>
+              <tr>
+                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Field</th>
+                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Value</th>
+              </tr>
+            </thead>
             <tbody>
             <tr data-bind="if: $root.config.connectDialog.username">
               <th scope="row">
@@ -172,6 +178,13 @@
         <div class="dialog-header">Failed to connect</div>
         <form data-bind="submit: connect">
           <table>
+            <thead>
+              <tr>
+                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Field</th>
+                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
             <tr class="reason">
               <td colspan="2">
                 <!-- ko if: type() == 0 || type() == 8 -->
@@ -362,6 +375,13 @@
         </div>
         <form data-bind="submit: $root.applySettings">
           <table>
+            <thead>
+              <tr>
+                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Setting</th>
+                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Control</th>
+              </tr>
+            </thead>
+            <tbody>
             <tr>
               <td id="settings-dialog_transmission">Transmission</td>
               <td>
