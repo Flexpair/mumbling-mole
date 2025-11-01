@@ -1,6 +1,6 @@
 import mumbleStreams from '../mumble-streams/index.js'
 import duplexer from 'reduplexer'
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import through2 from 'through2'
 import Promise from 'promise'
 import DropStream from 'drop-stream'
@@ -287,7 +287,7 @@ class MumbleClient extends EventEmitter {
       chunk.bitrate = this.getActualBitrate(samples, chunk.position != null)
       callback(null, chunk)
     })
-    const codec = 'Opus' // TODO
+    const codec = 'Opus'
     let seqNum = 0
     voiceStream
       .pipe(this._codecs.createEncoderStream(codec))
@@ -320,17 +320,17 @@ class MumbleClient extends EventEmitter {
    * Forwards the packet to the source user.
    */
   _onVoice (chunk) {
-    if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
       console.log('[MUMBLE-CLIENT-DEBUG] _onVoice called - source:', chunk.source, 'target:', chunk.target, 'codec:', chunk.codec, 'frames:', chunk.frames?.length);
     }
     const user = this._userById[chunk.source]
     if (!user) {
-      if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+      if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
         console.warn('[MUMBLE-CLIENT-DEBUG] WARNING: User not found for source ID:', chunk.source, 'Available users:', Object.keys(this._userById));
       }
       return;
     }
-    if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
       console.log('[MUMBLE-CLIENT-DEBUG] Found user:', user.name, 'Forwarding voice data');
     }
     user._onVoice(
@@ -360,7 +360,7 @@ class MumbleClient extends EventEmitter {
 
   _onUDPTunnel (payload) {
     // Forward tunneled udp packets to the voice pipeline
-    if (typeof window !== 'undefined' && window.MUMBLE_DEBUG_AUDIO) {
+    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
       console.log('[MUMBLE-CLIENT-DEBUG] UDPTunnel packet received, length:', payload.length);
     }
     this._voiceDecoder.write(payload)
@@ -399,7 +399,7 @@ class MumbleClient extends EventEmitter {
       }
       const dataStats = this._dataStats.getAll()
       const voiceStats = this._voiceStats.getAll()
-      const timestamp = new Date().getTime()
+      const timestamp = Date.now()
       const payload = {
         timestamp: timestamp
       }
@@ -431,7 +431,7 @@ class MumbleClient extends EventEmitter {
     }
     this._inFlightDataPings--
 
-    const now = new Date().getTime()
+    const now = Date.now()
     // Handle both Long objects and plain numbers
     const timestamp = payload.timestamp?.toNumber ? payload.timestamp.toNumber() : payload.timestamp
     const duration = now - timestamp
@@ -546,7 +546,7 @@ class MumbleClient extends EventEmitter {
     } else if (payload.type === DenyType.NestingLimit) {
       this.emit('denied', 'NestingLimit', null, null, null)
     } else {
-      throw Error('Invalid DenyType: ' + payload.type)
+      throw new Error('Invalid DenyType: ' + payload.type)
     }
   }
 
@@ -569,14 +569,14 @@ class MumbleClient extends EventEmitter {
       this.channels.push(channel)
       this.emit('newChannel', channel)
     }
-    ;(payload.links_remove || []).forEach(otherId => {
+    for (const otherId of (payload.links_remove || [])) {
       const otherChannel = this._channelById[otherId]
       if (otherChannel && otherChannel.links.indexOf(channel) !== -1) {
         otherChannel._update({
           links_remove: [payload.channel_id]
         })
       }
-    })
+    }
     channel._update(payload)
   }
 

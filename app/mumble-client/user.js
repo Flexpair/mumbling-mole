@@ -153,9 +153,9 @@ class User extends EventEmitter {
   _getDuration (codec, frames) {
     if (this._client._codecs) {
       let duration = 0
-      frames.forEach(frame => {
+      for (const frame of frames) {
         duration += this._client._codecs.getDuration(codec, frame)
-      })
+      }
       return duration
     } else {
       return frames.length * 10
@@ -255,9 +255,9 @@ class User extends EventEmitter {
       }
 
       // Write all frames to the stream
-      frames.forEach(frame => {
+      for (const frame of frames) {
         this._writeFrame(frame, codec, target, position)
-      })
+      }
 
       this._voiceTimeout.set()
       this._lastVoiceSeqId = seqNum + duration / 10 - 1
