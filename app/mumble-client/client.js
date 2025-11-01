@@ -370,7 +370,7 @@ class MumbleClient extends EventEmitter {
     this.serverVersion = {
       major: payload.version >> 16,
       minor: (payload.version >> 8) & 0xff,
-      patch: (payload.version >> 0) & 0xff,
+      patch: Math.trunc(payload.version) & 0xff,
       release: payload.release,
       os: payload.os,
       osVersion: payload.os_version || payload.osVersion

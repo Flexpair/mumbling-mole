@@ -102,54 +102,77 @@ UdpCrypt.prototype._handleIVUpdate = function(ivbyte) {
   return false;
 };
 
-UdpCrypt.prototype._handleOutOfOrderPacket = function(ivbyte, saveiv) {
+UdpCrypt.prototype._calculateDiff = function(ivbyte) {
   let diff = ivbyte - this._decryptIV[0];
   if (diff > 128) {
     diff = diff - 256;
   } else if (diff < -128) {
     diff = diff + 256;
   }
+  return diff;
+};
 
-  const result = { restore: false, lost: 0, late: 0, success: false };
-
-  if ((ivbyte < this._decryptIV[0]) && (diff > -30) && (diff < 0)) {
-    // Late packet, but no wraparound
-    result.late = 1;
-    result.lost = -1;
-    this._decryptIV[0] = ivbyte;
-    result.restore = true;
-    result.success = true;
-  } else if ((ivbyte > this._decryptIV[0]) && (diff > -30) && (diff < 0)) {
-    // Late packet with wraparound
-    result.late = 1;
-    result.lost = -1;
-    this._decryptIV[0] = ivbyte;
-    for (let i = 0; i < BLOCK_SIZE; i++) {
-      if (this._decryptIV[i]-- == -1) {
-        this._decryptIV[i] = 255;
-      } else {
-        break;
-      }
+UdpCrypt.prototype._decrementIV = function() {
+  for (let i = 0; i < BLOCK_SIZE; i++) {
+    if (this._decryptIV[i]-- == -1) {
+      this._decryptIV[i] = 255;
+    } else {
+      break;
     }
-    result.restore = true;
-    result.success = true;
-  } else if ((ivbyte > this._decryptIV[0]) && (diff > 0)) {
-    // Lost packets, no wraparound
-    result.lost = ivbyte - this._decryptIV[0] - 1;
-    this._decryptIV[0] = ivbyte;
-    result.success = true;
-  } else if ((ivbyte < this._decryptIV[0]) && (diff > 0)) {
-    // Lost packets with wraparound
+  }
+};
+
+UdpCrypt.prototype._incrementIV = function() {
+  for (let i = 0; i < BLOCK_SIZE; i++) {
+    if (++this._decryptIV[i] == 256) {
+      this._decryptIV[i] = 0;
+    } else {
+      break;
+    }
+  }
+};
+
+UdpCrypt.prototype._handleLatePacket = function(ivbyte, withWraparound) {
+  const result = { restore: true, lost: -1, late: 1, success: true };
+  this._decryptIV[0] = ivbyte;
+  if (withWraparound) {
+    this._decrementIV();
+  }
+  return result;
+};
+
+UdpCrypt.prototype._handleLostPackets = function(ivbyte, withWraparound) {
+  const result = { restore: false, lost: 0, late: 0, success: true };
+  
+  if (withWraparound) {
     result.lost = 256 - this._decryptIV[0] + ivbyte - 1;
-    this._decryptIV[0] = ivbyte;
-    for (let i = 0; i < BLOCK_SIZE; i++) {
-      if (++this._decryptIV[i] == 256) {
-        this._decryptIV[i] = 0;
-      } else {
-        break;
-      }
-    }
-    result.success = true;
+  } else {
+    result.lost = ivbyte - this._decryptIV[0] - 1;
+  }
+  
+  this._decryptIV[0] = ivbyte;
+  if (withWraparound) {
+    this._incrementIV();
+  }
+  
+  return result;
+};
+
+UdpCrypt.prototype._handleOutOfOrderPacket = function(ivbyte, saveiv) {
+  const diff = this._calculateDiff(ivbyte);
+  const isLatePacket = diff > -30 && diff < 0;
+  
+  if (!isLatePacket && diff <= 0) {
+    return { restore: false, lost: 0, late: 0, success: false };
+  }
+
+  let result;
+  if (isLatePacket) {
+    const withWraparound = ivbyte > this._decryptIV[0];
+    result = this._handleLatePacket(ivbyte, withWraparound);
+  } else {
+    const withWraparound = ivbyte < this._decryptIV[0];
+    result = this._handleLostPackets(ivbyte, withWraparound);
   }
 
   if (result.success && this._decryptHistory[this._decryptIV[0]] == this._decryptIV[1]) {
