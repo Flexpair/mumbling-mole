@@ -43,11 +43,6 @@ export default class AudioState {
   _persistentBeeper = null;
   _beeperInitPromise = null; // Track pending beeper initialization
 
-  constructor() {
-    // Initialize audio context
-    this.initializeAudioContext();
-  }
-
   /**
    * Initialize managed AudioContext with autoplay policy handling
    * RACE-SAFE: Multiple concurrent calls will reuse the same initialization
@@ -106,7 +101,7 @@ export default class AudioState {
    * Resume AudioContext if suspended
    */
   async resumeAudioContext() {
-    if (this.audioContext && this.audioContext.state === "suspended") {
+    if (this.audioContext?.state === "suspended") {
       await this.audioContext.resume();
     } else if (!this.audioContext) {
       await this.initializeAudioContext();

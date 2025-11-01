@@ -127,20 +127,20 @@ describe('AudioState', () => {
       expect(ko.isObservable(audioState.beeperReady)).toBe(true);
     });
 
-    test('starts AudioContext initialization', async () => {
+    test('does not auto-initialize AudioContext on construction', () => {
       audioState = new AudioState();
       
-      // Wait for async initialization
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      expect(mockEnsureAudioContext).toHaveBeenCalled();
+      // Constructor should not trigger initialization
+      expect(mockEnsureAudioContext).not.toHaveBeenCalled();
+      expect(audioState.audioContext).toBeNull();
     });
 
-    test('sets up audio context manager event handlers', async () => {
+    test('initializes AudioContext when explicitly called', async () => {
       audioState = new AudioState();
       
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await audioState.initializeAudioContext();
       
+      expect(mockEnsureAudioContext).toHaveBeenCalled();
       expect(mockAudioContextManager.onSuspend).toHaveBeenCalled();
       expect(mockAudioContextManager.onResume).toHaveBeenCalled();
     });

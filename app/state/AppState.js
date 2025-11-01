@@ -50,6 +50,11 @@ export default class AppState {
     
     // Set up subscriptions
     this._setupSubscriptions();
+
+    // Initialize audio context asynchronously after construction
+    this.audio.initializeAudioContext().catch(err => {
+      console.error('Failed to initialize AudioContext during AppState setup:', err);
+    });
   }
 
   /**
