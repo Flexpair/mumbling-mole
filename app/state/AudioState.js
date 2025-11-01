@@ -20,33 +20,28 @@ function debugLog(tag, ...args) {
  * - Beeper/tone generator for latency testing
  */
 export default class AudioState {
-  constructor() {
-    // Audio context
-    this.audioContext = null;
-    this._audioContextInitPromise = null; // Track pending initialization
-    this._audioWorkletModulesLoaded = new Set(); // Track loaded AudioWorklet modules
-    
-    // Audio lock state
-    this.audioLockActive = ko.observable(false);
-    this.audioLockReason = ko.observable(null);
-    this.audioLockDetails = ko.observable(null);
-    
-    // Microphone permission state
-    this.micPermissionDenied = ko.observable(false);
-    this.micPermissionErrorMessage = ko.observable("");
-    this.micPermissionRetryCount = 0;
-    this.maxMicPermissionRetryCount = 3;
-    this.micPermissionRetryDelayMs = 1000;
-    
-    // Beeper state
-    this.isBeeping = ko.observable(false);
-    this.beeperReady = ko.observable(false);
-    this._persistentBeeper = null;
-    this._beeperInitPromise = null; // Track pending beeper initialization
-    
-    // Initialize audio context
-    this.initializeAudioContext();
-  }
+  // Audio context
+  audioContext = null;
+  _audioContextInitPromise = null; // Track pending initialization
+  _audioWorkletModulesLoaded = new Set(); // Track loaded AudioWorklet modules
+  
+  // Audio lock state
+  audioLockActive = ko.observable(false);
+  audioLockReason = ko.observable(null);
+  audioLockDetails = ko.observable(null);
+  
+  // Microphone permission state
+  micPermissionDenied = ko.observable(false);
+  micPermissionErrorMessage = ko.observable("");
+  micPermissionRetryCount = 0;
+  maxMicPermissionRetryCount = 3;
+  micPermissionRetryDelayMs = 1000;
+  
+  // Beeper state
+  isBeeping = ko.observable(false);
+  beeperReady = ko.observable(false);
+  _persistentBeeper = null;
+  _beeperInitPromise = null; // Track pending beeper initialization
 
   /**
    * Initialize managed AudioContext with autoplay policy handling
@@ -85,7 +80,7 @@ export default class AudioState {
         
         // Fallback: Try legacy AudioContext creation
         try {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
           if (!AudioContextClass) {
             throw new Error("AudioContext is not supported in this browser");
           }
@@ -106,7 +101,7 @@ export default class AudioState {
    * Resume AudioContext if suspended
    */
   async resumeAudioContext() {
-    if (this.audioContext && this.audioContext.state === "suspended") {
+    if (this.audioContext?.state === "suspended") {
       await this.audioContext.resume();
     } else if (!this.audioContext) {
       await this.initializeAudioContext();
@@ -166,7 +161,7 @@ export default class AudioState {
    * Attempt to get microphone permission
    */
   attemptMicrophonePermission() {
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       return;
     }
 
@@ -176,7 +171,9 @@ export default class AudioState {
         this.micPermissionRetryCount = 0;
         this.micPermissionDenied(false);
         this.micPermissionErrorMessage("");
-        stream.getTracks().forEach((track) => track.stop());
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
       })
       .catch((err) => {
         console.error("Microphone permission denied on retry:", err);
@@ -243,7 +240,7 @@ export default class AudioState {
         return;
       }
       
-      const ac = await window.audioContextManager.getAudioContext();
+      const ac = await globalThis.audioContextManager.getAudioContext();
       if (!ac) {
         debugLog('[BEEP]', 'AudioContext not available');
         this.beeperReady(false);
@@ -355,7 +352,7 @@ export default class AudioState {
   stopBeep() {
     debugLog('[BEEP]', 'Stop beep requested');
     
-    if (!this._persistentBeeper || !this._persistentBeeper.isPlaying) {
+    if (!this._persistentBeeper?.isPlaying) {
       debugLog('[BEEP]', 'Beeper not playing, ignoring stop');
       return;
     }
@@ -366,7 +363,7 @@ export default class AudioState {
       const currentTime = ac.currentTime;
       
       const initialDeclineTime = 0.3;
-      const mainDecayTime = 1.0;
+      const mainDecayTime = 1;
       const totalFadeTime = initialDeclineTime + mainDecayTime;
       
       beeper.gain.gain.cancelScheduledValues(currentTime);

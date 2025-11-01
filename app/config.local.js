@@ -2,13 +2,13 @@
 // There should never be any required changes to this file and you can always
 // simply copy it over when updating to a new version.
 
-let config = window.mumbleWebConfig;
+let config = globalThis.mumbleWebConfig;
 
 config.settings.audioBitrate = 96000;
 
 // Use mock auth ONLY when explicitly requested via ?mock-auth URL parameter
 // Default: Always use Netlify Identity (production behavior)
-const useMockAuth = window.location.search.includes('mock-auth');
+const useMockAuth = globalThis.location.search.includes('mock-auth');
 
 if (useMockAuth) {
   config.auth.provider = 'mock';

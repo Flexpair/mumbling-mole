@@ -32,10 +32,9 @@ class AuthFactory {
     // Load config from global config if not provided
     let authConfig = config;
     if (!authConfig) {
-      // Try to read config from global window object
-      if (typeof window !== 'undefined' && window.mumbleWebConfig && window.mumbleWebConfig.auth) {
-        authConfig = window.mumbleWebConfig.auth;
-      } else {
+      // Try to read config from global object
+      authConfig = globalThis.mumbleWebConfig?.auth;
+      if (!authConfig) {
         console.warn('Could not find global auth config, using default (netlify)');
         authConfig = { provider: 'netlify' };
       }

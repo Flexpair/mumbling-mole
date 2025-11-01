@@ -1,7 +1,7 @@
-import MumbleClient from "mumble-client";
+import MumbleClient from "./mumble-client/index.js";
 import Promise from "promise";
-import EventEmitter from "events";
-import { Writable, PassThrough } from "stream";
+import EventEmitter from "node:events";
+import { Writable, PassThrough } from "node:stream";
 import toArrayBuffer from "to-arraybuffer";
 // Import the compiled worker bundle. Rename to avoid confusing the global Worker constructor.
 // Native Worker constructor syntax (esbuild compatible)
@@ -24,10 +24,6 @@ class WorkerBasedMumbleConnector {
   constructor() {
   // WORKER-CREATION: Create the underlying worker (single strategy, subworkers removed for simplicity)
   try {
-    const globalWorker = typeof Worker !== 'undefined' ? Worker : undefined;
-    if (!globalWorker) {
-      console.warn('[worker] global Worker constructor missing in this environment');
-    }
     this._worker = createWorker();
   } catch (e) {
     console.error('[worker] constructor-level failure creating worker', e);
@@ -76,9 +72,8 @@ class WorkerBasedMumbleConnector {
   }
 
   _addCall(proxy, name, id) {
-    let self = this;
-    proxy[name] = function () {
-      self._call(id, name, Array.from(arguments));
+    proxy[name] = (...args) => {
+      this._call(id, name, args);
     };
   }
 
@@ -101,51 +96,61 @@ class WorkerBasedMumbleConnector {
   _onMessage(ev) {
     let data = ev.data;
     
-    // RPC-RESPONSE: Handle method call responses
-    if (data.reqId != null) {
-      let { reqId, result, error } = data;
-      let [resolve, reject] = this._requests[reqId];
-      delete this._requests[reqId];
-      if (result) {
-        resolve(result);
-      } else {
-        reject(error);
-      }
-    } 
-    // EVENT-DISPATCH: Handle property updates and events from worker
-    else if (data.clientId != null) {
-      let client = this._client(data.clientId);
+    if (data.reqId !== null && data.reqId !== undefined) {
+      this._handleRpcResponse(data);
+    } else if (data.clientId !== null && data.clientId !== undefined) {
+      this._handleEventDispatch(data);
+    } else if (data.voiceId !== null && data.voiceId !== undefined) {
+      this._handleVoiceData(data);
+    }
+  }
 
-      // TARGET-RESOLUTION: Determine which object (client/channel/user) to update
-      let target;
-      if (data.userId != null) {
-        target = client._user(data.userId);
-      } else if (data.channelId != null) {
-        target = client._channel(data.channelId);
-      } else {
-        target = client;
-      }
+  // RPC-RESPONSE: Handle method call responses
+  _handleRpcResponse(data) {
+    let { reqId, result, error } = data;
+    let [resolve, reject] = this._requests[reqId];
+    delete this._requests[reqId];
+    if (result) {
+      resolve(result);
+    } else {
+      reject(error);
+    }
+  }
 
-      // DISPATCH: Send event or property update to target object
-      if (data.event) {
-        target._dispatchEvent(data.event, data.value);
-      } else if (data.prop) {
-        target._setProp(data.prop, data.value);
-      }
-    } 
-    // VOICE-DATA: Handle incoming voice audio data
-    else if (data.voiceId != null) {
-      let stream = this._voiceStreams[data.voiceId];
-      let buffer = data.buffer;
-      if (buffer) {
-        stream.write({
-          target: data.target,
-          buffer: Buffer.from(buffer),
-        });
-      } else {
-        delete this._voiceStreams[data.voiceId];
-        stream.end();
-      }
+  // EVENT-DISPATCH: Handle property updates and events from worker
+  _handleEventDispatch(data) {
+    let client = this._client(data.clientId);
+
+    // TARGET-RESOLUTION: Determine which object (client/channel/user) to update
+    let target;
+    if (data.userId !== null && data.userId !== undefined) {
+      target = client._user(data.userId);
+    } else if (data.channelId !== null && data.channelId !== undefined) {
+      target = client._channel(data.channelId);
+    } else {
+      target = client;
+    }
+
+    // DISPATCH: Send event or property update to target object
+    if (data.event) {
+      target._dispatchEvent(data.event, data.value);
+    } else if (data.prop) {
+      target._setProp(data.prop, data.value);
+    }
+  }
+
+  // VOICE-DATA: Handle incoming voice audio data
+  _handleVoiceData(data) {
+    let stream = this._voiceStreams[data.voiceId];
+    let buffer = data.buffer;
+    if (buffer) {
+      stream.write({
+        target: data.target,
+        buffer: Buffer.from(buffer),
+      });
+    } else {
+      delete this._voiceStreams[data.voiceId];
+      stream.end();
     }
   }
 }
@@ -166,7 +171,7 @@ class WorkerBasedMumbleClient extends EventEmitter {
     connector._addCall(this, "disconnect", id);
     let _disconnect = this.disconnect;
     this.disconnect = () => {
-      _disconnect.apply(this);
+      _disconnect.call(this);
       delete connector._clients[id];
     };
 
@@ -177,7 +182,7 @@ class WorkerBasedMumbleClient extends EventEmitter {
 
       let args = Array.from(arguments);
       args.unshift(voiceId);
-      _createVoiceStream.apply(this, args);
+      _createVoiceStream.call(this, ...args);
 
       return new Writable({
         write(chunk, encoding, callback) {
@@ -200,16 +205,16 @@ class WorkerBasedMumbleClient extends EventEmitter {
     // Dummy client used for bandwidth calculations
     this._dummyClient = new MumbleClient({ username: "dummy" });
     let defineDummyMethod = (name) => {
-      this[name] = function () {
-        return this._dummyClient[name].apply(this._dummyClient, arguments);
+      this[name] = function (...args) {
+        return this._dummyClient[name](...args);
       };
     };
     defineDummyMethod("getMaxBitrate");
     defineDummyMethod("getActualBitrate");
     let _setAudioQuality = this.setAudioQuality;
-    this.setAudioQuality = function () {
-      this._dummyClient.setAudioQuality.apply(this._dummyClient, arguments);
-      _setAudioQuality.apply(this, arguments);
+    this.setAudioQuality = function (...args) {
+      this._dummyClient.setAudioQuality(...args);
+      _setAudioQuality.call(this, ...args);
     };
   }
 
@@ -254,8 +259,7 @@ class WorkerBasedMumbleClient extends EventEmitter {
       args[3] = args[3].map((id) => this._channel(id));
       args[4] = args[4].map((id) => this._channel(id));
     }
-    args.unshift(name);
-    this.emit.apply(this, args);
+    this.emit(name, ...args);
   }
 
   _setProp(name, value) {
@@ -316,9 +320,9 @@ class WorkerBasedMumbleChannel extends EventEmitter {
   _dispatchEvent(name, args) {
     if (name === "update") {
       let [props] = args;
-      Object.entries(props).forEach((entry) => {
-        this._setProp(entry[0], entry[1]);
-      });
+      for (const [key, value] of Object.entries(props)) {
+        this._setProp(key, value);
+      }
       if (props.parent != null) {
         props.parent = this.parent;
       }
@@ -329,8 +333,7 @@ class WorkerBasedMumbleChannel extends EventEmitter {
     } else if (name === "remove") {
       delete this._client._channels[this._id];
     }
-    args.unshift(name);
-    this.emit.apply(this, args);
+    this.emit(name, ...args);
   }
 
   _setProp(name, value) {
@@ -344,9 +347,10 @@ class WorkerBasedMumbleChannel extends EventEmitter {
   }
 
   get parent() {
-    if (this._parentId != null) {
+    if (this._parentId !== null && this._parentId !== undefined) {
       return this._client._channel(this._parentId);
     }
+    return undefined;
   }
 
   get children() {
@@ -375,10 +379,10 @@ class WorkerBasedMumbleUser extends EventEmitter {
   _dispatchEvent(name, args) {
     if (name === "update") {
       let [actor, props] = args;
-      Object.entries(props).forEach((entry) => {
-        this._setProp(entry[0], entry[1]);
-      });
-      if (props.channel != null) {
+      for (const [key, value] of Object.entries(props)) {
+        this._setProp(key, value);
+      }
+      if (props.channel !== null && props.channel !== undefined) {
         props.channel = this.channel;
       }
       args = [this._client._user(actor), props];
@@ -392,8 +396,7 @@ class WorkerBasedMumbleUser extends EventEmitter {
     } else if (name === "remove") {
       delete this._client._users[this._id];
     }
-    args.unshift(name);
-    this.emit.apply(this, args);
+    this.emit(name, ...args);
   }
 
   _setProp(name, value) {

@@ -13,15 +13,15 @@ const AUDIO_CONFIG = {
 };
 
 class AudioContextManager {
+  audioContext = null;
+  isInitialized = false;
+  userInteractionDetected = false;
+  resumeAttempts = 0;
+  onReadyCallbacks = [];
+  onSuspendCallbacks = [];
+  onResumeCallbacks = [];
+
   constructor() {
-    this.audioContext = null;
-    this.isInitialized = false;
-    this.userInteractionDetected = false;
-    this.resumeAttempts = 0;
-    this.onReadyCallbacks = [];
-    this.onSuspendCallbacks = [];
-    this.onResumeCallbacks = [];
-    
     this.setupUserInteractionDetection();
   }
 
@@ -37,21 +37,21 @@ class AudioContextManager {
         
         // AUTO-RESUME: Try to resume suspended AudioContext after first user interaction
         // This handles browsers that auto-suspend AudioContext until user interacts
-        if (this.audioContext && this.audioContext.state === 'suspended') {
+        if (this.audioContext?.state === 'suspended') {
           this.resumeAudioContext();
         }
         
         // CLEANUP: Remove listeners after first interaction (no longer needed)
-        userInteractionEvents.forEach(event => {
+        for (const event of userInteractionEvents) {
           document.removeEventListener(event, handleUserInteraction, { passive: true });
-        });
+        }
       }
     };
 
     // PASSIVE-LISTENERS: Use passive listeners for better scroll performance
-    userInteractionEvents.forEach(event => {
+    for (const event of userInteractionEvents) {
       document.addEventListener(event, handleUserInteraction, { passive: true });
-    });
+    }
   }
 
   /**
@@ -65,7 +65,7 @@ class AudioContextManager {
 
     // RECOVERY: If cached context was closed elsewhere, recreate it
     // This handles edge cases where AudioContext is closed unexpectedly
-    if (this.audioContext && this.audioContext.state === 'closed') {
+    if (this.audioContext?.state === 'closed') {
       console.warn('AudioContext was closed; recreating...');
       await this.createAudioContext(options);
     }
@@ -95,7 +95,7 @@ class AudioContextManager {
 
       // BROWSER-COMPAT: Create AudioContext with cross-browser compatibility
       // Handles browser autoplay policies and initialization
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
       if (!AudioContextClass) {
         throw new Error('AudioContext is not supported in this browser');
       }
@@ -108,13 +108,13 @@ class AudioContextManager {
 
       // CALLBACK-NOTIFICATION: Notify all registered ready callbacks
       // These are used by other components waiting for AudioContext initialization
-      this.onReadyCallbacks.forEach(callback => {
+      for (const callback of this.onReadyCallbacks) {
         try {
           callback(this.audioContext);
         } catch (error) {
           console.error('Error in onReady callback:', error);
         }
-      });
+      }
 
       // EAGER-RESUME: Try to resume immediately if user has already interacted
       // Avoids delay when audio is needed right after context creation
@@ -141,24 +141,24 @@ class AudioContextManager {
         // SUSPEND-CALLBACKS: Notify listeners when AudioContext is suspended
         // This allows components to pause audio-related operations
         if (this.audioContext.state === 'suspended') {
-          this.onSuspendCallbacks.forEach(callback => {
+          for (const callback of this.onSuspendCallbacks) {
             try {
               callback(this.audioContext);
             } catch (error) {
               console.error('Error in onSuspend callback:', error);
             }
-          });
+          }
         } 
         // RESUME-CALLBACKS: Notify listeners when AudioContext is running
         // This allows components to resume audio-related operations
         else if (this.audioContext.state === 'running') {
-          this.onResumeCallbacks.forEach(callback => {
+          for (const callback of this.onResumeCallbacks) {
             try {
               callback(this.audioContext);
             } catch (error) {
               console.error('Error in onResume callback:', error);
             }
-          });
+          }
         } 
         // CLOSED-STATE: Handle AudioContext closure
         // Clear cached reference so future calls create fresh instance
@@ -175,7 +175,7 @@ class AudioContextManager {
   // RESUME-LOGIC: Attempt to resume suspended AudioContext with retry logic
   // Uses exponential backoff to handle transient browser restrictions
   async resumeAudioContext() {
-    if (!this.audioContext || this.audioContext.state !== 'suspended') {
+    if (this.audioContext?.state !== 'suspended') {
       return this.audioContext;
     }
 
@@ -248,14 +248,14 @@ class AudioContextManager {
    * Check if AudioContext is ready for use (created and running)
    */
   isReady() {
-    return this.audioContext && this.audioContext.state === 'running';
+    return this.audioContext?.state === 'running';
   }
 
   /**
    * Check if user interaction has been detected (required for autoplay)
    */
   canPlayAudio() {
-    return this.userInteractionDetected || (this.audioContext && this.audioContext.state === 'running');
+    return this.userInteractionDetected || this.audioContext?.state === 'running';
   }
 
   /**
@@ -338,4 +338,4 @@ export function getAudioStats() {
 }
 
 // Global access for debugging and other modules
-window.audioContextManager = audioContextManager;
+globalThis.audioContextManager = audioContextManager;

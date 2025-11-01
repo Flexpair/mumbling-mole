@@ -3,7 +3,6 @@
     "@babel/plugin-transform-runtime",
     "@babel/runtime",
     "brfs",
-    "netlify-identity-widget",
     "depcheck",
     "sass",
     "jest",

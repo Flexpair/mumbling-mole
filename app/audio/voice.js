@@ -1,8 +1,8 @@
-import { Writable } from "stream";
+import { Writable } from "node:stream";
 import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
 import DropStream from "drop-stream";
-import audioContextManager, { getAudioContext, ensureAudioContext } from "./audio-context-manager";
+import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 
 // VOICE-HANDLER: Base class for voice transmission handling
 // Manages outbound audio streams and routing to different targets (channels, users, or loopback)
@@ -77,14 +77,19 @@ export class ContinuousVoiceHandler extends VoiceHandler {
     if (this._mute) {
       callback();
     } else {
-      // ERROR-HANDLING: Wrap stream write in try-catch to prevent uncaught exceptions
-      // Helps diagnose issues when voice stream fails unexpectedly
+      // ERROR-HANDLING: Catch synchronous errors from stream creation
+      // Note: stream.write() uses callback-based error handling (Node.js streams API)
+      // not promise-based, so await is not applicable here
+      let stream;
       try {
-        this._getOrCreateOutbound().write(data, callback);
+        stream = this._getOrCreateOutbound();
       } catch (err) {
-        console.error("[VOICE-HANDLER] Error in _getOrCreateOutbound:", err);
+        console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
         callback(err);
+        return;
       }
+      
+      stream.write(data, callback);
     }
   }
 }
@@ -107,7 +112,19 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
 
   _write(data, _, callback) {
     if (this._pushed && !this._mute) {
-      this._getOrCreateOutbound().write(data, callback);
+      // ERROR-HANDLING: Catch synchronous errors from stream creation
+      // Note: stream.write() uses callback-based error handling (Node.js streams API)
+      // not promise-based, so await is not applicable here
+      let stream;
+      try {
+        stream = this._getOrCreateOutbound();
+      } catch (err) {
+        console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
+        callback(err);
+        return;
+      }
+      
+      stream.write(data, callback);
     } else {
       callback();
     }
@@ -131,13 +148,11 @@ const selectors = [audioInputSelect];
 function gotDevices(deviceInfos) {
   // Handles being called several times to update labels. Preserve values.
   const values = selectors.map((select) => select.value);
-  selectors.forEach((select) => {
-    while (select.firstChild) {
-      select.removeChild(select.firstChild);
-    }
-  });
-  for (let i = 0; i < deviceInfos.length; ++i) {
-    const deviceInfo = deviceInfos[i];
+  for (const select of selectors) {
+    select.replaceChildren();
+  }
+  for (const element of deviceInfos) {
+    const deviceInfo = element;
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
     if (deviceInfo.kind === "audioinput") {
@@ -146,7 +161,8 @@ function gotDevices(deviceInfos) {
       audioInputSelect.appendChild(option);
     }
   }
-  selectors.forEach((select, selectorIndex) => {
+  for (let selectorIndex = 0; selectorIndex < selectors.length; selectorIndex++) {
+    const select = selectors[selectorIndex];
     if (
       Array.prototype.slice
         .call(select.childNodes)
@@ -154,7 +170,7 @@ function gotDevices(deviceInfos) {
     ) {
       select.value = values[selectorIndex];
     }
-  });
+  }
 }
 
 function handleError(error) {
@@ -200,9 +216,9 @@ export function onAudioMixerReady(callback) {
   }
   
   // If mixer is already available, call immediately
-  if (window._audioMixer) {
+  if (globalThis._audioMixer) {
     try {
-      callback(window._audioMixer);
+      callback(globalThis._audioMixer);
     } catch (err) {
       console.error('[VOICE] Error in mixer ready callback:', err);
     }
@@ -260,7 +276,7 @@ export function initVoice(onData, onUserMediaError) {
 
       // BEEP-MIXER: Create a mixer node to combine microphone + beep signals
       const mixer = ac.createGain();
-      mixer.gain.setValueAtTime(1.0, ac.currentTime);
+      mixer.gain.setValueAtTime(1, ac.currentTime);
 
       // WORKLET-NODE: Create AudioWorklet node for mono audio processing
       // Processes audio in audio thread, not main thread
@@ -294,48 +310,57 @@ export function initVoice(onData, onUserMediaError) {
       currentMixerTimestamp = mixerTimestamp;
       
       // BACKWARD-COMPAT: Also set global for existing code (will be deprecated)
-      window._audioMixer = mixer;
+      globalThis._audioMixer = mixer;
       console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
 
       // CALLBACK-NOTIFICATION: Notify all registered callbacks that mixer is ready
-      audioMixerReadyCallbacks.forEach(callback => {
+      for (const callback of audioMixerReadyCallbacks) {
         try {
           callback(mixer);
         } catch (err) {
           console.error('[VOICE] Error in mixer ready callback:', err);
         }
-      });
+      }
       // Clear callbacks after notification (one-time use)
       audioMixerReadyCallbacks.length = 0;
 
       // optional: aufräumen, wenn das mediastream endet
-      userMedia.getTracks().forEach((t) =>
+      for (const t of userMedia.getTracks()) {
         t.addEventListener("ended", () => {
           // RACE-SAFE: Only clean up if this is still the current mixer instance
           // Prevents newer mixer from being invalidated by older instance cleanup
           if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
+            // Wrap disconnects in individual try-catch to continue cleanup on errors
             try {
               node.disconnect();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error disconnecting AudioWorkletNode:', error_);
+            }
             try {
               mixer.disconnect();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error disconnecting mixer:', error_);
+            }
             try {
               src.disconnect();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error disconnecting source:', error_);
+            }
             
             // Clear global references only if this is still the active instance
             currentMixerInstance = null;
-            window._audioMixer = null;
+            globalThis._audioMixer = null;
             
             // Don't close the shared/global AudioContext here. Suspending saves power without
             // invalidating the shared instance held by the AudioContextManager.
             try {
               audioContextManager.suspendAudioContext();
-            } catch {}
+            } catch (error_) {
+              console.warn('[VOICE] Error suspending AudioContext:', error_);
+            }
           }
-        })
-      );
+        });
+      }
     } catch (e) {
       console.error("AudioWorklet init failed:", e);
       onUserMediaError(e);

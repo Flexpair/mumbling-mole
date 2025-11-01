@@ -10,17 +10,14 @@
  */
 
 import { jest } from '@jest/globals';
-import { Readable, Writable } from 'stream';
 
 // Mock Worker before importing module
-const mockWorkerInstances = [];
 class MockWorker {
   constructor(url, options) {
     this.url = url;
     this.options = options;
     this.onmessage = null;
     this.postMessage = jest.fn();
-    mockWorkerInstances.push(this);
   }
 }
 global.Worker = MockWorker;
@@ -39,7 +36,6 @@ const EncoderStream = (await import('../../app/audio/encoder-stream.js')).defaul
 describe('EncoderStream - Initialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
   });
 
   test('creates objectMode Transform stream', () => {
@@ -86,7 +82,6 @@ describe('EncoderStream - Transform', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new EncoderStream('Opus');
@@ -179,7 +174,6 @@ describe('EncoderStream - Worker Messages', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new EncoderStream('Opus');
@@ -251,7 +245,6 @@ describe('EncoderStream - Cleanup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new EncoderStream('Opus');
@@ -289,7 +282,6 @@ describe('EncoderStream - Cleanup', () => {
 describe('EncoderStream - Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
   });
 
   test('encodes multiple chunks sequentially', () => {

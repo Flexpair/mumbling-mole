@@ -8,7 +8,7 @@ class RecorderProcessor extends AudioWorkletProcessor {
   }
   process(inputs) {
     const input = inputs[0];
-    if (!input || !input[0]) return true;       // kein Audio
+    if (!input?.[0]) return true;       // kein Audio
     const block = input[0];                      // mono Float32
 
     // anpuffern

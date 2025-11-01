@@ -53,6 +53,17 @@ export default class AppState {
   }
 
   /**
+   * Async initialization - must be called after construction
+   */
+  async initialize() {
+    try {
+      await this.audio.initializeAudioContext();
+    } catch (err) {
+      console.error('Failed to initialize AudioContext during AppState setup:', err);
+    }
+  }
+
+  /**
    * Set up reactive subscriptions between modules
    */
   _setupSubscriptions() {
@@ -88,7 +99,7 @@ export default class AppState {
   async connect(host, port, username, password, tokens = [], channelName = "") {
     // Auth check
     const identity = this.auth.currentUser();
-    if (!identity || !identity.app_metadata) {
+    if (!identity?.app_metadata) {
       alert("You do not have permission to connect to the server. Please contact the administrator.");
       return;
     }
@@ -121,7 +132,7 @@ export default class AppState {
     const connectionId = Symbol('connection');
     this._currentConnectionId = connectionId;
     
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
@@ -130,7 +141,9 @@ export default class AppState {
             this.audio.micPermissionDenied(false);
           }
           // Always stop tracks to avoid mic staying active
-          stream.getTracks().forEach((track) => track.stop());
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
@@ -150,7 +163,7 @@ export default class AppState {
    */
   async connectLoopback(host, port, username, password, tokens = [], channelName = "") {
     const identity = this.auth.currentUser();
-    if (!identity || !identity.app_metadata) {
+    if (!identity?.app_metadata) {
       alert("You do not have permission to connect to the server. Please contact the administrator.");
       return;
     }
@@ -177,7 +190,7 @@ export default class AppState {
     const connectionId = Symbol('loopback-connection');
     this._currentConnectionId = connectionId;
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
@@ -186,7 +199,9 @@ export default class AppState {
             this.audio.micPermissionDenied(false);
           }
           // Always stop tracks to avoid mic staying active
-          stream.getTracks().forEach((track) => track.stop());
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
         })
         .catch((err) => {
           console.warn("Microphone permission denied:", err);
@@ -230,41 +245,47 @@ export default class AppState {
   }
 
   /**
-   * Perform the actual connection
+   * Validate authentication for connection
    * @private
    */
-  async _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const {
-      host, port, username, password, tokens = [], channelName: targetChannel = "",
-    } = connectionParams;
-
-    let channelName = targetChannel;
-
-    // Set loopback mode FIRST, before any async operations
-    const isLoopback = connectionParams.isLoopback || false;
-    if (isLoopback) {
-      this.voice.isLoopbackMode(true);
+  _validateAuthForConnection() {
+    const identity = this.auth.currentUser();
+    if (!identity?.app_metadata) {
+      alert("You do not have permission to connect to the server. Please contact the administrator.");
+      return false;
     }
 
+    let user_roles = identity.app_metadata.roles || [];
+    if (!Array.isArray(user_roles)) {
+      user_roles = [];
+    }
+
+    if (!user_roles.includes("watch")) user_roles.push("watch");
+    if (!user_roles.includes("listen")) user_roles.push("listen");
+    identity.app_metadata.roles = user_roles;
+    
+    return true;
+  }
+
+  /**
+   * Setup audio for connection
+   * @private
+   */
+  async _setupAudioForConnection(audioEnabled, sampleRate, isLoopback) {
     if (audioEnabled) {
       this.voice.initVoiceInput(
         (data) => {
-          if (!this.connection.client) {
-            this.voice.endVoiceHandler();
-          } else {
+          if (this.connection.client) {
             this.voice.writeVoiceData(data);
+          } else {
+            this.voice.endVoiceHandler();
           }
         },
         (err) => {
           this.log(translate("logentry.mic_init_error"), err);
         },
-        // EVENT-BASED: Initialize beeper when mixer becomes ready (no timeout!)
         () => {
           this.audio.initializePersistentBeeper();
-          
-          // LOOPBACK-MODE: Voice handler state for UI (button visibility)
-          // In loopback mode, the beeper doesn't actually need a voice handler
-          // but the UI requires voiceHandlerReady for button visibility
           if (this.voice.isLoopbackMode()) {
             this.voice.voiceHandlerReady(true);
           }
@@ -275,24 +296,9 @@ export default class AppState {
       this.voice.endVoiceHandler();
     }
 
-    // Reset UI state but NOT the client connection
-    // (client will be replaced by new connection below)
-    this.audio.stopBeep();
-    this.ui.selected(null);
-    this.channel.root(null);
-    this.user.thisUser(null);
-    
-    // Keep beeper/voice ready state in loopback mode
-    const wasLoopback = this.voice.isLoopbackMode();
-    if (!wasLoopback) {
-      this.audio.beeperReady(false);
-      this.voice.voiceHandlerReady(false);
-    }
-
     try {
       await this.audio.resumeAudioContext();
       
-      // Pre-warm AudioWorklet (RACE-SAFE: uses tracked module loading)
       try {
         await this.audio.loadAudioWorkletModule('playback-buffer-processor.js');
       } catch (err) {
@@ -301,105 +307,165 @@ export default class AppState {
     } catch (error) {
       console.warn("AudioContext resume failed, continuing anyway:", error);
     }
+  }
+
+  /**
+   * Reset UI state for new connection
+   * @private
+   */
+  _resetUIForConnection() {
+    this.audio.stopBeep();
+    this.ui.selected(null);
+    this.channel.root(null);
+    this.user.thisUser(null);
+    
+    const wasLoopback = this.voice.isLoopbackMode();
+    if (!wasLoopback) {
+      this.audio.beeperReady(false);
+      this.voice.voiceHandlerReady(false);
+    }
+  }
+
+  /**
+   * Setup Guacamole frame if needed
+   * @private
+   */
+  _setupGuacamoleFrame(guac_login) {
+    if (guac_login && !this.voice.isLoopbackMode()) {
+      this.guacamoleFrame.start(guac_login, this._guacPassword);
+      this.guacamoleFrame.show();
+    } else if (!guac_login && !this.voice.isLoopbackMode()) {
+      alert("For visual access please ask your administrator.");
+    }
+  }
+
+  /**
+   * Register channel and its children recursively
+   * @private
+   */
+  _registerChannelTree(channel, channelPath, targetChannel, client) {
+    this.channel.registerChannel(
+      channel,
+      (event, menu, ui) => this._openContextMenu(event, menu, ui),
+      () => this.channelContextMenu,
+      () => this.channel.updateLinks()
+    );
+    
+    if (channelPath === targetChannel) {
+      client.self.setChannel(channel);
+    }
+    
+    for (const ch of channel.children) {
+      this._registerChannelTree(ch, channelPath + "/" + ch.name, targetChannel, client);
+    }
+  }
+
+  /**
+   * Setup client event handlers and initial state
+   * @private
+   */
+  _setupClientHandlers(client) {
+    client.on("newChannel", (channel) => {
+      this.channel.registerChannel(
+        channel,
+        (event, menu, ui) => this._openContextMenu(event, menu, ui),
+        () => this.channelContextMenu,
+        () => this.channel.updateLinks()
+      );
+    });
+    
+    client.on("newUser", (user) => {
+      this.user.registerUser(
+        user,
+        (event, menu, ui) => this._openContextMenu(event, menu, ui),
+        () => this.userContextMenu
+      );
+    });
+  }
+
+  /**
+   * Establish client connection and setup
+   * @private
+   */
+  async _establishClientConnection(host, port, username, password, tokens, channelName) {
+    const client = await this.connection.connect(host, port, username, password, tokens);
+    
+    const user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
+    let guac_login = false;
+    if (user_roles.includes("admin")) {
+      guac_login = "admin";
+    } else if (user_roles.includes("edit")) {
+      guac_login = "editor";
+    } else if (user_roles.includes("watch")) {
+      guac_login = "watcher";
+    }
+    
+    this._guacLogin = guac_login;
+    this._guacPassword = this.connectDialog.password();
+    this._setupGuacamoleFrame(guac_login);
+    
+    if (this.voice.isLoopbackMode()) {
+      this.log(translate("logentry.connected_loopback"));
+    } else {
+      this.log(translate("logentry.connected"));
+    }
+
+    const normalizedChannelName = channelName.indexOf("/") === 0 ? channelName : "/" + channelName;
+    this._registerChannelTree(client.root, "", normalizedChannelName, client);
+
+    for (const user of client.users) {
+      this.user.registerUser(
+        user,
+        (event, menu, ui) => this._openContextMenu(event, menu, ui),
+        () => this.userContextMenu
+      );
+    }
+
+    this._setupClientHandlers(client);
+
+    if (client.self && !client.self.__ui) {
+      this.user.registerUser(
+        client.self,
+        (event, menu, ui) => this._openContextMenu(event, menu, ui),
+        () => this.userContextMenu
+      );
+    }
+    
+    this.user.thisUser(client.self.__ui);
+    this.channel.root(client.root.__ui);
+    this.channel.updateLinks();
+
+    this._updateVoiceHandler();
+
+    if (this.audio.audioLockActive()) {
+      this.connection.setSelfMute(true);
+      this.connection.setSelfDeaf(true);
+    } else if (this.user.selfDeaf()) {
+      this.connection.setSelfDeaf(true);
+    } else if (this.user.selfMute()) {
+      this.connection.setSelfMute(true);
+    }
+  }
+
+  /**
+   * Perform the actual connection
+   * @private
+   */
+  async _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
+    const { host, port, username, password, tokens = [], channelName: targetChannel = "" } = connectionParams;
+    const isLoopback = connectionParams.isLoopback || false;
+
+    if (isLoopback) {
+      this.voice.isLoopbackMode(true);
+    }
+
+    await this._setupAudioForConnection(audioEnabled, sampleRate, isLoopback);
+    this._resetUIForConnection();
 
     try {
-      const client = await this.connection.connect(host, port, username, password, tokens);
-      
-      let user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
-      let guac_login = false;
-      if (user_roles.includes("admin")) {
-        guac_login = "admin";
-      } else if (user_roles.includes("edit")) {
-        guac_login = "editor";
-      } else if (user_roles.includes("watch")) {
-        guac_login = "watcher";
-      }
-      
-      this._guacLogin = guac_login;
-      this._guacPassword = this.connectDialog.password();
-      
-      if (guac_login && !this.voice.isLoopbackMode()) {
-        this.guacamoleFrame.start(guac_login, this.connectDialog.password());
-        this.guacamoleFrame.show();
-      } else if (!guac_login && !this.voice.isLoopbackMode()) {
-        alert("For visual access please ask your administrator.");
-      }
-      
-      if (this.voice.isLoopbackMode()) {
-        this.log(translate("logentry.connected_loopback"));
-      } else {
-        this.log(translate("logentry.connected"));
-      }
-
-      if (channelName.indexOf("/") != 0) {
-        channelName = "/" + channelName;
-      }
-      
-      const registerChannel = (channel, channelPath) => {
-        this.channel.registerChannel(
-          channel,
-          (event, menu, ui) => this._openContextMenu(event, menu, ui),
-          () => this.channelContextMenu,
-          () => this.channel.updateLinks()
-        );
-        if (channelPath === channelName) {
-          client.self.setChannel(channel);
-        }
-        channel.children.forEach((ch) =>
-          registerChannel(ch, channelPath + "/" + ch.name)
-        );
-      };
-      registerChannel(client.root, "");
-
-      client.users.forEach((user) => {
-        this.user.registerUser(
-          user,
-          (event, menu, ui) => this._openContextMenu(event, menu, ui),
-          () => this.userContextMenu
-        );
-      });
-
-      client.on("newChannel", (channel) => {
-        this.channel.registerChannel(
-          channel,
-          (event, menu, ui) => this._openContextMenu(event, menu, ui),
-          () => this.channelContextMenu,
-          () => this.channel.updateLinks()
-        );
-      });
-      
-      client.on("newUser", (user) => {
-        this.user.registerUser(
-          user,
-          (event, menu, ui) => this._openContextMenu(event, menu, ui),
-          () => this.userContextMenu
-        );
-      });
-
-      if (client.self && !client.self.__ui) {
-        this.user.registerUser(
-          client.self,
-          (event, menu, ui) => this._openContextMenu(event, menu, ui),
-          () => this.userContextMenu
-        );
-      }
-      
-      this.user.thisUser(client.self.__ui);
-      this.channel.root(client.root.__ui);
-      this.channel.updateLinks();
-
-      this._updateVoiceHandler();
-
-      if (this.audio.audioLockActive()) {
-        this.connection.setSelfMute(true);
-        this.connection.setSelfDeaf(true);
-      } else if (this.user.selfDeaf()) {
-        this.connection.setSelfDeaf(true);
-      } else if (this.user.selfMute()) {
-        this.connection.setSelfMute(true);
-      }
+      await this._establishClientConnection(host, port, username, password, tokens, targetChannel);
     } catch (err) {
-      if (err.$type && err.$type.name === "Reject") {
+      if (err.$type?.name === "Reject") {
         this.connectErrorDialog.type(err.type);
         this.connectErrorDialog.reason(err.reason);
         this.connectErrorDialog.show();
@@ -579,9 +645,7 @@ export default class AppState {
   // Helpers
   notifyAudioLock = () => {
     const details = this.audio.audioLockDetails() || {};
-    const sr = details.sampleRate !== undefined
-      ? details.sampleRate
-      : this.audio.audioContext && this.audio.audioContext.sampleRate;
+    const sr = details.sampleRate ?? this.audio.audioContext?.sampleRate;
     this.sampleRateWarningDialog.showInfo(sr);
   }
 
@@ -626,7 +690,7 @@ export default class AppState {
 
   mailToDesktop = ko.observable(
     "mailto:mail@" +
-    window.location.hostname +
+    globalThis.location.hostname +
     "?subject=Send%20attachment%20to%20desktop"
   );
 

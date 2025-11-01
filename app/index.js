@@ -1,20 +1,14 @@
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
-import url from "url";
-import MumbleClient from "mumble-client";
-import WorkerBasedMumbleConnector from "./worker-client";
-import audioContextManager, { ensureAudioContext } from "./audio/audio-context-manager";
+import url from "node:url";
+import MumbleClient from "./mumble-client/index.js";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
-import BufferQueueNode from "./audio/buffer-queue-node";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 
 
 import {
-  ContinuousVoiceHandler,
-  PushToTalkVoiceHandler,
-  initVoice,
   enumMicrophones,
 } from "./audio/voice";
 import {
@@ -23,48 +17,20 @@ import {
   translate,
 } from "./localize";
 
-/**
- * Utility function to wait for audio mixer to become available
- * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 5000)
- * @param {number} checkIntervalMs - How often to check in milliseconds (default: 50)
- * @returns {Promise<boolean>} - True if mixer becomes available, false if timeout
- */
-async function waitForAudioMixer(timeoutMs = 5000, checkIntervalMs = 50) {
-  const maxRetries = Math.floor(timeoutMs / checkIntervalMs);
-  let retries = maxRetries;
-  
-  while (retries > 0 && !window._audioMixer) {
-    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
-    retries--;
-  }
-  
-  return !!window._audioMixer;
-}
-
 // Debug flag for controlling verbose logging in voice handlers
 const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
 // Check URL parameters for debug-audio flag (used in automated tests)
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = new URLSearchParams(globalThis.location.search);
 const isDebugAudio = urlParams.has('debug-audio');
 
 // Set global debug flag for audio pipeline logging
 // This is checked by decoder-stream.js and vendored mumble-streams
 if (isDebugAudio) {
-  window.MUMBLE_DEBUG_AUDIO = true;
+  globalThis.MUMBLE_DEBUG_AUDIO = true;
   console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
 }
 
-/**
- * Debug logging function that respects the DEBUG_VOICE_LOGGING flag
- * @param {string} tag - Log tag like '[VOICE]' 
- * @param {...any} args - Arguments to log
- */
-function debugLog(tag, ...args) {
-  if (DEBUG_VOICE_LOGGING) {
-    console.log(tag, ...args);
-  }
-}
 
 /**
  * Safely extracts and sanitizes username from user metadata
@@ -72,11 +38,11 @@ function debugLog(tag, ...args) {
  * @returns {string|null} - Sanitized username or null if not available
  */
 function getUsernameFromMetadata(user) {
-  if (!user || !user.user_metadata || !user.user_metadata.full_name) {
+  if (!user?.user_metadata?.full_name) {
     return null;
   }
-  // Consistent sanitization: replace non-alphanumeric characters with underscore
-  return user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+  // Replace sequences of non-alphanumeric characters with single underscore
+  return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
 function GuacamoleFrame() {
@@ -118,12 +84,6 @@ function GuacamoleFrame() {
 
   this.onLoad = function () {
     this.loading(false);
-    try {
-      const frame = document.getElementById("guacframe");
-      const doc = frame && frame.contentDocument;
-    } catch (e) {
-      console.warn("[Guac] cannot inspect iframe content", e);
-    }
   };
 }
 
@@ -178,18 +138,18 @@ function ConnectDialog() {
       // This must happen before any async operations that might lose the user gesture context
       try {
         // Mark user interaction for audio-context-manager
-        if (ui.audio && ui.audio.audioContextManager) {
+        if (ui.audio?.audioContextManager) {
           ui.audio.audioContextManager.userInteractionDetected = true;
         }
         
         // Create AudioContext if not exists
-        if (!ui.audio.audioContext) {
+        if (!ui.audio?.audioContext) {
           console.log('[LOOPBACK] Creating AudioContext on user click');
           await ui.audio.initializeAudioContext();
         }
         
         // Resume if suspended
-        if (ui.audio.audioContext && ui.audio.audioContext.state === 'suspended') {
+        if (ui.audio?.audioContext?.state === 'suspended') {
           console.log('[LOOPBACK] Resuming AudioContext on user click');
           await ui.audio.audioContext.resume();
         }
@@ -236,7 +196,7 @@ function SampleRateWarningDialog(ui) {
 
   const formatSampleRate = (value) => {
     if (typeof value === "number" && !Number.isNaN(value) && value > 0) {
-      return Math.round(value);
+      return String(Math.round(value));
     }
     return translate("audio.sample_rate.warning.unknown_rate");
   };
@@ -321,14 +281,14 @@ class ConnectionInfo {
     this._ui = ui;
     this.visible = ko.observable(false);
     this.serverVersion = ko.observable();
-    this.latencyMs = ko.observable(NaN);
-    this.latencyDeviation = ko.observable(NaN);
+    this.latencyMs = ko.observable(Number.NaN);
+    this.latencyDeviation = ko.observable(Number.NaN);
     this.remoteHost = ko.observable();
     this.remotePort = ko.observable();
-    this.maxBitrate = ko.observable(NaN);
-    this.currentBitrate = ko.observable(NaN);
-    this.maxBandwidth = ko.observable(NaN);
-    this.currentBandwidth = ko.observable(NaN);
+    this.maxBitrate = ko.observable(Number.NaN);
+    this.currentBitrate = ko.observable(Number.NaN);
+    this.maxBandwidth = ko.observable(Number.NaN);
+    this.currentBandwidth = ko.observable(Number.NaN);
     this.codec = ko.observable();
 
     this.show = () => {
@@ -363,8 +323,8 @@ class ConnectionInfo {
     } else {
       // Handle case when not connected to server
       this.serverVersion(null);
-      this.latencyMs(NaN);
-      this.latencyDeviation(NaN);
+      this.latencyMs(Number.NaN);
+      this.latencyDeviation(Number.NaN);
     }
     this.remoteHost(this._ui.remoteHost());
     this.remotePort(this._ui.remotePort());
@@ -372,7 +332,7 @@ class ConnectionInfo {
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
       let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = client.maxBandwidth !== undefined ? client.getMaxBitrate(spp, false) : NaN;
+      let maxBitrate = maxBandwidth === null || maxBandwidth === undefined ? Number.NaN : client.getMaxBitrate(spp, false);
       let actualBitrate = client.getActualBitrate(spp, false);
       let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
         actualBitrate,
@@ -386,10 +346,10 @@ class ConnectionInfo {
       this.codec("Opus"); // only one supported for sending
     } else {
       // Handle case when not connected to server
-      this.maxBitrate(NaN);
-      this.currentBitrate(NaN);
-      this.maxBandwidth(NaN);
-      this.currentBandwidth(NaN);
+      this.maxBitrate(Number.NaN);
+      this.currentBitrate(Number.NaN);
+      this.maxBandwidth(Number.NaN);
+      this.currentBandwidth(Number.NaN);
       this.codec("Unknown");
     }
   }
@@ -422,9 +382,6 @@ class SettingsDialog {
     settings.userCountInChannelName(this.userCountInChannelName());
     settings.audioBitrate = this.audioBitrate();
     settings.samplesPerPacket = this.samplesPerPacket();
-  }
-
-  end() {
   }
 
   recordPttKey() {
@@ -473,11 +430,16 @@ class SettingsDialog {
       false
     );
   }
+
+  end() {
+    // Cleanup method called when dialog is closed
+    // Currently no cleanup needed, but method must exist for UIState.closeSettings()
+  }
 }
 
 class Settings {
   constructor(defaults) {
-    const load = (key) => window.localStorage.getItem("mumble." + key);
+    const load = (key) => globalThis.localStorage.getItem("mumble." + key);
     this.voiceMode = load("voiceMode") || defaults.voiceMode;
     this.pttKey = load("pttKey") || defaults.pttKey;
     this.userCountInChannelName = ko.observable(
@@ -490,7 +452,7 @@ class Settings {
 
   save() {
     const save = (key, val) =>
-      window.localStorage.setItem("mumble." + key, val);
+      globalThis.localStorage.setItem("mumble." + key, val);
     save("voiceMode", this.voiceMode);
     save("pttKey", this.pttKey);
     save("userCountInChannelName", this.userCountInChannelName());
@@ -500,7 +462,7 @@ class Settings {
 }
 
 // Initialize UI with modular AppState architecture
-const ui = new AppState(window.mumbleWebConfig, log);
+const ui = new AppState(globalThis.mumbleWebConfig, log);
 
 // Wire up dependencies that AppState expects
 ui.connectDialog = new ConnectDialog();
@@ -508,11 +470,11 @@ ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
 ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
 ui.guacamoleFrame = new GuacamoleFrame();
 ui.connectionInfo = new ConnectionInfo(ui);
-ui.settings = new Settings(window.mumbleWebConfig.settings);
+ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
 ui.settingsDialogInstance = new SettingsDialog(ui.settings);
 
 // Initialize auth
-const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
+const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
 ui.netlifyIdentity = ui.auth; // Backward compatibility
 
@@ -525,15 +487,23 @@ ui.openSettings = function() {
   return ui.ui.openSettings(ui.settings, SettingsDialog);
 };
 
+// Expose closeSettings at root level for Knockout bindings
+ui.closeSettings = function() {
+  return ui.ui.closeSettings();
+};
+
 // Used only for debugging
-window.mumbleUi = ui;
+globalThis.mumbleUi = ui;
 
 // Make auth available globally (backward compatibility)
 if (ui.auth) {
-  window.netlifyIdentity = ui.auth;
+  globalThis.netlifyIdentity = ui.auth;
 }
 
 async function initializeUI() {
+  // Initialize AppState async resources
+  await ui.initialize();
+  
   // Initialize auth provider
   let user = null;
   
@@ -549,11 +519,11 @@ async function initializeUI() {
   });
 
   ui.auth.on("close", () => {
-    if (!ui.connectDialog.username()) {
-      ui.auth.open("login"); // open the modal to the login tab
-    } else {
+    if (ui.connectDialog.username()) {
       // Show connect dialog when auth modal is closed and user is authenticated
       ui.connectDialog.show();
+    } else {
+      ui.auth.open("login"); // open the modal to the login tab
     }
   });
 
@@ -565,7 +535,7 @@ async function initializeUI() {
 
   // Now initialize auth (event handlers are already registered)
   try {
-    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
+    await ui.auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
       locale: "en",
       logo: false,
@@ -589,7 +559,7 @@ async function initializeUI() {
   }
 
   let queryParams = url.parse(document.location.href, true).query;
-  queryParams = Object.assign({}, window.mumbleWebConfig.defaults, queryParams);
+  queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
     ui.connectDialog.address(queryParams.address);
   }
@@ -603,44 +573,11 @@ async function initializeUI() {
 }
 
 function log() {
-  console.log.apply(console, arguments);
+  console.log(...arguments);
 }
-
-function compareChannels(c1, c2) {
-  if (c1.position() === c2.position()) {
-    return c1.name() === c2.name() ? 0 : c1.name() < c2.name() ? -1 : 1;
-  }
-  return c1.position() - c2.position();
-}
-
-function compareUsers(u1, u2) {
-  return u1.name() === u2.name() ? 0 : u1.name() < u2.name() ? -1 : 1;
-}
-
-function userToState() {
-  let flags = [];
-  if (this.uid()) {
-    flags.push("Authenticated");
-  }
-  if (this.mute()) {
-    flags.push("Muted (server)");
-  }
-  if (this.deaf()) {
-    flags.push("Deafened (server)");
-  }
-  if (this.selfMute()) {
-    flags.push("Muted (self)");
-  }
-  if (this.selfDeaf()) {
-    flags.push("Deafened (self)");
-  }
-  return flags.join(", ");
-}
-
-let voiceHandler;
 
 async function main() {
-  document.title = window.location.hostname;
+  document.title = globalThis.location.hostname;
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI();

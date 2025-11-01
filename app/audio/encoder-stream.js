@@ -1,4 +1,4 @@
-import { Transform } from "stream";
+import { Transform } from "node:stream";
 import createPool from "reuse-pool";
 
 // Native Worker factory function (esbuild compatible)

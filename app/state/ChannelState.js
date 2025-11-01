@@ -2,7 +2,10 @@ import ko from "knockout";
 
 function compareChannels(c1, c2) {
   if (c1.position() === c2.position()) {
-    return c1.name() === c2.name() ? 0 : c1.name() < c2.name() ? -1 : 1;
+    if (c1.name() === c2.name()) {
+      return 0;
+    }
+    return c1.name() < c2.name() ? -1 : 1;
   }
   return c1.position() - c2.position();
 }
@@ -40,7 +43,7 @@ export default class ChannelState {
       description: "description",
     };
     
-    var ui = (channel.__ui = {
+    let ui = (channel.__ui = {
       model: channel,
       expanded: ko.observable(true),
       parent: ko.observable(),
@@ -59,9 +62,9 @@ export default class ChannelState {
       openContextMenuFn(event, getChannelContextMenu(), ui);
     
     // Set up observables for simple properties
-    Object.entries(simpleProperties).forEach((key) => {
-      ui[key[1]] = ko.observable(channel[key[0]]);
-    });
+    for (const [key, value] of Object.entries(simpleProperties)) {
+      ui[value] = ko.observable(channel[key]);
+    }
     
     if (channel.parent) {
       ui.parent(channel.parent.__ui);
@@ -74,11 +77,11 @@ export default class ChannelState {
     // Set up event handlers
     channel
       .on("update", (properties) => {
-        Object.entries(simpleProperties).forEach((key) => {
-          if (properties[key[0]] !== undefined) {
-            ui[key[1]](properties[key[0]]);
+        for (const [key, value] of Object.entries(simpleProperties)) {
+          if (properties[key] !== undefined) {
+            ui[value](properties[key]);
           }
-        });
+        }
         if (properties.parent !== undefined) {
           if (ui.parent()) {
             ui.parent().channels.remove(ui);
@@ -103,17 +106,17 @@ export default class ChannelState {
    * Update channel links
    */
   updateLinks() {
-    if (!this.root() || !this.root().model) {
+    if (!this.root()?.model) {
       return;
     }
 
-    var allChannels = this._getAllChannels(this.root(), []);
-    var thisUserChannel = this.root().model;
-    var allLinked = this._findLinks(thisUserChannel, [], allChannels);
+    let allChannels = this._getAllChannels(this.root(), []);
+    let thisUserChannel = this.root().model;
+    let allLinked = this._findLinks(thisUserChannel, [], allChannels);
     
-    allChannels.forEach((channel) => {
-      channel.linked(allLinked.indexOf(channel.model) !== -1);
-    });
+    for (const channel of allChannels) {
+      channel.linked(allLinked.includes(channel.model));
+    }
   }
 
   /**
@@ -124,7 +127,9 @@ export default class ChannelState {
    */
   _getAllChannels(channel, channels) {
     channels.push(channel);
-    channel.channels().forEach((next) => this._getAllChannels(next, channels));
+    for (const next of channel.channels()) {
+      this._getAllChannels(next, channels);
+    }
     return channels;
   }
 
@@ -138,24 +143,20 @@ export default class ChannelState {
   _findLinks(channel, knownLinks, allChannels) {
     knownLinks.push(channel);
     if (channel.links) {
-      channel.links.forEach((next) => {
-        if (next && knownLinks.indexOf(next) === -1) {
+      for (const next of channel.links) {
+        if (next && !knownLinks.includes(next)) {
           this._findLinks(next, knownLinks, allChannels);
         }
-      });
+      }
     }
-    allChannels
-      .map((c) => c.model)
-      .forEach((next) => {
-        if (
-          next &&
-          next.links &&
-          knownLinks.indexOf(next) === -1 &&
-          next.links.indexOf(channel) !== -1
-        ) {
-          this._findLinks(next, knownLinks, allChannels);
-        }
-      });
+    for (const next of allChannels.map((c) => c.model)) {
+      if (
+        !knownLinks.includes(next) &&
+        next?.links?.includes(channel)
+      ) {
+        this._findLinks(next, knownLinks, allChannels);
+      }
+    }
     return knownLinks;
   }
 

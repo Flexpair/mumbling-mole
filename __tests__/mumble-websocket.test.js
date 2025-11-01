@@ -37,7 +37,7 @@ describe('mumble-websocket', () => {
       default: mockWebsocketStream
     }));
 
-    await jest.unstable_mockModule('mumble-client', () => ({
+    await jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
       default: jest.fn(() => mockMumbleClient)
     }));
 
@@ -76,7 +76,7 @@ describe('mumble-websocket', () => {
     });
 
     test('should create MumbleClient with provided options', async () => {
-      const MumbleClientConstructor = (await import('mumble-client')).default;
+      const MumbleClientConstructor = (await import('../app/mumble-client/index.js')).default;
       
       setTimeout(() => mockWs._trigger('connect'), 0);
 
@@ -132,7 +132,7 @@ describe('mumble-websocket', () => {
     });
 
     test('should handle various MumbleClient options', async () => {
-      const MumbleClientConstructor = (await import('mumble-client')).default;
+      const MumbleClientConstructor = (await import('../app/mumble-client/index.js')).default;
       
       setTimeout(() => mockWs._trigger('connect'), 0);
 
@@ -224,7 +224,7 @@ describe('mumble-websocket', () => {
     });
 
     test('should handle options with null values', async () => {
-      const MumbleClientConstructor = (await import('mumble-client')).default;
+      const MumbleClientConstructor = (await import('../app/mumble-client/index.js')).default;
       
       setTimeout(() => mockWs._trigger('connect'), 0);
 

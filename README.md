@@ -381,8 +381,7 @@ mumbling-mole/
 ├── vendors/                       # Vendored packages (file: protocol deps)
 │   ├── mumble-client/             # Forked Mumble protocol client
 │   ├── mumble-streams/            # Mumble streaming utilities
-│   ├── netlify-identity-widget/   # Authentication widget
-│   └── web-audio-buffer-queue/    # Deprecated (replaced by buffer-queue-node.js)
+│   └── netlify-identity-widget/   # Authentication widget
 ├── themes/                        # UI themes (SCSS)
 │   └── MetroMumbleLight/          # Light/Dark theme variants
 ├── localize/                      # Translation files

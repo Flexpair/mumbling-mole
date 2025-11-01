@@ -54,7 +54,7 @@ class MockAuthAdapter extends AuthProvider {
    * @returns {Promise<Object|null>}
    */
   async getCurrentUser() {
-    return Promise.resolve(this._currentUser);
+    return this._currentUser;
   }
 
   /**
@@ -65,7 +65,6 @@ class MockAuthAdapter extends AuthProvider {
   async openAuth(view = 'login') {
     this.isOpen = true;
     this._emit('open', { view });
-    return Promise.resolve();
   }
 
   /**
@@ -75,7 +74,6 @@ class MockAuthAdapter extends AuthProvider {
   async closeAuth() {
     this.isOpen = false;
     this._emit('close');
-    return Promise.resolve();
   }
 
   /**
@@ -140,7 +138,6 @@ class MockAuthAdapter extends AuthProvider {
     
     this._currentUser = null;
     this._emit('logout');
-    return Promise.resolve();
   }
 
   /**
@@ -175,13 +172,10 @@ class MockAuthAdapter extends AuthProvider {
     await this._delay(300);
     
     if (!this.users.has(email)) {
-      // In real systems, don't reveal if user exists
-      // But for testing, we'll throw
       throw new Error('User not found');
     }
     
     console.log(`[MockAuth] Password reset email sent to ${email}`);
-    return Promise.resolve();
   }
 
   /**
@@ -195,7 +189,7 @@ class MockAuthAdapter extends AuthProvider {
       throw new Error('No user logged in');
     }
     
-    return Promise.resolve('mock-jwt-token-' + Date.now());
+    return 'mock-jwt-token-' + Date.now();
   }
 
   /**
@@ -242,13 +236,13 @@ class MockAuthAdapter extends AuthProvider {
   _emit(event, data) {
     if (!this.listeners[event]) return;
     
-    this.listeners[event].forEach(callback => {
+    for (const callback of this.listeners[event]) {
       try {
         callback(data);
       } catch (err) {
         console.error(`Error in ${event} listener:`, err);
       }
-    });
+    }
   }
 
   /**
@@ -265,7 +259,7 @@ class MockAuthAdapter extends AuthProvider {
    */
   _createUser(email, metadata = {}) {
     return {
-      id: 'mock-user-' + Math.random().toString(36).substr(2, 9),
+      id: 'mock-user-' + Math.random().toString(36).slice(2, 11),
       email: email,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -291,10 +285,10 @@ class MockAuthAdapter extends AuthProvider {
       { email: 'user@example.com', password: 'user123' }
     ];
     
-    testUsers.forEach(({ email, password }) => {
+    for (const { email, password } of testUsers) {
       const user = this._createUser(email);
       this.users.set(email, { password, user });
-    });
+    }
   }
 
   // Testing utilities

@@ -41,8 +41,8 @@ describe('AudioState', () => {
     jest.clearAllMocks();
     
     // Mock navigator.mediaDevices
-    global.navigator = global.navigator || {};
-    global.navigator.mediaDevices = global.navigator.mediaDevices || {};
+    globalThis.navigator = globalThis.navigator || {};
+    globalThis.navigator.mediaDevices = globalThis.navigator.mediaDevices || {};
     
     // Create mock AudioContext
     mockOscillator = {
@@ -87,9 +87,9 @@ describe('AudioState', () => {
     };
     
     // Mock global audioContextManager
-    global.window = global.window || {};
-    global.window.audioContextManager = mockAudioContextManager;
-    global.window.AudioContext = jest.fn(() => mockAudioContext);
+    globalThis.window = globalThis.window || {};
+    globalThis.window.audioContextManager = mockAudioContextManager;
+    globalThis.window.AudioContext = jest.fn(() => mockAudioContext);
     
     mockEnsureAudioContext.mockResolvedValue(mockAudioContext);
     mockAudioContextManager.getAudioContext.mockResolvedValue(mockAudioContext);
@@ -127,20 +127,20 @@ describe('AudioState', () => {
       expect(ko.isObservable(audioState.beeperReady)).toBe(true);
     });
 
-    test('starts AudioContext initialization', async () => {
+    test('does not auto-initialize AudioContext on construction', () => {
       audioState = new AudioState();
       
-      // Wait for async initialization
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      expect(mockEnsureAudioContext).toHaveBeenCalled();
+      // Constructor should not trigger initialization
+      expect(mockEnsureAudioContext).not.toHaveBeenCalled();
+      expect(audioState.audioContext).toBeNull();
     });
 
-    test('sets up audio context manager event handlers', async () => {
+    test('initializes AudioContext when explicitly called', async () => {
       audioState = new AudioState();
       
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await audioState.initializeAudioContext();
       
+      expect(mockEnsureAudioContext).toHaveBeenCalled();
       expect(mockAudioContextManager.onSuspend).toHaveBeenCalled();
       expect(mockAudioContextManager.onResume).toHaveBeenCalled();
     });
@@ -200,12 +200,12 @@ describe('AudioState', () => {
       mockEnsureAudioContext.mockRejectedValueOnce(new Error('Init failed'));
       
       const mockLegacyContext = { ...mockAudioContext };
-      global.window.AudioContext = jest.fn(() => mockLegacyContext);
+      globalThis.window.AudioContext = jest.fn(() => mockLegacyContext);
       
       audioState = new AudioState();
       await audioState.initializeAudioContext();
       
-      expect(global.window.AudioContext).toHaveBeenCalled();
+      expect(globalThis.window.AudioContext).toHaveBeenCalled();
     });
   });
 
@@ -346,7 +346,7 @@ describe('AudioState', () => {
     
     beforeEach(() => {
       mockGetUserMedia = jest.fn();
-      global.navigator.mediaDevices = {
+      globalThis.navigator.mediaDevices = {
         getUserMedia: mockGetUserMedia
       };
     });
@@ -399,8 +399,8 @@ describe('AudioState', () => {
     });
 
     test('attemptMicrophonePermission does nothing without getUserMedia', () => {
-      const originalGetUserMedia = global.navigator.mediaDevices.getUserMedia;
-      delete global.navigator.mediaDevices.getUserMedia;
+      const originalGetUserMedia = globalThis.navigator.mediaDevices.getUserMedia;
+      delete globalThis.navigator.mediaDevices.getUserMedia;
       
       audioState = new AudioState();
       audioState.attemptMicrophonePermission();
@@ -409,7 +409,7 @@ describe('AudioState', () => {
       expect(audioState.micPermissionRetryCount).toBe(0);
       
       // Restore
-      global.navigator.mediaDevices.getUserMedia = originalGetUserMedia;
+      globalThis.navigator.mediaDevices.getUserMedia = originalGetUserMedia;
     });
 
     test('retryMicrophonePermission resets counter', () => {
