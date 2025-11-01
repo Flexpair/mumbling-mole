@@ -430,7 +430,7 @@ function handleClientMessage(data) {
       return;
     }
     if (method === "disconnect") {
-      delete clients[clientId];
+      clients[clientId] = null;
     }
   } else {
     target = client.getChannelById(channelId);
@@ -452,7 +452,7 @@ function handleVoiceStream(data) {
   if (buffer) {
     stream.write(Buffer.from(buffer));
   } else {
-    delete voiceStreams[data.voiceId];
+    voiceStreams[data.voiceId] = null;
     stream.end();
   }
 }

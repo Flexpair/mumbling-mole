@@ -77,19 +77,23 @@ export class ContinuousVoiceHandler extends VoiceHandler {
     if (this._mute) {
       callback();
     } else {
-      // ERROR-HANDLING: Stream.write() is callback-based, handle errors in callback
+      // ERROR-HANDLING: Catch synchronous errors from stream creation
+      // Stream.write() errors are handled via callback parameter
+      let stream;
       try {
-        const stream = this._getOrCreateOutbound();
-        stream.write(data, (err) => {
-          if (err) {
-            console.error("[VOICE-HANDLER] Error writing to outbound stream:", err);
-          }
-          callback(err);
-        });
+        stream = this._getOrCreateOutbound();
       } catch (err) {
         console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
         callback(err);
+        return;
       }
+      
+      stream.write(data, (err) => {
+        if (err) {
+          console.error("[VOICE-HANDLER] Error writing to outbound stream:", err);
+        }
+        callback(err);
+      });
     }
   }
 }
@@ -112,19 +116,23 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
 
   _write(data, _, callback) {
     if (this._pushed && !this._mute) {
-      // ERROR-HANDLING: Stream.write() is callback-based, handle errors in callback
+      // ERROR-HANDLING: Catch synchronous errors from stream creation
+      // Stream.write() errors are handled via callback parameter
+      let stream;
       try {
-        const stream = this._getOrCreateOutbound();
-        stream.write(data, (err) => {
-          if (err) {
-            console.error("[VOICE-HANDLER] Error writing to outbound stream:", err);
-          }
-          callback(err);
-        });
+        stream = this._getOrCreateOutbound();
       } catch (err) {
         console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
         callback(err);
+        return;
       }
+      
+      stream.write(data, (err) => {
+        if (err) {
+          console.error("[VOICE-HANDLER] Error writing to outbound stream:", err);
+        }
+        callback(err);
+      });
     } else {
       callback();
     }
@@ -355,8 +363,8 @@ export function initVoice(onData, onUserMediaError) {
             // invalidating the shared instance held by the AudioContextManager.
             try {
               audioContextManager.suspendAudioContext();
-            } catch (suspendErr) {
-              console.warn('[VOICE] Error suspending AudioContext:', suspendErr);
+            } catch (error_) {
+              console.warn('[VOICE] Error suspending AudioContext:', error_);
             }
           }
         });
