@@ -497,7 +497,7 @@ globalThis.mumbleUi = ui;
 
 // Make auth available globally (backward compatibility)
 if (ui.auth) {
-  window.netlifyIdentity = ui.auth;
+  globalThis.netlifyIdentity = ui.auth;
 }
 
 async function initializeUI() {
@@ -535,7 +535,7 @@ async function initializeUI() {
 
   // Now initialize auth (event handlers are already registered)
   try {
-    await ui.auth.init(window.mumbleWebConfig.auth?.netlify || {
+    await ui.auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
       locale: "en",
       logo: false,
@@ -577,7 +577,7 @@ function log() {
 }
 
 async function main() {
-  document.title = window.location.hostname;
+  document.title = globalThis.location.hostname;
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI();
