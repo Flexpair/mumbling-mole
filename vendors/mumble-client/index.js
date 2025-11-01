@@ -3,7 +3,7 @@ let impl
 try {
 	impl = require('./lib/client.js')
 	// If transpiled by Babel with ESModule default export structure
-	if (impl && impl.__esModule && impl.default) {
+	if (impl?.__esModule && impl.default) {
 		module.exports = impl.default
 	} else {
 		module.exports = impl

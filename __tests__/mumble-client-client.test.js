@@ -125,9 +125,9 @@ jest.unstable_mockModule('stats-incremental', () => ({
   }))
 }));
 
-const MumbleClient = (await import('/home/node/vendors/mumble-client/src/client.js')).default;
-const User = (await import('/home/node/vendors/mumble-client/src/user.js')).default;
-const Channel = (await import('/home/node/vendors/mumble-client/src/channel.js')).default;
+const MumbleClient = (await import('../vendors/mumble-client/src/client.js')).default;
+const User = (await import('../vendors/mumble-client/src/user.js')).default;
+const Channel = (await import('../vendors/mumble-client/src/channel.js')).default;
 
 describe('mumble-client Client', () => {
   let client;

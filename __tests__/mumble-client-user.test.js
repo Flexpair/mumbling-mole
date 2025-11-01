@@ -66,12 +66,13 @@ jest.unstable_mockModule('remove-value', () => ({
 jest.unstable_mockModule('rtimer', () => ({
   default: jest.fn((callback) => {
     return {
+      set: jest.fn(function() { return this; }),
       clear: jest.fn()
     };
   })
 }));
 
-const User = (await import('/home/node/vendors/mumble-client/src/user.js')).default;
+const User = (await import('../vendors/mumble-client/src/user.js')).default;
 
 describe('mumble-client User', () => {
   let client;

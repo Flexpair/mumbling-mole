@@ -53,7 +53,7 @@ jest.unstable_mockModule('remove-value', () => ({
   })
 }));
 
-const Channel = (await import('/home/node/vendors/mumble-client/src/channel.js')).default;
+const Channel = (await import('../vendors/mumble-client/src/channel.js')).default;
 
 describe('mumble-client Channel', () => {
   let channel1, channel2, channel3, channel4;

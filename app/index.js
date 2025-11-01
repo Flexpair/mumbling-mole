@@ -430,6 +430,11 @@ class SettingsDialog {
       false
     );
   }
+
+  end() {
+    // Cleanup method called when dialog is closed
+    // Currently no cleanup needed, but method must exist for UIState.closeSettings()
+  }
 }
 
 class Settings {
@@ -480,6 +485,11 @@ ui.openSettings = function() {
   // Ignore any parameters (e.g., click events from Knockout bindings)
   // Always use the local SettingsDialog class defined in this file
   return ui.ui.openSettings(ui.settings, SettingsDialog);
+};
+
+// Expose closeSettings at root level for Knockout bindings
+ui.closeSettings = function() {
+  return ui.ui.closeSettings();
 };
 
 // Used only for debugging
