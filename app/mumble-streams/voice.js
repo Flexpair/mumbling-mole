@@ -246,7 +246,6 @@ Decoder.prototype._parseCeltSpeexFrames = function(chunk, offset, codecId) {
     offset += frameLength;
     
     if (!more) {
-      end = false;
       break;
     }
   }

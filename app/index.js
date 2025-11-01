@@ -42,7 +42,7 @@ function getUsernameFromMetadata(user) {
     return null;
   }
   // Replace sequences of non-alphanumeric characters with single underscore
-  return user.user_metadata.full_name.replaceAll(/[^A-Za-z0-9_]+/g, "_");
+  return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
 function GuacamoleFrame() {
@@ -332,7 +332,7 @@ class ConnectionInfo {
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
       let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = maxBandwidth != null ? client.getMaxBitrate(spp, false) : Number.NaN;
+      let maxBitrate = maxBandwidth === null || maxBandwidth === undefined ? Number.NaN : client.getMaxBitrate(spp, false);
       let actualBitrate = client.getActualBitrate(spp, false);
       let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
         actualBitrate,
@@ -462,7 +462,7 @@ class Settings {
 }
 
 // Initialize UI with modular AppState architecture
-const ui = new AppState(window.mumbleWebConfig, log);
+const ui = new AppState(globalThis.mumbleWebConfig, log);
 
 // Wire up dependencies that AppState expects
 ui.connectDialog = new ConnectDialog();
@@ -470,7 +470,7 @@ ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
 ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
 ui.guacamoleFrame = new GuacamoleFrame();
 ui.connectionInfo = new ConnectionInfo(ui);
-ui.settings = new Settings(window.mumbleWebConfig.settings);
+ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
 ui.settingsDialogInstance = new SettingsDialog(ui.settings);
 
 // Initialize auth
@@ -493,7 +493,7 @@ ui.closeSettings = function() {
 };
 
 // Used only for debugging
-window.mumbleUi = ui;
+globalThis.mumbleUi = ui;
 
 // Make auth available globally (backward compatibility)
 if (ui.auth) {
@@ -501,6 +501,9 @@ if (ui.auth) {
 }
 
 async function initializeUI() {
+  // Initialize AppState async resources
+  await ui.initialize();
+  
   // Initialize auth provider
   let user = null;
   
