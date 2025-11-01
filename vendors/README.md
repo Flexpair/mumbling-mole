@@ -1,6 +1,6 @@
 # Vendored Dependencies Overview
 
-This directory contains three vendored dependencies used by Mumbling Mole. Each has been analyzed and documented with rationale for vendoring and maintenance strategies.
+This directory contains two vendored dependencies used by Mumbling Mole. Each has been analyzed and documented with rationale for vendoring and maintenance strategies.
 
 ---
 
@@ -10,7 +10,6 @@ This directory contains three vendored dependencies used by Mumbling Mole. Each 
 |---------|------|-----------------|-------------|--------|----------|
 | **mumble-client** | Fork | v1.3.0 | v1.4.1 | 🟡 Modified | High |
 | **mumble-streams** | Fork | v0.0.4 | v0.0.5 | 🔴 Security Fork | Critical |
-| **netlify-identity-widget** | Vendored | v1.9.2 | v1.9.2 | 🟢 Unmodified | Low |
 
 ### Status Legend
 - 🔴 **Security Fork** - Contains critical security fixes not in upstream
@@ -45,14 +44,6 @@ Each vendored dependency has detailed documentation:
   - API migration required for ProtobufJS compatibility
   - **DO NOT sync with upstream** without careful review
 
-### 📁 netlify-identity-widget/
-- **[VENDOR_STATUS.md](netlify-identity-widget/VENDOR_STATUS.md)** - Unmodified vendor documentation
-- **Key Points:**
-  - Exact copy of upstream v1.9.2 release
-  - No modifications or fork
-  - Uses pre-built bundle from `releases/` directory
-  - Standard quarterly update check recommended
-
 ---
 
 ## Maintenance Summary
@@ -70,10 +61,6 @@ Each vendored dependency has detailed documentation:
 - Review upstream for bug fixes
 - Test integration after updates
 - Track upstream version in documentation
-
-**netlify-identity-widget:**
-- Check for new releases
-- Update when security fixes or beneficial features released
 
 ### Update Schedule
 
@@ -160,7 +147,7 @@ Mumbling Mole
 │           └── protobufjs@7.2.6 (node_modules)
 │
 ├── app/index.js
-│   └── netlify-identity-widget (vendors/netlify-identity-widget)
+│   └── netlify-identity-widget (loaded via CDN)
 │       └── window.netlifyIdentity (global)
 │
 ├── app/audio/buffer-queue-node.js (native implementation, replaces web-audio-buffer-queue)
@@ -173,7 +160,6 @@ Mumbling Mole
    ```bash
    npm run build:vendor:mumble-client
    ```
-3. **netlify-identity-widget** - No build needed (pre-built bundle)
 
 ---
 
@@ -185,11 +171,6 @@ Mumbling Mole
 - Uses ProtobufJS (complex parser, potential attack surface)
 - Handles untrusted network data (Mumble protocol)
 - **Mitigation:** Keep ProtobufJS v7 up to date, monitor CVEs
-
-**netlify-identity-widget (Medium):**
-- Handles authentication credentials
-- Communicates with external service
-- **Mitigation:** Regular updates, use official releases only
 
 ### Security Monitoring
 
@@ -260,11 +241,12 @@ resolve: {
 {
   "dependencies": {
     "mumble-client": "file:vendors/mumble-client",
-    "mumble-streams": "file:vendors/mumble-streams",
-    "netlify-identity-widget": "file:vendors/netlify-identity-widget"
+    "mumble-streams": "file:vendors/mumble-streams"
   }
 }
 ```
+
+Note: `netlify-identity-widget` is now loaded via CDN (`https://identity.netlify.com/v1/netlify-identity-widget.js`) and no longer vendored.
 
 ---
 
@@ -296,7 +278,7 @@ After updating any vendored dependency:
   - Buffer queue functional (native buffer-queue-node.js)
 
 ### Auth Tests (Manual)
-- [ ] Login modal opens (netlify-identity-widget)
+- [ ] Login modal opens (Netlify Identity via CDN)
 - [ ] User can authenticate
 - [ ] User metadata accessible
 
@@ -307,6 +289,7 @@ After updating any vendored dependency:
 ### Build Fails After Update
 
 **Symptom:** Babel compilation errors in mumble-client
+```
 
 **Fix:**
 ```bash
