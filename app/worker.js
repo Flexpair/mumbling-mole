@@ -411,12 +411,13 @@ function handleClientMessage(data) {
 
   let target;
   let allowedMethods;
+  let args = payload; // Local variable for potentially modified arguments
   
   if (userId != null) {
     target = client.getUserById(userId);
     allowedMethods = ALLOWED_USER_METHODS;
     if (method === "setChannel") {
-      payload[0] = client.getChannelById(payload[0]);
+      args = [client.getChannelById(payload[0])];
     }
   } else if (channelId === null || channelId === undefined) {
     target = client;
@@ -442,7 +443,7 @@ function handleClientMessage(data) {
     return;
   }
 
-  target[method](...payload);
+  target[method](...args);
 }
 
 function handleVoiceStream(data) {

@@ -202,18 +202,8 @@ class BufferQueueNode extends EventEmitter {
       if (this._isReady) {
         return;
       }
-      // If initializing, wait for completion by re-checking periodically
-      // (In practice, callers should await the first initialize() call)
-      return new Promise((resolve) => {
-        const checkReady = () => {
-          if (this._isReady) {
-            resolve();
-          } else {
-            setTimeout(checkReady, 10);
-          }
-        };
-        checkReady();
-      });
+      // If initializing, wait for completion using event emitter
+      return new Promise(resolve => this.once('ready', resolve));
     }
 
     this._isInitializing = true;
@@ -253,7 +243,6 @@ class BufferQueueNode extends EventEmitter {
     } catch (error) {
       console.error('[BufferQueueNode] Failed to initialize AudioWorklet:', error);
       this.emit('error', error);
-      throw error;
     } finally {
       this._isInitializing = false;
     }

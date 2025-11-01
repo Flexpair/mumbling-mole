@@ -48,7 +48,7 @@
       <div class="guacamole-placeholder" data-bind="visible: !visible()">
   <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
       </div>
-      <div
+      <section
         class="guacamole"
         aria-label="Guacamole Remote Desktop Container"
         data-bind="visible: visible()"
@@ -66,7 +66,7 @@
           loading="lazy"
           allow="clipboard-read; clipboard-write"
         ></iframe>
-      </div>
+      </section>
       <!-- /ko -->
       <!-- ko with: connectDialog -->
       <div class="connect-dialog dialog" data-bind="visible: visible()">
@@ -75,12 +75,6 @@
         </div>
         <form data-bind="submit: connect">
           <table>
-            <thead>
-              <tr>
-                <th scope="col">Setting</th>
-                <th scope="col">Value</th>
-              </tr>
-            </thead>
             <tbody>
             <tr data-bind="if: $root.config.connectDialog.username">
               <th scope="row">
