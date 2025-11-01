@@ -42,7 +42,7 @@ function getUsernameFromMetadata(user) {
     return null;
   }
   // Replace sequences of non-alphanumeric characters with single underscore
-  return user.user_metadata.full_name.replace(/[^A-Za-z0-9_]+/g, "_");
+  return user.user_metadata.full_name.replaceAll(/[^A-Za-z0-9_]+/g, "_");
 }
 
 function GuacamoleFrame() {
@@ -332,7 +332,7 @@ class ConnectionInfo {
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
       let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = client.maxBandwidth != null ? client.getMaxBitrate(spp, false) : Number.NaN;
+      let maxBitrate = maxBandwidth != null ? client.getMaxBitrate(spp, false) : Number.NaN;
       let actualBitrate = client.getActualBitrate(spp, false);
       let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
         actualBitrate,
