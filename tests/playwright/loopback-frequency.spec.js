@@ -47,7 +47,7 @@ test.describe('Loopback Frequency Test', () => {
       if (type === 'error') {
         console.error(`[PAGE ERROR] ${text}`);
       } else if (type === 'warning') {
-        // console.warn(`[PAGE WARN] ${text}`);
+        console.warn(`[PAGE WARN] ${text}`);
       } else {
         console.log(`[PAGE ${type.toUpperCase()}] ${text}`);
       }
