@@ -1,0 +1,13 @@
+# SonarQube Ignore File
+# Exclude ONLY test files and test-related code from SonarQube analysis
+
+# Test directories
+__tests__/
+__mocks__/
+tests/
+
+# Test configuration files
+jest.config.js
+jest.setup.js
+jest.text-transformer.cjs
+playwright.config.js
