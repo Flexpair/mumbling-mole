@@ -1,4 +1,4 @@
-import mumbleStreams from 'mumble-streams'
+import mumbleStreams from '../mumble-streams/index.js'
 import duplexer from 'reduplexer'
 import { EventEmitter } from 'events'
 import through2 from 'through2'

@@ -1,8 +1,7 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const protobufjs = require('protobufjs');
-const util = require('node:util');
-const Transform = require('node:stream').Transform;
+import protobufjs from 'protobufjs';
+import util from 'node:util';
+import { Transform } from 'node:stream';
+import mumbleProtoContent from './Mumble.proto';
 
 const nameById = {
     0: 'Version',
@@ -37,8 +36,7 @@ for (const id in nameById) {
 	idByName[nameById[id]] = id;
 }
 
-const mumbleProto = fs.readFileSync(path.join(__dirname, 'Mumble.proto'), 'utf8');
-const root = protobufjs.parse(mumbleProto, { alternateCommentMode: true }).root;
+const root = protobufjs.parse(mumbleProtoContent, { alternateCommentMode: true }).root;
 const mumbleNamespace = root.lookup('MumbleProto');
 if (!mumbleNamespace) {
   throw new Error('Failed to load MumbleProto definitions');
@@ -162,8 +160,9 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
   callback();
 };
 
-module.exports = {
-  Encoder: Encoder,
-  Decoder: Decoder,
+export { Encoder, Decoder, typeByName as messages };
+export default {
+  Encoder,
+  Decoder,
   messages: typeByName
 };

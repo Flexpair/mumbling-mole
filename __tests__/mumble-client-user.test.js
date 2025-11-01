@@ -74,7 +74,7 @@ jest.unstable_mockModule('rtimer', () => ({
   })
 }));
 
-const User = (await import('../vendors/mumble-client/src/user.js')).default;
+const User = (await import('../app/mumble-client/user.js')).default;
 
 describe('mumble-client User', () => {
   let client;

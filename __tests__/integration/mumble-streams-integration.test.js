@@ -16,7 +16,7 @@ describe('mumble-streams Integration Tests', () => {
     let mumbleStreams;
 
     beforeAll(async () => {
-      mumbleStreams = await import('mumble-streams');
+      mumbleStreams = await import('../../app/mumble-streams/index.js');
     });
 
     test('should export version object', () => {
@@ -45,7 +45,7 @@ describe('mumble-streams Integration Tests', () => {
     let version;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       version = mumbleStreams.version;
     });
 
@@ -93,7 +93,7 @@ describe('mumble-streams Integration Tests', () => {
     let data;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       data = mumbleStreams.data;
     });
 
@@ -168,7 +168,7 @@ describe('mumble-streams Integration Tests', () => {
     let voice;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       voice = mumbleStreams.voice;
     });
 
@@ -231,7 +231,7 @@ describe('mumble-streams Integration Tests', () => {
     let udpCrypto;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       udpCrypto = mumbleStreams.udpCrypto;
     });
 
@@ -314,7 +314,7 @@ describe('mumble-streams Integration Tests', () => {
     test('data.messages.PermissionDenied.DenyType matches client usage', async () => {
       // Pattern from mumble-client/src/client.js line 13:
       // const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType;
       
       expect(DenyType).toBeDefined();
@@ -323,7 +323,7 @@ describe('mumble-streams Integration Tests', () => {
 
     test('version object can be used for protocol negotiation', async () => {
       // Pattern from mumble-client: version information is used in protocol handshake
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const { version } = mumbleStreams;
       
       expect(version.toUInt8).toBeDefined();
@@ -333,7 +333,7 @@ describe('mumble-streams Integration Tests', () => {
     });
 
     test('data encoder/decoder can be instantiated for protocol handling', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       
       // Pattern used in mumble-client for data stream handling
       const encoder = new mumbleStreams.data.Encoder();
@@ -346,7 +346,7 @@ describe('mumble-streams Integration Tests', () => {
 
   describe('Stream Compatibility', () => {
     test('data Encoder can be piped', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const encoder = new mumbleStreams.data.Encoder();
       
       // Should have stream methods
@@ -356,7 +356,7 @@ describe('mumble-streams Integration Tests', () => {
     });
 
     test('data Decoder can be piped', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const decoder = new mumbleStreams.data.Decoder();
       
       expect(typeof decoder.pipe).toBe('function');
@@ -365,7 +365,7 @@ describe('mumble-streams Integration Tests', () => {
     });
 
     test('voice Encoder can be piped', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const encoder = new mumbleStreams.voice.Encoder('server');
       
       expect(typeof encoder.pipe).toBe('function');
@@ -374,7 +374,7 @@ describe('mumble-streams Integration Tests', () => {
     });
 
     test('voice Decoder can be piped', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const decoder = new mumbleStreams.voice.Decoder('server');
       
       expect(typeof decoder.pipe).toBe('function');
@@ -387,7 +387,7 @@ describe('mumble-streams Integration Tests', () => {
     let messages;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       messages = mumbleStreams.data.messages;
     });
 
@@ -436,7 +436,7 @@ describe('mumble-streams Integration Tests', () => {
     let mumbleStreams;
 
     beforeAll(async () => {
-      mumbleStreams = await import('mumble-streams');
+      mumbleStreams = await import('../../app/mumble-streams/index.js');
     });
 
     test('voice Encoder should require valid destination', () => {
@@ -474,7 +474,7 @@ describe('mumble-streams Integration Tests', () => {
 
   describe('Codec Support', () => {
     test('voice module should support Opus codec', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       const encoder = new mumbleStreams.voice.Encoder('server');
       
       // Opus is the primary codec used in modern Mumble
@@ -485,7 +485,7 @@ describe('mumble-streams Integration Tests', () => {
 
   describe('Memory and Resource Management', () => {
     test('multiple encoder instances should be independent', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       
       const encoder1 = new mumbleStreams.data.Encoder();
       const encoder2 = new mumbleStreams.data.Encoder();
@@ -494,7 +494,7 @@ describe('mumble-streams Integration Tests', () => {
     });
 
     test('multiple decoder instances should be independent', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       
       const decoder1 = new mumbleStreams.data.Decoder();
       const decoder2 = new mumbleStreams.data.Decoder();
@@ -503,7 +503,7 @@ describe('mumble-streams Integration Tests', () => {
     });
 
     test('voice encoder instances should be independent', async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../../app/mumble-streams/index.js');
       
       const encoder1 = new mumbleStreams.voice.Encoder('server');
       const encoder2 = new mumbleStreams.voice.Encoder('client');

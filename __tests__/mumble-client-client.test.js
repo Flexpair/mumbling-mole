@@ -106,7 +106,7 @@ const mockDuplexer = jest.fn((encoder, decoder, opts) => {
 });
 
 // Mock dependencies
-jest.unstable_mockModule('mumble-streams', () => ({ default: mockMumbleStreams }));
+jest.unstable_mockModule('../app/mumble-streams/index.js', () => ({ default: mockMumbleStreams }));
 jest.unstable_mockModule('reduplexer', () => ({ default: mockDuplexer }));
 jest.unstable_mockModule('drop-stream', () => ({ default: mockDropStream }));
 jest.unstable_mockModule('remove-value', () => ({
@@ -125,9 +125,9 @@ jest.unstable_mockModule('stats-incremental', () => ({
   }))
 }));
 
-const MumbleClient = (await import('../vendors/mumble-client/src/client.js')).default;
-const User = (await import('../vendors/mumble-client/src/user.js')).default;
-const Channel = (await import('../vendors/mumble-client/src/channel.js')).default;
+const MumbleClient = (await import('../app/mumble-client/client.js')).default;
+const User = (await import('../app/mumble-client/user.js')).default;
+const Channel = (await import('../app/mumble-client/channel.js')).default;
 
 describe('mumble-client Client', () => {
   let client;

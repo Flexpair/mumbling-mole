@@ -15,7 +15,7 @@ describe('mumble-client Integration Tests', () => {
     let MumbleClient;
 
     beforeAll(async () => {
-      const module = await import('mumble-client');
+      const module = await import('../../app/mumble-client/index.js');
       MumbleClient = module.default;
     });
 
@@ -84,7 +84,7 @@ describe('mumble-client Integration Tests', () => {
     let MumbleClient;
 
     beforeAll(async () => {
-      const module = await import('mumble-client');
+      const module = await import('../../app/mumble-client/index.js');
       MumbleClient = module.default;
     });
 
@@ -131,7 +131,7 @@ describe('mumble-client Integration Tests', () => {
     let MumbleClient;
 
     beforeAll(async () => {
-      const module = await import('mumble-client');
+      const module = await import('../../app/mumble-client/index.js');
       MumbleClient = module.default;
     });
 
@@ -169,7 +169,7 @@ describe('mumble-client Integration Tests', () => {
     let MumbleClient;
 
     beforeAll(async () => {
-      const module = await import('mumble-client');
+      const module = await import('../../app/mumble-client/index.js');
       MumbleClient = module.default;
     });
 
@@ -192,7 +192,7 @@ describe('mumble-client Integration Tests', () => {
 
   describe('Integration with ConnectionState', () => {
     test('client interface matches ConnectionState expectations', async () => {
-      const MumbleClient = (await import('mumble-client')).default;
+      const MumbleClient = (await import('../../app/mumble-client/index.js')).default;
       const client = new MumbleClient({ username: 'testuser' });
 
       // ConnectionState expects these properties/methods
@@ -209,7 +209,7 @@ describe('mumble-client Integration Tests', () => {
       // This pattern is critical for the WorkerBasedMumbleClient
       // See worker-client.js line 206
       expect(async () => {
-        const MumbleClient = (await import('mumble-client')).default;
+        const MumbleClient = (await import('../../app/mumble-client/index.js')).default;
         const dummyClient = new MumbleClient({ username: 'dummy' });
         
         // Dummy client is used to get Channel/User class prototypes
@@ -223,7 +223,7 @@ describe('mumble-client Integration Tests', () => {
     let MumbleClient;
 
     beforeAll(async () => {
-      const module = await import('mumble-client');
+      const module = await import('../../app/mumble-client/index.js');
       MumbleClient = module.default;
     });
 
@@ -255,7 +255,7 @@ describe('mumble-client Integration Tests', () => {
     let MumbleClient;
 
     beforeAll(async () => {
-      const module = await import('mumble-client');
+      const module = await import('../../app/mumble-client/index.js');
       MumbleClient = module.default;
     });
 
@@ -283,7 +283,7 @@ describe('mumble-client Integration Tests', () => {
 
   describe('Compatibility with Existing Codebase Patterns', () => {
     test('bandwidth calculation matches usage in index.js', async () => {
-      const MumbleClient = (await import('mumble-client')).default;
+      const MumbleClient = (await import('../../app/mumble-client/index.js')).default;
       
       // Pattern from app/index.js line 337-340
       const actualBandwidth = MumbleClient.calcEnforcableBandwidth(
@@ -297,7 +297,7 @@ describe('mumble-client Integration Tests', () => {
     });
 
     test('client construction matches worker-client.js pattern', async () => {
-      const MumbleClient = (await import('mumble-client')).default;
+      const MumbleClient = (await import('../../app/mumble-client/index.js')).default;
       
       // Pattern from worker-client.js line 206
       const dummyClient = new MumbleClient({ username: 'dummy' });
@@ -308,7 +308,7 @@ describe('mumble-client Integration Tests', () => {
     });
 
     test('client construction matches mumble-websocket.js pattern', async () => {
-      const MumbleClient = (await import('mumble-client')).default;
+      const MumbleClient = (await import('../../app/mumble-client/index.js')).default;
       
       // Pattern from mumble-websocket.js line 14
       const options = {

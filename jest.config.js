@@ -12,10 +12,13 @@ export default {
   testEnvironment: 'jsdom',
 
   // ES modules support
-  transform: {},
+  transform: {
+    '\\.proto$': '<rootDir>/jest.text-transformer.cjs', // Transform .proto files as text
+  },
   moduleNameMapper: {
     // Mock fs module to avoid graceful-fs import issues
     '^fs$': '<rootDir>/__mocks__/fs.cjs',
+    '^node:fs$': '<rootDir>/__mocks__/fs.cjs',
   },
 
   // Test file patterns

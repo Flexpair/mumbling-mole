@@ -8,9 +8,9 @@
 // that can be found in the LICENSE file at the root of the
 // Mumble source tree or at <https://www.mumble.info/LICENSE>.
 
-var crypto = require('crypto');
+import crypto from 'node:crypto';
 
-var BLOCK_SIZE = 16;
+const BLOCK_SIZE = 16;
 
 function UdpCrypt(stats) {
   this._decryptHistory = new Array(100);
@@ -60,18 +60,18 @@ UdpCrypt.prototype.generateKey = function(callback) {
 
 UdpCrypt.prototype.encrypt = function(plainText) {
   // First, increase our IV
-  for (var i = 0; i < BLOCK_SIZE; i++) {
+  for (let i = 0; i < BLOCK_SIZE; i++) {
     if (++this._encryptIV[i] == 256) {
       this._encryptIV[i] = 0;
     } else {
       break;
     }
   }
-  var cipher = crypto.createCipheriv('AES-128-ECB', this._key, '')
+  const cipher = crypto.createCipheriv('AES-128-ECB', this._key, '')
     .setAutoPadding(false);
 
-  var cipherText = Buffer.alloc(plainText.length + 4);
-  var tag = ocbEncrypt(plainText, cipherText.slice(4), this._encryptIV,
+  const cipherText = Buffer.alloc(plainText.length + 4);
+  const tag = ocbEncrypt(plainText, cipherText.slice(4), this._encryptIV,
       cipher.update.bind(cipher));
   cipherText[0] = this._encryptIV[0];
   cipherText[1] = tag[0];
@@ -86,12 +86,12 @@ UdpCrypt.prototype.decrypt = function(cipherText) {
     return null;
   }
 
-  var saveiv = Buffer.from(this._decryptIV);
-  var ivbyte = cipherText[0];
-  var restore = false;
-  var lost = 0;
-  var late = 0;
-  var i;
+  const saveiv = Buffer.from(this._decryptIV);
+  const ivbyte = cipherText[0];
+  let restore = false;
+  let lost = 0;
+  let late = 0;
+  let i;
   
   if (((this._decryptIV[0] + 1) & 0xFF) == ivbyte) {
     // In order as expected
@@ -112,7 +112,7 @@ UdpCrypt.prototype.decrypt = function(cipherText) {
   } else {
     // This is either out of order or a repeat.
 
-    var diff = ivbyte - this._decryptIV[0];
+    let diff = ivbyte - this._decryptIV[0];
     if (diff > 128) {
       diff = diff - 256;
     } else if (diff < -128) {
@@ -163,13 +163,13 @@ UdpCrypt.prototype.decrypt = function(cipherText) {
     }
   }
 
-  var encrypt = crypto.createCipheriv('AES-128-ECB', this._key, '')
+  const encrypt = crypto.createCipheriv('AES-128-ECB', this._key, '')
     .setAutoPadding(false);
-  var decrypt = crypto.createDecipheriv('AES-128-ECB', this._key, '')
+  const decrypt = crypto.createDecipheriv('AES-128-ECB', this._key, '')
     .setAutoPadding(false);
 
-  var plainText = new Buffer(cipherText.length - 4);
-  var tag = ocbDecrypt(cipherText.slice(4), plainText, this._decryptIV,
+  const plainText = new Buffer(cipherText.length - 4);
+  const tag = ocbDecrypt(cipherText.slice(4), plainText, this._decryptIV,
       encrypt.update.bind(encrypt), decrypt.update.bind(decrypt));
 
   if (tag.compare(cipherText, 1, 4, 0, 3) !== 0) {
@@ -189,13 +189,13 @@ UdpCrypt.prototype.decrypt = function(cipherText) {
 };
 
 function ocbEncrypt(plainText, cipherText, nonce, aesEncrypt) {
-  var checksum = new Buffer(BLOCK_SIZE);
-  var tmp = new Buffer(BLOCK_SIZE);
+  const checksum = new Buffer(BLOCK_SIZE);
+  let tmp = new Buffer(BLOCK_SIZE);
   
-  var delta = aesEncrypt(nonce);
+  const delta = aesEncrypt(nonce);
   ZERO(checksum);
 
-  var len = plainText.length;
+  let len = plainText.length;
   while (len > BLOCK_SIZE) {
     S2(delta);
     XOR(tmp, delta, plainText);
@@ -211,7 +211,7 @@ function ocbEncrypt(plainText, cipherText, nonce, aesEncrypt) {
   ZERO(tmp);
   tmp[BLOCK_SIZE - 1] = len * 8;
   XOR(tmp, tmp, delta);
-  var pad = aesEncrypt(tmp);
+  const pad = aesEncrypt(tmp);
   plainText.copy(tmp, 0, 0, len);
   pad.copy(tmp, len, len, BLOCK_SIZE);
   XOR(checksum, checksum, tmp);
@@ -220,20 +220,20 @@ function ocbEncrypt(plainText, cipherText, nonce, aesEncrypt) {
 
   S3(delta);
   XOR(tmp, delta, checksum);
-  var tag = aesEncrypt(tmp);
+  const tag = aesEncrypt(tmp);
   
   return tag;
 }
 
 function ocbDecrypt(cipherText, plainText, nonce, aesEncrypt, aesDecrypt) {
-  var checksum = new Buffer(BLOCK_SIZE);
-  var tmp = new Buffer(BLOCK_SIZE);
+  const checksum = new Buffer(BLOCK_SIZE);
+  let tmp = new Buffer(BLOCK_SIZE);
   
   // Initialize
-  var delta = aesEncrypt(nonce);
+  const delta = aesEncrypt(nonce);
   ZERO(checksum);
 
-  var len = plainText.length;
+  let len = plainText.length;
   while (len > BLOCK_SIZE) {
     S2(delta);
     XOR(tmp, delta, cipherText);
@@ -249,7 +249,7 @@ function ocbDecrypt(cipherText, plainText, nonce, aesEncrypt, aesDecrypt) {
   ZERO(tmp);
   tmp[BLOCK_SIZE - 1] = len * 8;
   XOR(tmp, tmp, delta);
-  var pad = aesEncrypt(tmp);
+  const pad = aesEncrypt(tmp);
   ZERO(tmp);
   cipherText.copy(tmp, 0, 0, len);
   XOR(tmp, tmp, pad);
@@ -258,20 +258,20 @@ function ocbDecrypt(cipherText, plainText, nonce, aesEncrypt, aesDecrypt) {
 
   S3(delta);
   XOR(tmp, delta, checksum);
-  var tag = aesEncrypt(tmp);
+  const tag = aesEncrypt(tmp);
 
   return tag;
 }
 
 function XOR(dst, a, b) {
-  for (var i = 0; i < BLOCK_SIZE; i++) {
+  for (let i = 0; i < BLOCK_SIZE; i++) {
     dst[i] = a[i] ^ b[i];
   }
 }
 
 function S2(block) {
-  var carry = block[0] >> 7;
-  for (var i = 0; i < BLOCK_SIZE - 1; i++) {
+  const carry = block[0] >> 7;
+  for (let i = 0; i < BLOCK_SIZE - 1; i++) {
     block[i] = block[i] << 1 | block[i+1] >> 7;
   }
   block[BLOCK_SIZE-1] = block[BLOCK_SIZE-1] << 1 ^ (carry * 0x87);
@@ -279,8 +279,8 @@ function S2(block) {
 
 // Equivalent to: XOR(block, block, R2(block))
 function S3(block) {
-  var carry = block[0] >> 7;
-  for (var i = 0; i < BLOCK_SIZE - 1; i++) {
+  const carry = block[0] >> 7;
+  for (let i = 0; i < BLOCK_SIZE - 1; i++) {
     block[i] ^= block[i] << 1 | block[i+1] >> 7;
   }
   block[BLOCK_SIZE-1] ^= block[BLOCK_SIZE-1] << 1 ^ (carry * 0x87);
@@ -292,13 +292,8 @@ function ZERO(block) {
 
 // End of port
 
-var util = require('util'),
-    Transform = require('stream').Transform;
-
-module.exports = UdpCrypt;
-module.exports.BLOCK_SIZE = BLOCK_SIZE;
-module.exports.ocbEncrypt = ocbEncrypt;
-module.exports.ocbDecrypt = ocbDecrypt;
+import util from 'node:util';
+import { Transform } from 'node:stream';
 
 /**
  * @typedef {object} States
@@ -331,3 +326,6 @@ Encrypt.prototype._transform = function(chunk, encoding, callback) {
 Encrypt.prototype.getBlockCipher = function() {
   return this._block;
 };
+
+export default UdpCrypt;
+export { BLOCK_SIZE, ocbEncrypt, ocbDecrypt };

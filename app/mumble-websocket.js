@@ -1,6 +1,6 @@
 import Promise from "promise";
 import websocketStream from "websocket-stream";
-import MumbleClient from "mumble-client";
+import MumbleClient from "./mumble-client/index.js";
 
 // Native async wrapper for establishing the websocket and wiring it to MumbleClient.
 // Note: callback-style (.nodeify) support was removed; no current internal callers use it.

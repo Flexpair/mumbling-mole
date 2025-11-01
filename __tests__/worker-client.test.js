@@ -8,7 +8,7 @@
 import { jest } from '@jest/globals';
 
 // Mock dependencies
-jest.unstable_mockModule('mumble-client', () => ({
+jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
   default: jest.fn().mockImplementation(() => ({
     maxBandwidth: 0,
     setAudioQuality: jest.fn(),

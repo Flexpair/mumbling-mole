@@ -1,7 +1,7 @@
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "node:url";
-import MumbleClient from "mumble-client";
+import MumbleClient from "./mumble-client/index.js";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import AuthFactory from "./auth/AuthFactory";

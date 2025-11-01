@@ -17,7 +17,7 @@ describe('mumble-streams Unit Tests', () => {
     let Encoder;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../app/mumble-streams/index.js');
       voice = mumbleStreams.voice;
       Encoder = voice.Encoder;
     });
@@ -289,7 +289,7 @@ describe('mumble-streams Unit Tests', () => {
     let Decoder;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../app/mumble-streams/index.js');
       voice = mumbleStreams.voice;
       Decoder = voice.Decoder;
     });
@@ -417,7 +417,7 @@ describe('mumble-streams Unit Tests', () => {
     let data;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../app/mumble-streams/index.js');
       data = mumbleStreams.data;
     });
 
@@ -575,7 +575,7 @@ describe('mumble-streams Unit Tests', () => {
     let udpCrypto;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../app/mumble-streams/index.js');
       udpCrypto = mumbleStreams.udpCrypto;
     });
 
@@ -826,7 +826,7 @@ describe('mumble-streams Unit Tests', () => {
     let version;
 
     beforeAll(async () => {
-      const mumbleStreams = await import('mumble-streams');
+      const mumbleStreams = await import('../app/mumble-streams/index.js');
       version = mumbleStreams.version;
     });
 

@@ -1,5 +1,5 @@
-const util = require('node:util');
-const Transform = require('node:stream').Transform;
+import util from 'node:util';
+import { Transform } from 'node:stream';
 
 
 
@@ -258,9 +258,10 @@ Decoder.prototype._transform = function(chunk, encoding, callback) {
   return callback(null, packet);
 };
 
-module.exports = {
-  Encoder: Encoder,
-  Decoder: Decoder
+export { Encoder, Decoder };
+export default {
+  Encoder,
+  Decoder
 };
 
 // Functions below from node-mumble
