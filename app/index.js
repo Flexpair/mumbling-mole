@@ -27,7 +27,7 @@ const isDebugAudio = urlParams.has('debug-audio');
 // Set global debug flag for audio pipeline logging
 // This is checked by decoder-stream.js and vendored mumble-streams
 if (isDebugAudio) {
-  window.MUMBLE_DEBUG_AUDIO = true;
+  globalThis.MUMBLE_DEBUG_AUDIO = true;
   console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
 }
 
@@ -474,7 +474,7 @@ ui.settings = new Settings(window.mumbleWebConfig.settings);
 ui.settingsDialogInstance = new SettingsDialog(ui.settings);
 
 // Initialize auth
-const authConfig = window.mumbleWebConfig?.auth || { provider: 'netlify' };
+const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
 ui.netlifyIdentity = ui.auth; // Backward compatibility
 

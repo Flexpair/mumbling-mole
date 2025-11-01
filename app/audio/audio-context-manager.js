@@ -248,14 +248,14 @@ class AudioContextManager {
    * Check if AudioContext is ready for use (created and running)
    */
   isReady() {
-    return this.audioContext && this.audioContext.state === 'running';
+    return this.audioContext?.state === 'running';
   }
 
   /**
    * Check if user interaction has been detected (required for autoplay)
    */
   canPlayAudio() {
-    return this.userInteractionDetected || (this.audioContext && this.audioContext.state === 'running');
+    return this.userInteractionDetected || this.audioContext?.state === 'running';
   }
 
   /**
