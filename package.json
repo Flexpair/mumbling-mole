@@ -48,7 +48,7 @@
     "knockout": "3.5.1",
     "libopus.js": "0.0.1",
     "mumble-client": "file:vendors/mumble-client",
-    "netlify-identity-widget": "file:vendors/netlify-identity-widget",
+    "mumble-streams": "file:vendors/mumble-streams",
     "promise": "8.3.0",
     "resolve": "^1.22.11",
     "reuse-pool": "1.0.2",
