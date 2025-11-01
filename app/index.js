@@ -1,6 +1,6 @@
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
-import url from "url";
+import url from "node:url";
 import MumbleClient from "mumble-client";
 import ko from "knockout";
 import keyboardjs from "keyboardjs";
@@ -21,7 +21,7 @@ import {
 const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
 // Check URL parameters for debug-audio flag (used in automated tests)
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = new URLSearchParams(globalThis.location.search);
 const isDebugAudio = urlParams.has('debug-audio');
 
 // Set global debug flag for audio pipeline logging

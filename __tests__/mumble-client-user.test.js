@@ -38,7 +38,9 @@ jest.unstable_mockModule('node:events', () => ({
     }
     emit(event, ...args) {
       if (!this._events[event]) return false;
-      this._events[event].forEach(listener => listener(...args));
+      for (const listener of this._events[event]) {
+        listener(...args);
+      }
       return true;
     }
   }
