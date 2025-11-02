@@ -62,33 +62,36 @@
         </div>
 
         <!-- Piano Button and Frequency Display Row -->
-        <div v-if="isTestActive" style="display: flex; align-items: center; gap: 10px; margin-top: 8px; clear: both;">
-          <!-- Piano Button (Beeper) -->
-          <button
-            type="button"
-            class="beep-test-button"
-            @mousedown="startBeep"
-            @mouseup="stopBeep"
-            @mouseleave="stopBeep"
-            @touchstart="startBeep"
-            @touchend="stopBeep"
-            :class="{ active: isBeeping }"
-            :disabled="!beeperReady || !voiceHandlerReady"
-            style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
-          >
-            <span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)
-          </button>
+        <!-- Fixed height container to prevent layout shifts -->
+        <div style="min-height: 40px; margin-top: 8px;">
+          <div v-if="isTestActive" style="display: flex; align-items: center; gap: 10px;">
+            <!-- Piano Button (Beeper) -->
+            <button
+              type="button"
+              class="beep-test-button"
+              @mousedown="startBeep"
+              @mouseup="stopBeep"
+              @mouseleave="stopBeep"
+              @touchstart="startBeep"
+              @touchend="stopBeep"
+              :class="{ active: isBeeping }"
+              :disabled="!beeperReady || !voiceHandlerReady"
+              style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
+            >
+              <span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)
+            </button>
 
-          <!-- Frequency Display -->
-          <div
-            v-if="isLoopbackMode"
-            class="loopback-frequency-display"
-            style="padding: 6px 12px; background-color: rgba(0, 150, 255, 0.1); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 4px; flex-shrink: 0;"
-          >
-            <span style="font-weight: bold; color: #0096ff;">📊</span>
-            <span style="font-size: 1.1em; font-weight: bold; color: #0066cc; margin-left: 4px;">
-              {{ dominantFrequency > 0 ? dominantFrequency + ' Hz' : '--- Hz' }}
-            </span>
+            <!-- Frequency Display with fixed width -->
+            <div
+              v-if="isLoopbackMode"
+              class="loopback-frequency-display"
+              style="padding: 6px 12px; background-color: rgba(21, 120, 120, 0.1); border: 1px solid rgba(21, 120, 120, 0.3); border-radius: 4px; flex-shrink: 0; min-width: 120px; text-align: center;"
+            >
+              <span style="font-weight: bold; color: #157878;">📊</span>
+              <span style="font-size: 1.1em; font-weight: bold; color: #157878; margin-left: 4px; font-variant-numeric: tabular-nums;">
+                {{ dominantFrequency > 0 ? dominantFrequency + ' Hz' : '--- Hz' }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
