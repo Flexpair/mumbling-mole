@@ -68,8 +68,12 @@
         ></iframe>
       </section>
       <!-- /ko -->
+      
+      <!-- Vue.js ConnectDialog Mount Point (feature toggle: ?vue-connect-dialog) -->
+      <div id="vue-connect-dialog-root"></div>
+      
       <!-- ko with: connectDialog -->
-      <div class="connect-dialog dialog" data-bind="visible: visible()">
+      <div class="connect-dialog dialog" data-bind="visible: visible()" id="knockout-connect-dialog">
         <div id="connect-dialog_title" class="dialog-header">
           Join audio conference
         </div>

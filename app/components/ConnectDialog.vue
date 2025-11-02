@@ -1,45 +1,26 @@
 <template>
   <div class="connect-dialog dialog" v-show="visible">
-    <div class="dialog-header">{{ $t('connectdialog.title') }}</div>
+    <div class="dialog-header">{{ $t('connectdialog.title') || 'Join audio conference' }}</div>
     <form @submit.prevent="handleConnect">
       <table>
         <tbody>
-          <tr>
-            <td class="label">{{ $t('connectdialog.address') }}</td>
+          <tr v-if="config.connectDialog?.username">
+            <td class="label">{{ $t('connectdialog.username') || 'Username' }}</td>
             <td>
               <input
-                v-model="formData.address"
+                v-model="username"
                 type="text"
                 class="dialog-input"
-                autofocus
+                readonly
+                required
               />
             </td>
           </tr>
-          <tr>
-            <td class="label">{{ $t('connectdialog.port') }}</td>
+          <tr v-if="config.connectDialog?.password">
+            <td class="label">{{ $t('connectdialog.password') || 'Password' }}</td>
             <td>
               <input
-                v-model.number="formData.port"
-                type="number"
-                class="dialog-input"
-              />
-            </td>
-          </tr>
-          <tr v-if="config.connectDialog.username">
-            <td class="label">{{ $t('connectdialog.username') }}</td>
-            <td>
-              <input
-                v-model="formData.username"
-                type="text"
-                class="dialog-input"
-              />
-            </td>
-          </tr>
-          <tr v-if="config.connectDialog.password">
-            <td class="label">{{ $t('connectdialog.password') }}</td>
-            <td>
-              <input
-                v-model="formData.password"
+                v-model="password"
                 type="password"
                 class="dialog-input"
               />
@@ -50,33 +31,31 @@
 
       <div class="loopback-test-section">
         <div class="test-toggle-container">
-          <label class="test-toggle-label">
-            <input
-              type="checkbox"
-              class="test-toggle-checkbox"
-              :checked="isTestActive"
-              @click="handleToggleLoopback"
-              :disabled="isTestActive"
-            />
+          <div 
+            class="test-toggle-label"
+            @click="handleToggleLoopback"
+            style="height: 32px; display: inline-flex; align-items: center; cursor: pointer;"
+          >
+            <span class="test-toggle-text" style="font-size: 1em;">Audio Test</span>
             <span
               class="test-toggle-slider"
               :class="{ active: isTestActive }"
             ></span>
-            <span class="test-toggle-text">{{ $t('connectdialog.loopback_test') }}</span>
-          </label>
-        </div>
+          </div>
 
-        <div
-          v-if="isTestActive && isLoopbackMode"
-          class="frequency-display"
-        >
-          <span style="font-weight: bold; color: #0096ff;">📊</span>
-          <span
-            v-if="dominantFrequency > 0"
-            style="font-size: 1.1em; font-weight: bold; color: #0066cc;"
+          <div
+            v-if="isTestActive && isLoopbackMode"
+            class="loopback-frequency-display"
+            style="display: inline-block; margin-left: 10px; padding: 6px 12px; background-color: rgba(0, 150, 255, 0.1); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 4px;"
           >
-            {{ dominantFrequency }} Hz
-          </span>
+            <span style="font-weight: bold; color: #0096ff;">📊</span>
+            <span
+              v-if="dominantFrequency > 0"
+              style="font-size: 1.1em; font-weight: bold; color: #0066cc;"
+            >
+              {{ dominantFrequency }} Hz
+            </span>
+          </div>
         </div>
       </div>
 
@@ -84,12 +63,13 @@
         <input
           type="button"
           class="dialog-close"
-          :value="$t('connectdialog.cancel')"
+          value="Cancel"
           @click="handleHide"
+          disabled
         />
         <input
           type="submit"
-          :value="connected ? $t('connectdialog.reconnect') : $t('connectdialog.connect')"
+          :value="connected ? 'Reconnect' : 'Connect'"
         />
       </div>
     </form>
@@ -97,161 +77,92 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, inject, watch } from 'vue';
+import { ref, reactive, computed, inject, onMounted, watch } from 'vue';
 
 /**
- * Vue 3 ConnectDialog Component (PROTOTYPE)
+ * Vue 3 ConnectDialog Component (DUAL RUNTIME)
  * 
- * This is a proof-of-concept Vue component to validate the migration strategy.
- * It demonstrates:
- * - Composition API usage
- * - Reactive state management with ref/reactive
- * - Two-way binding with v-model
- * - Event handling with @click/@submit
- * - Computed properties
- * - Integration with existing AppState (via provide/inject)
- * 
- * Migration from Knockout:
- * - ko.observable() → ref()
- * - data-bind="visible" → v-show
- * - data-bind="value" → v-model
- * - data-bind="click" → @click
- * - data-bind="submit" → @submit.prevent
- * - ko.pureComputed() → computed()
+ * Integrates with existing Knockout AppState via provide/inject.
+ * Uses AppState directly instead of props/emits for compatibility.
  */
 
-// Props
-const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
-  isTestActive: {
-    type: Boolean,
-    default: false
-  }
-});
-
-// Emits
-const emit = defineEmits(['update:visible', 'update:isTestActive', 'connect', 'connectLoopback']);
-
 // Inject AppState (from main app)
-const appState = inject('appState', null);
+const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 
-// Form data
-const formData = reactive({
-  address: '',
-  port: '',
-  username: '',
-  password: ''
-});
+// Local reactive state (synced with appState.connectDialog)
+const visible = ref(false);
+const isTestActive = ref(false);
+const address = ref('');
+const port = ref('');
+const username = ref('');
+const password = ref('');
 
-// Computed state from AppState (if available)
+// Sync with Knockout observables
+if (appState?.connectDialog) {
+  // Initialize from Knockout state
+  onMounted(() => {
+    visible.value = appState.connectDialog.visible();
+    isTestActive.value = appState.connectDialog.isTestActive();
+    address.value = appState.connectDialog.address();
+    port.value = appState.connectDialog.port();
+    username.value = appState.connectDialog.username();
+    password.value = appState.connectDialog.password();
+    
+    // Subscribe to Knockout observable changes
+    appState.connectDialog.visible.subscribe((val) => {
+      visible.value = val;
+    });
+    appState.connectDialog.isTestActive.subscribe((val) => {
+      isTestActive.value = val;
+    });
+    appState.connectDialog.username.subscribe((val) => {
+      username.value = val;
+    });
+  });
+  
+  // Sync Vue changes back to Knockout
+  watch(visible, (val) => appState.connectDialog.visible(val));
+  watch(isTestActive, (val) => appState.connectDialog.isTestActive(val));
+  watch(address, (val) => appState.connectDialog.address(val));
+  watch(port, (val) => appState.connectDialog.port(val));
+  watch(username, (val) => appState.connectDialog.username(val));
+  watch(password, (val) => appState.connectDialog.password(val));
+}
+
+// Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
 const isLoopbackMode = computed(() => appState?.voice?.isLoopbackMode() ?? false);
 const dominantFrequency = computed(() => appState?.voice?.loopbackDominantFrequency() ?? 0);
-
-// Watch appState observables (Knockout compatibility layer)
-if (appState) {
-  // Subscribe to AppState changes
-  // In pure Vue app, this wouldn't be needed
-  watch(
-    () => appState.connected(),
-    (newVal) => {
-      console.log('[Vue ConnectDialog] Connected state changed:', newVal);
-    }
-  );
-}
 
 /**
  * Handle connect button click
  */
 function handleConnect() {
-  emit('update:visible', false);
-  
-  if (connected.value) {
-    // Exit loopback mode
-    emit('update:isTestActive', false);
-    if (appState) {
-      appState.voice.isLoopbackMode(false);
-      appState._updateVoiceHandler();
-      
-      if (appState._guacLogin) {
-        appState.guacamoleFrame.loading(false);
-        appState.guacamoleFrame.start(appState._guacLogin, appState._guacPassword);
-        appState.guacamoleFrame.show();
-      }
-    }
-  } else {
-    // Normal connect
-    emit('update:isTestActive', false);
-    emit('connect', {
-      address: formData.address,
-      port: formData.port,
-      username: formData.username,
-      password: formData.password
-    });
+  // Delegate to Knockout ConnectDialog.connect()
+  if (appState?.connectDialog?.connect) {
+    appState.connectDialog.connect();
   }
 }
 
 /**
  * Handle loopback toggle
  */
-async function handleToggleLoopback(event) {
-  // Prevent if already active
-  if (props.isTestActive) {
-    event.preventDefault();
-    return;
+async function handleToggleLoopback() {
+  // Delegate to Knockout ConnectDialog.toggleLoopback()
+  if (appState?.connectDialog?.toggleLoopback) {
+    await appState.connectDialog.toggleLoopback();
   }
-  
-  // Ensure AudioContext is ready (user gesture)
-  if (appState?.audio) {
-    try {
-      if (appState.audio.audioContextManager) {
-        appState.audio.audioContextManager.userInteractionDetected = true;
-      }
-      
-      if (!appState.audio.audioContext) {
-        console.log('[Vue LOOPBACK] Creating AudioContext on user click');
-        await appState.audio.initializeAudioContext();
-      }
-      
-      if (appState.audio.audioContext?.state === 'suspended') {
-        console.log('[Vue LOOPBACK] Resuming AudioContext on user click');
-        await appState.audio.audioContext.resume();
-      }
-      
-      console.log('[Vue LOOPBACK] AudioContext ready:', appState.audio.audioContext.state);
-    } catch (err) {
-      console.error('[Vue LOOPBACK] Failed to prepare AudioContext:', err);
-    }
-  }
-  
-  emit('update:isTestActive', true);
-  emit('connectLoopback', {
-    address: formData.address,
-    port: formData.port,
-    username: formData.username,
-    password: formData.password
-  });
 }
 
 /**
  * Handle hide
  */
 function handleHide() {
-  emit('update:visible', false);
+  if (appState?.connectDialog?.hide) {
+    appState.connectDialog.hide();
+  }
 }
-
-/**
- * Public API (for parent access)
- */
-defineExpose({
-  formData,
-  handleConnect,
-  handleToggleLoopback
-});
 </script>
 
 <style scoped>

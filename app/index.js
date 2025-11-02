@@ -8,6 +8,10 @@ import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 import ConnectDialog from "./components/ConnectDialog.js";
 
+// Vue.js imports (dual runtime)
+import { createApp } from 'vue';
+import ConnectDialogVue from "./components/ConnectDialog.vue";
+
 
 import {
   enumMicrophones,
@@ -414,6 +418,31 @@ if (ui.auth) {
   globalThis.netlifyIdentity = ui.auth;
 }
 
+// Feature toggle: Check if Vue.js version should be used
+const vueFeatureParams = new URLSearchParams(window.location.search);
+const useVueConnectDialog = vueFeatureParams.has('vue-connect-dialog');
+
+// Vue.js App Setup (dual runtime)
+let vueApp = null;
+if (useVueConnectDialog) {
+  console.log('[VUE] Initializing Vue.js ConnectDialog (dual runtime mode)');
+  
+  // Create Vue app instance
+  vueApp = createApp({
+    components: {
+      ConnectDialogVue
+    },
+    template: '<ConnectDialogVue />'
+  });
+  
+  // Provide AppState to Vue components
+  vueApp.provide('appState', ui);
+  vueApp.provide('config', ui.config);
+  
+  // Simple i18n helper for Vue
+  vueApp.config.globalProperties.$t = (key) => translate(key);
+}
+
 function initializeUI() {
   // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
@@ -494,6 +523,24 @@ async function main() {
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
+  
+  // Mount Vue.js app if feature toggle is enabled
+  if (useVueConnectDialog && vueApp) {
+    console.log('[VUE] Mounting Vue.js ConnectDialog');
+    try {
+      vueApp.mount('#vue-connect-dialog-root');
+      // Hide Knockout version
+      const knockoutDialog = document.getElementById('knockout-connect-dialog');
+      if (knockoutDialog) {
+        knockoutDialog.style.display = 'none';
+      }
+      console.log('[VUE] Vue.js ConnectDialog mounted successfully (Knockout version hidden)');
+    } catch (err) {
+      console.error('[VUE] Failed to mount Vue.js app:', err);
+      console.log('[VUE] Falling back to Knockout version');
+    }
+  }
+  
   enumMicrophones();
 }
 

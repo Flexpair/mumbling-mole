@@ -9,6 +9,7 @@ import * as esbuild from 'esbuild';
 import { sassPlugin } from 'esbuild-sass-plugin';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import vuePlugin from 'esbuild-plugin-vue3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,6 +102,9 @@ const buildConfig = {
   
     // Plugins
   plugins: [
+    // Vue 3 Single File Components (.vue files)
+    vuePlugin(),
+    
     // Custom plugin to alias fs to our mock
     {
       name: 'fs-mock',
