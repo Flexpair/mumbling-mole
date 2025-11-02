@@ -76,6 +76,8 @@
               @touchend="stopBeep"
               :class="{ active: isBeeping }"
               :disabled="!beeperReady || !voiceHandlerReady"
+              :aria-pressed="isBeeping ? 'true' : 'false'"
+              aria-label="Test microphone with 440 Hz tone"
               style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
             >
               <span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)
@@ -198,32 +200,39 @@ const beeperReady = ref(false);
 const voiceHandlerReady = ref(false);
 const dominantFrequency = ref(0); // Changed from computed to ref with subscription
 
+// Knockout subscriptions (for cleanup)
+let sub1, sub2, sub3;
+
 // Subscribe to Knockout observables
 onMounted(() => {
   if (appState?.audio?.beeperReady) {
     beeperReady.value = appState.audio.beeperReady();
-    const sub1 = appState.audio.beeperReady.subscribe((val) => {
+    sub1 = appState.audio.beeperReady.subscribe((val) => {
       beeperReady.value = val;
     });
-    onUnmounted(() => sub1.dispose());
   }
   
   if (appState?.voice?.voiceHandlerReady) {
     voiceHandlerReady.value = appState.voice.voiceHandlerReady();
-    const sub2 = appState.voice.voiceHandlerReady.subscribe((val) => {
+    sub2 = appState.voice.voiceHandlerReady.subscribe((val) => {
       voiceHandlerReady.value = val;
     });
-    onUnmounted(() => sub2.dispose());
   }
   
   // Subscribe to loopbackDominantFrequency
   if (appState?.voice?.loopbackDominantFrequency) {
     dominantFrequency.value = appState.voice.loopbackDominantFrequency();
-    const sub3 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
+    sub3 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
       dominantFrequency.value = freq;
     });
-    onUnmounted(() => sub3.dispose());
   }
+});
+
+// Always dispose subscriptions on unmount
+onUnmounted(() => {
+  if (sub1) sub1.dispose();
+  if (sub2) sub2.dispose();
+  if (sub3) sub3.dispose();
 });
 
 /**

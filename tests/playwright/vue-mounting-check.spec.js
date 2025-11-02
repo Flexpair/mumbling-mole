@@ -22,8 +22,8 @@ test('Vue ConnectDialog should mount successfully', async ({ page }) => {
   // Wait for page to load
   await page.waitForLoadState('networkidle');
   
-  // Wait a bit for Vue mounting
-  await page.waitForTimeout(1000);
+  // Wait for Vue ConnectDialog to render
+  await page.waitForSelector('#vue-connect-dialog-root > *');
   
   // Check for Vue mounting log
   const vueLogs = consoleLogs.filter(log => log.text.includes('[VUE]'));

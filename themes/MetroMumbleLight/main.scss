@@ -5,6 +5,9 @@ $lightgray: #d3d3d3 !default;
 $bg-color: #eee !default;
 $white: #fff !default;
 
+// Corporate branding colors
+$corporate-teal: #157878 !default;
+
 $font-color: $black !default;
 $font-family: Arial, sans-serif !default;
 $chat-input-color: $font-color !default;
@@ -159,7 +162,7 @@ form {
   }
   
   &.active {
-    background-color: #157878;
+    background-color: $corporate-teal;
     color: white;
     border-color: #1e7e34;
   }
@@ -189,7 +192,7 @@ form {
   transition: all 0.2s ease;
 }
 .dialog-submit.button-active {
-  background-color: #157878;
+  background-color: $corporate-teal;
   color: white;
   border-color: #1e7e34;
 }
@@ -258,7 +261,7 @@ form {
   }
   
   &.active {
-    background-color: #157878;
+    background-color: $corporate-teal;
     
     &::before {
       transform: translateX(24px);
@@ -424,9 +427,6 @@ select {
 
 /* Corporate branding and UI enhancements */
 
-// Corporate teal color
-$corporate-teal: #157878;
-
 .test-toggle-slider.active {
   background-color: $corporate-teal;
   
@@ -506,7 +506,7 @@ $corporate-teal: #157878;
 .connect-dialog input[type="password"]:focus,
 .connect-dialog select:focus {
   outline: none;
-  border-color: #157878;
+  border-color: $corporate-teal;
   box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.1);
 }
 
@@ -519,7 +519,7 @@ $corporate-teal: #157878;
   margin: 16px 0;
   padding: 12px;
   background-color: rgba(0, 150, 255, 0.05);
-  border-left: 3px solid #157878;
+  border-left: 3px solid $corporate-teal;
   border-radius: 4px;
   font-size: 0.95em;
 }
@@ -576,7 +576,7 @@ $corporate-teal: #157878;
   padding: 10px 24px;
   font-size: 15px;
   font-weight: 600;
-  background: linear-gradient(135deg, #157878 0%, #00CED1 100%);
+  background: linear-gradient(135deg, $corporate-teal 0%, #00CED1 100%);
   color: white;
   border: none;
   border-radius: 6px;

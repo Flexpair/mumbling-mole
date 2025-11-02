@@ -147,7 +147,7 @@ const buildConfig = {
     '.woff2': 'file',
     '.ttf': 'file',
     '.eot': 'file',
-    '.vue': 'js', // Vue SFC will be pre-processed
+    '.vue': 'js', // Vue SFC compiled by plugin, treated as JS by esbuild
   },
   
   // Define environment variables and Node.js globals

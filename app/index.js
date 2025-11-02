@@ -468,7 +468,9 @@ class Settings {
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
-// Make ui globally accessible for Vue components
+// [MIGRATION WORKAROUND] Exposing AppState on window global is required for Knockout.js + Vue.js dual runtime.
+// This creates tight coupling and bypasses Vue's dependency injection.
+// TODO: Remove this in Phase 4 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
