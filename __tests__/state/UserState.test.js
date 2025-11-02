@@ -505,13 +505,19 @@ describe('UserState - Voice Stream Lifecycle', () => {
     const mockStream1 = new EventEmitter();
     mockUser.emit('voice', mockStream1);
 
-    expect(userState._activeVoiceStreams.has(19)).toBe(true);
+    // First stream creates one entry with unique streamId (not sessionId)
+    expect(userState._activeVoiceStreams.size).toBe(1);
+    const firstStreamId = Array.from(userState._activeVoiceStreams.keys())[0];
+    expect(firstStreamId).toContain('19_'); // streamId includes sessionId prefix
 
     const mockStream2 = new EventEmitter();
     mockUser.emit('voice', mockStream2);
 
-    // Should still have only one entry (old one cleaned up)
+    // Should still have only one entry (old one cleaned up by sessionId)
     expect(userState._activeVoiceStreams.size).toBe(1);
+    const secondStreamId = Array.from(userState._activeVoiceStreams.keys())[0];
+    expect(secondStreamId).toContain('19_'); // New stream also has sessionId prefix
+    expect(secondStreamId).not.toBe(firstStreamId); // But different unique ID
   });
 });
 

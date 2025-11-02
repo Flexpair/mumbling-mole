@@ -68,108 +68,14 @@
         ></iframe>
       </section>
       <!-- /ko -->
-      <!-- ko with: connectDialog -->
-      <div class="connect-dialog dialog" data-bind="visible: visible()">
-        <div id="connect-dialog_title" class="dialog-header">
-          Join audio conference
-        </div>
-        <form data-bind="submit: connect">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Field</th>
-                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-            <tr data-bind="if: $root.config.connectDialog.username">
-              <th scope="row">
-                <label for="username" id="connect-dialog_input_username"
-                  >Username</label
-                >
-              </th>
-              <td>
-                <input
-                  id="username"
-                  type="text"
-                  data-bind="value: username"
-                  required
-                  readonly
-                />
-              </td>
-            </tr>
-            <tr data-bind="if: $root.config.connectDialog.password">
-              <th scope="row">
-                <label for="password" id="connect-dialog_input_password"
-                  >Password</label
-                >
-              </th>
-              <td>
-                <input
-                  id="password"
-                  type="password"
-                  autocomplete="off"
-                  data-bind="value: password"
-                />
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">
-                <label for="audioSource" id="connect-dialog_select_microphone"
-                  >Microphone</label
-                >
-              </th>
-              <td><select id="audioSource" style="width: 100%; box-sizing: border-box;"></select></td>
-            </tr>
-            <tr>
-              <td></td>
-              <td id="connect-dialog_headphones">
-                Please use headphones. Thank you.
-              </td>
-            </tr>
-          </tbody>
-          </table>
-          <div class="dialog-footer">
-            <div class="test-toggle-container">
-              <div class="test-toggle-label" 
-                   data-bind="click: toggleLoopback, 
-                              clickBubble: false"
-                   style="height: 32px; display: inline-flex; align-items: center;">
-                <span class="test-toggle-text" style="font-size: 1em;">Audio Test</span>
-                <span class="test-toggle-slider" data-bind="css: { 'active': isTestActive() }"></span>
-              </div>
-              <div class="beep-button-placeholder" style="display: inline-block; width: 180px; margin-left: 10px;">
-                <button
-                  type="button"
-                  class="beep-test-button"
-                  data-bind="
-                    event: { mousedown: $root.startBeep, mouseup: $root.stopBeep, mouseleave: $root.stopBeep, touchstart: $root.startBeep, touchend: $root.stopBeep },
-                    css: { 'active': $root.isBeeping },
-                    visible: isTestActive() && $root.beeperReady() && $root.voiceHandlerReady()"
-                  style="height: 32px; padding: 4px 8px; white-space: nowrap; width: 100%; box-sizing: border-box; font-size: 1em;"
-                ><span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)</button>
-              </div>
-              <!-- LOOPBACK-FREQUENCY-DISPLAY: Show dominant frequency during loopback test -->
-              <div class="loopback-frequency-display" 
-                   data-bind="visible: isTestActive() && $root.voice.isLoopbackMode()"
-                   style="display: inline-block; margin-left: 10px; padding: 6px 12px; background-color: rgba(0, 150, 255, 0.1); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 4px; vertical-align: middle; width: 120px; box-sizing: border-box; text-align: left; white-space: nowrap;">
-                <span style="font-weight: bold; color: #0096ff;">📊</span><!-- ko if: $root.voice.loopbackDominantFrequency() > 0 --><span data-bind="text: ' ' + $root.voice.loopbackDominantFrequency() + ' Hz'" style="font-size: 1.1em; font-weight: bold; color: #0066cc;"></span><!-- /ko -->
-              </div>
-            </div>
-            <div class="dialog-buttons">
-              <input class="dialog-close" type="button" value="Cancel" disabled style="height: 32px; font-size: 1em;" />
-              <input
-                id="connect-dialog_controls_connect"
-                class="dialog-submit"
-                type="submit"
-                value="Connect"
-                style="height: 32px; font-size: 1em;"
-              />
-            </div>
-          </div>
-        </form>
-      </div>
-      <!-- /ko -->
+      
+      <!-- Microphone select (shared between Knockout and Vue) -->
+      <!-- Populated by enumMicrophones() in voice.js -->
+      <select id="audioSource" style="display: none; width: 100%; box-sizing: border-box;"></select>
+      
+      <!-- Vue.js ConnectDialog (replaces Knockout version) -->
+      <div id="vue-connect-dialog-root"></div>
+      
       <!-- ko with: connectErrorDialog -->
       <div
         class="connect-dialog error-dialog dialog"

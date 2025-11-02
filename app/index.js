@@ -7,6 +7,10 @@ import keyboardjs from "keyboardjs";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 
+// Vue.js PoC - minimal import
+import { createApp } from 'vue';
+import ConnectDialogVue from "./components/ConnectDialog.vue";
+
 
 import {
   enumMicrophones,
@@ -464,6 +468,11 @@ class Settings {
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
+// [MIGRATION WORKAROUND] Exposing AppState on window global is required for Knockout.js + Vue.js dual runtime.
+// This creates tight coupling and bypasses Vue's dependency injection.
+// TODO: Remove this in Phase 4 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
+globalThis.ui = ui;
+
 // Wire up dependencies that AppState expects
 ui.connectDialog = new ConnectDialog();
 ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
@@ -580,6 +589,22 @@ async function main() {
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
+  
+  // Mount Vue.js ConnectDialog (replaces Knockout version)
+  console.log('[VUE] Mounting Vue.js ConnectDialog');
+  try {
+    const vueApp = createApp(ConnectDialogVue);
+    
+    // Provide AppState and config to Vue components
+    vueApp.provide('appState', ui);
+    vueApp.provide('config', globalThis.mumbleWebConfig);
+    
+    vueApp.mount('#vue-connect-dialog-root');
+    console.log('[VUE] Vue.js ConnectDialog mounted successfully');
+  } catch (error) {
+    console.error('[VUE] Failed to mount ConnectDialog:', error);
+  }
+  
   enumMicrophones();
 }
 

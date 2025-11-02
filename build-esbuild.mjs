@@ -9,6 +9,7 @@ import * as esbuild from 'esbuild';
 import { sassPlugin } from 'esbuild-sass-plugin';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import vuePlugin from 'esbuild-plugin-vue3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,8 +100,21 @@ const buildConfig = {
   // Keep names for debugging
   keepNames: isDev,
   
-    // Plugins
+  // Plugins
   plugins: [
+    // Vue 3 Single File Components (.vue files)
+    vuePlugin(),
+    
+    // Custom alias for Vue with runtime compiler
+    {
+      name: 'vue-runtime-alias',
+      setup(build) {
+        build.onResolve({ filter: /^vue$/ }, args => ({
+          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js')
+        }));
+      }
+    },
+    
     // Custom plugin to alias fs to our mock
     {
       name: 'fs-mock',
@@ -133,6 +147,7 @@ const buildConfig = {
     '.woff2': 'file',
     '.ttf': 'file',
     '.eot': 'file',
+    '.vue': 'js', // Vue SFC compiled by plugin, treated as JS by esbuild
   },
   
   // Define environment variables and Node.js globals
@@ -141,6 +156,9 @@ const buildConfig = {
       'global': 'globalThis', // Use globalThis (works in both window and worker contexts)
       '__dirname': JSON.stringify('/'),
       '__filename': JSON.stringify('/index.js'),
+      '__VUE_OPTIONS_API__': 'true',
+      '__VUE_PROD_DEVTOOLS__': 'false',
+      '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__': 'false',
     }, // Environment variable definitions
   
   // Log level
