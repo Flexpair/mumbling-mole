@@ -138,27 +138,36 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
   }
 }
 
-// TODO: REFACTOR - DOM element queried at module load time
-// This captures the select element when the module is imported, not when initVoice() is called.
-// Better approach: Query dynamically in initVoice() or pass as parameter.
-// Current limitation: Tests cannot easily mock different device selections.
-const audioInputSelect = document.querySelector("select#audioSource");
-const selectors = [audioInputSelect];
+// Query audioInputSelect dynamically to support Vue component mounting
+function getAudioInputSelect() {
+  return document.querySelector("select#audioSource");
+}
+
+function getSelectors() {
+  const audioInputSelect = getAudioInputSelect();
+  return audioInputSelect ? [audioInputSelect] : [];
+}
 
 function gotDevices(deviceInfos) {
   // Handles being called several times to update labels. Preserve values.
+  const selectors = getSelectors();
+  if (selectors.length === 0) {
+    console.warn('[VOICE] audioSource select element not found in DOM');
+    return;
+  }
   const values = selectors.map((select) => select.value);
   for (const select of selectors) {
     select.replaceChildren();
   }
+  const audioInputSelect = getAudioInputSelect();
   for (const element of deviceInfos) {
     const deviceInfo = element;
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
     if (deviceInfo.kind === "audioinput") {
       option.text =
-        deviceInfo.label || `microphone ${audioInputSelect.length + 1}`;
-      audioInputSelect.appendChild(option);
+        deviceInfo.label || `microphone ${audioInputSelect?.childNodes.length + 1 || 1}`;
+      audioInputSelect?.appendChild(option);
     }
   }
   for (let selectorIndex = 0; selectorIndex < selectors.length; selectorIndex++) {
@@ -233,7 +242,8 @@ export function onAudioMixerReady(callback) {
  * Liefert per onData PCM-Frames (Float32) weiter – wie bisher, nur stabil via AudioWorklet.
  */
 export function initVoice(onData, onUserMediaError) {
-  const audioSource = audioInputSelect.value;
+  const audioInputSelect = getAudioInputSelect();
+  const audioSource = audioInputSelect?.value;
 
   const constraints = {
     audio: {
