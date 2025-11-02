@@ -6,11 +6,14 @@
 **CRITICAL - Docker Compose Architecture**:
 - Development happens INSIDE a container (`service: mumble` in `.devcontainer/docker-compose.yml`)
 - Murmur server runs in SEPARATE container (`service: murmur`, reachable at `murmur:64738`)
-- Both containers started together via docker-compose
+- Additional services: `nginx` (reverse proxy), `guacamole` (remote desktop), `postgres`, `guacd`
+- All containers started together via docker-compose with shared `guacamole_net` bridge network
 - FROM INSIDE the dev container: NO docker command access (we ARE in a container!)
 - Murmur MUST be running for Playwright tests to work
 - If `curl -v telnet://murmur:64738` shows "Connection refused": **restart entire Codespace** (cannot restart murmur from inside dev container)
 - Never suggest `docker-compose up` or `docker ps` commands - they won't work from inside the dev container
+- **postCreateCommand** (`.devcontainer/devcontainer.json`): Auto-runs `npm ci` → Playwright install → initial build → gh CLI setup
+- **postStartCommand**: Empty - start dev server manually via `./start-dev-server.sh` to avoid system overload
 
 ## Quick context
 Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** - uses WebSocket tunnel (via websockify) to standard Mumble TCP protocol. Knockout.js MVVM UI with observable state. Audio transport delegated to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames = 960 samples). Optional Guacamole iframe (remote desktop) gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
@@ -41,6 +44,8 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 - **esbuild-based** (migrated from webpack in v3.14.0): `npm run build` runs `build-esbuild.mjs` directly
 - `build-esbuild.mjs` always does clean builds (removes `dist/` first); esbuild is fast enough (~1s) that this is practical
 - `prepare` hook runs `npm run build` unless `SKIP_PREPARE=1`; **never commit** `dist/**` (it's generated)
+- **SKIP_PREPARE=1**: Set in docker-compose.yml and CI to prevent double builds; use when `dist/` is already populated or when npm install shouldn't trigger builds
+- **Docker multi-stage build**: Dockerfile has `dev` (includes dev tools) and `prod` (optimized, production-ready) targets
 - **Target**: ES2020 (Chrome 80+, Firefox 72+, Safari 13.1+); output format is IIFE for `<script>` tags (not ES modules)
 - **Critical validation**: build fails if `dist/index.html` < 1 KB; checks for empty/corrupted artifacts
 - **AudioWorklet processors**: `recorder-worker.js` and `playback-buffer-processor.js` copied verbatim (NOT bundled); can't use imports/requires
@@ -171,8 +176,10 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 ## Vendored dependencies
 - `app/mumble-client/` forked vendored code (Mumble protocol implementation); manages channel/user trees, protocol messages, audio streaming
 - `app/mumble-streams/` low-level stream handling for Mumble protocol; used internally by mumble-client
-- Both are vendored in `app/` directory (not `node_modules/` or `vendors/`) and imported as local ES modules
-- If you need to modify these: changes go directly in `app/mumble-client/` or `app/mumble-streams/` - no separate build step required
+- `vendors/mumble-client/` contains original unmodified upstream code (legal compliance per ISC license)
+- Active development uses `app/mumble-client/` and `app/mumble-streams/` (vendored in `app/` directory, not `node_modules/`)
+- Both imported as local ES modules; changes go directly in `app/mumble-client/` or `app/mumble-streams/` - no separate build step required
+- `upstream/` directory contains original mumble-web LICENSE and README for legal compliance
 
 ## Config, localization, theming
 **Config**: Source defaults in `app/config.js`; runtime overrides in generated `dist/config.local.js` (back up before clean builds!)  
@@ -224,6 +231,22 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **E2E tests** (Playwright): `tests/playwright/loopback-frequency.spec.js` validates full audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → UI). Tests 440 Hz frequency detection, mute/deaf states, frequency display. Run with `npm run test:loopback` (headless) or `npm run test:loopback:headed` (visible browser).
 
 **CI pipeline** (`.github/workflows/docker-image.yml`): Runs security audit → dependency check → unit tests → Docker build & push. Unit tests run on every push/PR.
+
+## CI/CD Pipeline
+**GitHub Actions workflow** (`.github/workflows/docker-image.yml`):
+1. **Security audit gate**: `npm run audit:ci` checks dependencies against known vulnerabilities (uses baseline from `audit-baseline.json`)
+2. **Dependency check gate**: `npm run check:deps` flags unused modules via depcheck
+3. **Unit tests**: `npm run test:unit` runs Jest tests (must pass before build)
+4. **Docker build**: Multi-architecture build (amd64) with `prod` target; uses GitHub Actions cache
+5. **Push to DockerHub**: Tags images with branch, tag, and SHA (only on non-PR events)
+
+**CI-specific patterns**:
+- Uses `npm ci --omit=optional || npm i --omit=optional` for faster, reproducible installs
+- SKIP_PREPARE=1 set in docker-compose.yml to prevent double builds during container creation
+- Playwright E2E tests temporarily disabled in CI (will be re-enabled with full nginx stack)
+- Coverage reports not required to pass (43.35% current baseline)
+
+**Workflow concurrency**: Uses `cancel-in-progress: true` to cancel outdated workflow runs when new commits arrive
 
 ## Known technical debt
 - **Missing unit tests**: AppState, VoiceState, worker-client.js, worker.js need characterization tests before major refactoring
