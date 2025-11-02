@@ -369,7 +369,7 @@
       </div>
       <!-- /ko -->
       <!-- ko with: settingsDialog -->
-      <div class="settings-dialog dialog" data-bind="visible: $data">
+      <div class="settings-dialog dialog">
         <div id="settings-dialog_title" class="dialog-header">
           Audio settings
         </div>
@@ -486,7 +486,7 @@
         <img
           class="tb-unmute tb-active"
           alt="Unmute my microphone"
-          data-bind="visible: selfMute,
+          data-bind="visible: selfMute(),
             css: { 'tb-disabled': $root.audioLockActive },
             click: function() { $root.handleUnmuteClick(); }"
           rel="unmute"
@@ -503,7 +503,7 @@
         <img
           class="tb-undeaf tb-active"
           alt="Turn sound back on"
-          data-bind="visible: selfDeaf,
+          data-bind="visible: selfDeaf(),
             css: { 'tb-disabled': $root.audioLockActive },
             click: $root.handleUndeafClick"
           rel="undeaf"
@@ -557,11 +557,11 @@
       </form>
 
       <!-- Microphone permission retry overlay (bottom-left, only shown when denied) -->
-      <div class="mic-permission-retry" data-bind="visible: micPermissionDenied">
+      <div class="mic-permission-retry" data-bind="visible: micPermissionDenied()">
         <div class="mic-permission-content">
           <span class="mic-icon">🎤</span>
           <span>Microphone access denied</span>
-          <p class="mic-permission-message" data-bind="visible: micPermissionErrorMessage, text: micPermissionErrorMessage"></p>
+          <p class="mic-permission-message" data-bind="visible: micPermissionErrorMessage(), text: micPermissionErrorMessage"></p>
           <button data-bind="click: retryMicrophonePermission" class="mic-permission-button">
             Allow Microphone
           </button>
