@@ -6,6 +6,7 @@ import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
+import ConnectDialog from "./components/ConnectDialog.js";
 
 
 import {
@@ -84,93 +85,6 @@ function GuacamoleFrame() {
 
   this.onLoad = function () {
     this.loading(false);
-  };
-}
-
-function ConnectDialog() {
-  this.address = ko.observable("");
-  this.port = ko.observable("");
-  this.username = ko.observable("");
-  this.password = ko.observable("");
-  // Start hidden - will be shown after authentication
-  this.visible = ko.observable(false);
-  // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
-  this.isTestActive = ko.observable(false);
-  this.show = this.visible.bind(this.visible, true);
-  this.hide = this.visible.bind(this.visible, false);
-  
-  this.connect = () => {
-    this.hide();
-    
-    // LOOPBACK-FEATURE: When already connected, this transitions from test mode back to normal mode
-    if (ui.connected()) {
-      // Switch from loopback test mode back to normal voice routing
-      this.isTestActive(false);
-      ui.isLoopbackMode(false);
-      
-      // Recreate voice handler with normal target (not loopback target 31)
-      ui._updateVoiceHandler();
-      
-      // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
-      // Uses stored credentials from initial connection
-      if (ui._guacLogin) {
-        ui.guacamoleFrame.loading(false);
-        ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
-        ui.guacamoleFrame.show();
-      } else {
-        ui.guacamoleFrame.loading(false);
-      }
-    } else {
-      // Normal connection flow - not yet connected to server
-      this.isTestActive(false);
-      ui.connect(this.address(), this.port(), this.username(), this.password());
-    }
-  };
-  
-  // LOOPBACK-FEATURE: Toggle button handler - activates loopback test mode
-  this.toggleLoopback = async () => {
-      // One-way activation: prevent deactivation via this button (use Connect button instead)
-      if (this.isTestActive()) {
-        return;
-      }
-      
-      // USER-GESTURE: Ensure AudioContext is created and running SYNCHRONOUSLY in click handler
-      // This must happen before any async operations that might lose the user gesture context
-      try {
-        // Mark user interaction for audio-context-manager
-        if (ui.audio?.audioContextManager) {
-          ui.audio.audioContextManager.userInteractionDetected = true;
-        }
-        
-        // Create AudioContext if not exists
-        if (!ui.audio?.audioContext) {
-          console.log('[LOOPBACK] Creating AudioContext on user click');
-          await ui.audio.initializeAudioContext();
-        }
-        
-        // Resume if suspended
-        if (ui.audio?.audioContext?.state === 'suspended') {
-          console.log('[LOOPBACK] Resuming AudioContext on user click');
-          await ui.audio.audioContext.resume();
-        }
-        
-        console.log('[LOOPBACK] AudioContext ready:', ui.audio.audioContext.state);
-      } catch (err) {
-        console.error('[LOOPBACK] Failed to prepare AudioContext on click:', err);
-      }
-      
-      // Mark test as active and connect in loopback mode
-      this.isTestActive(true);
-      
-      // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
-      // This allows user to see connection status and switch back to normal mode
-      ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
-    };  
-  
-  // LEGACY-COMPAT: Legacy function for backward compatibility (closes dialog like old behavior)
-  this.connectLoopback = () => {
-    this.hide();
-    ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
   };
 }
 
@@ -465,7 +379,7 @@ class Settings {
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
 // Wire up dependencies that AppState expects
-ui.connectDialog = new ConnectDialog();
+ui.connectDialog = new ConnectDialog(ui);
 ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
 ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
 ui.guacamoleFrame = new GuacamoleFrame();
