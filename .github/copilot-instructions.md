@@ -68,6 +68,16 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
   - `npm run audit:ci` = dependency vulnerability check
 **Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
 **Jest unit tests**: ES modules with jsdom environment; mocks for Web Audio API, AudioWorkletNode, localStorage; characterization tests document current behavior for regression protection during refactoring  
+**ES Module mocking pattern**: Use `jest.unstable_mockModule()` **before** imports due to ES modules (`"type": "module"`). Pattern:
+```javascript
+// Define mocks FIRST (before any imports)
+jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
+  default: mockGetUserMedia
+}));
+// Then import with await (dynamic import required)
+const { ContinuousVoiceHandler } = await import('../../app/audio/voice.js');
+```
+Requires `--experimental-vm-modules` flag in test commands. Classic `jest.mock()` doesn't work with ES modules.  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
 **Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
@@ -225,7 +235,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 - **High coverage** (>90%): AudioState (93.64%), ChannelState (96.49%), ConnectionState (100%), UIState (100%), UserState (95.51%)
 - **Good coverage** (>80%): AuthProvider (82.35%), decoder-stream (82.53%), encoder-stream (94.11%)
 - **Needs coverage** (<50%): AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%), getusermedia.js (0%)
-- **Test patterns**: Use `jest.unstable_mockModule()` before imports for ES module mocking; characterization tests document behavior for regression protection
+- **Test patterns**: Use `jest.unstable_mockModule()` before imports for ES module mocking (not `jest.mock()`); requires `--experimental-vm-modules` flag and dynamic `await import()`. Characterization tests document behavior for regression protection
 - **Running tests**: `npm run test:unit` (all tests), `npm run test:unit:watch` (TDD mode), `npm run test:unit:coverage` (with reports)
 
 **E2E tests** (Playwright): `tests/playwright/loopback-frequency.spec.js` validates full audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → UI). Tests 440 Hz frequency detection, mute/deaf states, frequency display. Run with `npm run test:loopback` (headless) or `npm run test:loopback:headed` (visible browser).
