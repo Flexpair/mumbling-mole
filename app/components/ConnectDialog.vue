@@ -43,7 +43,7 @@
         </tbody>
       </table>
 
-      <p style="margin: 0.5em 0;">Please use headphones. Thank you.</p>
+      <p style="margin: 0.5em 0;">We recommend using headphones for the best audio experience.</p>
 
       <!-- Loopback Test Section (clear both floats) -->
       <div class="loopback-test-section" style="clear: both;">
@@ -125,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, inject, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, inject, onMounted, onUnmounted, watch } from 'vue';
 
 /**
  * Vue 3 ConnectDialog Component (DUAL RUNTIME)
@@ -444,7 +444,8 @@ function handleHide() {
 
 .beep-test-button {
   background: linear-gradient(135deg, #0096ff 0%, #0066cc 100%);
-  color: white;
+  background-color: #0066cc; /* Fallback for better contrast */
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -455,6 +456,7 @@ function handleHide() {
 .beep-test-button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
+  background: linear-gradient(135deg, #007acc 0%, #005299 100%);
 }
 
 .beep-test-button:active:not(:disabled) {
@@ -468,6 +470,7 @@ function handleHide() {
 
 .beep-test-button.active {
   background: linear-gradient(135deg, #00cc66 0%, #009944 100%);
+  background-color: #009944; /* Fallback for better contrast */
   box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
 }
 
@@ -483,7 +486,8 @@ function handleHide() {
   font-size: 15px;
   font-weight: 600;
   background: linear-gradient(135deg, #0096ff 0%, #0066cc 100%);
-  color: white;
+  background-color: #0066cc; /* Fallback for better contrast */
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -494,6 +498,7 @@ function handleHide() {
 .dialog-buttons input[type="button"]:not(.dialog-close):hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
+  background: linear-gradient(135deg, #007acc 0%, #005299 100%);
 }
 
 .dialog-close {
