@@ -5,29 +5,36 @@
       <table>
         <tbody>
           <tr v-if="config.connectDialog?.username">
-            <td class="label">Username</td>
+            <th scope="row">
+              <label for="username">Username</label>
+            </th>
             <td>
               <input
+                id="username"
                 v-model="username"
                 type="text"
-                class="dialog-input"
                 readonly
                 required
               />
             </td>
           </tr>
           <tr v-if="config.connectDialog?.password">
-            <td class="label">Password</td>
+            <th scope="row">
+              <label for="password">Password</label>
+            </th>
             <td>
               <input
+                id="password"
                 v-model="password"
                 type="password"
-                class="dialog-input"
+                autocomplete="off"
               />
             </td>
           </tr>
           <tr>
-            <td class="label">Microphone</td>
+            <th scope="row">
+              <label for="audioSource">Microphone</label>
+            </th>
             <td>
               <!-- Placeholder for audioSource select (moved here via script) -->
               <div ref="microphoneContainer"></div>
@@ -46,11 +53,11 @@
             @click="handleToggleLoopback"
             style="height: 32px; display: inline-flex; align-items: center; cursor: pointer;"
           >
-            <span class="test-toggle-text" style="font-size: 1em;">Audio Test</span>
             <span
               class="test-toggle-slider"
               :class="{ active: isTestActive }"
             ></span>
+            <span class="test-toggle-text" style="font-size: 1em; margin-left: 8px;">Audio Test</span>
           </div>
         </div>
 
@@ -311,32 +318,18 @@ function handleHide() {
 }
 </script>
 
-<style scoped>
-/* Component-specific styles */
-.loopback-test-section {
-  margin-top: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
+<style>
+/* Toggle switch styling */
 .test-toggle-container {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .test-toggle-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
   user-select: none;
-}
-
-.test-toggle-checkbox {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .test-toggle-slider {
@@ -373,9 +366,140 @@ function handleHide() {
   font-weight: 500;
 }
 
-.frequency-display {
-  margin-top: 8px;
-  font-size: 0.9em;
-  color: #0096ff;
+/* Enhanced styling for better first impression */
+.connect-dialog {
+  padding: 24px;
+  min-width: 420px;
+}
+
+.dialog-header {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(0, 150, 255, 0.2);
+}
+
+.connect-dialog table {
+  width: 100%;
+  border-spacing: 0;
+  margin-bottom: 16px;
+}
+
+.connect-dialog th {
+  text-align: right;
+  padding: 10px 16px 10px 0;
+  font-weight: 500;
+  vertical-align: middle;
+  width: 35%;
+}
+
+.connect-dialog td {
+  padding: 10px 0;
+  vertical-align: middle;
+}
+
+.connect-dialog input[type="text"],
+.connect-dialog input[type="password"],
+.connect-dialog select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.connect-dialog input[type="text"]:focus,
+.connect-dialog input[type="password"]:focus,
+.connect-dialog select:focus {
+  outline: none;
+  border-color: #0096ff;
+  box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.1);
+}
+
+.connect-dialog input[readonly] {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.connect-dialog p {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: rgba(0, 150, 255, 0.05);
+  border-left: 3px solid #0096ff;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+.loopback-test-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.beep-test-button {
+  background: linear-gradient(135deg, #0096ff 0%, #0066cc 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.beep-test-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
+}
+
+.beep-test-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.beep-test-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.beep-test-button.active {
+  background: linear-gradient(135deg, #00cc66 0%, #009944 100%);
+  box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
+}
+
+.dialog-buttons {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.dialog-buttons input[type="submit"],
+.dialog-buttons input[type="button"]:not(.dialog-close) {
+  padding: 10px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #0096ff 0%, #0066cc 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dialog-buttons input[type="submit"]:hover,
+.dialog-buttons input[type="button"]:not(.dialog-close):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
+}
+
+.dialog-close {
+  padding: 10px 24px;
+  font-size: 15px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: not-allowed;
 }
 </style>

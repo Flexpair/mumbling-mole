@@ -159,7 +159,7 @@ form {
   }
   
   &.active {
-    background-color: #28a745;
+    background-color: #157878;
     color: white;
     border-color: #1e7e34;
   }
@@ -189,7 +189,7 @@ form {
   transition: all 0.2s ease;
 }
 .dialog-submit.button-active {
-  background-color: #28a745;
+  background-color: #157878;
   color: white;
   border-color: #1e7e34;
 }
@@ -258,7 +258,7 @@ form {
   }
   
   &.active {
-    background-color: #28a745;
+    background-color: #157878;
     
     &::before {
       transform: translateX(24px);
@@ -446,4 +446,156 @@ $corporate-teal: #157878;
   &:hover {
     box-shadow: 0 0 16px rgba(0, 255, 255, 0.6), inset 0 0 0 1px rgba(0, 255, 255, 0.5);
   }
+}
+
+/* Vue.js ConnectDialog enhancements */
+.connect-dialog {
+  padding: 24px;
+  min-width: 420px;
+}
+
+.connect-dialog .dialog-header {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(0, 150, 255, 0.2);
+}
+
+.connect-dialog table {
+  width: 100%;
+  border-spacing: 0;
+  margin-bottom: 16px;
+}
+
+.connect-dialog th {
+  text-align: right;
+  padding: 10px 16px 10px 0;
+  font-weight: 500;
+  vertical-align: middle;
+  width: 35%;
+}
+
+.connect-dialog td {
+  padding: 10px 0;
+  vertical-align: middle;
+}
+
+.connect-dialog input[type="text"],
+.connect-dialog input[type="password"] {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.connect-dialog select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.connect-dialog input[type="text"]:focus,
+.connect-dialog input[type="password"]:focus,
+.connect-dialog select:focus {
+  outline: none;
+  border-color: #157878;
+  box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.1);
+}
+
+.connect-dialog input[readonly] {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.connect-dialog p {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: rgba(0, 150, 255, 0.05);
+  border-left: 3px solid #157878;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+.loopback-test-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.test-toggle-container {
+  margin-bottom: 12px;
+}
+
+.test-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.beep-test-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
+}
+
+.beep-test-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.beep-test-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.beep-test-button.active {
+  background: linear-gradient(135deg, #00cc66 0%, #009944 100%);
+  box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
+}
+
+.connect-dialog .dialog-buttons {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.connect-dialog .dialog-buttons input[type="submit"],
+.connect-dialog .dialog-buttons input[type="button"]:not(.dialog-close) {
+  padding: 10px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #157878 0%, #00CED1 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connect-dialog .dialog-buttons input[type="submit"]:hover,
+.connect-dialog .dialog-buttons input[type="button"]:not(.dialog-close):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
+}
+
+.connect-dialog .dialog-close {
+  padding: 10px 24px;
+  font-size: 15px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: not-allowed;
 }
