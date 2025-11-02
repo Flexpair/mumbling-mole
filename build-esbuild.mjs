@@ -9,7 +9,7 @@ import * as esbuild from 'esbuild';
 import { sassPlugin } from 'esbuild-sass-plugin';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
-import vuePlugin from '@vitejs/plugin-vue';
+import vuePlugin from 'esbuild-plugin-vue3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,35 +100,21 @@ const buildConfig = {
   // Keep names for debugging
   keepNames: isDev,
   
-    // Plugins
+  // Plugins
   plugins: [
-    // Vue.js SFC support
+    // Vue 3 Single File Components (.vue files)
+    vuePlugin(),
+    
+    // Custom alias for Vue with runtime compiler
     {
-      name: 'vue-loader',
+      name: 'vue-runtime-alias',
       setup(build) {
-        build.onLoad({ filter: /\.vue$/ }, async (args) => {
-          const vueContent = await fs.promises.readFile(args.path, 'utf8');
-          // Simple .vue SFC compiler for PoC
-          // Extract template, script, and style sections
-          const templateMatch = vueContent.match(/<template>([\s\S]*?)<\/template>/);
-          const scriptMatch = vueContent.match(/<script>([\s\S]*?)<\/script>/);
-          const template = templateMatch ? templateMatch[1].trim() : '';
-          const script = scriptMatch ? scriptMatch[1].trim() : '';
-          
-          // Remove any existing 'export default' from script
-          const scriptWithoutExport = script.replace(/export\s+default\s+/g, 'const __vueComponent__ = ');
-          
-          // Generate component object
-          const code = `
-${scriptWithoutExport}
-__vueComponent__.template = \`${template}\`;
-export default __vueComponent__;
-          `;
-          
-          return { contents: code, loader: 'js' };
-        });
+        build.onResolve({ filter: /^vue$/ }, args => ({
+          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js')
+        }));
       }
     },
+    
     // Custom plugin to alias fs to our mock
     {
       name: 'fs-mock',
@@ -170,6 +156,9 @@ export default __vueComponent__;
       'global': 'globalThis', // Use globalThis (works in both window and worker contexts)
       '__dirname': JSON.stringify('/'),
       '__filename': JSON.stringify('/index.js'),
+      '__VUE_OPTIONS_API__': 'true',
+      '__VUE_PROD_DEVTOOLS__': 'false',
+      '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__': 'false',
     }, // Environment variable definitions
   
   // Log level

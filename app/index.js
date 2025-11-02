@@ -468,6 +468,9 @@ class Settings {
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
+// Make ui globally accessible for Vue components
+window.ui = ui;
+
 // Wire up dependencies that AppState expects
 ui.connectDialog = new ConnectDialog();
 ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
@@ -546,17 +549,6 @@ function initializeUI() {
   }
   ko.applyBindings(ui);
 
-  // Vue.js PoC - Mount minimal Vue component alongside Knockout
-  // This demonstrates dual runtime capability
-  const vueApp = createApp(ConnectDialogVue);
-  const mountPoint = document.getElementById('vue-connect-dialog-root');
-  if (mountPoint) {
-    vueApp.mount(mountPoint);
-    console.log('[Vue PoC] Vue.js ConnectDialog mounted successfully');
-  } else {
-    console.warn('[Vue PoC] Mount point #vue-connect-dialog-root not found');
-  }
-
   // Initialize auth asynchronously (don't block UI)
   (async () => {
     let user = null;
@@ -595,6 +587,22 @@ async function main() {
   await localizationInitialize('en'); // Always use English
   translateEverything();
   initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
+  
+  // Mount Vue.js ConnectDialog (replaces Knockout version)
+  console.log('[VUE] Mounting Vue.js ConnectDialog');
+  try {
+    const vueApp = createApp(ConnectDialogVue);
+    
+    // Provide AppState and config to Vue components
+    vueApp.provide('appState', ui);
+    vueApp.provide('config', globalThis.mumbleWebConfig);
+    
+    vueApp.mount('#vue-connect-dialog-root');
+    console.log('[VUE] Vue.js ConnectDialog mounted successfully');
+  } catch (error) {
+    console.error('[VUE] Failed to mount ConnectDialog:', error);
+  }
+  
   enumMicrophones();
 }
 
