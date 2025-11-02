@@ -469,7 +469,7 @@ class Settings {
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
 // Make ui globally accessible for Vue components
-window.ui = ui;
+globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
 ui.connectDialog = new ConnectDialog();
