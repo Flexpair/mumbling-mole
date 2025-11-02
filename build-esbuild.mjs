@@ -9,6 +9,7 @@ import * as esbuild from 'esbuild';
 import { sassPlugin } from 'esbuild-sass-plugin';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import vuePlugin from '@vitejs/plugin-vue';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,6 +102,33 @@ const buildConfig = {
   
     // Plugins
   plugins: [
+    // Vue.js SFC support
+    {
+      name: 'vue-loader',
+      setup(build) {
+        build.onLoad({ filter: /\.vue$/ }, async (args) => {
+          const vueContent = await fs.promises.readFile(args.path, 'utf8');
+          // Simple .vue SFC compiler for PoC
+          // Extract template, script, and style sections
+          const templateMatch = vueContent.match(/<template>([\s\S]*?)<\/template>/);
+          const scriptMatch = vueContent.match(/<script>([\s\S]*?)<\/script>/);
+          const template = templateMatch ? templateMatch[1].trim() : '';
+          const script = scriptMatch ? scriptMatch[1].trim() : '';
+          
+          // Remove any existing 'export default' from script
+          const scriptWithoutExport = script.replace(/export\s+default\s+/g, 'const __vueComponent__ = ');
+          
+          // Generate component object
+          const code = `
+${scriptWithoutExport}
+__vueComponent__.template = \`${template}\`;
+export default __vueComponent__;
+          `;
+          
+          return { contents: code, loader: 'js' };
+        });
+      }
+    },
     // Custom plugin to alias fs to our mock
     {
       name: 'fs-mock',
@@ -133,6 +161,7 @@ const buildConfig = {
     '.woff2': 'file',
     '.ttf': 'file',
     '.eot': 'file',
+    '.vue': 'js', // Vue SFC will be pre-processed
   },
   
   // Define environment variables and Node.js globals

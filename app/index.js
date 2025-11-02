@@ -7,6 +7,10 @@ import keyboardjs from "keyboardjs";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 
+// Vue.js PoC - minimal import
+import { createApp } from 'vue';
+import ConnectDialogVue from "./components/ConnectDialog.vue";
+
 
 import {
   enumMicrophones,
@@ -541,6 +545,17 @@ function initializeUI() {
     ui.connectDialog.password(queryParams.password);
   }
   ko.applyBindings(ui);
+
+  // Vue.js PoC - Mount minimal Vue component alongside Knockout
+  // This demonstrates dual runtime capability
+  const vueApp = createApp(ConnectDialogVue);
+  const mountPoint = document.getElementById('vue-connect-dialog-root');
+  if (mountPoint) {
+    vueApp.mount(mountPoint);
+    console.log('[Vue PoC] Vue.js ConnectDialog mounted successfully');
+  } else {
+    console.warn('[Vue PoC] Mount point #vue-connect-dialog-root not found');
+  }
 
   // Initialize auth asynchronously (don't block UI)
   (async () => {
