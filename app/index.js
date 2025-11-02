@@ -55,12 +55,20 @@ function GuacamoleFrame() {
   // (HTML binding uses fallback about:blank when null/empty.)
   this.guacSource = ko.observable(null);
   this.visible = ko.observable(false);
-  this.show = this.visible.bind(this.visible, true);
-  this.hide = this.visible.bind(this.visible, false);
+  this.show = () => {
+    console.log('[GuacamoleFrame] show() called, setting visible to true');
+    this.visible(true);
+    console.log('[GuacamoleFrame] visible is now:', this.visible());
+  };
+  this.hide = () => {
+    console.log('[GuacamoleFrame] hide() called, setting visible to false');
+    this.visible(false);
+  };
   this.loading = ko.observable(false);
   this.error = ko.observable(null);
 
   this.start = function (guacUser, password) {
+    console.log('[GuacamoleFrame] start() called with:', { guacUser, password: password ? '***' : null });
     this.loading(true);
     this.error(null);
     // Sanitize previously bad localStorage entries that break Guacamole's JSON.parse
@@ -83,7 +91,9 @@ function GuacamoleFrame() {
       guacUser +
       "&password=" +
       encodeURIComponent(password || "");
+    console.log('[GuacamoleFrame] Setting guacSource to:', src);
     this.guacSource(src);
+    console.log('[GuacamoleFrame] guacSource() is now:', this.guacSource());
   };
 
   this.onLoad = function () {
@@ -393,9 +403,16 @@ vueApp.config.globalProperties.$t = (key) => translate(key);
 // Wire up dependencies that AppState expects
 // Provide Knockout-compatible stub for connectDialog to satisfy legacy code
 // The Vue component will sync with these observables bidirectionally
+console.log('[Init] mumbleWebConfig.defaults:', globalThis.mumbleWebConfig.defaults);
+
+// Ensure address is set (runtime evaluation)
+if (!globalThis.mumbleWebConfig.defaults.address) {
+  globalThis.mumbleWebConfig.defaults.address = globalThis.location.hostname;
+}
+
 ui.connectDialog = {
-  address: ko.observable(globalThis.mumbleWebConfig.defaults.address || ''),
-  port: ko.observable(globalThis.mumbleWebConfig.defaults.port || ''),
+  address: ko.observable(globalThis.mumbleWebConfig.defaults.address),
+  port: ko.observable(globalThis.mumbleWebConfig.defaults.port),
   username: ko.observable(''),
   password: ko.observable(''),
   visible: ko.observable(false),
@@ -421,22 +438,81 @@ ui.connectDialog = {
     }
   },
   connect: async function() {
-    // If already connected (e.g., from loopback test), don't reconnect
-    if (ui.connected()) {
+    console.log('[ConnectDialog] connect() called', {
+      isTestActive: this.isTestActive(),
+      connected: ui.connected(),
+      _guacLogin: ui._guacLogin,
+      _guacPassword: ui._guacPassword ? '***' : null
+    });
+    
+    // If in loopback test mode, exit it first and reconnect normally
+    if (this.isTestActive()) {
+      console.log('[ConnectDialog] Exiting test mode before normal connection');
+      this.isTestActive(false);
+      ui.voice.deactivateLoopback();
+      
+      // Recreate voice handler with normal target (not loopback target 31)
+      ui._updateVoiceHandler();
+      
+      // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
+      // Uses stored credentials from initial connection
+      if (ui._guacLogin) {
+        console.log('[ConnectDialog] Showing Guacamole with stored credentials:', ui._guacLogin);
+        ui.guacamoleFrame.loading(false);
+        ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
+        ui.guacamoleFrame.show();
+        console.log('[ConnectDialog] guacamoleFrame.visible() =', ui.guacamoleFrame.visible());
+      } else {
+        console.log('[ConnectDialog] No guac login available - ui._guacLogin =', ui._guacLogin);
+        ui.guacamoleFrame.loading(false);
+      }
+      
+      this.hide();
+      return;
+    }
+    // If already connected in normal mode, just hide dialog
+    else if (ui.connected()) {
+      console.log('[ConnectDialog] Already connected in normal mode, just hiding dialog');
       this.hide();
       return;
     }
     
+    console.log('[ConnectDialog] Starting new connection');
     this.hide();
     
+    // Debug: Log all observable values
+    console.log('[ConnectDialog] this.address():', this.address());
+    console.log('[ConnectDialog] this.port():', this.port());
+    console.log('[ConnectDialog] this.username():', this.username());
+    console.log('[ConnectDialog] globalThis.mumbleWebConfig:', globalThis.mumbleWebConfig);
+    console.log('[ConnectDialog] globalThis.location.hostname:', globalThis.location.hostname);
+    
+    // Get current values or fallback to defaults
+    const address = this.address() || globalThis.mumbleWebConfig.defaults.address || globalThis.location.hostname;
+    const port = this.port() || globalThis.mumbleWebConfig.defaults.port;
+    const username = this.username() || globalThis.mumbleWebConfig.defaults.username;
+    const password = this.password() || globalThis.mumbleWebConfig.defaults.password;
+    
+    console.log('[ConnectDialog] this.address():', this.address());
+    console.log('[ConnectDialog] this.port():', this.port());
+    console.log('[ConnectDialog] globalThis.mumbleWebConfig.defaults:', globalThis.mumbleWebConfig.defaults);
+    console.log('[ConnectDialog] Connection params:', { address, port, username, password: password ? '***' : null });
+    
+    if (!address) {
+      console.error('[ConnectDialog] ERROR: address is still undefined!');
+      alert('Cannot connect: server address is not configured');
+      return;
+    }
+    
     const connectionParams = {
-      address: this.address() || ui.config.defaults.address,
-      port: this.port() || ui.config.defaults.port,
-      username: this.username() || ui.config.defaults.username,
-      password: this.password() || ui.config.defaults.password,
+      host: address,  // Note: ConnectionState.connect() expects 'host', not 'address'
+      port,
+      username,
+      password,
       tokens: []
     };
     
+    console.log('[ConnectDialog] Calling _performConnect with:', connectionParams);
     await ui._performConnect(connectionParams, { audioEnabled: true });
   }
 };

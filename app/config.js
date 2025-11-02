@@ -24,7 +24,7 @@ globalThis.mumbleWebConfig = {
   // Default values (can be changed by passing a query parameter of the same name)
   defaults: {
     // Connect Dialog
-    address: globalThis.location.hostname,
+    address: "", // Will be set at runtime in config.local.js or via query params
     port: "443/murmur",
     username: "",
     password: "",

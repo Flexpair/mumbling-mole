@@ -104,7 +104,7 @@
         <input
           v-else
           type="button"
-          value="Exit Test Mode"
+          value="Connect"
           @click="handleExitTest"
           style="float: right;"
         />
@@ -212,29 +212,58 @@ onMounted(() => {
  * Handle form submission (Connect button)
  */
 function handleConnect() {
+  console.log('[ConnectDialog Vue] handleConnect() called');
+  console.log('[ConnectDialog Vue] appState:', appState);
+  console.log('[ConnectDialog Vue] appState.connectDialog:', appState?.connectDialog);
+  console.log('[ConnectDialog Vue] appState.connectDialog.connect:', appState?.connectDialog?.connect);
+  
   // Delegate to Knockout ConnectDialog.connect()
   if (appState?.connectDialog?.connect) {
+    console.log('[ConnectDialog Vue] Calling appState.connectDialog.connect()');
     appState.connectDialog.connect();
+  } else {
+    console.error('[ConnectDialog Vue] appState.connectDialog.connect not available!');
   }
 }
 
 /**
- * Handle loopback toggle
+ * Handle loopback toggle - ONE-WAY activation only
  */
 async function handleToggleLoopback() {
+  console.log('[ConnectDialog Vue] handleToggleLoopback() called, isTestActive:', isTestActive.value);
+  
+  // ONE-WAY: Only allow activation, not deactivation
+  // Use "Exit Test Mode" button to deactivate
+  if (isTestActive.value) {
+    console.log('[ConnectDialog Vue] Test already active, ignoring toggle');
+    return;
+  }
+  
   // Delegate to Knockout ConnectDialog.toggleLoopback()
   if (appState?.connectDialog?.toggleLoopback) {
+    console.log('[ConnectDialog Vue] Activating test mode');
     await appState.connectDialog.toggleLoopback();
   }
 }
 
 /**
- * Exit test mode and disconnect
+ * Exit test mode and show Guacamole
  */
 async function handleExitTest() {
-  // Turn off test mode (this will disconnect)
-  if (appState?.connectDialog?.toggleLoopback) {
-    await appState.connectDialog.toggleLoopback();
+  console.log('[ConnectDialog Vue] handleExitTest() called');
+  
+  // Delegate to the same logic as connect() when in test mode
+  // This will exit test mode and show Guacamole
+  if (appState?.connectDialog?.connect) {
+    console.log('[ConnectDialog Vue] Calling connect() to exit test and show Guacamole');
+    
+    // Ensure isTestActive is true so connect() takes the right path
+    if (!appState.connectDialog.isTestActive()) {
+      console.warn('[ConnectDialog Vue] isTestActive is false, setting it to true');
+      appState.connectDialog.isTestActive(true);
+    }
+    
+    await appState.connectDialog.connect();
   }
 }
 

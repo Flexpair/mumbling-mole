@@ -320,11 +320,18 @@ export default class AppState {
    * @private
    */
   _setupGuacamoleFrame(guac_login) {
+    console.log('[AppState] _setupGuacamoleFrame called', { guac_login, isLoopback: this.voice.isLoopbackMode() });
+    
     if (guac_login && !this.voice.isLoopbackMode()) {
+      console.log('[AppState] Starting Guacamole frame with login:', guac_login);
       this.guacamoleFrame.start(guac_login, this._guacPassword);
       this.guacamoleFrame.show();
+      console.log('[AppState] guacamoleFrame.visible() =', this.guacamoleFrame.visible());
     } else if (!guac_login && !this.voice.isLoopbackMode()) {
+      console.log('[AppState] No guac_login - showing alert, keeping background visible');
       alert("For visual access please ask your administrator.");
+    } else {
+      console.log('[AppState] Loopback mode - not showing Guacamole');
     }
   }
 

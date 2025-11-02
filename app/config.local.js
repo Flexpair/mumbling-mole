@@ -6,6 +6,9 @@ let config = globalThis.mumbleWebConfig;
 
 config.settings.audioBitrate = 96000;
 
+// Set default address to current hostname (runtime evaluation)
+config.defaults.address = config.defaults.address || globalThis.location.hostname;
+
 // In Codespaces, connect to murmur container via relative path
 // Browser connects to same host (Codespace URL), nginx proxies to murmur container
 if (globalThis.location.hostname.includes('github.dev') || globalThis.location.hostname.includes('app.github.dev')) {
