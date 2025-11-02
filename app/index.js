@@ -500,13 +500,7 @@ if (ui.auth) {
   globalThis.netlifyIdentity = ui.auth;
 }
 
-async function initializeUI() {
-  // Initialize AppState async resources
-  await ui.initialize();
-  
-  // Initialize auth provider
-  let user = null;
-  
+function initializeUI() {
   // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
     const username = getUsernameFromMetadata(user);
@@ -533,31 +527,8 @@ async function initializeUI() {
     ui.connectDialog.show();
   });
 
-  // Now initialize auth (event handlers are already registered)
-  try {
-    await ui.auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
-      APIUrl: "https://welcome.flexpair.com/identity-proxy",
-      locale: "en",
-      logo: false,
-    });
-    user = ui.auth.currentUser();
-  } catch (e) {
-    console.warn('[Auth] Initialization failed; continuing without authentication', e);
-  }
-
-  if (user == null) {
-    // Hide connect dialog when showing authentication modal
-    ui.connectDialog.hide();
-    ui.auth.open("signup"); // open the modal to the signup tab
-  } else {
-    const username = getUsernameFromMetadata(user);
-    if (username) {
-      ui.connectDialog.username(username);
-    }
-    // User is already authenticated, show connect dialog
-    ui.connectDialog.show();
-  }
-
+  // Apply Knockout bindings IMMEDIATELY to prevent white screen
+  // This must happen before async auth initialization
   let queryParams = url.parse(document.location.href, true).query;
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
@@ -570,6 +541,34 @@ async function initializeUI() {
     ui.connectDialog.password(queryParams.password);
   }
   ko.applyBindings(ui);
+
+  // Initialize auth asynchronously (don't block UI)
+  (async () => {
+    let user = null;
+    try {
+      await ui.auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
+        APIUrl: "https://welcome.flexpair.com/identity-proxy",
+        locale: "en",
+        logo: false,
+      });
+      user = ui.auth.currentUser();
+    } catch (e) {
+      console.warn('[Auth] Initialization failed; continuing without authentication', e);
+    }
+
+    if (user == null) {
+      // Hide connect dialog when showing authentication modal
+      ui.connectDialog.hide();
+      ui.auth.open("signup"); // open the modal to the signup tab
+    } else {
+      const username = getUsernameFromMetadata(user);
+      if (username) {
+        ui.connectDialog.username(username);
+      }
+      // User is already authenticated, show connect dialog
+      ui.connectDialog.show();
+    }
+  })();
 }
 
 function log() {
@@ -580,7 +579,7 @@ async function main() {
   document.title = globalThis.location.hostname;
   await localizationInitialize('en'); // Always use English
   translateEverything();
-  initializeUI();
+  initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
   enumMicrophones();
 }
 

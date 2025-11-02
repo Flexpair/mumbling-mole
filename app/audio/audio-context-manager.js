@@ -79,6 +79,26 @@ class AudioContextManager {
     return this.audioContext;
   }
 
+  /**
+   * Get or create AudioContext without attempting resume (for initialization)
+   * INIT-ONLY: Use this during app startup to avoid blocking on autoplay policy
+   * The context will auto-resume on first user interaction via event listeners
+   */
+  async getAudioContextWithoutResume(options = {}) {
+    if (!this.audioContext) {
+      await this.createAudioContext(options);
+    }
+
+    // RECOVERY: If cached context was closed elsewhere, recreate it
+    if (this.audioContext?.state === 'closed') {
+      console.warn('AudioContext was closed; recreating...');
+      await this.createAudioContext(options);
+    }
+
+    // NO AUTO-RESUME: Return context as-is (may be suspended)
+    return this.audioContext;
+  }
+
   async createAudioContext(options = {}) {
     try {
       // CONFIG-MERGE: Combine default config with user-provided options
@@ -331,6 +351,15 @@ export async function ensureAudioContext(options = {}) {
     await audioContextManager.resumeAudioContext();
   }
   return context;
+}
+
+/**
+ * Get or create AudioContext without attempting resume
+ * Use this during initialization to avoid blocking on autoplay policy
+ * The context will auto-resume on first user interaction
+ */
+export async function getAudioContextWithoutResume(options = {}) {
+  return audioContextManager.getAudioContextWithoutResume(options);
 }
 
 export function getAudioStats() {

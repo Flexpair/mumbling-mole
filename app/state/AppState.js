@@ -53,17 +53,6 @@ export default class AppState {
   }
 
   /**
-   * Async initialization - must be called after construction
-   */
-  async initialize() {
-    try {
-      await this.audio.initializeAudioContext();
-    } catch (err) {
-      console.error('Failed to initialize AudioContext during AppState setup:', err);
-    }
-  }
-
-  /**
    * Set up reactive subscriptions between modules
    */
   _setupSubscriptions() {
