@@ -20,6 +20,15 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 
 **Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline - changing this requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec, and Settings serialization.
 
+**🚨 PLANNED MIGRATION: Knockout.js → Vue.js 3** (Q1 2026, 14-18 weeks)
+- **Status**: Phase 0 (Preparation) - planning complete, NOT started implementation
+- **Strategy**: Incremental 4-phase migration with dual runtime during transition
+- **Critical constraint**: Audio pipeline, worker threads, and Mumble protocol remain UNCHANGED
+- **Current binding inventory**: ~100+ `data-bind` occurrences mapped to Vue equivalents
+- **Test coverage gap**: VoiceState (0%), AppState (0%) must reach >80%/70% before migration starts
+- **Phase gates**: Each phase requires stakeholder approval, staging validation, zero regressions
+- See `docs/VUE_MIGRATION_PLAN.md` for complete strategy (do NOT start implementation without approval)
+
 ## Getting started reading code
 **Entry points by use case:**
 - **UI/UX flow**: `app/index.html` (Knockout templates) → `app/index.js` (AppState init, auth, connection)
@@ -104,6 +113,21 @@ dispose() {
 <div data-bind="foreach: users">...</div>
 ```
 
+**🎯 Vue.js Migration Readiness** - Knockout patterns mapped to Vue equivalents:
+- `ko.observable(val)` → `ref(val)` (access via `.value`, not function call)
+- `ko.computed(fn)` → `computed(fn)` (same reactive dependency tracking)
+- `ko.observableArray([])` → `ref([])` or `reactive([])`
+- `value.subscribe(cb)` → `watch(() => value, cb)` or `watchEffect()`
+- `data-bind="visible: x()"` → `v-if="x"` or `v-show="x"`
+- `data-bind="text: x()"` → `{{ x }}` or `v-text="x"`
+- `data-bind="value: x"` → `v-model="x"`
+- `data-bind="click: fn"` → `@click="fn"`
+- `data-bind="foreach: items"` → `v-for="(item, index) in items" :key="index"`
+- `data-bind="css: {active: isActive()}"` → `:class="{active: isActive}"`
+- `<!-- ko if: condition -->...<!-- /ko -->` → `<template v-if="condition">...</template>`
+- Disposal automatic in Vue (no manual cleanup needed with `watchEffect`)
+- See `docs/KNOCKOUT_BINDING_INVENTORY.md` for complete mapping of ~100+ bindings
+
 **UI state**: Observables live in modular state classes under `app/state/` (6 modules: Connection, Audio, Voice, UI, User, Channel). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
 ```javascript
 // Modular state (app/state/AppState.js)
@@ -131,6 +155,17 @@ get audioContext() { return this.audio.audioContext; }
 **User object migration**: When server assigns self ID, migrate `_users[undefined]` → `_users[actualID]` in `worker-client.js` `_setProp()` to preserve event listeners (critical for loopback voice events)  
 **Authentication**: Uses provider-agnostic abstraction layer (`app/auth/`); `AuthFactory` instantiates providers based on config. Current production: `NetlifyIdentityAdapter` (deprecated upstream, migrating to Supabase Auth in Q1 2026). See `app/auth/README.md` for migration roadmap. All UI code references `this.auth` (not `this.netlifyIdentity`)  
 **Event-based initialization**: Beeper and audio mixer use callback-based initialization via `onAudioMixerReady()` in `voice.js`—**never use timeouts or polling**. Resources initialize automatically when dependencies become available, regardless of timing. Example: `initializePersistentBeeper()` called from mixer ready callback, not after fixed delay.
+
+**Vue.js Migration Strategy** (PLANNED, NOT STARTED):
+- **Phase 0 (3 weeks):** Preparation - increase test coverage (VoiceState >80%, AppState >70%), document all bindings, create prototype
+- **Phase 1 (2-3 weeks):** Dual runtime - run Vue + Knockout side-by-side, migrate GuacamoleFrame component, validate approach
+- **Phase 2 (3-4 weeks):** State layer - convert `ko.observable()` → `ref()`, create compatibility wrappers, maintain backward compatibility
+- **Phase 3 (4-6 weeks):** Templates - convert ~100 `data-bind` to Vue directives, extract to `.vue` components, visual regression tests
+- **Phase 4 (2 weeks):** Cleanup - remove Knockout, optimize bundle, final validation
+- **Total:** 14-18 weeks, 1 FTE, stakeholder gates between phases
+- **Critical:** Audio pipeline, worker threads, Mumble protocol remain UNCHANGED
+- **Binding patterns:** See mapping in Implementation Conventions section above
+- **Start criteria:** Stakeholder approval + >80% VoiceState coverage + >70% AppState coverage + 5+ integration tests
 
 ## Race condition patterns (critical for correctness)
 **Promise caching**: Prevent duplicate async operations via cached promises. Pattern:
@@ -207,6 +242,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 8. **Never** call `controller.enqueue()` after `controller.terminate()` in decoder streams
 9. **Never** use timeouts/polling for initialization - use event-based callbacks (e.g., `onAudioMixerReady`)
 10. **Never** forget to dispose Knockout subscriptions in cleanup methods
+11. **Never** start Vue.js migration without: (a) stakeholder approval, (b) >80% VoiceState coverage, (c) >70% AppState coverage, (d) 5+ integration tests
 
 ## Debugging patterns
 **Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  
@@ -259,6 +295,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Workflow concurrency**: Uses `cancel-in-progress: true` to cancel outdated workflow runs when new commits arrive
 
 ## Known technical debt
-- **Missing unit tests**: AppState, VoiceState, worker-client.js, worker.js need characterization tests before major refactoring
+- **Missing unit tests**: AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%) need characterization tests before Vue migration
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
 - **NetlifyIdentityAdapter**: 9.09% coverage (deprecated, migrating to Supabase Auth Q1 2026)
+- **Vue.js migration prerequisites**: Must reach >80% VoiceState coverage, >70% AppState coverage, 5+ integration tests before Phase 1
