@@ -26,10 +26,19 @@
               />
             </td>
           </tr>
+          <tr>
+            <td class="label">{{ $t('connectdialog.microphone') || 'Microphone' }}</td>
+            <td>
+              <select id="audioSource" style="width: 100%; box-sizing: border-box;"></select>
+            </td>
+          </tr>
         </tbody>
       </table>
 
-      <div class="loopback-test-section">
+      <p style="margin: 0.5em 0;">{{ $t('connectdialog.headphones') || 'Please use headphones. Thank you.' }}</p>
+
+      <!-- Loopback Test Section (clear both floats) -->
+      <div class="loopback-test-section" style="clear: both;">
         <div class="test-toggle-container">
           <div 
             class="test-toggle-label"
@@ -42,34 +51,62 @@
               :class="{ active: isTestActive }"
             ></span>
           </div>
+        </div>
 
+        <!-- Piano Button and Frequency Display Row -->
+        <div v-if="isTestActive" style="display: flex; align-items: center; gap: 10px; margin-top: 8px; clear: both;">
+          <!-- Piano Button (Beeper) -->
+          <button
+            type="button"
+            class="beep-test-button"
+            @mousedown="startBeep"
+            @mouseup="stopBeep"
+            @mouseleave="stopBeep"
+            @touchstart="startBeep"
+            @touchend="stopBeep"
+            :class="{ active: isBeeping }"
+            :disabled="!beeperReady || !voiceHandlerReady"
+            style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
+          >
+            <span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)
+          </button>
+
+          <!-- Frequency Display -->
           <div
-            v-if="isTestActive && isLoopbackMode"
+            v-if="isLoopbackMode"
             class="loopback-frequency-display"
-            style="display: inline-block; margin-left: 10px; padding: 6px 12px; background-color: rgba(0, 150, 255, 0.1); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 4px;"
+            style="padding: 6px 12px; background-color: rgba(0, 150, 255, 0.1); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 4px; flex-shrink: 0;"
           >
             <span style="font-weight: bold; color: #0096ff;">📊</span>
-            <span
-              v-if="dominantFrequency > 0"
-              style="font-size: 1.1em; font-weight: bold; color: #0066cc;"
-            >
-              {{ dominantFrequency }} Hz
+            <span style="font-size: 1.1em; font-weight: bold; color: #0066cc; margin-left: 4px;">
+              {{ dominantFrequency > 0 ? dominantFrequency + ' Hz' : '--- Hz' }}
             </span>
           </div>
         </div>
       </div>
 
-      <div class="dialog-buttons">
+      <!-- Dialog Buttons - completely separate section -->
+      <div class="dialog-buttons" style="display: block; width: 100%; clear: both; margin-top: 1em;">
         <input
           type="button"
           class="dialog-close"
           value="Cancel"
           @click="handleHide"
           disabled
+          style="float: left;"
         />
         <input
+          v-if="!isTestActive"
           type="submit"
           :value="connected ? 'Reconnect' : 'Connect'"
+          style="float: right;"
+        />
+        <input
+          v-else
+          type="button"
+          value="Exit Test Mode"
+          @click="handleExitTest"
+          style="float: right;"
         />
       </div>
     </form>
@@ -77,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, inject, onMounted, watch } from 'vue';
+import { ref, reactive, computed, inject, onMounted, onUnmounted, watch } from 'vue';
 
 /**
  * Vue 3 ConnectDialog Component (DUAL RUNTIME)
@@ -133,10 +170,46 @@ if (appState?.connectDialog) {
 // Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
 const isLoopbackMode = computed(() => appState?.voice?.isLoopbackMode() ?? false);
-const dominantFrequency = computed(() => appState?.voice?.loopbackDominantFrequency() ?? 0);
+const isBeeping = computed(() => appState?.audio?.isBeeping() ?? false);
+
+// Reactive refs for Knockout observables (updated via subscriptions)
+const beeperReady = ref(false);
+const voiceHandlerReady = ref(false);
+const dominantFrequency = ref(0); // Changed from computed to ref with subscription
+
+// Subscribe to Knockout observables
+onMounted(() => {
+  if (appState?.audio?.beeperReady) {
+    beeperReady.value = appState.audio.beeperReady();
+    const sub1 = appState.audio.beeperReady.subscribe((val) => {
+      beeperReady.value = val;
+    });
+    onUnmounted(() => sub1.dispose());
+  }
+  
+  if (appState?.voice?.voiceHandlerReady) {
+    voiceHandlerReady.value = appState.voice.voiceHandlerReady();
+    const sub2 = appState.voice.voiceHandlerReady.subscribe((val) => {
+      voiceHandlerReady.value = val;
+    });
+    onUnmounted(() => sub2.dispose());
+  }
+  
+  // Subscribe to loopbackDominantFrequency
+  if (appState?.voice?.loopbackDominantFrequency) {
+    dominantFrequency.value = appState.voice.loopbackDominantFrequency();
+    const sub3 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
+      dominantFrequency.value = freq;
+    });
+    onUnmounted(() => sub3.dispose());
+  }
+});
 
 /**
  * Handle connect button click
+ */
+/**
+ * Handle form submission (Connect button)
  */
 function handleConnect() {
   // Delegate to Knockout ConnectDialog.connect()
@@ -152,6 +225,39 @@ async function handleToggleLoopback() {
   // Delegate to Knockout ConnectDialog.toggleLoopback()
   if (appState?.connectDialog?.toggleLoopback) {
     await appState.connectDialog.toggleLoopback();
+  }
+}
+
+/**
+ * Exit test mode and disconnect
+ */
+async function handleExitTest() {
+  // Turn off test mode (this will disconnect)
+  if (appState?.connectDialog?.toggleLoopback) {
+    await appState.connectDialog.toggleLoopback();
+  }
+}
+
+/**
+ * Start beep (Piano button pressed)
+ */
+function startBeep() {
+  console.log('[ConnectDialog Vue] startBeep() called');
+  if (appState?.startBeep) {
+    console.log('[ConnectDialog Vue] Calling appState.startBeep()');
+    appState.startBeep();
+  } else {
+    console.error('[ConnectDialog Vue] appState.startBeep not available');
+  }
+}
+
+/**
+ * Stop beep (Piano button released)
+ */
+function stopBeep() {
+  console.log('[ConnectDialog Vue] stopBeep() called');
+  if (appState?.stopBeep) {
+    appState.stopBeep();
   }
 }
 

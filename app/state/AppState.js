@@ -225,8 +225,8 @@ export default class AppState {
       this._updateVoiceHandler();
       await this.audio.initializePersistentBeeper();
     } else {
-      const host = this.config.defaults.host || "localhost";
-      const port = this.config.defaults.port || 64738;
+      const host = this.config.defaults.address || "localhost";
+      const port = this.config.defaults.port || "64738";
       const username = this.config.defaults.username || "WebClient";
       const password = this.config.defaults.password || "";
       this.connectLoopback(host, port, username, password);

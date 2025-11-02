@@ -105,6 +105,16 @@ const buildConfig = {
     // Vue 3 Single File Components (.vue files)
     vuePlugin(),
     
+    // Custom alias for Vue with runtime compiler
+    {
+      name: 'vue-runtime-alias',
+      setup(build) {
+        build.onResolve({ filter: /^vue$/ }, args => ({
+          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js')
+        }));
+      }
+    },
+    
     // Custom plugin to alias fs to our mock
     {
       name: 'fs-mock',
@@ -142,6 +152,9 @@ const buildConfig = {
   // Define environment variables and Node.js globals
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
+      '__VUE_OPTIONS_API__': 'true',
+      '__VUE_PROD_DEVTOOLS__': 'false',
+      '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__': 'false',
       'global': 'globalThis', // Use globalThis (works in both window and worker contexts)
       '__dirname': JSON.stringify('/'),
       '__filename': JSON.stringify('/index.js'),

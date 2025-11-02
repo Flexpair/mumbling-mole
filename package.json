@@ -13,6 +13,7 @@
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:unit:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:unit:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "pretest:loopback": "gh codespace ports visibility 8081:public -c $CODESPACE_NAME 2>/dev/null || true",
     "test:loopback": "playwright test loopback-frequency.spec.js",
     "test:loopback:headed": "playwright test loopback-frequency.spec.js --headed",
     "test:loopback:debug": "playwright test loopback-frequency.spec.js --debug",

@@ -6,9 +6,8 @@ import ko from "knockout";
 import keyboardjs from "keyboardjs";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
-import ConnectDialog from "./components/ConnectDialog.js";
 
-// Vue.js imports (dual runtime)
+// Vue.js imports
 import { createApp } from 'vue';
 import ConnectDialogVue from "./components/ConnectDialog.vue";
 
@@ -382,8 +381,94 @@ class Settings {
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
+// === Vue.js Integration (Replacing Knockout ConnectDialog) ===
+const vueApp = createApp({
+  components: { ConnectDialogVue },
+  template: '<ConnectDialogVue />'
+});
+vueApp.provide('appState', ui);
+vueApp.provide('config', ui.config);
+vueApp.config.globalProperties.$t = (key) => translate(key);
+
 // Wire up dependencies that AppState expects
-ui.connectDialog = new ConnectDialog(ui);
+// Provide Knockout-compatible stub for connectDialog to satisfy legacy code
+// The Vue component will sync with these observables bidirectionally
+ui.connectDialog = {
+  address: ko.observable(globalThis.mumbleWebConfig.defaults.address || ''),
+  port: ko.observable(globalThis.mumbleWebConfig.defaults.port || ''),
+  username: ko.observable(''),
+  password: ko.observable(''),
+  visible: ko.observable(false),
+  isTestActive: ko.observable(false), // Loopback test mode
+  show: function() { this.visible(true); },
+  hide: function() { this.visible(false); },
+  toggleLoopback: async function() {
+    const newState = !this.isTestActive();
+    this.isTestActive(newState);
+    
+    if (newState) {
+      await ui.voice.activateLoopback();
+      
+      // Start loopback test (connects to server if needed)
+      await ui.startLoopbackTest();
+    } else {
+      ui.voice.deactivateLoopback();
+      
+      // Disconnect when exiting test mode
+      if (ui.connected()) {
+        ui.connection.resetClient();
+      }
+    }
+  },
+  connect: async function() {
+    // If already connected (e.g., from loopback test), don't reconnect
+    if (ui.connected()) {
+      this.hide();
+      return;
+    }
+    
+    this.hide();
+    
+    const connectionParams = {
+      address: this.address() || ui.config.defaults.address,
+      port: this.port() || ui.config.defaults.port,
+      username: this.username() || ui.config.defaults.username,
+      password: this.password() || ui.config.defaults.password,
+      tokens: []
+    };
+    
+    await ui._performConnect(connectionParams, { audioEnabled: true });
+  }
+};
+// Beeper state observables for Vue ConnectDialog (delegate to AppState)
+Object.defineProperty(ui, 'beeperReady', {
+  get() { return ui.audio.beeperReady; },
+  enumerable: true
+});
+
+Object.defineProperty(ui, 'voiceHandlerReady', {
+  get() { return ui.voice.voiceHandlerReady; },
+  enumerable: true
+});
+
+Object.defineProperty(ui, 'isBeeping', {
+  get() { return ui.audio.isBeeping; },
+  enumerable: true
+});
+
+// Beeper methods for Vue ConnectDialog
+ui.startBeep = function() {
+  if (ui.audio?.startBeep) {
+    ui.audio.startBeep();
+  }
+};
+
+ui.stopBeep = function() {
+  if (ui.audio?.stopBeep) {
+    ui.audio.stopBeep();
+  }
+};
+
 ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
 ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
 ui.guacamoleFrame = new GuacamoleFrame();
@@ -416,31 +501,6 @@ globalThis.mumbleUi = ui;
 // Make auth available globally (backward compatibility)
 if (ui.auth) {
   globalThis.netlifyIdentity = ui.auth;
-}
-
-// Feature toggle: Check if Vue.js version should be used
-const vueFeatureParams = new URLSearchParams(window.location.search);
-const useVueConnectDialog = vueFeatureParams.has('vue-connect-dialog');
-
-// Vue.js App Setup (dual runtime)
-let vueApp = null;
-if (useVueConnectDialog) {
-  console.log('[VUE] Initializing Vue.js ConnectDialog (dual runtime mode)');
-  
-  // Create Vue app instance
-  vueApp = createApp({
-    components: {
-      ConnectDialogVue
-    },
-    template: '<ConnectDialogVue />'
-  });
-  
-  // Provide AppState to Vue components
-  vueApp.provide('appState', ui);
-  vueApp.provide('config', ui.config);
-  
-  // Simple i18n helper for Vue
-  vueApp.config.globalProperties.$t = (key) => translate(key);
 }
 
 function initializeUI() {
@@ -524,21 +584,18 @@ async function main() {
   translateEverything();
   initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
   
-  // Mount Vue.js app if feature toggle is enabled
-  if (useVueConnectDialog && vueApp) {
-    console.log('[VUE] Mounting Vue.js ConnectDialog');
-    try {
-      vueApp.mount('#vue-connect-dialog-root');
-      // Hide Knockout version
-      const knockoutDialog = document.getElementById('knockout-connect-dialog');
-      if (knockoutDialog) {
-        knockoutDialog.style.display = 'none';
-      }
-      console.log('[VUE] Vue.js ConnectDialog mounted successfully (Knockout version hidden)');
-    } catch (err) {
-      console.error('[VUE] Failed to mount Vue.js app:', err);
-      console.log('[VUE] Falling back to Knockout version');
+  // Mount Vue.js ConnectDialog (replaces Knockout version)
+  console.log('[VUE] Mounting Vue.js ConnectDialog');
+  try {
+    vueApp.mount('#vue-connect-dialog-root');
+    // Hide Knockout version (template kept for reference)
+    const knockoutDialog = document.getElementById('knockout-connect-dialog');
+    if (knockoutDialog) {
+      knockoutDialog.style.display = 'none';
     }
+    console.log('[VUE] Vue.js ConnectDialog mounted successfully (Knockout version hidden)');
+  } catch (error) {
+    console.error('[VUE] Failed to mount ConnectDialog:', error);
   }
   
   enumMicrophones();

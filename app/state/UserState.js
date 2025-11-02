@@ -145,8 +145,12 @@ export default class UserState {
       .on("voice", (stream) => {
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
-        // CLEANUP-SAFETY: Clear any previous voice stream resources for this user
-        // Prevents multiple intervals/subscriptions from running in parallel
+        // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
+        // Use timestamp + random to ensure uniqueness even if user.session is undefined
+        const streamId = `${user.session || 'unknown'}_${Date.now()}_${Math.random()}`;
+        
+        // Clear any previous voice stream resources for this user (using session ID)
+        // This stops old intervals before starting new ones
         this._cleanupVoiceStream(user.session);
         
         // Create audio node for playing back received voice
@@ -211,8 +215,8 @@ export default class UserState {
             const dominantFrequency = (maxIndex * sampleRate) / analyserNode.fftSize;
             
             // Update voice state with detected frequency (only if significant amplitude)
-            // Threshold (50) to ensure display disappears quickly when audio stops
-            if (maxAmplitude > 50) {
+            // Lowered threshold to 10 to detect quieter signals
+            if (maxAmplitude > 10) {
               this.voiceState.updateLoopbackFrequency(dominantFrequency);
               noAudioCount = 0; // Reset counter when audio detected
               debugLog('[LOOPBACK-FREQ]', 'Dominant frequency:', dominantFrequency.toFixed(1), 'Hz, amplitude:', maxAmplitude);
@@ -243,11 +247,12 @@ export default class UserState {
           debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
         });
         
-        // CLEANUP-TRACKING: Store resources for proper cleanup
-        this._activeVoiceStreams.set(user.session, {
+        // CLEANUP-TRACKING: Store resources with unique stream ID for proper cleanup
+        this._activeVoiceStreams.set(streamId, {
           interval: frequencyAnalysisInterval,
           subscription: deafSubscription,
-          userNode: userNode
+          userNode: userNode,
+          sessionId: user.session // Track original session for cleanup by session
         });
 
         stream
@@ -271,8 +276,8 @@ export default class UserState {
             debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
             ui.talking("off");
             
-            // CLEANUP: Use centralized cleanup method
-            this._cleanupVoiceStream(user.session);
+            // CLEANUP: Use streamId to clean up this specific stream
+            this._cleanupVoiceStream(streamId);
           });
       });
   }
@@ -283,12 +288,31 @@ export default class UserState {
    * @param {number} sessionId - User session ID
    * @private
    */
-  _cleanupVoiceStream(sessionId) {
-    const resources = this._activeVoiceStreams.get(sessionId);
-    if (!resources) {
-      return; // Already cleaned up
+  /**
+   * Clean up voice stream resources
+   * @param {string|number} identifier - Either streamId (specific stream) or sessionId (all streams for user)
+   */
+  _cleanupVoiceStream(identifier) {
+    // Try direct lookup first (streamId)
+    const resources = this._activeVoiceStreams.get(identifier);
+    if (resources) {
+      this._disposeStreamResources(resources, identifier);
+      return;
     }
     
+    // If not found, cleanup all streams for this session (sessionId)
+    for (const [streamId, res] of this._activeVoiceStreams.entries()) {
+      if (res.sessionId === identifier) {
+        this._disposeStreamResources(res, streamId);
+      }
+    }
+  }
+  
+  /**
+   * Dispose individual stream resources
+   * @private
+   */
+  _disposeStreamResources(resources, streamId) {
     // Clear frequency analysis interval
     if (resources.interval) {
       clearInterval(resources.interval);
@@ -315,7 +339,7 @@ export default class UserState {
     }
     
     // Remove from tracking
-    this._activeVoiceStreams.delete(sessionId);
+    this._activeVoiceStreams.delete(streamId);
   }
 
   /**

@@ -6,6 +6,13 @@ let config = globalThis.mumbleWebConfig;
 
 config.settings.audioBitrate = 96000;
 
+// In Codespaces, connect to murmur container via relative path
+// Browser connects to same host (Codespace URL), nginx proxies to murmur container
+if (globalThis.location.hostname.includes('github.dev') || globalThis.location.hostname.includes('app.github.dev')) {
+  config.defaults.address = globalThis.location.hostname;
+  config.defaults.port = '443/murmur';
+}
+
 // Use mock auth ONLY when explicitly requested via ?mock-auth URL parameter
 // Default: Always use Netlify Identity (production behavior)
 const useMockAuth = globalThis.location.search.includes('mock-auth');

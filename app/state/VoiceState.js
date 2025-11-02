@@ -107,6 +107,7 @@ export default class VoiceState {
     
     // Mark as ready
     this.voiceHandlerReady(true);
+    console.log('[VOICE-HANDLER] voiceHandlerReady set to TRUE');
     debugLog('[VOICE-HANDLER]', 'Voice handler fully initialized and ready');
   }
 
@@ -118,6 +119,26 @@ export default class VoiceState {
     if (this.isLoopbackMode()) {
       this.loopbackDominantFrequency(Math.round(frequency * 10) / 10);
     }
+  }
+
+  /**
+   * Activate loopback mode
+   * Enables loopback testing with target 31 (server loopback)
+   */
+  async activateLoopback() {
+    this.isLoopbackMode(true);
+    // Voice handler will be recreated with loopback target via updateVoiceHandler
+    // This is typically called after the user toggles the test mode
+  }
+
+  /**
+   * Deactivate loopback mode
+   * Returns to normal voice mode (target 0)
+   */
+  deactivateLoopback() {
+    this.isLoopbackMode(false);
+    this.loopbackDominantFrequency(0);
+    // Voice handler will be recreated with normal target via updateVoiceHandler
   }
 
   /**

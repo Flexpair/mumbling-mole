@@ -302,9 +302,11 @@ export default class AudioState {
    * Start beeping
    */
   async startBeep() {
+    console.log('[BEEP] Start beep requested');
     debugLog('[BEEP]', 'Start beep requested');
     
     if (this._persistentBeeper) {
+      console.log('[BEEP] Persistent beeper exists, starting beep');
       try {
         const beeper = this._persistentBeeper;
         const ac = beeper.gain.context;
@@ -338,6 +340,7 @@ export default class AudioState {
     }
     
     // Fallback: initialize and retry
+    console.log('[BEEP] Beeper not ready, initializing...');
     debugLog('[BEEP]', 'Beeper not ready, initializing...');
     this.initializePersistentBeeper().then(() => {
       if (this._persistentBeeper) {
