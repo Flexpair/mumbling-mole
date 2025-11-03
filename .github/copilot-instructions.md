@@ -249,7 +249,8 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 ## Config, localization, theming
 **Config**: Source defaults in `app/config.js`; runtime overrides in generated `dist/config.local.js` (back up before clean builds!)  
 **Localization**: English-only since PR #140 (multilanguage support disabled); UI strings in `localize/en.json`; missing keys log warnings  
-**Themes**: SCSS sources under `themes/MetroMumbleLight`; esbuild (sassPlugin) compiles to CSS; runtime selection via `?theme=` query param; supports Light/Dark variants
+**Themes**: SCSS sources under `themes/MetroMumbleLight`; esbuild (sassPlugin) compiles to CSS; runtime selection via `?theme=` query param; supports Light/Dark variants  
+**Design guidelines (web interface)**: Corporate color palette is `#157878` (teal), pure cyan (`#00FFFF`), black, and white. Use only these colors for UI elements, accents, and branding. Avoid introducing additional colors.
 
 ## Critical "Never Do" rules
 1. **Never** `new AudioContext()` directly - always use `ensureAudioContext()` from `audio-context-manager.js`
