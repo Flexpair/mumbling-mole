@@ -20,22 +20,24 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 
 **Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline - changing this requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec, and Settings serialization.
 
-**🚨 PLANNED MIGRATION: Knockout.js → Vue.js 3** (Q1 2026, 14-18 weeks)
-- **Status**: Phase 0 (Preparation) - planning complete, NOT started implementation
-- **Strategy**: Incremental 4-phase migration with dual runtime during transition
+**� ACTIVE MIGRATION: Knockout.js → Vue.js 3** (Dual Runtime - Phase 1)
+- **Status**: Phase 1 in progress - `ConnectDialog.vue` migrated, dual runtime operational
+- **Strategy**: Incremental migration with Vue + Knockout running side-by-side
 - **Critical constraint**: Audio pipeline, worker threads, and Mumble protocol remain UNCHANGED
-- **Current binding inventory**: ~100+ `data-bind` occurrences mapped to Vue equivalents
-- **Test coverage gap**: VoiceState (0%), AppState (0%) must reach >80%/70% before migration starts
-- **Phase gates**: Each phase requires stakeholder approval, staging validation, zero regressions
-- See `docs/VUE_MIGRATION_PLAN.md` for complete strategy (do NOT start implementation without approval)
+- **First Vue component**: `app/components/ConnectDialog.vue` (523 lines) replaces Knockout connect dialog
+- **Integration pattern**: Vue app mounted at `#vue-connect-dialog-root`; uses `provide/inject` to access Knockout `AppState`
+- **State synchronization**: Bidirectional sync via `watch()` (Vue → Knockout) and `observable.subscribe()` (Knockout → Vue)
+- **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`
+- **Test coverage gap**: VoiceState (0%), AppState (0%) still need >80%/70% coverage for full migration
+- See `app/components/ConnectDialog.vue` lines 130-200 for dual runtime integration pattern
 
 ## Getting started reading code
 **Entry points by use case:**
-- **UI/UX flow**: `app/index.html` (Knockout templates) → `app/index.js` (AppState init, auth, connection)
+- **UI/UX flow**: `app/index.html` (Knockout templates) → `app/index.js` (AppState init, Vue mount, auth, connection) → `app/components/ConnectDialog.vue` (first Vue component)
 - **State management**: `app/state/AppState.js` (6-module composition) → individual modules in `app/state/`
 - **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
 - **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
-- **Build system**: `build-esbuild.mjs` (esbuild config with clean builds)
+- **Build system**: `build-esbuild.mjs` (esbuild config with Vue plugin, clean builds)
 
 **Read these READMEs first**: `app/state/README.md` (architecture diagrams), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
 
@@ -51,6 +53,7 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 
 ## Build system
 - **esbuild-based** (migrated from webpack in v3.14.0): `npm run build` runs `build-esbuild.mjs` directly
+- **Vue.js support**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via alias to `vue.esm-bundler.js`
 - `build-esbuild.mjs` always does clean builds (removes `dist/` first); esbuild is fast enough (~1s) that this is practical
 - `prepare` hook runs `npm run build` unless `SKIP_PREPARE=1`; **never commit** `dist/**` (it's generated)
 - **SKIP_PREPARE=1**: Set in docker-compose.yml and CI to prevent double builds; use when `dist/` is already populated or when npm install shouldn't trigger builds
@@ -61,6 +64,7 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 - `dist/config.local.js` copied from `app/config.local.js` during each build; source file is `app/config.local.js`
 - **Entry points**: `index.js`, `config.js`, `theme.js`, `worker.js`, `audio/encode-worker.js`, `audio/decode-worker.js` (separate bundles)
 - **Polyfills**: `fs-mock.js` aliased for `fs` requires; Node.js globals/modules polyfilled via esbuild plugins
+- **Vue feature flags**: `__VUE_OPTIONS_API__=true`, `__VUE_PROD_DEVTOOLS__=false` set via define plugin
 
 ## Dev & test workflows
 **Local dev**: `MUMBLE_SERVER=host:port ./start-dev-server.sh` → builds in dev mode, spawns `docker-entrypoint.sh`, opens `http://local.flexpair.app`, logs to `/tmp/entrypoint.log`  
@@ -156,16 +160,32 @@ get audioContext() { return this.audio.audioContext; }
 **Authentication**: Uses provider-agnostic abstraction layer (`app/auth/`); `AuthFactory` instantiates providers based on config. Current production: `NetlifyIdentityAdapter` (deprecated upstream, migrating to Supabase Auth in Q1 2026). See `app/auth/README.md` for migration roadmap. All UI code references `this.auth` (not `this.netlifyIdentity`)  
 **Event-based initialization**: Beeper and audio mixer use callback-based initialization via `onAudioMixerReady()` in `voice.js`—**never use timeouts or polling**. Resources initialize automatically when dependencies become available, regardless of timing. Example: `initializePersistentBeeper()` called from mixer ready callback, not after fixed delay.
 
-**Vue.js Migration Strategy** (PLANNED, NOT STARTED):
-- **Phase 0 (3 weeks):** Preparation - increase test coverage (VoiceState >80%, AppState >70%), document all bindings, create prototype
-- **Phase 1 (2-3 weeks):** Dual runtime - run Vue + Knockout side-by-side, migrate GuacamoleFrame component, validate approach
-- **Phase 2 (3-4 weeks):** State layer - convert `ko.observable()` → `ref()`, create compatibility wrappers, maintain backward compatibility
-- **Phase 3 (4-6 weeks):** Templates - convert ~100 `data-bind` to Vue directives, extract to `.vue` components, visual regression tests
-- **Phase 4 (2 weeks):** Cleanup - remove Knockout, optimize bundle, final validation
-- **Total:** 14-18 weeks, 1 FTE, stakeholder gates between phases
-- **Critical:** Audio pipeline, worker threads, Mumble protocol remain UNCHANGED
-- **Binding patterns:** See mapping in Implementation Conventions section above
-- **Start criteria:** Stakeholder approval + >80% VoiceState coverage + >70% AppState coverage + 5+ integration tests
+**Vue.js 3 Integration Patterns** (ACTIVE - Dual Runtime):
+- **Component structure**: Single File Components (`.vue`) in `app/components/`
+- **State access**: Use `provide/inject` to access Knockout `AppState` from Vue components
+- **Bidirectional sync**: `watch()` for Vue → Knockout, `observable.subscribe()` for Knockout → Vue
+- **Mounting**: Components mounted in `app/index.js` via `createApp().provide().mount()`
+- **Example pattern** (from `ConnectDialog.vue` lines 130-200):
+```javascript
+// In Vue component <script setup>
+import { ref, inject, watch, onMounted } from 'vue';
+const appState = inject('appState');
+const visible = ref(false);
+
+// Knockout → Vue sync
+onMounted(() => {
+  visible.value = appState.connectDialog.visible();
+  appState.connectDialog.visible.subscribe((val) => {
+    visible.value = val;
+  });
+});
+
+// Vue → Knockout sync
+watch(visible, (val) => appState.connectDialog.visible(val));
+```
+- **Build integration**: `esbuild-plugin-vue3` handles `.vue` compilation; no separate toolchain needed
+- **Migration approach**: Convert one component at a time; maintain 100% backward compatibility during transition
+- **Testing**: Existing Knockout tests remain valid; add Vue component tests as components migrate
 
 ## Race condition patterns (critical for correctness)
 **Promise caching**: Prevent duplicate async operations via cached promises. Pattern:
@@ -242,7 +262,8 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 8. **Never** call `controller.enqueue()` after `controller.terminate()` in decoder streams
 9. **Never** use timeouts/polling for initialization - use event-based callbacks (e.g., `onAudioMixerReady`)
 10. **Never** forget to dispose Knockout subscriptions in cleanup methods
-11. **Never** start Vue.js migration without: (a) stakeholder approval, (b) >80% VoiceState coverage, (c) >70% AppState coverage, (d) 5+ integration tests
+11. **Never** create Vue components without using `provide/inject` for AppState access during dual runtime phase
+12. **Never** break bidirectional sync between Vue and Knockout state during migration
 
 ## Debugging patterns
 **Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  
@@ -258,11 +279,11 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Playwright debugging**: Run with `--headed` for visible browser; use `--debug` for step-through debugging; `--trace on` generates detailed trace files in `test-results/`; Codespaces requires public URL auto-detection (configured in `playwright.config.js`)
 
 ## Key file map
-**UI/session**: `app/index.js` (AppState initialization + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n)  
+**UI/session**: `app/index.js` (AppState initialization + Vue mount + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n), `app/components/ConnectDialog.vue` (first Vue component)  
 **State modules**: `app/state/AppState.js` (coordinator), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/selections), `app/state/UserState.js` (thisUser/mute/deaf), `app/state/ChannelState.js` (root channel/links)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
-**Build/runtime**: `build-esbuild.mjs` (esbuild config with validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
+**Build/runtime**: `build-esbuild.mjs` (esbuild config with Vue plugin + validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
 **Testing**: `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation), `scripts/audit-ci.cjs` (dependency vulnerability checks)  
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
@@ -295,7 +316,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Workflow concurrency**: Uses `cancel-in-progress: true` to cancel outdated workflow runs when new commits arrive
 
 ## Known technical debt
-- **Missing unit tests**: AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%) need characterization tests before Vue migration
+- **Missing unit tests**: AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%) need characterization tests before full Vue migration
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
 - **NetlifyIdentityAdapter**: 9.09% coverage (deprecated, migrating to Supabase Auth Q1 2026)
-- **Vue.js migration prerequisites**: Must reach >80% VoiceState coverage, >70% AppState coverage, 5+ integration tests before Phase 1
+- **Vue.js migration in progress**: ConnectDialog migrated; remaining ~100 `data-bind` patterns need gradual conversion
