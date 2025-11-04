@@ -12,6 +12,7 @@ import { createApp } from 'vue';
 import ConnectDialogVue from "./components/ConnectDialog.vue";
 import ConnectionInfoDialogVue from "./components/ConnectionInfoDialog.vue";
 import SettingsDialogVue from "./components/SettingsDialog.vue";
+import GuacamoleFrameVue from "./components/GuacamoleFrame.vue";
 
 
 import {
@@ -51,47 +52,8 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-function GuacamoleFrame() {
-  // Start with null source to avoid the browser immediately requesting /guacamole/.
-  // The iframe src is only assigned after a successful Mumble connect + role gating.
-  // (HTML binding uses fallback about:blank when null/empty.)
-  this.guacSource = ko.observable(null);
-  this.visible = ko.observable(false);
-  this.show = this.visible.bind(this.visible, true);
-  this.hide = this.visible.bind(this.visible, false);
-  this.loading = ko.observable(false);
-  this.error = ko.observable(null);
-
-  this.start = function (guacUser, password) {
-    this.loading(true);
-    this.error(null);
-    // Sanitize previously bad localStorage entries that break Guacamole's JSON.parse
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        if (/guac|token|auth/i.test(k)) {
-          const val = localStorage.getItem(k);
-          if (val === "undefined" || val === "null") {
-            localStorage.removeItem(k);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[Guac] localStorage sanitization failed", e);
-    }
-    const src =
-      "/guacamole/#/?username=" +
-      guacUser +
-      "&password=" +
-      encodeURIComponent(password || "");
-    this.guacSource(src);
-  };
-
-  this.onLoad = function () {
-    this.loading(false);
-  };
-}
+// GuacamoleFrame migrated to Vue.js (see app/components/GuacamoleFrame.vue)
+// Knockout class removed - Vue component mounted in main() function
 
 function ConnectDialog() {
   this.address = ko.observable("");
@@ -120,11 +82,11 @@ function ConnectDialog() {
       // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
       // Uses stored credentials from initial connection
       if (ui._guacLogin) {
-        ui.guacamoleFrame.loading(false);
+        ui.guacamoleFrame.loading = false;
         ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
         ui.guacamoleFrame.show();
       } else {
-        ui.guacamoleFrame.loading(false);
+        ui.guacamoleFrame.loading = false;
       }
     } else {
       // Normal connection flow - not yet connected to server
@@ -479,7 +441,7 @@ globalThis.ui = ui;
 ui.connectDialog = new ConnectDialog();
 ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
 ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
-ui.guacamoleFrame = new GuacamoleFrame();
+ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
 ui.connectionInfo = new ConnectionInfo(ui);
 ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
 ui.settingsDialogInstance = new SettingsDialog(ui.settings);
@@ -644,6 +606,27 @@ async function main() {
     globalThis.__VUE_SETTINGS_DIALOG__ = mountedSettingsApp;
   } catch (error) {
     console.error('[VUE] ❌ Failed to mount SettingsDialog:', error);
+  }
+  
+  // Mount Vue.js GuacamoleFrame (replaces Knockout version)
+  console.log('[VUE] Mounting Vue.js GuacamoleFrame');
+  try {
+    const vueGuacApp = createApp(GuacamoleFrameVue);
+    
+    // Provide AppState to Vue components
+    vueGuacApp.provide('appState', ui);
+    
+    const mountedGuacApp = vueGuacApp.mount('#vue-guacamole-frame-root');
+    console.log('[VUE] ✅ Vue.js GuacamoleFrame mounted successfully');
+    
+    // Replace placeholder with Vue component instance
+    // AppState calls ui.guacamoleFrame.start(), .show(), .hide()
+    ui.guacamoleFrame = mountedGuacApp;
+    
+    // Make Vue app inspectable in DevTools
+    globalThis.__VUE_GUACAMOLE_FRAME__ = mountedGuacApp;
+  } catch (error) {
+    console.error('[VUE] ❌ Failed to mount GuacamoleFrame:', error);
   }
   
   enumMicrophones();

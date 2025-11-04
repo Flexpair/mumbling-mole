@@ -44,30 +44,8 @@
       </div>
     </div>
   <div id="container" data-bind="visible: true">
-      <!-- ko with: guacamoleFrame -->
-      <div class="guacamole-placeholder" data-bind="visible: !visible()">
-  <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
-      </div>
-      <section
-        class="guacamole"
-        aria-label="Guacamole Remote Desktop Container"
-        data-bind="visible: visible()"
-      >
-        <!-- ko if: loading -->
-        <div class="guac-loading">Loading remote desktop…</div>
-        <!-- /ko -->
-        <!-- ko if: error -->
-        <div class="guac-error" data-bind="text: error"></div>
-        <!-- /ko -->
-        <iframe
-          id="guacframe"
-          data-bind="attr: { src: guacSource() || 'about:blank' }, event: { load: onLoad }"
-          title="Guacamole Remote Desktop"
-          loading="lazy"
-          allow="clipboard-read; clipboard-write"
-        ></iframe>
-      </section>
-      <!-- /ko -->
+      <!-- Vue.js GuacamoleFrame (replaces Knockout version) -->
+      <div id="vue-guacamole-frame-root"></div>
       
       <!-- Microphone select (shared between Knockout and Vue) -->
       <!-- Populated by enumMicrophones() in voice.js -->
