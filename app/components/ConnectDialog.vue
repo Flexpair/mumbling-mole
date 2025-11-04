@@ -67,13 +67,12 @@
           <div v-if="isTestActive" style="display: flex; align-items: center; gap: 10px;">
             <!-- Piano Button (Beeper) -->
             <button
+              ref="pianoButton"
               type="button"
               class="beep-test-button"
               @mousedown="startBeep"
               @mouseup="stopBeep"
               @mouseleave="stopBeep"
-              @touchstart="startBeep"
-              @touchend="stopBeep"
               :class="{ active: isBeeping }"
               :disabled="!beeperReady || !voiceHandlerReady"
               :aria-pressed="isBeeping ? 'true' : 'false'"
@@ -143,6 +142,8 @@ const config = inject('config', { connectDialog: {} });
 
 // Ref for microphone container (to inject the global select element)
 const microphoneContainer = ref(null);
+// Ref for piano button (to add passive touch listeners)
+const pianoButton = ref(null);
 
 // Local reactive state (synced with appState.connectDialog)
 const visible = ref(false);
@@ -206,6 +207,12 @@ let sub1, sub2, sub3;
 
 // Subscribe to Knockout observables
 onMounted(() => {
+  // Add passive touch event listeners to piano button for better mobile performance
+  if (pianoButton.value) {
+    pianoButton.value.addEventListener('touchstart', startBeep, { passive: true });
+    pianoButton.value.addEventListener('touchend', stopBeep, { passive: true });
+  }
+  
   if (appState?.audio?.beeperReady) {
     beeperReady.value = appState.audio.beeperReady();
     sub1 = appState.audio.beeperReady.subscribe((val) => {
@@ -231,6 +238,12 @@ onMounted(() => {
 
 // Always dispose subscriptions on unmount
 onUnmounted(() => {
+  // Remove passive touch event listeners
+  if (pianoButton.value) {
+    pianoButton.value.removeEventListener('touchstart', startBeep);
+    pianoButton.value.removeEventListener('touchend', stopBeep);
+  }
+  
   if (sub1) sub1.dispose();
   if (sub2) sub2.dispose();
   if (sub3) sub3.dispose();
