@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue.js Runtime Verification Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .pass { color: #22c55e; font-weight: bold; }
+    .fail { color: #ef4444; font-weight: bold; }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    h1 { color: #42b883; }
+    h2 { color: #333; border-bottom: 2px solid #42b883; padding-bottom: 8px; }
+    .result { margin: 10px 0; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Vue.js Runtime Verification</h1>
+  
+  <div class="test-section">
+    <h2>Test 1: Vue Global Instances</h2>
+    <p>Checking if Vue component instances are accessible in globalThis...</p>
+    <div id="test1-results"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test 2: Vue DOM Elements</h2>
+    <p>Checking if Vue mount points exist and have Vue data attributes...</p>
+    <div id="test2-results"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test 3: Console Log Verification</h2>
+    <p>Check browser console for these log messages:</p>
+    <pre>[VUE] ✅ Vue.js ConnectDialog mounted successfully
+[VUE] ✅ Vue.js ConnectionInfoDialog mounted successfully
+[VUE] ✅ Vue.js SettingsDialog mounted successfully</pre>
+  </div>
+
+  <div class="test-section">
+    <h2>Manual DevTools Test</h2>
+    <p>Open DevTools Console and type these commands:</p>
+    <pre>__VUE_CONNECT_DIALOG__
+__VUE_CONNECTION_INFO__
+__VUE_SETTINGS_DIALOG__</pre>
+    <p>You should see Vue component proxy objects!</p>
+  </div>
+
+  <script>
+    // Test 1: Check global Vue instances
+    function test1() {
+      const results = document.getElementById('test1-results');
+      const tests = [
+        { name: '__VUE_CONNECT_DIALOG__', obj: window.__VUE_CONNECT_DIALOG__ },
+        { name: '__VUE_CONNECTION_INFO__', obj: window.__VUE_CONNECTION_INFO__ },
+        { name: '__VUE_SETTINGS_DIALOG__', obj: window.__VUE_SETTINGS_DIALOG__ }
+      ];
+
+      tests.forEach(test => {
+        const exists = test.obj !== undefined;
+        const isProxy = exists && test.obj.constructor.name === 'Proxy';
+        const status = exists ? 'PASS' : 'FAIL';
+        const className = exists ? 'pass' : 'fail';
+        
+        results.innerHTML += `
+          <div class="result">
+            <span class="${className}">${status}</span> ${test.name} 
+            ${exists ? `(${isProxy ? 'Vue Proxy' : 'Object'})` : '(not found)'}
+          </div>
+        `;
+      });
+    }
+
+    // Test 2: Check Vue mount points
+    function test2() {
+      const results = document.getElementById('test2-results');
+      const mountPoints = [
+        'vue-connect-dialog-root',
+        'vue-connection-info-dialog-root',
+        'vue-settings-dialog-root'
+      ];
+
+      mountPoints.forEach(id => {
+        const el = document.getElementById(id);
+        const exists = el !== null;
+        const hasVueData = exists && el.hasAttribute('data-v-app');
+        const hasChildren = exists && el.children.length > 0;
+        const status = exists ? 'PASS' : 'FAIL';
+        const className = exists ? 'pass' : 'fail';
+        
+        results.innerHTML += `
+          <div class="result">
+            <span class="${className}">${status}</span> #${id}
+            ${exists ? `(${hasChildren ? 'has content' : 'empty'}${hasVueData ? ', Vue data-v-app' : ''})` : '(not found)'}
+          </div>
+        `;
+      });
+    }
+
+    // Run tests when page loads
+    window.addEventListener('load', () => {
+      // Wait a bit for Vue to mount
+      setTimeout(() => {
+        test1();
+        test2();
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

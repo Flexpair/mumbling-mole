@@ -601,10 +601,14 @@ async function main() {
     vueApp.provide('appState', ui);
     vueApp.provide('config', globalThis.mumbleWebConfig);
     
-    vueApp.mount('#vue-connect-dialog-root');
-    console.log('[VUE] Vue.js ConnectDialog mounted successfully');
+    const mountedApp = vueApp.mount('#vue-connect-dialog-root');
+    console.log('[VUE] ✅ Vue.js ConnectDialog mounted successfully');
+    console.log('[VUE] Vue instance:', mountedApp);
+    
+    // Make Vue app inspectable in DevTools
+    globalThis.__VUE_CONNECT_DIALOG__ = mountedApp;
   } catch (error) {
-    console.error('[VUE] Failed to mount ConnectDialog:', error);
+    console.error('[VUE] ❌ Failed to mount ConnectDialog:', error);
   }
   
   // Mount Vue.js ConnectionInfoDialog (replaces Knockout version)
@@ -615,10 +619,13 @@ async function main() {
     // Provide AppState to Vue components
     vueInfoApp.provide('appState', ui);
     
-    vueInfoApp.mount('#vue-connection-info-dialog-root');
-    console.log('[VUE] Vue.js ConnectionInfoDialog mounted successfully');
+    const mountedInfoApp = vueInfoApp.mount('#vue-connection-info-dialog-root');
+    console.log('[VUE] ✅ Vue.js ConnectionInfoDialog mounted successfully');
+    
+    // Make Vue app inspectable in DevTools
+    globalThis.__VUE_CONNECTION_INFO__ = mountedInfoApp;
   } catch (error) {
-    console.error('[VUE] Failed to mount ConnectionInfoDialog:', error);
+    console.error('[VUE] ❌ Failed to mount ConnectionInfoDialog:', error);
   }
   
   // Mount Vue.js SettingsDialog (replaces Knockout version)
@@ -630,10 +637,13 @@ async function main() {
     vueSettingsApp.provide('appState', ui);
     vueSettingsApp.provide('translate', translate);
     
-    vueSettingsApp.mount('#vue-settings-dialog-root');
-    console.log('[VUE] Vue.js SettingsDialog mounted successfully');
+    const mountedSettingsApp = vueSettingsApp.mount('#vue-settings-dialog-root');
+    console.log('[VUE] ✅ Vue.js SettingsDialog mounted successfully');
+    
+    // Make Vue app inspectable in DevTools
+    globalThis.__VUE_SETTINGS_DIALOG__ = mountedSettingsApp;
   } catch (error) {
-    console.error('[VUE] Failed to mount SettingsDialog:', error);
+    console.error('[VUE] ❌ Failed to mount SettingsDialog:', error);
   }
   
   enumMicrophones();

@@ -1,10 +1,8 @@
 <template>
-  <div
-    v-if="visible"
+  <dialog
+    ref="dialogElement"
     class="settings-dialog dialog"
-    role="dialog"
     aria-labelledby="settings-dialog-title"
-    aria-modal="true"
   >
     <div id="settings-dialog-title" class="dialog-header">
       {{ t('settingsdialog.title') }}
@@ -131,7 +129,7 @@
         />
       </div>
     </form>
-  </div>
+  </dialog>
 </template>
 
 <script setup>
@@ -139,10 +137,7 @@ import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from 'vue';
 import keyboardjs from 'keyboardjs';
 
 // Dynamic import for MumbleClient to access calcEnforcableBandwidth
-let MumbleClient = null;
-import('../../app/mumble-client/client.js').then((module) => {
-  MumbleClient = module.default;
-});
+const { default: MumbleClient } = await import('../../app/mumble-client/client.js');
 
 // Inject AppState from the main app
 const appState = inject('appState');
@@ -152,6 +147,7 @@ const t = inject('translate');
 
 // Component visibility state
 const visible = ref(false);
+const dialogElement = ref(null);
 
 // Form state - matches Knockout SettingsDialog constructor
 const voiceMode = ref('cont');
@@ -233,9 +229,17 @@ const handleSubmit = () => {
 
   // Trigger AppState.applySettings behavior
   appState.applySettings();
+  
+  // Close the dialog
+  if (dialogElement.value) {
+    dialogElement.value.close();
+  }
 };
 
 const handleCancel = () => {
+  if (dialogElement.value) {
+    dialogElement.value.close();
+  }
   appState.closeSettings();
 };
 
@@ -252,6 +256,11 @@ onMounted(() => {
     pttKeyDisplay.value = koDialog.pttKeyDisplay();
     audioBitrate.value = koDialog.audioBitrate();
     samplesPerPacket.value = koDialog.samplesPerPacket();
+    
+    // Show dialog modally
+    if (dialogElement.value && !dialogElement.value.open) {
+      dialogElement.value.showModal();
+    }
   }
 
   // Subscribe to Knockout settingsDialog changes
@@ -263,8 +272,17 @@ onMounted(() => {
       pttKeyDisplay.value = dialog.pttKeyDisplay();
       audioBitrate.value = dialog.audioBitrate();
       samplesPerPacket.value = dialog.samplesPerPacket();
+      
+      // Show dialog modally
+      if (dialogElement.value && !dialogElement.value.open) {
+        dialogElement.value.showModal();
+      }
     } else {
       visible.value = false;
+      // Close dialog
+      if (dialogElement.value && dialogElement.value.open) {
+        dialogElement.value.close();
+      }
     }
   });
 });
@@ -286,10 +304,24 @@ watch(visible, (val) => {
   if (!val && appState.settingsDialog()) {
     appState.closeSettings();
   }
+  
+  // Sync dialog state with visibility
+  if (dialogElement.value) {
+    if (val && !dialogElement.value.open) {
+      dialogElement.value.showModal();
+    } else if (!val && dialogElement.value.open) {
+      dialogElement.value.close();
+    }
+  }
 });
 </script>
 
 <style scoped>
 /* Component-specific styles if needed */
 /* Most styles come from themes/MetroMumbleLight/main.scss */
+
+/* Ensure dialog backdrop works correctly */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
 </style>
