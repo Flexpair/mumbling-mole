@@ -187,6 +187,22 @@ watch(visible, (val) => appState.connectDialog.visible(val));
 - **Migration approach**: Convert one component at a time; maintain 100% backward compatibility during transition
 - **Testing**: Existing Knockout tests remain valid; add Vue component tests as components migrate
 
+**Vue.js Migration Testing Requirements** (MANDATORY):
+- **ALWAYS create integration tests for new Vue components during migration** - never wait to be asked
+- **Test pattern**: Integration tests validate Knockout ↔ Vue dual-runtime contract, NOT isolated Vue unit tests
+- **Minimum coverage**: 10-15 tests per component minimum, scaled by complexity (ConnectDialog: 48 tests, ConnectionInfoDialog: 14 tests)
+- **Required test scenarios**:
+  1. Visibility/state sync (bidirectional: Vue → Knockout, Knockout → Vue)
+  2. Event handlers and user interactions (buttons, forms, keyboard)
+  3. Subscription lifecycle and disposal (prevent memory leaks)
+  4. Edge cases (null/undefined states, rapid toggling, concurrent operations)
+  5. Modal state management (if applicable)
+  6. AppState integration via provide/inject
+- **Test file location**: `__tests__/components/ComponentName.test.js` (mirrors `app/components/ComponentName.vue`)
+- **Mock pattern**: Use `ko.observable()` to mock Knockout state, verify bidirectional sync with `watch()` and `subscribe()`
+- **Reference examples**: `__tests__/components/ConnectDialog.test.js` (48 tests), `__tests__/components/ConnectionInfoDialog.test.js` (14 tests)
+- **When to test**: Create tests DURING component migration, not after - include test creation in migration task checklist
+
 ## Race condition patterns (critical for correctness)
 **Promise caching**: Prevent duplicate async operations via cached promises. Pattern:
 ```javascript
