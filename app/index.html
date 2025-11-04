@@ -45,14 +45,12 @@
     </div>
   <div id="container" data-bind="visible: true">
       <!-- Vue.js GuacamoleFrame (replaces Knockout version) -->
-      <div id="vue-guacamole-frame-root"></div>
+      <!-- display: contents makes this transparent in layout - children behave as if direct children of #container -->
+      <div id="vue-guacamole-frame-root" style="display: contents;"></div>
       
       <!-- Microphone select (shared between Knockout and Vue) -->
       <!-- Populated by enumMicrophones() in voice.js -->
       <select id="audioSource" style="display: none; width: 100%; box-sizing: border-box;"></select>
-      
-      <!-- Vue.js ConnectDialog (replaces Knockout version) -->
-      <div id="vue-connect-dialog-root"></div>
       
       <!-- ko with: connectErrorDialog -->
       <div
@@ -186,11 +184,6 @@
       </div>
       <!-- /ko -->
       
-      <!-- Vue.js ConnectionInfoDialog mount point -->
-      <div id="vue-connection-info-dialog-root"></div>
-      
-      <!-- Vue.js SettingsDialog mount point -->
-      <div id="vue-settings-dialog-root"></div>
       <form class="toolbar-horizontal" data-bind="submit: submitMessageBox">
         <img
           class="tb-mute"
@@ -284,6 +277,11 @@
           </button>
         </div>
       </div>
+      
+      <!-- Vue.js Dialogs (mounted after toolbar to ensure proper z-index stacking) -->
+      <div id="vue-connect-dialog-root"></div>
+      <div id="vue-connection-info-dialog-root"></div>
+      <div id="vue-settings-dialog-root"></div>
     </div>
   </body>
   <!-- Minimal preloader removal: runs on window load; prior debug banners & watchdog removed for production cleanliness -->

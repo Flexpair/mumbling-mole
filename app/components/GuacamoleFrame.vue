@@ -1,16 +1,22 @@
 <template>
-  <div>
-    <!-- Placeholder shown when frame is hidden -->
-    <div v-show="!visible" class="guacamole-placeholder">
-      <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
-    </div>
+  <!-- Placeholder shown when frame is hidden -->
+  <!-- Exact inline styles from SCSS: display: block; float: left; margin: 2px 0; width: 100%; height: calc(99% - 38px); -->
+  <div 
+    v-show="!visible" 
+    class="guacamole-placeholder"
+    style="display: block; float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
+  >
+    <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
+  </div>
 
-    <!-- Guacamole iframe container -->
-    <section
-      v-show="visible"
-      class="guacamole"
-      aria-label="Guacamole Remote Desktop Container"
-    >
+  <!-- Guacamole iframe container -->
+  <!-- Exact inline styles from SCSS: display: block; float: left; margin: 2px 0; width: 100%; height: calc(99% - 38px); -->
+  <section
+    v-show="visible"
+    class="guacamole"
+    style="display: block; float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
+    aria-label="Guacamole Remote Desktop Container"
+  >
       <!-- Loading state -->
       <div v-if="loading" class="guac-loading">Loading remote desktop…</div>
 
@@ -26,8 +32,7 @@
         loading="lazy"
         allow="clipboard-read; clipboard-write"
       ></iframe>
-    </section>
-  </div>
+  </section>
 </template>
 
 <script setup>

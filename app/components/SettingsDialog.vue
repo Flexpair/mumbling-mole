@@ -135,9 +135,7 @@
 <script setup>
 import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from 'vue';
 import keyboardjs from 'keyboardjs';
-
-// Dynamic import for MumbleClient to access calcEnforcableBandwidth
-const { default: MumbleClient } = await import('../../app/mumble-client/client.js');
+import MumbleClient from '../mumble-client/client.js';
 
 // Inject AppState from the main app
 const appState = inject('appState');

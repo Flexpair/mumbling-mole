@@ -281,6 +281,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 10. **Never** forget to dispose Knockout subscriptions in cleanup methods
 11. **Never** create Vue components without using `provide/inject` for AppState access during dual runtime phase
 12. **Never** break bidirectional sync between Vue and Knockout state during migration
+13. **Never** commit changes without explicit user approval - WAIT for user to give commit command
 
 ## Debugging patterns
 **Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  

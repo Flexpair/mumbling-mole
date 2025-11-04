@@ -1,5 +1,5 @@
 <template>
-  <div class="connect-dialog dialog" v-show="visible">
+  <div class="connect-dialog dialog" v-show="visible" style="z-index: 100;">
     <div class="dialog-header">Join audio conference</div>
     <form @submit.prevent="handleConnect">
       <table>
@@ -518,5 +518,10 @@ function handleHide() {
   border: 1px solid #ddd;
   border-radius: 6px;
   cursor: not-allowed;
+}
+
+/* Ensure dialog appears above toolbar (toolbar has no z-index, comes later in DOM) */
+.connect-dialog {
+  z-index: 30 !important;
 }
 </style>
