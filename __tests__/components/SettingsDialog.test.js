@@ -120,11 +120,11 @@ describe('SettingsDialog.vue - Integration Tests', () => {
       mockAppState.settingsDialog(mockSettingsDialog);
       const dialog = mockAppState.settingsDialog();
       const validSizes = [480, 960, 1920, 2880];
-      validSizes.forEach(size => {
+      for (const size of validSizes) {
         dialog.samplesPerPacket(size);
         expect(dialog.samplesPerPacket()).toBe(size);
         expect(dialog.msPerPacket()).toBe(size / 48);
-      });
+      }
     });
   });
 
