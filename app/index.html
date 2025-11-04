@@ -207,73 +207,10 @@
         </div>
       </div>
       <!-- /ko -->
-      <!-- ko with: connectionInfo -->
-      <div class="connection-info-dialog dialog" data-bind="visible: visible()">
-        <div id="connection-info_title" class="dialog-header">
-          Audio transmission info
-        </div>
-        <div class="dialog-content">
-          <h3 id="connection-info_server">Audio server details</h3>
-          <!-- ko with: serverVersion -->
-          Murmur version <span data-bind="text: release"></span> <br />
-          <span data-bind="text: os"></span>
-          <span data-bind="text: osVersion"></span>
-          <br />
-          <!-- /ko -->
-          <!-- ko if: !serverVersion() -->
-          Server version: Unknown<br />
-          <!-- /ko -->
-          <!-- ko if: maxBandwidth() -->
-          Maximum bandwidth: <span data-bind="text: (maxBandwidth()/1000).toFixed(1)"></span> kbits/s
-          <!-- /ko -->
-          <!-- ko if: !maxBandwidth() -->
-          Maximum bandwidth: Unknown
-          <!-- /ko -->
-          <br />
-
-          <h3 id="connection-info_webapp">Statistics for this web app</h3>
-          <!-- ko if: currentBandwidth() && currentBitrate() -->
-          Sending
-          <span data-bind="text: (currentBandwidth()/1000).toFixed(1)"></span>
-          kbits/s (<span
-            data-bind="text: (currentBitrate()/1000).toFixed(1)"
-          ></span>
-          kbits/s payload)
-          <br />
-          <!-- /ko -->
-          <!-- ko if: !currentBandwidth() || !currentBitrate() -->
-          Sending: Unknown
-          <br />
-          <!-- /ko -->
-          <!-- ko if: latencyMs() && !isNaN(latencyMs()) -->
-          <strong>Network latency (TCP ping):</strong>
-          <span data-bind="text: latencyMs().toFixed(2)"></span> ms average
-          (<span data-bind="text: latencyDeviation().toFixed(2)"></span> ms deviation)
-          <br />
-          <small style="color: #666; font-style: italic;">
-            Note: Voice latency is typically 35-80ms higher due to audio encoding/decoding and buffering.
-            Use the Piano test button to measure end-to-end audio latency.
-          </small>
-          <!-- /ko -->
-          <!-- ko if: !latencyMs() || isNaN(latencyMs()) -->
-          <strong>Network latency (TCP ping):</strong> Unknown
-          <!-- /ko -->
-
-          <h3 id="connection-info_native">Desktop client / mobile app</h3>
-          <a href="https://www.mumble.info/downloads/" target="_blank"
-            >Offical download page</a
-          >
-        </div>
-        <div class="dialog-footer">
-          <input
-            class="dialog-close"
-            type="button"
-            data-bind="click: hide"
-            value="OK"
-          />
-        </div>
-      </div>
-      <!-- /ko -->
+      
+      <!-- Vue.js ConnectionInfoDialog mount point -->
+      <div id="vue-connection-info-dialog-root"></div>
+      
       <!-- ko with: settingsDialog -->
       <div class="settings-dialog dialog">
         <div id="settings-dialog_title" class="dialog-header">

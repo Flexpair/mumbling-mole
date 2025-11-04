@@ -10,6 +10,7 @@ import AppState from "./state/AppState";
 // Vue.js PoC - minimal import
 import { createApp } from 'vue';
 import ConnectDialogVue from "./components/ConnectDialog.vue";
+import ConnectionInfoDialogVue from "./components/ConnectionInfoDialog.vue";
 
 
 import {
@@ -603,6 +604,20 @@ async function main() {
     console.log('[VUE] Vue.js ConnectDialog mounted successfully');
   } catch (error) {
     console.error('[VUE] Failed to mount ConnectDialog:', error);
+  }
+  
+  // Mount Vue.js ConnectionInfoDialog (replaces Knockout version)
+  console.log('[VUE] Mounting Vue.js ConnectionInfoDialog');
+  try {
+    const vueInfoApp = createApp(ConnectionInfoDialogVue);
+    
+    // Provide AppState to Vue components
+    vueInfoApp.provide('appState', ui);
+    
+    vueInfoApp.mount('#vue-connection-info-dialog-root');
+    console.log('[VUE] Vue.js ConnectionInfoDialog mounted successfully');
+  } catch (error) {
+    console.error('[VUE] Failed to mount ConnectionInfoDialog:', error);
   }
   
   enumMicrophones();
