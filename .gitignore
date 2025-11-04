@@ -40,6 +40,14 @@ playwright/.cache/
 .pki/
 
 # ============================================================
+# Security & Analysis Tools
+# ============================================================
+# Snyk CLI binaries
+.local/share/snyk/
+# Tree-sitter binaries
+.tree-sitter/
+
+# ============================================================
 # Node.js Dependencies
 # ============================================================
 node_modules/
