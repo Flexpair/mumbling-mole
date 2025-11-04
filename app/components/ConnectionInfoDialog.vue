@@ -14,7 +14,7 @@
       <template v-else>
         Server version: Unknown<br />
       </template>
-      <template v-if="maxBandwidth && !isNaN(maxBandwidth)">
+      <template v-if="maxBandwidth && !Number.isNaN(maxBandwidth)">
         Maximum bandwidth: {{ (maxBandwidth / 1000).toFixed(1) }} kbits/s
       </template>
       <template v-else>
@@ -23,7 +23,7 @@
       <br />
 
       <h3 id="connection-info_webapp">Statistics for this web app</h3>
-      <template v-if="currentBandwidth && currentBitrate && !isNaN(currentBandwidth) && !isNaN(currentBitrate)">
+      <template v-if="currentBandwidth && currentBitrate && !Number.isNaN(currentBandwidth) && !Number.isNaN(currentBitrate)">
         Sending
         {{ (currentBandwidth / 1000).toFixed(1) }}
         kbits/s (<span>{{ (currentBitrate / 1000).toFixed(1) }}</span>
@@ -34,7 +34,7 @@
         Sending: Unknown
         <br />
       </template>
-      <template v-if="latencyMs && !isNaN(latencyMs)">
+      <template v-if="latencyMs && !Number.isNaN(latencyMs)">
         <strong>Network latency (TCP ping):</strong>
         {{ latencyMs.toFixed(2) }} ms average
         ({{ latencyDeviation.toFixed(2) }} ms deviation)
@@ -81,14 +81,14 @@ const appState = inject('appState');
 // Local reactive state
 const visible = ref(false);
 const serverVersion = ref(null);
-const latencyMs = ref(NaN);
-const latencyDeviation = ref(NaN);
+const latencyMs = ref(Number.NaN);
+const latencyDeviation = ref(Number.NaN);
 const remoteHost = ref('');
 const remotePort = ref('');
-const maxBitrate = ref(NaN);
-const currentBitrate = ref(NaN);
-const maxBandwidth = ref(NaN);
-const currentBandwidth = ref(NaN);
+const maxBitrate = ref(Number.NaN);
+const currentBitrate = ref(Number.NaN);
+const maxBandwidth = ref(Number.NaN);
+const currentBandwidth = ref(Number.NaN);
 const codec = ref('Unknown');
 
 // Track subscription for cleanup
@@ -139,14 +139,14 @@ function updateStats() {
       latencyMs.value = dataStats.mean;
       latencyDeviation.value = Math.sqrt(dataStats.variance);
     } else {
-      latencyMs.value = NaN;
-      latencyDeviation.value = NaN;
+      latencyMs.value = Number.NaN;
+      latencyDeviation.value = Number.NaN;
     }
   } else {
     // Not connected
     serverVersion.value = null;
-    latencyMs.value = NaN;
-    latencyDeviation.value = NaN;
+    latencyMs.value = Number.NaN;
+    latencyDeviation.value = Number.NaN;
   }
   
   remoteHost.value = appState?.remoteHost() || '';
@@ -156,7 +156,7 @@ function updateStats() {
   if (client && spp) {
     const maxBandwidthValue = client.maxBandwidth;
     const maxBitrateValue = maxBandwidthValue === null || maxBandwidthValue === undefined 
-      ? NaN 
+      ? Number.NaN 
       : client.getMaxBitrate(spp, false);
     const actualBitrate = client.getActualBitrate(spp, false);
     const actualBandwidth = MumbleClient.calcEnforcableBandwidth(
@@ -172,10 +172,10 @@ function updateStats() {
     codec.value = "Opus"; // only one supported for sending
   } else {
     // Not connected or no settings
-    maxBitrate.value = NaN;
-    currentBitrate.value = NaN;
-    maxBandwidth.value = NaN;
-    currentBandwidth.value = NaN;
+    maxBitrate.value = Number.NaN;
+    currentBitrate.value = Number.NaN;
+    maxBandwidth.value = Number.NaN;
+    currentBandwidth.value = Number.NaN;
     codec.value = "Unknown";
   }
 }
