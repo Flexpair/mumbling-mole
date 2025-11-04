@@ -211,8 +211,12 @@
       <!-- Vue.js ConnectionInfoDialog mount point -->
       <div id="vue-connection-info-dialog-root"></div>
       
+      <!-- Vue.js SettingsDialog mount point -->
+      <div id="vue-settings-dialog-root"></div>
+      
       <!-- ko with: settingsDialog -->
-      <div class="settings-dialog dialog">
+      <div class="settings-dialog dialog" style="display: none;">
+        <!-- DEPRECATED: This Knockout version is hidden; Vue.js version is active -->
         <div id="settings-dialog_title" class="dialog-header">
           Audio settings
         </div>

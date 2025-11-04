@@ -11,6 +11,7 @@ import AppState from "./state/AppState";
 import { createApp } from 'vue';
 import ConnectDialogVue from "./components/ConnectDialog.vue";
 import ConnectionInfoDialogVue from "./components/ConnectionInfoDialog.vue";
+import SettingsDialogVue from "./components/SettingsDialog.vue";
 
 
 import {
@@ -618,6 +619,21 @@ async function main() {
     console.log('[VUE] Vue.js ConnectionInfoDialog mounted successfully');
   } catch (error) {
     console.error('[VUE] Failed to mount ConnectionInfoDialog:', error);
+  }
+  
+  // Mount Vue.js SettingsDialog (replaces Knockout version)
+  console.log('[VUE] Mounting Vue.js SettingsDialog');
+  try {
+    const vueSettingsApp = createApp(SettingsDialogVue);
+    
+    // Provide AppState and translate function to Vue components
+    vueSettingsApp.provide('appState', ui);
+    vueSettingsApp.provide('translate', translate);
+    
+    vueSettingsApp.mount('#vue-settings-dialog-root');
+    console.log('[VUE] Vue.js SettingsDialog mounted successfully');
+  } catch (error) {
+    console.error('[VUE] Failed to mount SettingsDialog:', error);
   }
   
   enumMicrophones();
