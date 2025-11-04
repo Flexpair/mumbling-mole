@@ -82,11 +82,8 @@ function ConnectDialog() {
       // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
       // Uses stored credentials from initial connection
       if (ui._guacLogin) {
-        ui.guacamoleFrame.loading = false;
         ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
         ui.guacamoleFrame.show();
-      } else {
-        ui.guacamoleFrame.loading = false;
       }
     } else {
       // Normal connection flow - not yet connected to server

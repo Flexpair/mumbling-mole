@@ -2,9 +2,9 @@
   <dialog
     ref="dialogElement"
     class="settings-dialog dialog"
-    aria-labelledby="settings-dialog-title"
+    aria-labelledby="settings-dialog_title"
   >
-    <div id="settings-dialog-title" class="dialog-header">
+    <div id="settings-dialog_title" class="dialog-header">
       {{ t('settingsdialog.title') }}
     </div>
     <form @submit.prevent="handleSubmit">
