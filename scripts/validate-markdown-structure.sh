@@ -63,6 +63,10 @@ is_allowed_special_file() {
             return 0
         fi
     done
+    # Allow *.instructions.md files in .github/instructions/
+    if [[ "$file" =~ ^\./\.github/instructions/.*\.instructions\.md$ ]]; then
+        return 0
+    fi
     return 1
 }
 
