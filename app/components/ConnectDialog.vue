@@ -111,6 +111,7 @@
         <input
           v-if="!isTestActive"
           type="submit"
+          class="connect-dialog-submit"
           :value="connected ? 'Reconnect' : 'Connect'"
           style="float: right;"
         />
