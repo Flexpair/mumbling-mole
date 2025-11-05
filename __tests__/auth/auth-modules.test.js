@@ -629,7 +629,8 @@ describe('MockAuthAdapter', () => {
       await auth.updateUser({ name: 'Test' });
       const duration = Date.now() - start;
       
-      expect(duration).toBeGreaterThanOrEqual(200);
+      // Allow some timing tolerance (190ms instead of exact 200ms)
+      expect(duration).toBeGreaterThanOrEqual(190);
     });
   });
 

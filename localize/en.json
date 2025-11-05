@@ -39,7 +39,9 @@
     "audio_quality": "Audio Quality",
     "packet": "Audio per packet",
     "close": "Cancel",
-    "submit": "Apply"
+    "submit": "Apply",
+    "setting": "Setting",
+    "control": "Control"
   },
   "chat": {
     "channel_message_placeholder": "Type message to everyone here...",

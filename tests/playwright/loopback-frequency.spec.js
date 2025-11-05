@@ -100,7 +100,8 @@ test.describe('Loopback Frequency Test', () => {
     
     // STEP 1: Wait for connect dialog to appear (should show after mock login)
     console.log('🔄 Step 1: Waiting for connect dialog...');
-    await page.waitForSelector('.connect-dialog', { state: 'visible', timeout: 10000 });
+    // Use more specific selector for Vue ConnectDialog (not error/warning dialogs)
+    await page.waitForSelector('#vue-connect-dialog-root .connect-dialog', { state: 'visible', timeout: 10000 });
     console.log('✅ Connect dialog visible');
     
     // STEP 2: Activate test mode via toggle

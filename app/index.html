@@ -44,37 +44,13 @@
       </div>
     </div>
   <div id="container" data-bind="visible: true">
-      <!-- ko with: guacamoleFrame -->
-      <div class="guacamole-placeholder" data-bind="visible: !visible()">
-  <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
-      </div>
-      <section
-        class="guacamole"
-        aria-label="Guacamole Remote Desktop Container"
-        data-bind="visible: visible()"
-      >
-        <!-- ko if: loading -->
-        <div class="guac-loading">Loading remote desktop…</div>
-        <!-- /ko -->
-        <!-- ko if: error -->
-        <div class="guac-error" data-bind="text: error"></div>
-        <!-- /ko -->
-        <iframe
-          id="guacframe"
-          data-bind="attr: { src: guacSource() || 'about:blank' }, event: { load: onLoad }"
-          title="Guacamole Remote Desktop"
-          loading="lazy"
-          allow="clipboard-read; clipboard-write"
-        ></iframe>
-      </section>
-      <!-- /ko -->
+      <!-- Vue.js GuacamoleFrame (replaces Knockout version) -->
+      <!-- display: contents makes this transparent in layout - children behave as if direct children of #container -->
+      <div id="vue-guacamole-frame-root" style="display: contents;"></div>
       
       <!-- Microphone select (shared between Knockout and Vue) -->
       <!-- Populated by enumMicrophones() in voice.js -->
       <select id="audioSource" style="display: none; width: 100%; box-sizing: border-box;"></select>
-      
-      <!-- Vue.js ConnectDialog (replaces Knockout version) -->
-      <div id="vue-connect-dialog-root"></div>
       
       <!-- ko with: connectErrorDialog -->
       <div
@@ -208,115 +184,6 @@
       </div>
       <!-- /ko -->
       
-      <!-- Vue.js ConnectionInfoDialog mount point -->
-      <div id="vue-connection-info-dialog-root"></div>
-      
-      <!-- ko with: settingsDialog -->
-      <div class="settings-dialog dialog">
-        <div id="settings-dialog_title" class="dialog-header">
-          Audio settings
-        </div>
-        <form data-bind="submit: $root.applySettings">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Setting</th>
-                <th scope="col" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;">Control</th>
-              </tr>
-            </thead>
-            <tbody>
-            <tr>
-              <td id="settings-dialog_transmission">Transmission</td>
-              <td>
-                <select data-bind="value: voiceMode">
-                  <option id="settings-dialog_cont" value="cont">
-                    Continuous
-                  </option>
-                  <option id="settings-dialog_ptt" value="ptt">
-                    Push To Talk
-                  </option>
-                </select>
-              </td>
-            </tr>
-            <tr data-bind="visible: voiceMode() == 'ptt'">
-              <td id="settings-dialog_ptt_key">PTT Key</td>
-              <td>
-                <input
-                  type="button"
-                  data-bind="value: pttKeyDisplay, click: recordPttKey"
-                />
-              </td>
-            </tr>
-            <tr>
-              <td id="settings-dialog_audio_quality">Audio Quality</td>
-              <td>
-                <span data-bind="text: (audioBitrate()/1000).toFixed(1)"></span>
-                kbit/s
-              </td>
-            </tr>
-            <tr>
-              <td colspan="2">
-                <input
-                  type="range"
-                  min="8000"
-                  max="96000"
-                  step="8"
-                  data-bind="value: audioBitrate, valueUpdate: 'input'"
-                />
-              </td>
-            </tr>
-            <tr>
-              <td id="settings-dialog_packet">Audio per packet</td>
-              <td><span data-bind="text: msPerPacket"></span> ms</td>
-            </tr>
-            <tr>
-              <td colspan="2">
-                <input
-                  type="range"
-                  min="10"
-                  max="60"
-                  step="10"
-                  data-bind="value: msPerPacket, valueUpdate: 'input'"
-                />
-              </td>
-            </tr>
-            <tr>
-              <td colspan="2" class="bandwidth-info">
-                <span
-                  data-bind="text: (totalBandwidth()/1000).toFixed(1)"
-                ></span>
-                kbit/s (Audio
-                <span data-bind="text: (audioBitrate()/1000).toFixed(1)"></span
-                >, Position
-                <span
-                  data-bind="text: (positionBandwidth()/1000).toFixed(1)"
-                ></span
-                >, Overhead
-                <span
-                  data-bind="text: (overheadBandwidth()/1000).toFixed(1)"
-                ></span
-                >)
-              </td>
-            </tr>
-          </table>
-          <div class="dialog-footer">
-            <input
-              id="settings-dialog_close"
-              class="dialog-close"
-              type="button"
-              data-bind="click: $root.closeSettings"
-              value="Cancel"
-            />
-            <input
-              id="settings-dialog_submit"
-              class="dialog-submit"
-              type="submit"
-              value="Apply"
-            />
-          </div>
-        </form>
-      </div>
-      <!-- /ko -->
       <form class="toolbar-horizontal" data-bind="submit: submitMessageBox">
         <img
           class="tb-mute"
@@ -410,6 +277,11 @@
           </button>
         </div>
       </div>
+      
+      <!-- Vue.js Dialogs (mounted after toolbar to ensure proper z-index stacking) -->
+      <div id="vue-connect-dialog-root"></div>
+      <div id="vue-connection-info-dialog-root"></div>
+      <div id="vue-settings-dialog-root"></div>
     </div>
   </body>
   <!-- Minimal preloader removal: runs on window load; prior debug banners & watchdog removed for production cleanliness -->
