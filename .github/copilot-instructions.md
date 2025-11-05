@@ -20,15 +20,15 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 
 **Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline - changing this requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec, and Settings serialization.
 
-**� ACTIVE MIGRATION: Knockout.js → Vue.js 3** (Dual Runtime - Phase 1)
-- **Status**: Phase 1 in progress - `ConnectDialog.vue` migrated, dual runtime operational
+**✅ ACTIVE MIGRATION: Knockout.js → Vue.js 3** (Dual Runtime - Phase 1)
+- **Status**: 4 components migrated to Vue.js 3, dual runtime operational
+- **Migrated components**: `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue` (all with integration tests)
 - **Strategy**: Incremental migration with Vue + Knockout running side-by-side
 - **Critical constraint**: Audio pipeline, worker threads, and Mumble protocol remain UNCHANGED
-- **First Vue component**: `app/components/ConnectDialog.vue` (523 lines) replaces Knockout connect dialog
-- **Integration pattern**: Vue app mounted at `#vue-connect-dialog-root`; uses `provide/inject` to access Knockout `AppState`
+- **Integration pattern**: Vue components mounted via `createApp().provide().mount()`; use `provide/inject` to access Knockout `AppState`
 - **State synchronization**: Bidirectional sync via `watch()` (Vue → Knockout) and `observable.subscribe()` (Knockout → Vue)
 - **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`
-- **Test coverage gap**: VoiceState (0%), AppState (0%) still need >80%/70% coverage for full migration
+- **Test coverage**: VoiceState (97.82%), AppState (78.46%) improved significantly
 - See `app/components/ConnectDialog.vue` lines 130-200 for dual runtime integration pattern
 
 ## Getting started reading code
@@ -130,7 +130,6 @@ dispose() {
 - `data-bind="css: {active: isActive()}"` → `:class="{active: isActive}"`
 - `<!-- ko if: condition -->...<!-- /ko -->` → `<template v-if="condition">...</template>`
 - Disposal automatic in Vue (no manual cleanup needed with `watchEffect`)
-- See `docs/KNOCKOUT_BINDING_INVENTORY.md` for complete mapping of ~100+ bindings
 
 **UI state**: Observables live in modular state classes under `app/state/` (6 modules: Connection, Audio, Voice, UI, User, Channel). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
 ```javascript
@@ -306,10 +305,11 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Test infrastructure (Jest + Playwright)
-**Unit tests** (Jest 30.2.0): 343 tests, 43.35% overall coverage. ES modules with jsdom environment.
-- **High coverage** (>90%): AudioState (93.64%), ChannelState (96.49%), ConnectionState (100%), UIState (100%), UserState (95.51%)
-- **Good coverage** (>80%): AuthProvider (82.35%), decoder-stream (82.53%), encoder-stream (94.11%)
-- **Needs coverage** (<50%): AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%), getusermedia.js (0%)
+**Unit tests** (Jest 30.2.0): 1153 tests, 74.3% overall coverage. ES modules with jsdom environment.
+- **Excellent coverage** (>90%): AudioState (93.6%), ChannelState (93.22%), ConnectionState (100%), UIState (100%), UserState (94.47%), VoiceState (97.82%), worker-client.js (92.92%), voice.js (96.02%), encoder-stream (94.11%)
+- **Good coverage** (>80%): AppState (78.46%), decoder-stream (82.53%), buffer-queue-node (81.08%)
+- **Auth modules**: AuthProvider (100%), MockAuthAdapter (98.92%), NetlifyIdentityAdapter (100%), AuthFactory (100%)
+- **Needs coverage** (<50%): worker.js (19.81%), mumble-client (47.79%), mumble-streams (67.06%)
 - **Test patterns**: Use `jest.unstable_mockModule()` before imports for ES module mocking (not `jest.mock()`); requires `--experimental-vm-modules` flag and dynamic `await import()`. Characterization tests document behavior for regression protection
 - **Running tests**: `npm run test:unit` (all tests), `npm run test:unit:watch` (TDD mode), `npm run test:unit:coverage` (with reports)
 
@@ -329,12 +329,13 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 - Uses `npm ci --omit=optional || npm i --omit=optional` for faster, reproducible installs
 - SKIP_PREPARE=1 set in docker-compose.yml to prevent double builds during container creation
 - Playwright E2E tests temporarily disabled in CI (will be re-enabled with full nginx stack)
-- Coverage reports not required to pass (43.35% current baseline)
+- Coverage reports not required to pass (74.3% current baseline)
 
 **Workflow concurrency**: Uses `cancel-in-progress: true` to cancel outdated workflow runs when new commits arrive
 
+**Security scanning**: See `.github/instructions/snyk_rules.instructions.md` for Snyk security scanning rules (applies to all code generation)
+
 ## Known technical debt
-- **Missing unit tests**: AppState (0%), VoiceState (0%), worker-client.js (0%), worker.js (0%) need characterization tests before full Vue migration
+- **Missing unit tests**: worker.js (19.81%), mumble-client (47.79%) need higher coverage before full Vue migration
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
-- **NetlifyIdentityAdapter**: 9.09% coverage (deprecated, migrating to Supabase Auth Q1 2026)
-- **Vue.js migration in progress**: ConnectDialog migrated; remaining ~100 `data-bind` patterns need gradual conversion
+- **Vue.js migration in progress**: 4 components migrated (ConnectDialog, ConnectionInfoDialog, GuacamoleFrame, SettingsDialog); remaining ~96 `data-bind` patterns need gradual conversion
