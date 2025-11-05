@@ -8,7 +8,7 @@ class RecorderProcessor extends AudioWorkletProcessor {
   }
   process(inputs) {
     const input = inputs[0];
-    if (!input?.[0]) return true;       // kein Audio
+    if (!input?.[0]) return true;       // kein Audio, keep processor alive
     const block = input[0];                      // mono Float32
 
     // anpuffern
@@ -25,7 +25,7 @@ class RecorderProcessor extends AudioWorkletProcessor {
       off += FRAME;
     }
     this.acc = merged.subarray(off);
-    return true;
+    return true;  // NOSONAR - AudioWorkletProcessor must return true to stay alive
   }
 }
 
