@@ -552,7 +552,6 @@ async function main() {
   initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
   
   // Mount Vue.js ConnectDialog (replaces Knockout version)
-  console.log('[VUE] Mounting Vue.js ConnectDialog');
   try {
     const vueApp = createApp(ConnectDialogVue);
     
@@ -561,8 +560,6 @@ async function main() {
     vueApp.provide('config', globalThis.mumbleWebConfig);
     
     const mountedApp = vueApp.mount('#vue-connect-dialog-root');
-    console.log('[VUE] ✅ Vue.js ConnectDialog mounted successfully');
-    console.log('[VUE] Vue instance:', mountedApp);
     
     // Make Vue app inspectable in DevTools
     globalThis.__VUE_CONNECT_DIALOG__ = mountedApp;
@@ -571,7 +568,6 @@ async function main() {
   }
   
   // Mount Vue.js ConnectionInfoDialog (replaces Knockout version)
-  console.log('[VUE] Mounting Vue.js ConnectionInfoDialog');
   try {
     const vueInfoApp = createApp(ConnectionInfoDialogVue);
     
@@ -579,7 +575,6 @@ async function main() {
     vueInfoApp.provide('appState', ui);
     
     const mountedInfoApp = vueInfoApp.mount('#vue-connection-info-dialog-root');
-    console.log('[VUE] ✅ Vue.js ConnectionInfoDialog mounted successfully');
     
     // Make Vue app inspectable in DevTools
     globalThis.__VUE_CONNECTION_INFO__ = mountedInfoApp;
@@ -588,7 +583,6 @@ async function main() {
   }
   
   // Mount Vue.js SettingsDialog (replaces Knockout version)
-  console.log('[VUE] Mounting Vue.js SettingsDialog');
   try {
     const vueSettingsApp = createApp(SettingsDialogVue);
     
@@ -597,7 +591,6 @@ async function main() {
     vueSettingsApp.provide('translate', translate);
     
     const mountedSettingsApp = vueSettingsApp.mount('#vue-settings-dialog-root');
-    console.log('[VUE] ✅ Vue.js SettingsDialog mounted successfully');
     
     // Make Vue app inspectable in DevTools
     globalThis.__VUE_SETTINGS_DIALOG__ = mountedSettingsApp;
@@ -606,7 +599,6 @@ async function main() {
   }
   
   // Mount Vue.js GuacamoleFrame (replaces Knockout version)
-  console.log('[VUE] Mounting Vue.js GuacamoleFrame');
   try {
     const vueGuacApp = createApp(GuacamoleFrameVue);
     
@@ -614,7 +606,6 @@ async function main() {
     vueGuacApp.provide('appState', ui);
     
     const mountedGuacApp = vueGuacApp.mount('#vue-guacamole-frame-root');
-    console.log('[VUE] ✅ Vue.js GuacamoleFrame mounted successfully');
     
     // Replace placeholder with Vue component instance
     // AppState calls ui.guacamoleFrame.start(), .show(), .hide()

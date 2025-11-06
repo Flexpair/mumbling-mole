@@ -115,7 +115,7 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 │  │     Main Thread (UI)         │  │    Web Worker        │ │
 │  │                              │  │                      │ │
 │  │  • Knockout.js MVVM          │◄─┤  • mumble-client     │ │
-│  │  • GlobalBindings state      │  │  • Audio resampling  │ │
+│  │  • AppState (5 modules)      │  │  • Audio resampling  │ │
 │  │  • Localization              │  │  • Opus encoding     │ │
 │  │  • Theme management          │  │  • Event dispatch    │ │
 │  └──────────┬──────────────────┘  └──────────┬───────────┘ │
@@ -221,18 +221,19 @@ Create custom themes by extending existing ones in `themes/` directory.
 
 | Command | Description |
 |---------|-------------|
-| `npm run test` | Run full test suite via `run-all-tests.sh` |
-| `npm run test:quick` | Fast test: audio-system + E2E + audit |
-| `npm run test:audio:system` | Audio system test (no server needed) ⚡ Fastest |
-| `npm run test:audio` | Single audio roundtrip test (requires server) |
-| `npm run test:audio:suite` | Complete audio test suite |
-| `npm run test:e2e` | WebSocket smoke test |
+| `npm run test` | Run full test suite (unit + Playwright + audit) |
+| `npm run test:unit` | Run Jest unit tests (1395 tests) |
+| `npm run test:unit:watch` | Jest in watch mode for TDD |
+| `npm run test:unit:coverage` | Generate coverage reports |
+| `npm run test:loopback` | Playwright loopback test (headless) |
+| `npm run test:loopback:headed` | Playwright loopback test (visible browser) |
+| `npm run test:loopback:debug` | Step-through debugging mode |
 | `npm run test:server:up` | Start Murmur test server (docker-compose) |
 | `npm run test:server:down` | Stop Murmur test server |
 | `npm run test:server:logs` | View test server logs |
-| `./scripts/quick-audio-test.sh` | All-in-one: start server, test, cleanup |
+| `npm run audit:ci` | Dependency vulnerability check |
 
-> **📘 Note:** This project has **zero unit tests** (only integration/E2E tests). See **[tests/README.md](./tests/README.md)** for comprehensive testing documentation.
+> **📘 Note:** This project uses **Jest unit tests** (1395 tests) + **Playwright E2E tests** for automated audio pipeline validation. See **[tests/README.md](./tests/README.md)** for comprehensive testing documentation.
 
 ### Development & Analysis
 

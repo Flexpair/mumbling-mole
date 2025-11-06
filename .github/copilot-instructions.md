@@ -34,7 +34,7 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 ## Getting started reading code
 **Entry points by use case:**
 - **UI/UX flow**: `app/index.html` (Knockout templates) → `app/index.js` (AppState init, Vue mount, auth, connection) → `app/components/ConnectDialog.vue` (first Vue component)
-- **State management**: `app/state/AppState.js` (6-module composition) → individual modules in `app/state/`
+- **State management**: `app/state/AppState.js` (5-module composition) → individual modules in `app/state/`
 - **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
 - **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
 - **Build system**: `build-esbuild.mjs` (esbuild config with Vue plugin, clean builds)
@@ -43,7 +43,7 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 
 ## Architecture & threading
 **Main thread** (`app/index.js`): Bootstraps state via `AppState` (modular architecture, completed in v3.13.0), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
-**State architecture**: Uses modular `AppState` composed of 6 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ChannelState`. See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
+**State architecture**: Uses modular `AppState` composed of 5 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`. Channel registration handled directly in AppState (single-channel mode). See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **WebSocket tunneling**: `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**. This is how browser clients connect to standard Mumble servers without native TCP sockets - websockify proxies the Mumble TCP protocol over WebSocket connections that browsers can handle  
@@ -131,7 +131,7 @@ dispose() {
 - `<!-- ko if: condition -->...<!-- /ko -->` → `<template v-if="condition">...</template>`
 - Disposal automatic in Vue (no manual cleanup needed with `watchEffect`)
 
-**UI state**: Observables live in modular state classes under `app/state/` (6 modules: Connection, Audio, Voice, UI, User, Channel). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
+**UI state**: Observables live in modular state classes under `app/state/` (5 modules: Connection, Audio, Voice, UI, User). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
 ```javascript
 // Modular state (app/state/AppState.js)
 class AppState {
@@ -141,14 +141,14 @@ class AppState {
     this.voice = new VoiceState();
     this.ui = new UIState();
     this.user = new UserState();
-    this.channel = new ChannelState();
+    // Channel registration handled directly via _registerChannel()
   }
 }
 // Backward compatibility via delegation
 get connected() { return this.user.thisUser() != null; }
 get audioContext() { return this.audio.audioContext; }
 ```
-**State module dependencies**: `UserState` depends on `ChannelState`; `UserState` receives `AudioState` in constructor for cross-module subscriptions (e.g., selfMute → VoiceState.setMute). See `app/state/README.md` diagrams for data flow  
+**State module dependencies**: `UserState` receives `AudioState` and `VoiceState` in constructor for cross-module subscriptions (e.g., selfMute → VoiceState.setMute). Channel registration handled directly in `AppState._registerChannel()` for single-channel mode. See `app/state/README.md` diagrams for data flow  
 **Worker events**: Must update both `_dispatchEvent` in `worker-client.js` AND `registerEventProxy` in `worker.js`; only pass numeric IDs across thread boundary (never serialize full objects)  
 **Audio invariants**: 48 kHz mono, 960-sample frames (20ms @ 48 kHz), `samplesPerPacket` in settings—changing requires coordinated updates to `voice.js`, worker resampler, `Settings` serialization  
 **AudioContext**: **Always** `ensureAudioContext()` from `audio-context-manager.js`; never `new AudioContext()` directly (breaks singleton pattern). Manager handles autoplay policies, state changes, resume retries with exponential backoff (MAX_RESUME_ATTEMPTS=5)  
@@ -297,7 +297,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 
 ## Key file map
 **UI/session**: `app/index.js` (AppState initialization + Vue mount + ConnectDialog + GuacamoleFrame), `app/index.html` (Knockout templates), `app/localize.js` (i18n), `app/components/ConnectDialog.vue` (first Vue component)  
-**State modules**: `app/state/AppState.js` (coordinator), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/selections), `app/state/UserState.js` (thisUser/mute/deaf), `app/state/ChannelState.js` (root channel/links)  
+**State modules**: `app/state/AppState.js` (coordinator with integrated channel registration), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/messageBox), `app/state/UserState.js` (thisUser/mute/deaf)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `build-esbuild.mjs` (esbuild config with Vue plugin + validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
@@ -305,8 +305,8 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Test infrastructure (Jest + Playwright)
-**Unit tests** (Jest 30.2.0): 1153 tests, 74.3% overall coverage. ES modules with jsdom environment.
-- **Excellent coverage** (>90%): AudioState (93.6%), ChannelState (93.22%), ConnectionState (100%), UIState (100%), UserState (94.47%), VoiceState (97.82%), worker-client.js (92.92%), voice.js (96.02%), encoder-stream (94.11%)
+**Unit tests** (Jest 30.2.0): 1395 tests, ES modules with jsdom environment.
+- **Excellent coverage** (>90%): AudioState (93.6%), ConnectionState (100%), UIState (100%), UserState (94.47%), VoiceState (97.82%), worker-client.js (92.92%), voice.js (96.02%), encoder-stream (94.11%)
 - **Good coverage** (>80%): AppState (78.46%), decoder-stream (82.53%), buffer-queue-node (81.08%)
 - **Auth modules**: AuthProvider (100%), MockAuthAdapter (98.92%), NetlifyIdentityAdapter (100%), AuthFactory (100%)
 - **Needs coverage** (<50%): worker.js (19.81%), mumble-client (47.79%), mumble-streams (67.06%)

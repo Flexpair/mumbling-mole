@@ -4,32 +4,23 @@ import ko from "knockout";
  * UIState - manages UI-specific state and modal management
  * 
  * Responsibilities:
- * - Selected channel/user tracking
  * - Message box state
  * - Modal management (prevent multiple modals)
  * - Settings dialog state
+ * 
+ * NOTE: Selection state removed - no UI for selecting channels/users.
+ * All messages go to current channel (thisUser().channel()).
  */
 export default class UIState {
   constructor() {
     // Modal management - track currently open modal
     this.currentOpenModal = ko.observable(null);
     
-    // Selection state
-    this.selected = ko.observable();
-    
     // Message box
     this.messageBox = ko.observable("");
     
     // Settings dialog
     this.settingsDialog = ko.observable();
-  }
-
-  /**
-   * Select a channel or user
-   * @param {object} element - Channel or user UI object
-   */
-  select(element) {
-    this.selected(element);
   }
 
   /**
@@ -64,10 +55,10 @@ export default class UIState {
   /**
    * Submit message box content
    * @param {Function} sendMessageFn - Function to send the message
-   * @param {object} selectedTarget - Selected channel/user target
+   * @param {object} target - Target channel/user for the message
    */
-  submitMessageBox(sendMessageFn, selectedTarget) {
-    sendMessageFn(selectedTarget, this.messageBox());
+  submitMessageBox(sendMessageFn, target) {
+    sendMessageFn(target, this.messageBox());
     this.messageBox("");
   }
 
@@ -75,7 +66,6 @@ export default class UIState {
    * Reset UI state
    */
   reset() {
-    this.selected(null);
     this.messageBox("");
     this.settingsDialog(null);
     this.currentOpenModal(null);

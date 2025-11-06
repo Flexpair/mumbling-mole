@@ -4,7 +4,6 @@ import AudioState from "./AudioState";
 import VoiceState from "./VoiceState";
 import UIState from "./UIState";
 import UserState from "./UserState";
-import ChannelState from "./ChannelState";
 import { translate } from "../localize";
 import packageJson from "../../package.json";
 
@@ -15,12 +14,11 @@ import packageJson from "../../package.json";
  * Replaces the GlobalBindings god object with a modular architecture.
  * 
  * Architecture:
- * - ConnectionState: server connection management
- * - AudioState: audio context, locks, beeper
- * - VoiceState: voice handler, loopback mode
- * - UIState: UI state, modals
- * - UserState: user management, mute/deaf
- * - ChannelState: channel tree, links
+ * - ConnectionState: client connection, root user/channel setup
+ * - AudioState: AudioContext, beeper, audio pipeline
+ * - VoiceState: voice handler, loopback mode, voice controls
+ * - UIState: modals, message box, settings dialog
+ * - UserState: current user, self mute/deaf, user registration, voice streams
  */
 export default class AppState {
   constructor(config, log) {
@@ -32,7 +30,6 @@ export default class AppState {
     this.audio = new AudioState();
     this.voice = new VoiceState();
     this.ui = new UIState();
-    this.channel = new ChannelState();
     this.user = new UserState(this.audio, this.voice);
     
     // Store references for backward compatibility
@@ -304,8 +301,6 @@ export default class AppState {
    */
   _resetUIForConnection() {
     this.audio.stopBeep();
-    this.ui.selected(null);
-    this.channel.root(null);
     this.user.thisUser(null);
     
     const wasLoopback = this.voice.isLoopbackMode();
@@ -329,47 +324,14 @@ export default class AppState {
   }
 
   /**
-   * Register channel and its children recursively
-   * @private
-   */
-  _registerChannelTree(channel, channelPath, targetChannel, client) {
-    this.channel.registerChannel(
-      channel,
-      (event, menu, ui) => this._openContextMenu(event, menu, ui),
-      () => this.channelContextMenu,
-      () => this.channel.updateLinks()
-    );
-    
-    if (channelPath === targetChannel) {
-      client.self.setChannel(channel);
-    }
-    
-    for (const ch of channel.children) {
-      this._registerChannelTree(ch, channelPath + "/" + ch.name, targetChannel, client);
-    }
-  }
-
-  /**
-   * Setup client event handlers and initial state
+   * Setup minimal client event handlers
+   * Only registers self user initially - no dynamic channel/user registration.
+   * App uses single-channel mode with all users in same room.
    * @private
    */
   _setupClientHandlers(client) {
-    client.on("newChannel", (channel) => {
-      this.channel.registerChannel(
-        channel,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.channelContextMenu,
-        () => this.channel.updateLinks()
-      );
-    });
-    
-    client.on("newUser", (user) => {
-      this.user.registerUser(
-        user,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.userContextMenu
-      );
-    });
+    // No dynamic registration needed - single channel mode
+    // Users/channels managed by protocol, not UI
   }
 
   /**
@@ -399,30 +361,16 @@ export default class AppState {
       this.log(translate("logentry.connected"));
     }
 
-    const normalizedChannelName = channelName.indexOf("/") === 0 ? channelName : "/" + channelName;
-    this._registerChannelTree(client.root, "", normalizedChannelName, client);
-
-    for (const user of client.users) {
-      this.user.registerUser(
-        user,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.userContextMenu
-      );
+    // Register root channel and self user (minimal UI wrappers for protocol)
+    // Single channel mode - no tree traversal
+    this._registerChannel(client.root);
+    
+    if (client.self) {
+      this.user.registerUser(client.self);
+      this.user.thisUser(client.self.__ui);
     }
 
     this._setupClientHandlers(client);
-
-    if (client.self && !client.self.__ui) {
-      this.user.registerUser(
-        client.self,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.userContextMenu
-      );
-    }
-    
-    this.user.thisUser(client.self.__ui);
-    this.channel.root(client.root.__ui);
-    this.channel.updateLinks();
 
     this._updateVoiceHandler();
 
@@ -434,6 +382,22 @@ export default class AppState {
     } else if (this.user.selfMute()) {
       this.connection.setSelfMute(true);
     }
+  }
+
+  /**
+   * Register channel with minimal UI wrapper for protocol compatibility
+   * Creates channel.__ui with model and name observable only.
+   * @private
+   */
+  _registerChannel(channel) {
+    if (channel.__ui) {
+      return; // Skip if already initialized
+    }
+    
+    channel.__ui = {
+      model: channel,
+      name: ko.observable(channel.name),
+    };
   }
 
   /**
@@ -514,8 +478,6 @@ export default class AppState {
     
     this.audio.stopBeep();
     this.connection.resetClient();
-    this.ui.selected(null);
-    this.channel.root(null);
     this.user.thisUser(null);
     
     // Keep beeper/voice ready state in loopback mode (for test button)
@@ -535,10 +497,11 @@ export default class AppState {
   sendMessage = (target, message) => {
     if (this.connected()) {
       if (!target) {
-        target = this.user.thisUser();
+        // Default to current channel
+        target = this.user.thisUser()?.channel();
       }
-      if (target === this.user.thisUser()) {
-        target = target.channel();
+      if (!target) {
+        return; // No target available
       }
       target.model.sendMessage(message);
     }
@@ -571,14 +534,18 @@ export default class AppState {
 
   // UI module
   get currentOpenModal() { return this.ui.currentOpenModal; }
-  get selected() { return this.ui.selected; }
   get messageBox() { return this.ui.messageBox; }
   get settingsDialog() { return this.ui.settingsDialog; }
   
-  select = (element) => { return this.ui.select(element); }
   openSettings = (SettingsDialogClass) => { return this.ui.openSettings(this.settings, SettingsDialogClass); }
   closeSettings = () => { return this.ui.closeSettings(); }
-  submitMessageBox = () => { return this.ui.submitMessageBox((t, m) => this.sendMessage(t, m), this.ui.selected()); }
+  /**
+   * Submit message box - always sends to current channel
+   */
+  submitMessageBox = () => {
+    const target = this.user.thisUser()?.channel();
+    return this.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
+  }
 
   // User module
   get thisUser() { return this.user.thisUser; }
@@ -622,9 +589,6 @@ export default class AppState {
     }
   }
 
-  // Channel module
-  get root() { return this.channel.root; }
-
   // Connection module
   get remoteHost() { return this.connection.remoteHost; }
   get remotePort() { return this.connection.remotePort; }
@@ -663,18 +627,13 @@ export default class AppState {
     if (!this.user.thisUser()) {
       return "";
     }
-    let target = this.ui.selected();
+    // Always send to current channel - no selection UI exists
+    const target = this.user.thisUser().channel();
     if (!target) {
-      target = this.user.thisUser();
+      return "";
     }
-    if (target === this.user.thisUser()) {
-      target = target.channel();
-    }
-    if (target.users) {
-      return translate("chat.channel_message_placeholder").replace("%1", target.name());
-    } else {
-      return translate("chat.user_message_placeholder").replace("%1", target.name());
-    }
+    // Single-channel mode: messages always go to channel (never private user messages)
+    return translate("chat.channel_message_placeholder").replace("%1", target.name());
   });
 
   mailToDesktop = ko.observable(

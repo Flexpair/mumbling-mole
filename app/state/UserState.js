@@ -9,21 +9,18 @@ function debugLog(tag, ...args) {
   }
 }
 
-function compareUsers(u1, u2) {
-  if (u1.name() === u2.name()) {
-    return 0;
-  }
-  return u1.name() < u2.name() ? -1 : 1;
-}
-
 /**
  * UserState - manages user-related state and operations
  * 
  * Responsibilities:
  * - Current user (thisUser) tracking
  * - Self mute/deaf state
- * - User registration and event handling
+ * - Minimal user registration (protocol support)
  * - Voice stream playback for users
+ * 
+ * NOTE: No UI rendering of user lists - app displays minimal UI (MessageBox + audio controls).
+ * User protocol objects (mumble-client/user.js) maintain channel.users array.
+ * UI only needs user.channel() reference for sendMessage and messageBoxHint.
  */
 export default class UserState {
   constructor(audioState, voiceState) {
@@ -45,106 +42,31 @@ export default class UserState {
   }
 
   /**
-   * Register a new user and set up UI bindings
+   * Register a user with minimal UI wrapper
+   * Keeps essential properties: model, name, channel, selfMute/selfDeaf, talking (for voice UI).
+   * No tree observables or complex event handlers.
+   * 
    * @param {object} user - User model from mumble-client
-   * @param {Function} openContextMenuFn - Function to open context menu
-   * @param {Function} getUserContextMenu - Function to get user context menu
    */
-  registerUser(user, openContextMenuFn, getUserContextMenu) {
+  registerUser(user) {
     // Skip if UI already initialized
     if (user.__ui) {
       return;
     }
     
-    const simpleProperties = {
-      uniqueId: "uid",
-      username: "name",
-      mute: "mute",
-      deaf: "deaf",
-      suppress: "suppress",
-      selfMute: "selfMute",
-      selfDeaf: "selfDeaf",
-    };
-    
+    // Minimal wrapper: model, name, channel, self mute/deaf, talking
+    // Protocol user.channel exists on model; channel.users managed by mumble-client
     let ui = (user.__ui = {
       model: user,
-      talking: ko.observable("off"),
-      channel: ko.observable(),
+      name: ko.observable(user.username),
+      channel: ko.observable(user.channel?.__ui),
+      selfMute: ko.observable(user.selfMute),
+      selfDeaf: ko.observable(user.selfDeaf),
+      talking: ko.observable("off"), // Needed for voice stream UI
     });
-    
-    ui.openContextMenu = (_, event) =>
-      openContextMenuFn(event, getUserContextMenu(), ui);
 
-    ui.toggleMute = () => {
-      if (ui.selfMute()) {
-        this.requestUnmute(ui);
-      } else {
-        this.requestMute(ui);
-      }
-    };
-    
-    ui.toggleDeaf = () => {
-      if (ui.selfDeaf()) {
-        this.requestUndeaf(ui);
-      } else {
-        this.requestDeaf(ui);
-      }
-    };
-    
-    // Set up observables for simple properties
-    for (const [key, value] of Object.entries(simpleProperties)) {
-      ui[value] = ko.observable(user[key]);
-    }
-    
-    ui.state = ko.pureComputed(function() {
-      let flags = [];
-      if (this.uid()) {
-        flags.push("Authenticated");
-      }
-      if (this.mute()) {
-        flags.push("Muted (server)");
-      }
-      if (this.deaf()) {
-        flags.push("Deafened (server)");
-      }
-      if (this.selfMute()) {
-        flags.push("Muted (self)");
-      }
-      if (this.selfDeaf()) {
-        flags.push("Deafened (self)");
-      }
-      return flags.join(", ");
-    }, ui);
-    
-    if (user.channel) {
-      ui.channel(user.channel.__ui);
-      ui.channel().users.push(ui);
-      ui.channel().users.sort(compareUsers);
-    }
-
-    // Set up event handlers
-    user
-      .on("update", (actor, properties) => {
-        for (const [key, value] of Object.entries(simpleProperties)) {
-          if (properties[key] !== undefined) {
-            ui[value](properties[key]);
-          }
-        }
-        if (properties.channel !== undefined) {
-          if (ui.channel()) {
-            ui.channel().users.remove(ui);
-          }
-          ui.channel(properties.channel.__ui);
-          ui.channel().users.push(ui);
-          ui.channel().users.sort(compareUsers);
-        }
-      })
-      .on("remove", () => {
-        if (ui.channel()) {
-          ui.channel().users.remove(ui);
-        }
-      })
-      .on("voice", (stream) => {
+    // Voice stream handler (needed for audio playback)
+    user.on("voice", (stream) => {
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
         // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
