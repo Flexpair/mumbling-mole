@@ -31,10 +31,6 @@ describe('UIState - Constructor & Initialization', () => {
   });
 });
 
-// REMOVED: Selection Management tests - no selection UI exists
-// describe('UIState - Selection Management', () => { ... });
-// Reason: All messages go to current channel, no user/channel selection
-
 describe('UIState - Message Box', () => {
   let uiState;
 
@@ -217,6 +213,4 @@ describe('UIState - Reset', () => {
     expect(uiState.settingsDialog()).toBeNull();
     expect(uiState.currentOpenModal()).toBeNull();
   });
-
-  // REMOVED: Test for reset with selected state - no selection UI exists
 });

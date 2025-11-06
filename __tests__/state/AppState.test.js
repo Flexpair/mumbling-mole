@@ -250,7 +250,6 @@ describe('AppState', () => {
       expect(AudioState).toHaveBeenCalled();
       expect(VoiceState).toHaveBeenCalled();
       expect(UIState).toHaveBeenCalled();
-      // REMOVED: ChannelState check - module no longer exists (integrated into AppState)
       expect(UserState).toHaveBeenCalled();
     });
 
@@ -353,7 +352,6 @@ describe('AppState', () => {
 
     test('resetClient clears UI state', () => {
       appState.resetClient();
-      // REMOVED: channel.root check - ChannelState no longer exists
       expect(appState.user.thisUser).toHaveBeenCalledWith(null);
     });
 
@@ -676,15 +674,11 @@ describe('AppState', () => {
       expect(appState.settingsDialog).toBe(appState.ui.settingsDialog);
     });
 
-    // REMOVED: Test for select() delegation - no selection UI exists
-
     test('delegates user properties', () => {
       expect(appState.thisUser).toBe(appState.user.thisUser);
       expect(appState.selfMute).toBe(appState.user.selfMute);
       expect(appState.selfDeaf).toBe(appState.user.selfDeaf);
     });
-
-    // REMOVED: channel properties delegation test - ChannelState no longer exists
 
     test('delegates connection properties', () => {
       expect(appState.remoteHost).toBe(appState.connection.remoteHost);

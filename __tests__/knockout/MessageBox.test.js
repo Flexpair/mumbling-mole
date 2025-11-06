@@ -31,8 +31,6 @@ describe('MessageBox - Initialization', () => {
   test('messageBox is observable', () => {
     expect(ko.isObservable(uiState.messageBox)).toBe(true);
   });
-
-  // REMOVED: selected target tests - no selection UI exists
 });
 
 describe('MessageBox - Text Input', () => {
@@ -130,8 +128,6 @@ describe('MessageBox - Placeholder Text Computation', () => {
     targetChannel.name("Updated Channel");
     expect(appState.messageBoxHint()).toBe("Send message to channel: Updated Channel");
   });
-
-  // REMOVED: Tests for selected channel/user - no selection UI exists
 });
 
 describe('MessageBox - Form Submission', () => {
@@ -199,10 +195,6 @@ describe('MessageBox - Form Submission', () => {
   });
 });
 
-// REMOVED: Target Selection tests - no UI for selecting channels/users
-// describe('MessageBox - Target Selection', () => { ... });
-// Reason: All messages go to current channel, no selection UI exists
-
 describe('MessageBox - Integration with AppState', () => {
   let appState;
   let thisUser;
@@ -235,8 +227,6 @@ describe('MessageBox - Integration with AppState', () => {
     };
   });
 
-  // REMOVED: Test for selected target - no selection UI exists
-
   test('submitMessageBox sends to current channel', () => {
     appState.ui.messageBox("Hello channel");
     
@@ -257,8 +247,6 @@ describe('MessageBox - Integration with AppState', () => {
     expect(appState.sendMessage).toHaveBeenNthCalledWith(1, channel, "Message 1");
     expect(appState.sendMessage).toHaveBeenNthCalledWith(2, channel, "Message 2");
   });
-
-  // REMOVED: Test for changing target between messages - no selection UI exists
 });
 
 describe('MessageBox - Edge Cases', () => {
@@ -308,8 +296,6 @@ describe('MessageBox - Edge Cases', () => {
     
     expect(sendMessageFn).toHaveBeenCalledWith(target, "   \n\t  ");
   });
-
-  // REMOVED: Test for messageBox state persisting across target changes - no selection UI exists
 });
 
 describe('MessageBox - Observable Subscriptions', () => {
@@ -331,8 +317,6 @@ describe('MessageBox - Observable Subscriptions', () => {
     uiState.messageBox("Updated");
     expect(spy).toHaveBeenCalledWith("Updated");
   });
-
-  // REMOVED: selected subscriptions test - no selection UI exists
 
   test('subscriptions can be disposed', () => {
     const spy = jest.fn();
@@ -375,8 +359,6 @@ describe('MessageBox - Reset Functionality', () => {
     uiState.reset();
     expect(uiState.messageBox()).toBe("");
   });
-
-  // REMOVED: Test for reset clearing selection - no selection UI exists
 
   test('reset can be called multiple times', () => {
     uiState.messageBox("Test");
