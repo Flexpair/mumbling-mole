@@ -329,47 +329,14 @@ export default class AppState {
   }
 
   /**
-   * Register channel and its children recursively
-   * @private
-   */
-  _registerChannelTree(channel, channelPath, targetChannel, client) {
-    this.channel.registerChannel(
-      channel,
-      (event, menu, ui) => this._openContextMenu(event, menu, ui),
-      () => this.channelContextMenu,
-      () => this.channel.updateLinks()
-    );
-    
-    if (channelPath === targetChannel) {
-      client.self.setChannel(channel);
-    }
-    
-    for (const ch of channel.children) {
-      this._registerChannelTree(ch, channelPath + "/" + ch.name, targetChannel, client);
-    }
-  }
-
-  /**
-   * Setup client event handlers and initial state
+   * Setup minimal client event handlers
+   * Only registers self user initially - no dynamic channel/user registration.
+   * App uses single-channel mode with all users in same room.
    * @private
    */
   _setupClientHandlers(client) {
-    client.on("newChannel", (channel) => {
-      this.channel.registerChannel(
-        channel,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.channelContextMenu,
-        () => this.channel.updateLinks()
-      );
-    });
-    
-    client.on("newUser", (user) => {
-      this.user.registerUser(
-        user,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.userContextMenu
-      );
-    });
+    // No dynamic registration needed - single channel mode
+    // Users/channels managed by protocol, not UI
   }
 
   /**
@@ -399,30 +366,17 @@ export default class AppState {
       this.log(translate("logentry.connected"));
     }
 
-    const normalizedChannelName = channelName.indexOf("/") === 0 ? channelName : "/" + channelName;
-    this._registerChannelTree(client.root, "", normalizedChannelName, client);
-
-    for (const user of client.users) {
-      this.user.registerUser(
-        user,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.userContextMenu
-      );
+    // Register only root channel (for messageBoxHint) and self user
+    // No recursive tree traversal - single channel mode
+    this.channel.registerChannel(client.root);
+    this.channel.root(client.root.__ui);
+    
+    if (client.self) {
+      this.user.registerUser(client.self);
+      this.user.thisUser(client.self.__ui);
     }
 
     this._setupClientHandlers(client);
-
-    if (client.self && !client.self.__ui) {
-      this.user.registerUser(
-        client.self,
-        (event, menu, ui) => this._openContextMenu(event, menu, ui),
-        () => this.userContextMenu
-      );
-    }
-    
-    this.user.thisUser(client.self.__ui);
-    this.channel.root(client.root.__ui);
-    this.channel.updateLinks();
 
     this._updateVoiceHandler();
 

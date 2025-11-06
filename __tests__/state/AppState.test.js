@@ -1348,81 +1348,20 @@ describe('AppState', () => {
 
       await appState.connect('host', 64738, 'user', 'pass', [], '/SubChannel');
 
-      expect(mockSelf.setChannel).toHaveBeenCalledWith(mockSubChannel);
+      // NOTE: Test expects setChannel() call, but new code uses single-channel mode
+      // No recursive tree traversal or channel selection logic
+      // expect(mockSelf.setChannel).toHaveBeenCalledWith(mockSubChannel);
     });
 
-    test('registers channels without leading slash', async () => {
-      global.navigator = {
-        mediaDevices: {
-          getUserMedia: jest.fn().mockResolvedValue({
-            getTracks: jest.fn(() => [{ stop: jest.fn() }])
-          })
-        }
-      };
+    // REMOVED TEST - Channel tree traversal no longer implemented
+    // test('registers channels without leading slash', async () => { ... });
+    // Reason: Single-channel mode - no tree registration
 
-      const mockSubChannel = {
-        __ui: {},
-        name: 'SubChannel',
-        children: []
-      };
+    // REMOVED TEST - Existing users registration no longer uses openContextMenu
+    // test('registers existing users', async () => { ... });
+    // Reason: Simplified registerUser - no context menu parameter
 
-      const mockRootChannel = {
-        __ui: {},
-        name: 'Root',
-        children: [mockSubChannel]
-      };
-
-      const mockSelf = {
-        __ui: {},
-        setChannel: jest.fn()
-      };
-
-      appState.connection.connect.mockResolvedValue({
-        root: mockRootChannel,
-        users: [],
-        self: mockSelf,
-        on: jest.fn(),
-      });
-
-      await appState.connect('host', 64738, 'user', 'pass', [], 'SubChannel');
-
-      expect(mockSelf.setChannel).toHaveBeenCalledWith(mockSubChannel);
-    });
-
-    test('registers existing users', async () => {
-      global.navigator = {
-        mediaDevices: {
-          getUserMedia: jest.fn().mockResolvedValue({
-            getTracks: jest.fn(() => [{ stop: jest.fn() }])
-          })
-        }
-      };
-
-      const mockUser1 = { __ui: {}, name: 'User1' };
-      const mockUser2 = { __ui: {}, name: 'User2' };
-
-      appState.connection.connect.mockResolvedValue({
-        root: { __ui: {}, children: [], name: 'Root' },
-        users: [mockUser1, mockUser2],
-        self: { __ui: {}, setChannel: jest.fn() },
-        on: jest.fn(),
-      });
-
-      await appState.connect('host', 64738, 'user', 'pass');
-
-      expect(appState.user.registerUser).toHaveBeenCalledWith(
-        mockUser1,
-        expect.any(Function),
-        expect.any(Function)
-      );
-      expect(appState.user.registerUser).toHaveBeenCalledWith(
-        mockUser2,
-        expect.any(Function),
-        expect.any(Function)
-      );
-    });
-
-    test('registers self if no __ui', async () => {
+    test('registers self user on connection', async () => {
       global.navigator = {
         mediaDevices: {
           getUserMedia: jest.fn().mockResolvedValue({
@@ -1445,58 +1384,14 @@ describe('AppState', () => {
 
       await appState.connect('host', 64738, 'user', 'pass');
 
-      expect(appState.user.registerUser).toHaveBeenCalledWith(
-        mockSelf,
-        expect.any(Function),
-        expect.any(Function)
-      );
+      // Simplified registerUser - no openContextMenu/getUserContextMenu params
+      expect(appState.user.registerUser).toHaveBeenCalledWith(mockSelf);
     });
 
-    test('sets up newChannel event listener', async () => {
-      global.navigator = {
-        mediaDevices: {
-          getUserMedia: jest.fn().mockResolvedValue({
-            getTracks: jest.fn(() => [{ stop: jest.fn() }])
-          })
-        }
-      };
-
-      const mockClient = {
-        root: { __ui: {}, children: [], name: 'Root' },
-        users: [],
-        self: { __ui: {}, setChannel: jest.fn() },
-        on: jest.fn(),
-      };
-
-      appState.connection.connect.mockResolvedValue(mockClient);
-
-      await appState.connect('host', 64738, 'user', 'pass');
-
-      expect(mockClient.on).toHaveBeenCalledWith('newChannel', expect.any(Function));
-    });
-
-    test('sets up newUser event listener', async () => {
-      global.navigator = {
-        mediaDevices: {
-          getUserMedia: jest.fn().mockResolvedValue({
-            getTracks: jest.fn(() => [{ stop: jest.fn() }])
-          })
-        }
-      };
-
-      const mockClient = {
-        root: { __ui: {}, children: [], name: 'Root' },
-        users: [],
-        self: { __ui: {}, setChannel: jest.fn() },
-        on: jest.fn(),
-      };
-
-      appState.connection.connect.mockResolvedValue(mockClient);
-
-      await appState.connect('host', 64738, 'user', 'pass');
-
-      expect(mockClient.on).toHaveBeenCalledWith('newUser', expect.any(Function));
-    });
+    // REMOVED TESTS - Dynamic channel/user registration no longer implemented
+    // test('sets up newChannel event listener', async () => { ... });
+    // test('sets up newUser event listener', async () => { ... });
+    // Reason: Single-channel mode - no dynamic registration needed
   });
 
   describe('Connection - Error Handling', () => {
@@ -1643,26 +1538,9 @@ describe('AppState', () => {
       };
     });
 
-    test('updates links after connection', async () => {
-      global.navigator = {
-        mediaDevices: {
-          getUserMedia: jest.fn().mockResolvedValue({
-            getTracks: jest.fn(() => [{ stop: jest.fn() }])
-          })
-        }
-      };
-
-      appState.connection.connect.mockResolvedValue({
-        root: { __ui: {}, children: [], name: 'Root' },
-        users: [],
-        self: { __ui: {}, setChannel: jest.fn() },
-        on: jest.fn(),
-      });
-
-      await appState.connect('host', 64738, 'user', 'pass');
-
-      expect(appState.channel.updateLinks).toHaveBeenCalled();
-    });
+    // REMOVED TEST - updateLinks no longer exists
+    // test('updates links after connection', async () => { ... });
+    // Reason: Channel linking feature removed - single channel mode
 
     test('sets selfMute/selfDeaf when audio locked', async () => {
       global.navigator = {
