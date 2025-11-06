@@ -32,13 +32,7 @@ describe('MessageBox - Initialization', () => {
     expect(ko.isObservable(uiState.messageBox)).toBe(true);
   });
 
-  test('selected target initializes null', () => {
-    expect(uiState.selected()).toBeNull();
-  });
-
-  test('selected is observable', () => {
-    expect(ko.isObservable(uiState.selected)).toBe(true);
-  });
+  // REMOVED: selected target tests - no selection UI exists
 });
 
 describe('MessageBox - Text Input', () => {
@@ -109,30 +103,15 @@ describe('MessageBox - Placeholder Text Computation', () => {
       user: {
         thisUser: ko.observable(thisUser),
       },
-      ui: {
-        selected: ko.observable(null),
-      },
     };
     
-    // Simulate messageBoxHint computed observable
+    // Simulate messageBoxHint computed observable (always uses current channel)
     appState.messageBoxHint = ko.pureComputed(() => {
       if (!appState.user.thisUser()) {
         return "";
       }
-      let target = appState.ui.selected();
-      if (!target) {
-        target = appState.user.thisUser();
-      }
-      if (target === appState.user.thisUser()) {
-        target = target.channel();
-      }
-      if (target.users) {
-        // Channel
-        return `Send message to channel: ${target.name()}`;
-      } else {
-        // User
-        return `Send private message to: ${target.name()}`;
-      }
+      const target = appState.user.thisUser().channel();
+      return `Send message to channel: ${target.name()}`;
     });
   });
 
@@ -141,23 +120,8 @@ describe('MessageBox - Placeholder Text Computation', () => {
     expect(appState.messageBoxHint()).toBe("");
   });
 
-  test('placeholder shows current channel when no selection', () => {
+  test('placeholder shows current channel', () => {
     expect(appState.messageBoxHint()).toBe("Send message to channel: General");
-  });
-
-  test('placeholder shows selected channel name', () => {
-    const anotherChannel = {
-      name: ko.observable("Lobby"),
-      users: ko.observableArray([]),
-    };
-    
-    appState.ui.selected(anotherChannel);
-    expect(appState.messageBoxHint()).toBe("Send message to channel: Lobby");
-  });
-
-  test('placeholder shows selected user name', () => {
-    appState.ui.selected(targetUser);
-    expect(appState.messageBoxHint()).toBe("Send private message to: Alice");
   });
 
   test('placeholder updates when channel name changes', () => {
@@ -167,29 +131,7 @@ describe('MessageBox - Placeholder Text Computation', () => {
     expect(appState.messageBoxHint()).toBe("Send message to channel: Updated Channel");
   });
 
-  test('placeholder updates when user name changes', () => {
-    appState.ui.selected(targetUser);
-    expect(appState.messageBoxHint()).toBe("Send private message to: Alice");
-    
-    targetUser.name("Alice Smith");
-    expect(appState.messageBoxHint()).toBe("Send private message to: Alice Smith");
-  });
-
-  test('placeholder updates when selection changes', () => {
-    appState.ui.selected(targetUser);
-    expect(appState.messageBoxHint()).toContain("Alice");
-    
-    appState.ui.selected(targetChannel);
-    expect(appState.messageBoxHint()).toContain("General");
-    
-    appState.ui.selected(null);
-    expect(appState.messageBoxHint()).toContain("General"); // Falls back to current channel
-  });
-
-  test('placeholder defaults to own channel when selecting self', () => {
-    appState.ui.selected(thisUser);
-    expect(appState.messageBoxHint()).toBe("Send message to channel: General");
-  });
+  // REMOVED: Tests for selected channel/user - no selection UI exists
 });
 
 describe('MessageBox - Form Submission', () => {
@@ -257,68 +199,9 @@ describe('MessageBox - Form Submission', () => {
   });
 });
 
-describe('MessageBox - Target Selection', () => {
-  let uiState;
-  
-  beforeEach(() => {
-    uiState = {
-      selected: ko.observable(null),
-      select: function(element) {
-        this.selected(element);
-      },
-    };
-  });
-
-  test('can select channel as target', () => {
-    const channel = {
-      name: ko.observable("General"),
-      users: ko.observableArray([]),
-    };
-    
-    uiState.select(channel);
-    expect(uiState.selected()).toBe(channel);
-  });
-
-  test('can select user as target', () => {
-    const user = {
-      name: ko.observable("Alice"),
-    };
-    
-    uiState.select(user);
-    expect(uiState.selected()).toBe(user);
-  });
-
-  test('can change selection', () => {
-    const channel = { name: ko.observable("General") };
-    const user = { name: ko.observable("Alice") };
-    
-    uiState.select(channel);
-    expect(uiState.selected()).toBe(channel);
-    
-    uiState.select(user);
-    expect(uiState.selected()).toBe(user);
-  });
-
-  test('can clear selection', () => {
-    const channel = { name: ko.observable("General") };
-    
-    uiState.select(channel);
-    expect(uiState.selected()).toBe(channel);
-    
-    uiState.select(null);
-    expect(uiState.selected()).toBeNull();
-  });
-
-  test('selection changes trigger subscriptions', () => {
-    const spy = jest.fn();
-    uiState.selected.subscribe(spy);
-    
-    const channel = { name: ko.observable("General") };
-    uiState.select(channel);
-    
-    expect(spy).toHaveBeenCalledWith(channel);
-  });
-});
+// REMOVED: Target Selection tests - no UI for selecting channels/users
+// describe('MessageBox - Target Selection', () => { ... });
+// Reason: All messages go to current channel, no selection UI exists
 
 describe('MessageBox - Integration with AppState', () => {
   let appState;
@@ -342,32 +225,19 @@ describe('MessageBox - Integration with AppState', () => {
       },
       ui: {
         messageBox: ko.observable(""),
-        selected: ko.observable(null),
-        select: function(element) {
-          this.selected(element);
-        },
       },
       sendMessage: jest.fn(),
       submitMessageBox: function() {
-        const target = this.ui.selected() || this.user.thisUser().channel();
+        const target = this.user.thisUser().channel();
         this.sendMessage(target, this.ui.messageBox());
         this.ui.messageBox("");
       },
     };
   });
 
-  test('submitMessageBox sends to selected target', () => {
-    const targetUser = { name: ko.observable("Alice") };
-    appState.ui.select(targetUser);
-    appState.ui.messageBox("Hello Alice");
-    
-    appState.submitMessageBox();
-    
-    expect(appState.sendMessage).toHaveBeenCalledWith(targetUser, "Hello Alice");
-    expect(appState.ui.messageBox()).toBe("");
-  });
+  // REMOVED: Test for selected target - no selection UI exists
 
-  test('submitMessageBox defaults to current channel', () => {
+  test('submitMessageBox sends to current channel', () => {
     appState.ui.messageBox("Hello channel");
     
     appState.submitMessageBox();
@@ -388,22 +258,7 @@ describe('MessageBox - Integration with AppState', () => {
     expect(appState.sendMessage).toHaveBeenNthCalledWith(2, channel, "Message 2");
   });
 
-  test('changing target between messages works', () => {
-    const user1 = { name: ko.observable("Alice") };
-    const user2 = { name: ko.observable("Bob") };
-    
-    appState.ui.select(user1);
-    appState.ui.messageBox("Hello Alice");
-    appState.submitMessageBox();
-    
-    appState.ui.select(user2);
-    appState.ui.messageBox("Hello Bob");
-    appState.submitMessageBox();
-    
-    expect(appState.sendMessage).toHaveBeenCalledTimes(2);
-    expect(appState.sendMessage).toHaveBeenNthCalledWith(1, user1, "Hello Alice");
-    expect(appState.sendMessage).toHaveBeenNthCalledWith(2, user2, "Hello Bob");
-  });
+  // REMOVED: Test for changing target between messages - no selection UI exists
 });
 
 describe('MessageBox - Edge Cases', () => {
@@ -454,17 +309,7 @@ describe('MessageBox - Edge Cases', () => {
     expect(sendMessageFn).toHaveBeenCalledWith(target, "   \n\t  ");
   });
 
-  test('messageBox state persists across target changes', () => {
-    const channel = { name: ko.observable("General") };
-    const user = { name: ko.observable("Alice") };
-    
-    uiState.messageBox("Partial message");
-    uiState.selected(channel);
-    expect(uiState.messageBox()).toBe("Partial message");
-    
-    uiState.selected(user);
-    expect(uiState.messageBox()).toBe("Partial message");
-  });
+  // REMOVED: Test for messageBox state persisting across target changes - no selection UI exists
 });
 
 describe('MessageBox - Observable Subscriptions', () => {
@@ -473,7 +318,6 @@ describe('MessageBox - Observable Subscriptions', () => {
   beforeEach(() => {
     uiState = {
       messageBox: ko.observable(""),
-      selected: ko.observable(null),
     };
   });
 
@@ -488,19 +332,7 @@ describe('MessageBox - Observable Subscriptions', () => {
     expect(spy).toHaveBeenCalledWith("Updated");
   });
 
-  test('selected subscriptions receive updates', () => {
-    const spy = jest.fn();
-    uiState.selected.subscribe(spy);
-    
-    const target1 = { name: ko.observable("Target1") };
-    const target2 = { name: ko.observable("Target2") };
-    
-    uiState.selected(target1);
-    expect(spy).toHaveBeenCalledWith(target1);
-    
-    uiState.selected(target2);
-    expect(spy).toHaveBeenCalledWith(target2);
-  });
+  // REMOVED: selected subscriptions test - no selection UI exists
 
   test('subscriptions can be disposed', () => {
     const spy = jest.fn();
@@ -532,10 +364,8 @@ describe('MessageBox - Reset Functionality', () => {
   beforeEach(() => {
     uiState = {
       messageBox: ko.observable(""),
-      selected: ko.observable(null),
       reset: function() {
         this.messageBox("");
-        this.selected(null);
       },
     };
   });
@@ -546,12 +376,7 @@ describe('MessageBox - Reset Functionality', () => {
     expect(uiState.messageBox()).toBe("");
   });
 
-  test('reset clears selection', () => {
-    const target = { name: ko.observable("General") };
-    uiState.selected(target);
-    uiState.reset();
-    expect(uiState.selected()).toBeNull();
-  });
+  // REMOVED: Test for reset clearing selection - no selection UI exists
 
   test('reset can be called multiple times', () => {
     uiState.messageBox("Test");
@@ -566,6 +391,5 @@ describe('MessageBox - Reset Functionality', () => {
   test('reset works when already empty', () => {
     uiState.reset();
     expect(uiState.messageBox()).toBe("");
-    expect(uiState.selected()).toBeNull();
   });
 });

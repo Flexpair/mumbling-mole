@@ -377,7 +377,7 @@ describe('AppState', () => {
 
     test('resetClient clears UI state', () => {
       appState.resetClient();
-      expect(appState.ui.selected).toHaveBeenCalledWith(null);
+      // REMOVED: ui.selected check - no selection UI exists
       expect(appState.channel.root).toHaveBeenCalledWith(null);
       expect(appState.user.thisUser).toHaveBeenCalledWith(null);
     });
@@ -653,19 +653,9 @@ describe('AppState', () => {
       expect(mockChannel.model.sendMessage).toHaveBeenCalledWith('test message');
     });
 
-    test('sendMessage uses channel if target is thisUser', () => {
-      const mockChannel = {
-        model: { sendMessage: jest.fn() }
-      };
-      const mockUser = {
-        channel: jest.fn(() => mockChannel)
-      };
-      appState.user.thisUser.mockReturnValue(mockUser);
-
-      appState.sendMessage(mockUser, 'test message');
-
-      expect(mockChannel.model.sendMessage).toHaveBeenCalledWith('test message');
-    });
+    // REMOVED TEST - sendMessage with thisUser as target (always uses channel now)
+    // test('sendMessage uses channel if target is thisUser', () => { ... });
+    // Reason: Selection removed, always defaults to thisUser().channel()
 
     test('sendMessage sends directly to specified target', () => {
       const mockTarget = {
@@ -707,16 +697,11 @@ describe('AppState', () => {
     });
 
     test('delegates UI properties', () => {
-      expect(appState.selected).toBe(appState.ui.selected);
       expect(appState.messageBox).toBe(appState.ui.messageBox);
       expect(appState.settingsDialog).toBe(appState.ui.settingsDialog);
     });
 
-    test('delegates UI methods', () => {
-      const mockElement = { name: 'test' };
-      appState.select(mockElement);
-      expect(appState.ui.select).toHaveBeenCalledWith(mockElement);
-    });
+    // REMOVED: Test for select() delegation - no selection UI exists
 
     test('delegates user properties', () => {
       expect(appState.thisUser).toBe(appState.user.thisUser);
@@ -925,13 +910,12 @@ describe('AppState', () => {
     test('messageBoxHint generates channel message placeholder', () => {
       const mockChannel = {
         name: jest.fn(() => 'General'),
-        users: []
+        users: [] // Indicates it's a channel
       };
       const mockUser = {
         channel: jest.fn(() => mockChannel)
       };
       appState.user.thisUser.mockReturnValue(mockUser);
-      appState.ui.selected.mockReturnValue(null);
       
       const hintFunction = ko.pureComputed.mock.calls.find(call => 
         call[0].toString().includes('thisUser')
@@ -943,46 +927,13 @@ describe('AppState', () => {
       }
     });
 
-    test('messageBoxHint generates user message placeholder', () => {
-      const mockTarget = {
-        name: jest.fn(() => 'Alice')
-      };
-      const mockUser = {
-        name: 'Bob'
-      };
-      appState.user.thisUser.mockReturnValue(mockUser);
-      appState.ui.selected.mockReturnValue(mockTarget);
-      
-      const hintFunction = ko.pureComputed.mock.calls.find(call => 
-        call[0].toString().includes('thisUser')
-      )?.[0];
-      
-      if (hintFunction) {
-        const result = hintFunction();
-        expect(translate).toHaveBeenCalledWith('chat.user_message_placeholder');
-      }
-    });
+    // REMOVED TEST - User message placeholder (no selection UI)
+    // test('messageBoxHint generates user message placeholder', () => { ... });
+    // Reason: All messages go to current channel, cannot select individual users
 
-    test('messageBoxHint uses thisUser channel when target is self', () => {
-      const mockChannel = {
-        name: jest.fn(() => 'General'),
-        users: []
-      };
-      const mockUser = {
-        channel: jest.fn(() => mockChannel)
-      };
-      appState.user.thisUser.mockReturnValue(mockUser);
-      appState.ui.selected.mockReturnValue(mockUser);
-      
-      const hintFunction = ko.pureComputed.mock.calls.find(call => 
-        call[0].toString().includes('thisUser')
-      )?.[0];
-      
-      if (hintFunction) {
-        const result = hintFunction();
-        expect(mockUser.channel).toHaveBeenCalled();
-      }
-    });
+    // REMOVED TEST - thisUser channel fallback (now always used)
+    // test('messageBoxHint uses thisUser channel when target is self', () => { ... });
+    // Reason: Selection state removed, always uses thisUser().channel()
   });
 
   describe('Connection - AudioContext Initialization', () => {

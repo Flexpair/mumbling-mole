@@ -2,10 +2,11 @@
  * UIState - Comprehensive Tests
  * 
  * Tests UIState functionality:
- * - Selection management (channel/user)
  * - Message box state
  * - Modal management (prevent multiple modals)
  * - Settings dialog lifecycle
+ * 
+ * NOTE: Selection management removed - no UI for selecting channels/users.
  */
 
 import { jest } from '@jest/globals';
@@ -17,7 +18,6 @@ describe('UIState - Constructor & Initialization', () => {
     const uiState = new UIState();
     
     expect(uiState.currentOpenModal()).toBeNull();
-    expect(uiState.selected()).toBeUndefined();
     expect(uiState.messageBox()).toBe("");
     expect(uiState.settingsDialog()).toBeUndefined();
   });
@@ -26,47 +26,14 @@ describe('UIState - Constructor & Initialization', () => {
     const uiState = new UIState();
     
     expect(typeof uiState.currentOpenModal).toBe('function');
-    expect(typeof uiState.selected).toBe('function');
     expect(typeof uiState.messageBox).toBe('function');
     expect(typeof uiState.settingsDialog).toBe('function');
   });
 });
 
-describe('UIState - Selection Management', () => {
-  let uiState;
-
-  beforeEach(() => {
-    uiState = new UIState();
-  });
-
-  test('select sets selected element', () => {
-    const element = { id: 1, name: 'TestElement' };
-    
-    uiState.select(element);
-    
-    expect(uiState.selected()).toBe(element);
-  });
-
-  test('select overwrites previous selection', () => {
-    const element1 = { id: 1, name: 'Element1' };
-    const element2 = { id: 2, name: 'Element2' };
-    
-    uiState.select(element1);
-    expect(uiState.selected()).toBe(element1);
-    
-    uiState.select(element2);
-    expect(uiState.selected()).toBe(element2);
-  });
-
-  test('select accepts null', () => {
-    const element = { id: 1, name: 'TestElement' };
-    uiState.select(element);
-    
-    uiState.select(null);
-    
-    expect(uiState.selected()).toBeNull();
-  });
-});
+// REMOVED: Selection Management tests - no selection UI exists
+// describe('UIState - Selection Management', () => { ... });
+// Reason: All messages go to current channel, no user/channel selection
 
 describe('UIState - Message Box', () => {
   let uiState;
@@ -232,13 +199,11 @@ describe('UIState - Reset', () => {
       this.end = jest.fn();
     });
     
-    uiState.select({ id: 1 });
     uiState.messageBox("Test message");
     uiState.openSettings({}, MockDialog);
     
     uiState.reset();
     
-    expect(uiState.selected()).toBeNull();
     expect(uiState.messageBox()).toBe("");
     expect(uiState.settingsDialog()).toBeNull();
     expect(uiState.currentOpenModal()).toBeNull();
@@ -248,18 +213,10 @@ describe('UIState - Reset', () => {
     uiState.reset();
     uiState.reset();
     
-    expect(uiState.selected()).toBeNull();
     expect(uiState.messageBox()).toBe("");
     expect(uiState.settingsDialog()).toBeNull();
     expect(uiState.currentOpenModal()).toBeNull();
   });
 
-  test('reset does not throw when state is already clean', () => {
-    expect(uiState.selected()).toBeUndefined();
-    
-    // Should not throw
-    uiState.reset();
-    
-    expect(uiState.selected()).toBeNull();
-  });
+  // REMOVED: Test for reset with selected state - no selection UI exists
 });

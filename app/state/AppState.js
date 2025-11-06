@@ -304,7 +304,6 @@ export default class AppState {
    */
   _resetUIForConnection() {
     this.audio.stopBeep();
-    this.ui.selected(null);
     this.channel.root(null);
     this.user.thisUser(null);
     
@@ -468,7 +467,6 @@ export default class AppState {
     
     this.audio.stopBeep();
     this.connection.resetClient();
-    this.ui.selected(null);
     this.channel.root(null);
     this.user.thisUser(null);
     
@@ -489,10 +487,11 @@ export default class AppState {
   sendMessage = (target, message) => {
     if (this.connected()) {
       if (!target) {
-        target = this.user.thisUser();
+        // Default to current channel
+        target = this.user.thisUser()?.channel();
       }
-      if (target === this.user.thisUser()) {
-        target = target.channel();
+      if (!target) {
+        return; // No target available
       }
       target.model.sendMessage(message);
     }
@@ -525,14 +524,18 @@ export default class AppState {
 
   // UI module
   get currentOpenModal() { return this.ui.currentOpenModal; }
-  get selected() { return this.ui.selected; }
   get messageBox() { return this.ui.messageBox; }
   get settingsDialog() { return this.ui.settingsDialog; }
   
-  select = (element) => { return this.ui.select(element); }
   openSettings = (SettingsDialogClass) => { return this.ui.openSettings(this.settings, SettingsDialogClass); }
   closeSettings = () => { return this.ui.closeSettings(); }
-  submitMessageBox = () => { return this.ui.submitMessageBox((t, m) => this.sendMessage(t, m), this.ui.selected()); }
+  /**
+   * Submit message box - always sends to current channel
+   */
+  submitMessageBox = () => {
+    const target = this.user.thisUser()?.channel();
+    return this.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
+  }
 
   // User module
   get thisUser() { return this.user.thisUser; }
@@ -617,13 +620,12 @@ export default class AppState {
     if (!this.user.thisUser()) {
       return "";
     }
-    let target = this.ui.selected();
+    // Always send to current channel - no selection UI exists
+    const target = this.user.thisUser().channel();
     if (!target) {
-      target = this.user.thisUser();
+      return "";
     }
-    if (target === this.user.thisUser()) {
-      target = target.channel();
-    }
+    // Check if target has .users property (indicates it's a channel model)
     if (target.users) {
       return translate("chat.channel_message_placeholder").replace("%1", target.name());
     } else {
