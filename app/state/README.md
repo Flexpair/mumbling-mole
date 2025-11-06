@@ -81,13 +81,8 @@
 │ • Voice stream playback for users                             │
 └────────────────────────────────────────────────────────────────┘
 
-┌────────────────────────────────────────────────────────────────┐
-│ ChannelState                                                   │
-├────────────────────────────────────────────────────────────────┤
-│ • Root channel tracking                                       │
-│ • Channel registration and event handling                     │
-│ • Channel linking (linked channels)                           │
-└────────────────────────────────────────────────────────────────┘
+**REMOVED: ChannelState module** - Channel registration now handled directly in AppState._registerChannel() for single-channel mode.
+
 ```
 
 ## Connection Flow
@@ -294,8 +289,7 @@ Phase 1: CREATE MODULES ✅
   ├─ VoiceState.js
   ├─ UIState.js
   ├─ UserState.js
-  ├─ ChannelState.js
-  └─ AppState.js (coordinator)
+  └─ AppState.js (coordinator, includes channel registration)
 
 Phase 2: UPDATE INDEX.JS ⏳
   ├─ Import AppState
@@ -331,8 +325,7 @@ This guide explains how to complete the migration from the monolithic `GlobalBin
    - `VoiceState.js` - Voice handler & loopback (107 lines)
    - `UIState.js` - UI state & modals (77 lines)
    - `UserState.js` - User management (225 lines)
-   - `ChannelState.js` - Channel tree (145 lines)
-   - `AppState.js` - Main coordinator (518 lines)
+   - `AppState.js` - Main coordinator with integrated channel registration (518 lines)
 
 2. **Created Documentation**:
    - `README.md` - Architecture & API reference

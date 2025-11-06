@@ -198,29 +198,6 @@ jest.unstable_mockModule('../../app/state/UserState', () => ({
   })
 }));
 
-jest.unstable_mockModule('../../app/state/ChannelState', () => ({
-  default: jest.fn().mockImplementation(() => {
-    const createObservable = (initialValue) => {
-      let _value = initialValue;
-      const obs = jest.fn(function(newVal) {
-        if (arguments.length > 0) {
-          _value = newVal;
-          return obs;
-        }
-        return _value;
-      });
-      obs.subscribe = jest.fn();
-      return obs;
-    };
-    
-    return {
-      root: createObservable(null),
-      registerChannel: jest.fn(),
-      updateLinks: jest.fn(),
-    };
-  })
-}));
-
 // Now import after mocking
 const ko = (await import('knockout')).default;
 const { translate } = await import('../../app/localize');
@@ -230,7 +207,6 @@ const AudioState = (await import('../../app/state/AudioState')).default;
 const VoiceState = (await import('../../app/state/VoiceState')).default;
 const UIState = (await import('../../app/state/UIState')).default;
 const UserState = (await import('../../app/state/UserState')).default;
-const ChannelState = (await import('../../app/state/ChannelState')).default;
 
 describe('AppState', () => {
   let appState;
@@ -274,7 +250,7 @@ describe('AppState', () => {
       expect(AudioState).toHaveBeenCalled();
       expect(VoiceState).toHaveBeenCalled();
       expect(UIState).toHaveBeenCalled();
-      expect(ChannelState).toHaveBeenCalled();
+      // REMOVED: ChannelState check - module no longer exists (integrated into AppState)
       expect(UserState).toHaveBeenCalled();
     });
 
@@ -377,8 +353,7 @@ describe('AppState', () => {
 
     test('resetClient clears UI state', () => {
       appState.resetClient();
-      // REMOVED: ui.selected check - no selection UI exists
-      expect(appState.channel.root).toHaveBeenCalledWith(null);
+      // REMOVED: channel.root check - ChannelState no longer exists
       expect(appState.user.thisUser).toHaveBeenCalledWith(null);
     });
 
@@ -709,9 +684,7 @@ describe('AppState', () => {
       expect(appState.selfDeaf).toBe(appState.user.selfDeaf);
     });
 
-    test('delegates channel properties', () => {
-      expect(appState.root).toBe(appState.channel.root);
-    });
+    // REMOVED: channel properties delegation test - ChannelState no longer exists
 
     test('delegates connection properties', () => {
       expect(appState.remoteHost).toBe(appState.connection.remoteHost);

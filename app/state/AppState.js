@@ -4,7 +4,6 @@ import AudioState from "./AudioState";
 import VoiceState from "./VoiceState";
 import UIState from "./UIState";
 import UserState from "./UserState";
-import ChannelState from "./ChannelState";
 import { translate } from "../localize";
 import packageJson from "../../package.json";
 
@@ -15,12 +14,11 @@ import packageJson from "../../package.json";
  * Replaces the GlobalBindings god object with a modular architecture.
  * 
  * Architecture:
- * - ConnectionState: server connection management
- * - AudioState: audio context, locks, beeper
- * - VoiceState: voice handler, loopback mode
- * - UIState: UI state, modals
- * - UserState: user management, mute/deaf
- * - ChannelState: channel tree, links
+ * - ConnectionState: client connection, root user/channel setup
+ * - AudioState: AudioContext, beeper, audio pipeline
+ * - VoiceState: voice handler, loopback mode, voice controls
+ * - UIState: modals, message box, settings dialog
+ * - UserState: current user, self mute/deaf, user registration, voice streams
  */
 export default class AppState {
   constructor(config, log) {
@@ -32,7 +30,6 @@ export default class AppState {
     this.audio = new AudioState();
     this.voice = new VoiceState();
     this.ui = new UIState();
-    this.channel = new ChannelState();
     this.user = new UserState(this.audio, this.voice);
     
     // Store references for backward compatibility
@@ -304,7 +301,6 @@ export default class AppState {
    */
   _resetUIForConnection() {
     this.audio.stopBeep();
-    this.channel.root(null);
     this.user.thisUser(null);
     
     const wasLoopback = this.voice.isLoopbackMode();
@@ -365,10 +361,9 @@ export default class AppState {
       this.log(translate("logentry.connected"));
     }
 
-    // Register only root channel (for messageBoxHint) and self user
-    // No recursive tree traversal - single channel mode
-    this.channel.registerChannel(client.root);
-    this.channel.root(client.root.__ui);
+    // Register root channel and self user (minimal UI wrappers for protocol)
+    // Single channel mode - no tree traversal
+    this._registerChannel(client.root);
     
     if (client.self) {
       this.user.registerUser(client.self);
@@ -387,6 +382,22 @@ export default class AppState {
     } else if (this.user.selfMute()) {
       this.connection.setSelfMute(true);
     }
+  }
+
+  /**
+   * Register channel with minimal UI wrapper for protocol compatibility
+   * Creates channel.__ui with model and name observable only.
+   * @private
+   */
+  _registerChannel(channel) {
+    if (channel.__ui) {
+      return; // Skip if already initialized
+    }
+    
+    channel.__ui = {
+      model: channel,
+      name: ko.observable(channel.name),
+    };
   }
 
   /**
@@ -467,7 +478,6 @@ export default class AppState {
     
     this.audio.stopBeep();
     this.connection.resetClient();
-    this.channel.root(null);
     this.user.thisUser(null);
     
     // Keep beeper/voice ready state in loopback mode (for test button)
@@ -579,9 +589,6 @@ export default class AppState {
     }
   }
 
-  // Channel module
-  get root() { return this.channel.root; }
-
   // Connection module
   get remoteHost() { return this.connection.remoteHost; }
   get remotePort() { return this.connection.remotePort; }
@@ -625,12 +632,8 @@ export default class AppState {
     if (!target) {
       return "";
     }
-    // Check if target has .users property (indicates it's a channel model)
-    if (target.users) {
-      return translate("chat.channel_message_placeholder").replace("%1", target.name());
-    } else {
-      return translate("chat.user_message_placeholder").replace("%1", target.name());
-    }
+    // Single-channel mode: messages always go to channel (never private user messages)
+    return translate("chat.channel_message_placeholder").replace("%1", target.name());
   });
 
   mailToDesktop = ko.observable(
