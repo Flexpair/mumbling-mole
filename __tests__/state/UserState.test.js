@@ -14,7 +14,6 @@
 
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'events';
-import ko from 'knockout';
 
 // Mock dependencies
 jest.unstable_mockModule('../../app/audio/buffer-queue-node.js', () => ({
