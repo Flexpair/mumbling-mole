@@ -1,0 +1,231 @@
+<template>
+  <form class="toolbar-horizontal" @submit.prevent="handleSubmitMessageBox" style="position: absolute; bottom: 0; left: 0; right: 0;">
+    <img
+      v-show="!selfMute"
+      class="tb-mute"
+      alt="Mute my microphone"
+      rel="mute"
+      src="svg/audio-input-microphone.svg"
+      @click="handleMuteClick"
+    />
+    <img
+      v-show="selfMute"
+      class="tb-unmute tb-active"
+      :class="{ 'tb-disabled': audioLockActive }"
+      alt="Unmute my microphone"
+      rel="unmute"
+      src="svg/audio-input-microphone-muted.svg"
+      @click="handleUnmuteClick"
+    />
+    <img
+      v-show="!selfDeaf"
+      class="tb-deaf"
+      alt="Turn off sound"
+      rel="deaf"
+      src="svg/audio-output.svg"
+      @click="handleDeafClick"
+    />
+    <img
+      v-show="selfDeaf"
+      class="tb-undeaf tb-active"
+      :class="{ 'tb-disabled': audioLockActive }"
+      alt="Turn sound back on"
+      rel="undeaf"
+      src="svg/audio-output-deafened.svg"
+      @click="handleUndeafClick"
+    />
+    <input
+      id="message-box"
+      type="text"
+      :placeholder="messageBoxHint"
+      v-model="messageBox"
+    />
+    <a
+      :href="mailToDesktop"
+      style="text-decoration: none"
+    >
+      <img
+        alt="Send mail (attachment) to shared desktop"
+        src="svg/mail-attachment.svg"
+      />
+    </a>
+    <img
+      class="tb-information"
+      alt="Show information about connection quality"
+      rel="information"
+      src="svg/mumble.svg"
+      @click="handleConnectionInfoClick"
+    />
+    <img
+      class="tb-settings"
+      alt="Open audio settings dialog"
+      rel="settings"
+      src="svg/config_basic.svg"
+      @click="handleSettingsClick"
+    />
+    <img
+      class="tb-sourcecode"
+      alt="Navigate to source code on Github"
+      rel="Source Code"
+      src="svg/source-code.svg"
+      @click="handleSourceCodeClick"
+    />
+    <a
+      href="mailto:mail@flexpair.com?subject=Open%20support%20request"
+      style="text-decoration: none"
+    >
+      <img alt="Open a support request" src="svg/system-help.svg" />
+    </a>
+    <img
+      class="tb-logout"
+      alt="Log user out"
+      src="svg/logout.svg"
+      @click="handleLogoutClick"
+    />
+  </form>
+</template>
+
+<script setup>
+import { ref, inject, watch, onMounted, onUnmounted } from 'vue';
+
+const appState = inject('appState');
+
+// Local reactive state
+const selfMute = ref(false);
+const selfDeaf = ref(false);
+const audioLockActive = ref(false);
+const messageBox = ref('');
+const messageBoxHint = ref('');
+const mailToDesktop = ref('');
+
+// Subscriptions for cleanup
+const subscriptions = [];
+
+// Methods
+const handleMuteClick = () => {
+  if (appState.thisUser && appState.thisUser()) {
+    appState.requestMute(appState.thisUser());
+  }
+};
+
+const handleUnmuteClick = () => {
+  appState.handleUnmuteClick();
+};
+
+const handleDeafClick = () => {
+  if (appState.thisUser && appState.thisUser()) {
+    appState.requestDeaf(appState.thisUser());
+  }
+};
+
+const handleUndeafClick = () => {
+  appState.handleUndeafClick();
+};
+
+const handleSubmitMessageBox = () => {
+  appState.submitMessageBox();
+};
+
+const handleConnectionInfoClick = () => {
+  if (appState.connectionInfo && appState.connectionInfo.show) {
+    appState.connectionInfo.show();
+  }
+};
+
+const handleSettingsClick = () => {
+  if (appState.openSettings) {
+    appState.openSettings();
+  }
+};
+
+const handleSourceCodeClick = () => {
+  if (appState.openSourceCode) {
+    appState.openSourceCode();
+  }
+};
+
+const handleLogoutClick = () => {
+  if (appState.logoutUser) {
+    appState.logoutUser();
+  }
+};
+
+// Bidirectional sync with Knockout AppState
+onMounted(() => {
+  // Initialize from AppState
+  if (appState.user) {
+    selfMute.value = appState.user.selfMute() || false;
+    selfDeaf.value = appState.user.selfDeaf() || false;
+  }
+  if (appState.audio) {
+    audioLockActive.value = appState.audio.audioLockActive() || false;
+  }
+  if (appState.ui) {
+    messageBox.value = appState.ui.messageBox() || '';
+    messageBoxHint.value = appState.messageBoxHint() || '';
+  }
+  if (appState.mailToDesktop) {
+    mailToDesktop.value = appState.mailToDesktop() || '';
+  }
+
+  // Knockout → Vue sync
+  if (appState.user && appState.user.selfMute) {
+    subscriptions.push(
+      appState.user.selfMute.subscribe((val) => {
+        selfMute.value = val || false;
+      })
+    );
+  }
+  if (appState.user && appState.user.selfDeaf) {
+    subscriptions.push(
+      appState.user.selfDeaf.subscribe((val) => {
+        selfDeaf.value = val || false;
+      })
+    );
+  }
+  if (appState.audio && appState.audio.audioLockActive) {
+    subscriptions.push(
+      appState.audio.audioLockActive.subscribe((val) => {
+        audioLockActive.value = val || false;
+      })
+    );
+  }
+  if (appState.ui && appState.ui.messageBox) {
+    subscriptions.push(
+      appState.ui.messageBox.subscribe((val) => {
+        messageBox.value = val || '';
+      })
+    );
+  }
+  if (appState.messageBoxHint) {
+    subscriptions.push(
+      appState.messageBoxHint.subscribe((val) => {
+        messageBoxHint.value = val || '';
+      })
+    );
+  }
+  if (appState.mailToDesktop) {
+    subscriptions.push(
+      appState.mailToDesktop.subscribe((val) => {
+        mailToDesktop.value = val || '';
+      })
+    );
+  }
+});
+
+// Vue → Knockout sync (messageBox is the only user-editable field)
+watch(messageBox, (val) => {
+  if (appState.ui && appState.ui.messageBox) {
+    appState.ui.messageBox(val);
+  }
+});
+
+// Cleanup subscriptions
+onUnmounted(() => {
+  subscriptions.forEach(sub => sub.dispose());
+});
+</script>
+
+<style scoped>
+/* Component-specific styles can go here if needed */
+</style>

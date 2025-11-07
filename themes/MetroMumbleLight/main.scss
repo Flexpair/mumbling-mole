@@ -37,8 +37,14 @@ body {
   overflow: hidden;
   height: 100%;
 }
+
+#app {
+  height: 100%;
+}
+
 #container {
   height: 100%;
+  position: relative; /* Make toolbar position: absolute relative to container */
 }
 
 .guacamole,

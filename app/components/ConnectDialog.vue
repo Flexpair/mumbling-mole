@@ -1,6 +1,10 @@
 <template>
-  <div class="connect-dialog dialog" v-show="visible" style="z-index: 100;">
-    <div class="dialog-header">Join audio conference</div>
+  <dialog
+    ref="dialogElement"
+    class="connect-dialog dialog"
+    aria-labelledby="connect-dialog_title"
+  >
+    <div id="connect-dialog_title" class="dialog-header">Join audio conference</div>
     <form @submit.prevent="handleConnect">
       <table>
         <tbody>
@@ -123,7 +127,7 @@
         />
       </div>
     </form>
-  </div>
+  </dialog>
 </template>
 
 <script setup>
@@ -140,6 +144,8 @@ import { ref, computed, inject, onMounted, onUnmounted, watch } from 'vue';
 const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 
+// Ref for dialog element
+const dialogElement = ref(null);
 // Ref for microphone container (to inject the global select element)
 const microphoneContainer = ref(null);
 // Ref for piano button (to add passive touch listeners)
@@ -190,6 +196,16 @@ if (appState?.connectDialog) {
   watch(port, (val) => appState.connectDialog.port(val));
   watch(username, (val) => appState.connectDialog.username(val));
   watch(password, (val) => appState.connectDialog.password(val));
+  
+  // Watch visible and sync with native dialog open/close
+  watch(visible, (val) => {
+    if (!dialogElement.value) return;
+    if (val && !dialogElement.value.open) {
+      dialogElement.value.showModal();
+    } else if (!val && dialogElement.value.open) {
+      dialogElement.value.close();
+    }
+  });
 }
 
 // Computed state from AppState
@@ -534,8 +550,15 @@ function handleHide() {
   cursor: not-allowed;
 }
 
-/* Ensure dialog appears above toolbar (toolbar has no z-index, comes later in DOM) */
-.connect-dialog {
+/* Ensure dialog appears above toolbar and floats above everything */
+/* Higher specificity to override theme.css .dialog { position: absolute } */
+.connect-dialog.dialog {
+  position: fixed !important;
   z-index: 30 !important;
+}
+
+/* Dialog backdrop (dark overlay) */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
 }
 </style>

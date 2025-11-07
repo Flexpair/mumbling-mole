@@ -1,20 +1,20 @@
 <template>
   <!-- Placeholder shown when frame is hidden -->
-  <!-- Exact inline styles from SCSS: display: block; float: left; margin: 2px 0; width: 100%; height: calc(99% - 38px); -->
+  <!-- v-show handles display property, removed from inline styles to avoid conflict -->
   <div 
     v-show="!visible" 
     class="guacamole-placeholder"
-    style="display: block; float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
+    style="float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
   >
     <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
   </div>
 
   <!-- Guacamole iframe container -->
-  <!-- Exact inline styles from SCSS: display: block; float: left; margin: 2px 0; width: 100%; height: calc(99% - 38px); -->
+  <!-- v-show handles display property, removed from inline styles to avoid conflict -->
   <section
     v-show="visible"
     class="guacamole"
-    style="display: block; float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
+    style="float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
     aria-label="Guacamole Remote Desktop Container"
   >
       <!-- Loading state -->
