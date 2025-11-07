@@ -379,9 +379,13 @@ function handleHide() {
 /* Toggle switch styling, beep button, and dialog styles are all in theme.css */
 
 /* Ensure dialog appears above toolbar and floats above everything */
-/* Higher specificity to override theme.css .dialog { position: absolute } */
+/* Reset theme.css positioning to let native <dialog> handle centering */
 .connect-dialog.dialog {
   position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
   z-index: 30 !important;
 }
 
