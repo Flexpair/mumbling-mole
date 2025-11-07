@@ -97,6 +97,10 @@
                 {{ dominantFrequency > 0 ? dominantFrequency + ' Hz' : '--- Hz' }}
               </span>
             </div>
+            <!-- DEBUG: Show when loopback mode is not active -->
+            <div v-if="!isLoopbackMode" style="padding: 6px 12px; background-color: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; flex-shrink: 0; min-width: 120px; text-align: center; color: red; font-size: 0.9em;">
+              DEBUG: isLoopbackMode = false
+            </div>
           </div>
         </div>
       </div>
@@ -210,16 +214,16 @@ if (appState?.connectDialog) {
 
 // Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
-const isLoopbackMode = computed(() => appState?.voice?.isLoopbackMode() ?? false);
 const isBeeping = computed(() => appState?.audio?.isBeeping() ?? false);
 
 // Reactive refs for Knockout observables (updated via subscriptions)
 const beeperReady = ref(false);
 const voiceHandlerReady = ref(false);
+const isLoopbackMode = ref(false); // Changed from computed to ref with subscription
 const dominantFrequency = ref(0); // Changed from computed to ref with subscription
 
 // Knockout subscriptions (for cleanup)
-let sub1, sub2, sub3;
+let sub1, sub2, sub3, sub4;
 
 // Subscribe to Knockout observables
 onMounted(() => {
@@ -243,10 +247,19 @@ onMounted(() => {
     });
   }
   
+  // Subscribe to isLoopbackMode
+  if (appState?.voice?.isLoopbackMode) {
+    isLoopbackMode.value = appState.voice.isLoopbackMode();
+    sub3 = appState.voice.isLoopbackMode.subscribe((val) => {
+      console.log('[ConnectDialog Vue] isLoopbackMode changed to:', val);
+      isLoopbackMode.value = val;
+    });
+  }
+  
   // Subscribe to loopbackDominantFrequency
   if (appState?.voice?.loopbackDominantFrequency) {
     dominantFrequency.value = appState.voice.loopbackDominantFrequency();
-    sub3 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
+    sub4 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
       dominantFrequency.value = freq;
     });
   }
@@ -263,6 +276,7 @@ onUnmounted(() => {
   if (sub1) sub1.dispose();
   if (sub2) sub2.dispose();
   if (sub3) sub3.dispose();
+  if (sub4) sub4.dispose();
 });
 
 /**
