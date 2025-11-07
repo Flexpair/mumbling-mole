@@ -54,10 +54,8 @@ describe('App Vue Component Integration', () => {
 
     test('should hide preloader after fade-out animation', (done) => {
       let showPreloader = true;
-      let preloaderLoaded = false;
       
       // Simulate load sequence
-      preloaderLoaded = true;
       setTimeout(() => {
         showPreloader = false;
         expect(showPreloader).toBe(false);
@@ -180,7 +178,7 @@ describe('App Vue Component Integration', () => {
     });
 
     test('should handle rapid visibility toggles', () => {
-      let showPreloader = true;
+      let showPreloader;
       
       showPreloader = false;
       showPreloader = true;

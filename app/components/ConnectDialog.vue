@@ -97,10 +97,6 @@
                 {{ dominantFrequency > 0 ? dominantFrequency + ' Hz' : '--- Hz' }}
               </span>
             </div>
-            <!-- DEBUG: Show when loopback mode is not active -->
-            <div v-if="!isLoopbackMode" style="padding: 6px 12px; background-color: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; flex-shrink: 0; min-width: 120px; text-align: center; color: red; font-size: 0.9em;">
-              DEBUG: isLoopbackMode = false
-            </div>
           </div>
         </div>
       </div>

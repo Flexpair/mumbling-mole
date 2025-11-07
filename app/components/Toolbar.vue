@@ -1,5 +1,5 @@
 <template>
-  <form class="toolbar-horizontal" @submit.prevent="handleSubmitMessageBox" style="position: absolute; bottom: 0; left: 0; right: 0;">
+  <form class="toolbar-horizontal" @submit.prevent="handleSubmitMessageBox">
     <img
       v-show="!selfMute"
       class="tb-mute"
@@ -227,5 +227,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Component-specific styles can go here if needed */
+.toolbar-horizontal {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
 </style>

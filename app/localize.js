@@ -79,7 +79,7 @@ function translatePiece(selector, kind, parameters, key) {
  * @author svartoyg
  */
 export function translateEverything() {
-  // ALL UI components migrated to Vue.js in vue-migration-complete branch
+  // ALL UI components migrated to Vue.js (migration complete)
   // Vue components use {{ translate('key') }} or computed properties via inject('translate')
   // DOM-based translation (translatePiece) no longer needed
   // This function kept as no-op for API compatibility during migration
