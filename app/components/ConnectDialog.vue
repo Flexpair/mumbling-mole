@@ -1,6 +1,10 @@
 <template>
-  <div class="connect-dialog dialog" v-show="visible" style="z-index: 100;">
-    <div class="dialog-header">Join audio conference</div>
+  <dialog
+    ref="dialogElement"
+    class="connect-dialog dialog"
+    aria-labelledby="connect-dialog_title"
+  >
+    <div id="connect-dialog_title" class="dialog-header">Join audio conference</div>
     <form @submit.prevent="handleConnect">
       <table>
         <tbody>
@@ -123,7 +127,7 @@
         />
       </div>
     </form>
-  </div>
+  </dialog>
 </template>
 
 <script setup>
@@ -140,6 +144,8 @@ import { ref, computed, inject, onMounted, onUnmounted, watch } from 'vue';
 const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 
+// Ref for dialog element
+const dialogElement = ref(null);
 // Ref for microphone container (to inject the global select element)
 const microphoneContainer = ref(null);
 // Ref for piano button (to add passive touch listeners)
@@ -190,20 +196,30 @@ if (appState?.connectDialog) {
   watch(port, (val) => appState.connectDialog.port(val));
   watch(username, (val) => appState.connectDialog.username(val));
   watch(password, (val) => appState.connectDialog.password(val));
+  
+  // Watch visible and sync with native dialog open/close
+  watch(visible, (val) => {
+    if (!dialogElement.value) return;
+    if (val && !dialogElement.value.open) {
+      dialogElement.value.showModal();
+    } else if (!val && dialogElement.value.open) {
+      dialogElement.value.close();
+    }
+  });
 }
 
 // Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
-const isLoopbackMode = computed(() => appState?.voice?.isLoopbackMode() ?? false);
 const isBeeping = computed(() => appState?.audio?.isBeeping() ?? false);
 
 // Reactive refs for Knockout observables (updated via subscriptions)
 const beeperReady = ref(false);
 const voiceHandlerReady = ref(false);
+const isLoopbackMode = ref(false); // Changed from computed to ref with subscription
 const dominantFrequency = ref(0); // Changed from computed to ref with subscription
 
 // Knockout subscriptions (for cleanup)
-let sub1, sub2, sub3;
+let sub1, sub2, sub3, sub4;
 
 // Subscribe to Knockout observables
 onMounted(() => {
@@ -227,10 +243,19 @@ onMounted(() => {
     });
   }
   
+  // Subscribe to isLoopbackMode
+  if (appState?.voice?.isLoopbackMode) {
+    isLoopbackMode.value = appState.voice.isLoopbackMode();
+    sub3 = appState.voice.isLoopbackMode.subscribe((val) => {
+      console.log('[ConnectDialog Vue] isLoopbackMode changed to:', val);
+      isLoopbackMode.value = val;
+    });
+  }
+  
   // Subscribe to loopbackDominantFrequency
   if (appState?.voice?.loopbackDominantFrequency) {
     dominantFrequency.value = appState.voice.loopbackDominantFrequency();
-    sub3 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
+    sub4 = appState.voice.loopbackDominantFrequency.subscribe((freq) => {
       dominantFrequency.value = freq;
     });
   }
@@ -247,6 +272,7 @@ onUnmounted(() => {
   if (sub1) sub1.dispose();
   if (sub2) sub2.dispose();
   if (sub3) sub3.dispose();
+  if (sub4) sub4.dispose();
 });
 
 /**
@@ -345,197 +371,22 @@ function handleHide() {
 </script>
 
 <style>
-/* Toggle switch styling */
-.test-toggle-container {
-  margin-bottom: 12px;
-}
+/* Component-specific styles removed - using theme.css styles instead */
+/* Toggle switch styling, beep button, and dialog styles are all in theme.css */
 
-.test-toggle-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.test-toggle-slider {
-  width: 40px;
-  height: 20px;
-  background: #ccc;
-  border-radius: 10px;
-  position: relative;
-  transition: background 0.3s;
-  margin-right: 8px;
-}
-
-.test-toggle-slider.active {
-  background: #0096ff;
-}
-
-.test-toggle-slider::after {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  background: white;
-  border-radius: 50%;
-  top: 2px;
-  left: 2px;
-  transition: left 0.3s;
-}
-
-.test-toggle-slider.active::after {
-  left: 22px;
-}
-
-.test-toggle-text {
-  font-weight: 500;
-}
-
-/* Enhanced styling for better first impression */
-.connect-dialog {
-  padding: 24px;
-  min-width: 420px;
-}
-
-.dialog-header {
-  font-size: 1.3em;
-  font-weight: 600;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid rgba(0, 150, 255, 0.2);
-}
-
-.connect-dialog table {
-  width: 100%;
-  border-spacing: 0;
-  margin-bottom: 16px;
-}
-
-.connect-dialog th {
-  text-align: right;
-  padding: 10px 16px 10px 0;
-  font-weight: 500;
-  vertical-align: middle;
-  width: 35%;
-}
-
-.connect-dialog td {
-  padding: 10px 0;
-  vertical-align: middle;
-}
-
-.connect-dialog input[type="text"],
-.connect-dialog input[type="password"],
-.connect-dialog select {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 15px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.connect-dialog input[type="text"]:focus,
-.connect-dialog input[type="password"]:focus,
-.connect-dialog select:focus {
-  outline: none;
-  border-color: #0096ff;
-  box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.1);
-}
-
-.connect-dialog input[readonly] {
-  background-color: #f5f5f5;
-  cursor: not-allowed;
-}
-
-.connect-dialog p {
-  margin: 16px 0;
-  padding: 12px;
-  background-color: rgba(0, 150, 255, 0.05);
-  border-left: 3px solid #0096ff;
-  border-radius: 4px;
-  font-size: 0.95em;
-}
-
-.loopback-test-section {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-}
-
-.beep-test-button {
-  background: linear-gradient(135deg, #0096ff 0%, #0066cc 100%);
-  background-color: #0066cc; /* Fallback for better contrast */
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: 500;
-}
-
-.beep-test-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
-  background: linear-gradient(135deg, #007acc 0%, #005299 100%);
-}
-
-.beep-test-button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.beep-test-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.beep-test-button.active {
-  background: linear-gradient(135deg, #00cc66 0%, #009944 100%);
-  background-color: #009944; /* Fallback for better contrast */
-  box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
-}
-
-.dialog-buttons {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-}
-
-.dialog-buttons input[type="submit"],
-.dialog-buttons input[type="button"]:not(.dialog-close) {
-  padding: 10px 24px;
-  font-size: 15px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #0096ff 0%, #0066cc 100%);
-  background-color: #0066cc; /* Fallback for better contrast */
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.dialog-buttons input[type="submit"]:hover,
-.dialog-buttons input[type="button"]:not(.dialog-close):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
-  background: linear-gradient(135deg, #007acc 0%, #005299 100%);
-}
-
-.dialog-close {
-  padding: 10px 24px;
-  font-size: 15px;
-  background: transparent;
-  color: #666;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  cursor: not-allowed;
-}
-
-/* Ensure dialog appears above toolbar (toolbar has no z-index, comes later in DOM) */
-.connect-dialog {
+/* Ensure dialog appears above toolbar and floats above everything */
+/* Reset theme.css positioning to let native <dialog> handle centering */
+.connect-dialog.dialog {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
   z-index: 30 !important;
+}
+
+/* Dialog backdrop (dark overlay) */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
 }
 </style>

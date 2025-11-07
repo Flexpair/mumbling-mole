@@ -194,5 +194,8 @@ function handleHide() {
 </script>
 
 <style scoped>
-/* Component-specific styles if needed */
+/* Ensure connection info dialog floats above everything */
+.dialog {
+  position: fixed !important;
+}
 </style>

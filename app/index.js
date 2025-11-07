@@ -2,18 +2,12 @@
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "node:url";
 import MumbleClient from "./mumble-client/index.js";
-import ko from "knockout";
-import keyboardjs from "keyboardjs";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 
-// Vue.js PoC - minimal import
+// Vue.js imports
 import { createApp } from 'vue';
-import ConnectDialogVue from "./components/ConnectDialog.vue";
-import ConnectionInfoDialogVue from "./components/ConnectionInfoDialog.vue";
-import SettingsDialogVue from "./components/SettingsDialog.vue";
-import GuacamoleFrameVue from "./components/GuacamoleFrame.vue";
-
+import AppVue from "./components/App.vue";
 
 import {
   enumMicrophones,
@@ -52,194 +46,9 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-// GuacamoleFrame migrated to Vue.js (see app/components/GuacamoleFrame.vue)
-// Knockout class removed - Vue component mounted in main() function
-
-function ConnectDialog() {
-  this.address = ko.observable("");
-  this.port = ko.observable("");
-  this.username = ko.observable("");
-  this.password = ko.observable("");
-  // Start hidden - will be shown after authentication
-  this.visible = ko.observable(false);
-  // LOOPBACK-FEATURE: Track whether loopback test mode is active (prevents deactivation once started)
-  this.isTestActive = ko.observable(false);
-  this.show = this.visible.bind(this.visible, true);
-  this.hide = this.visible.bind(this.visible, false);
-  
-  this.connect = () => {
-    this.hide();
-    
-    // LOOPBACK-FEATURE: When already connected, this transitions from test mode back to normal mode
-    if (ui.connected()) {
-      // Switch from loopback test mode back to normal voice routing
-      this.isTestActive(false);
-      ui.isLoopbackMode(false);
-      
-      // Recreate voice handler with normal target (not loopback target 31)
-      ui._updateVoiceHandler();
-      
-      // GUACAMOLE-INTEGRATION: Show Guacamole desktop frame after exiting test mode
-      // Uses stored credentials from initial connection
-      if (ui._guacLogin) {
-        ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
-        ui.guacamoleFrame.show();
-      }
-    } else {
-      // Normal connection flow - not yet connected to server
-      this.isTestActive(false);
-      ui.connect(this.address(), this.port(), this.username(), this.password());
-    }
-  };
-  
-  // LOOPBACK-FEATURE: Toggle button handler - activates loopback test mode
-  this.toggleLoopback = async () => {
-      // One-way activation: prevent deactivation via this button (use Connect button instead)
-      if (this.isTestActive()) {
-        return;
-      }
-      
-      // USER-GESTURE: Ensure AudioContext is created and running SYNCHRONOUSLY in click handler
-      // This must happen before any async operations that might lose the user gesture context
-      try {
-        // Mark user interaction for audio-context-manager
-        if (ui.audio?.audioContextManager) {
-          ui.audio.audioContextManager.userInteractionDetected = true;
-        }
-        
-        // Create AudioContext if not exists
-        if (!ui.audio?.audioContext) {
-          console.log('[LOOPBACK] Creating AudioContext on user click');
-          await ui.audio.initializeAudioContext();
-        }
-        
-        // Resume if suspended
-        if (ui.audio?.audioContext?.state === 'suspended') {
-          console.log('[LOOPBACK] Resuming AudioContext on user click');
-          await ui.audio.audioContext.resume();
-        }
-        
-        console.log('[LOOPBACK] AudioContext ready:', ui.audio.audioContext.state);
-      } catch (err) {
-        console.error('[LOOPBACK] Failed to prepare AudioContext on click:', err);
-      }
-      
-      // Mark test as active and connect in loopback mode
-      this.isTestActive(true);
-      
-      // MODAL-BEHAVIOR: Keep dialog open during loopback test (don't call self.hide())
-      // This allows user to see connection status and switch back to normal mode
-      ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
-    };  
-  
-  // LEGACY-COMPAT: Legacy function for backward compatibility (closes dialog like old behavior)
-  this.connectLoopback = () => {
-    this.hide();
-    ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
-  };
-}
-
-function ConnectErrorDialog(connectDialog) {
-  this.type = ko.observable(0);
-  this.reason = ko.observable("");
-  this.username = connectDialog.username;
-  this.password = connectDialog.password;
-  this.visible = ko.observable(false);
-  this.show = this.visible.bind(this.visible, true);
-  this.hide = this.visible.bind(this.visible, false);
-  this.connect = () => {
-    this.hide();
-    connectDialog.connect();
-  };
-}
-
-function SampleRateWarningDialog(ui) {
-  this.visible = ko.observable(false);
-  this.mode = ko.observable("confirm");
-  this.sampleRate = ko.observable(null);
-  this.pendingConnection = null;
-
-  const formatSampleRate = (value) => {
-    if (typeof value === "number" && !Number.isNaN(value) && value > 0) {
-      return String(Math.round(value));
-    }
-    return translate("audio.sample_rate.warning.unknown_rate");
-  };
-
-  this.title = ko.pureComputed(() => translate("audio.sample_rate.warning.title"));
-  this.isConfirm = ko.pureComputed(() => this.mode() === "confirm");
-  this.description = ko.pureComputed(() => {
-    const key = this.isConfirm()
-      ? "audio.sample_rate.warning.body"
-      : "audio.sample_rate.warning.info";
-    const template = translate(key);
-    return template.replace("%1", formatSampleRate(this.sampleRate()));
-  });
-  this.primaryLabel = ko.pureComputed(() => translate("audio.sample_rate.warning.accept"));
-  this.secondaryLabel = ko.pureComputed(() => {
-    const key = this.isConfirm()
-      ? "audio.sample_rate.warning.cancel"
-      : "audio.sample_rate.warning.close";
-    return translate(key);
-  });
-  this.hintsTitle = ko.pureComputed(() => translate("audio.sample_rate.warning.hints_title"));
-  this.hints = ko.pureComputed(() => {
-    const hintKeys = [
-      "audio.sample_rate.warning.hints.item1",
-      "audio.sample_rate.warning.hints.item2",
-      "audio.sample_rate.warning.hints.item3"
-    ];
-    return hintKeys
-      .map((key) => translate(key))
-      .filter((text) => text && !/^\{\{.*\}\}$/.test(text));
-  });
-
-  this.show = (sampleRate, params) => {
-    if (ui.currentOpenModal() !== null) {
-      return;
-    }
-    this.mode("confirm");
-    this.sampleRate(sampleRate || null);
-    this.pendingConnection = params || null;
-    this.visible(true);
-    ui.currentOpenModal('sampleRateWarning');
-  };
-
-  this.showInfo = (sampleRate) => {
-    if (ui.currentOpenModal() !== null) {
-      return;
-    }
-    this.mode("info");
-    this.sampleRate(sampleRate || null);
-    this.pendingConnection = null;
-    this.visible(true);
-    ui.currentOpenModal('sampleRateWarning');
-  };
-
-  this.hide = () => {
-    this.visible(false);
-    if (ui.currentOpenModal() === 'sampleRateWarning') {
-      ui.currentOpenModal(null);
-    }
-    this.pendingConnection = null;
-  };
-
-  this.joinWithoutAudio = () => {
-    const params = this.pendingConnection;
-    const sampleRate = this.sampleRate();
-    this.hide();
-    if (params) {
-      ui._performConnect(params, {
-        audioEnabled: false,
-        sampleRate,
-      });
-    }
-  };
-
-  this.cancel = () => {
-    this.hide();
-  };
-}
+// DEPRECATED Knockout classes - kept for backward compatibility during migration
+// These will be removed once Vue migration is complete
+import ko from "knockout";
 
 class ConnectionInfo {
   constructor(ui) {
@@ -435,9 +244,77 @@ const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-ui.connectDialog = new ConnectDialog();
-ui.connectErrorDialog = new ConnectErrorDialog(ui.connectDialog);
-ui.sampleRateWarningDialog = new SampleRateWarningDialog(ui);
+// Create placeholder objects with Knockout observables for backward compatibility
+ui.connectDialog = {
+  address: ko.observable(""),
+  port: ko.observable(""),
+  username: ko.observable(""),
+  password: ko.observable(""),
+  visible: ko.observable(false),
+  isTestActive: ko.observable(false),
+  show: function() { this.visible(true); },
+  hide: function() { this.visible(false); },
+  connect: function() {
+    // Delegate to AppState's connect method (builds connectionParams internally)
+    if (ui.connect) {
+      this.hide();
+      
+      // If already connected, exit test mode and return to normal
+      if (ui.connected()) {
+        this.isTestActive(false);
+        ui.voice.isLoopbackMode(false);
+        ui._updateVoiceHandler();
+        
+        // Show Guacamole desktop if credentials exist
+        if (ui._guacLogin && ui.guacamoleFrame?.start) {
+          ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
+          if (ui.guacamoleFrame.show) ui.guacamoleFrame.show();
+        }
+      } else {
+        // Normal connection flow
+        this.isTestActive(false);
+        ui.connect(this.address(), this.port(), this.username(), this.password());
+      }
+    } else {
+      console.error('[connectDialog] ui.connect not available');
+    }
+  },
+  toggleLoopback: async function() {
+    // Delegate to AppState's connectLoopback method
+    if (ui.connectLoopback) {
+      if (this.isTestActive()) {
+        console.log('[connectDialog] Test already active, ignoring toggle');
+        return;
+      }
+      
+      // DO NOT hide dialog - keep it visible during loopback test
+      this.isTestActive(true);
+      await ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
+    } else {
+      console.error('[connectDialog] ui.connectLoopback not available');
+    }
+  },
+  exitTestMode: function() {
+    // Delegate back to connect() method which handles exiting test mode
+    this.connect();
+  }
+};
+ui.connectErrorDialog = {
+  type: ko.observable(0),
+  reason: ko.observable(""),
+  visible: ko.observable(false),
+  username: ui.connectDialog.username,
+  password: ui.connectDialog.password,
+  show: function() { this.visible(true); },
+  hide: function() { this.visible(false); }
+};
+ui.sampleRateWarningDialog = {
+  visible: ko.observable(false),
+  mode: ko.observable("confirm"),
+  sampleRate: ko.observable(null),
+  show: function() { this.visible(true); },
+  hide: function() { this.visible(false); }
+};
 ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
 ui.connectionInfo = new ConnectionInfo(ui);
 ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
@@ -471,6 +348,19 @@ if (ui.auth) {
 }
 
 function initializeUI() {
+  // Parse URL query parameters
+  let queryParams = url.parse(document.location.href, true).query;
+  queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
+  if (queryParams.address) {
+    ui.connectDialog.address(queryParams.address);
+  }
+  if (queryParams.port) {
+    ui.connectDialog.port(queryParams.port);
+  }
+  if (queryParams.password) {
+    ui.connectDialog.password(queryParams.password);
+  }
+
   // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
     const username = getUsernameFromMetadata(user);
@@ -496,21 +386,6 @@ function initializeUI() {
     // Show connect dialog even if auth fails to allow retry
     ui.connectDialog.show();
   });
-
-  // Apply Knockout bindings IMMEDIATELY to prevent white screen
-  // This must happen before async auth initialization
-  let queryParams = url.parse(document.location.href, true).query;
-  queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
-  if (queryParams.address) {
-    ui.connectDialog.address(queryParams.address);
-  }
-  if (queryParams.port) {
-    ui.connectDialog.port(queryParams.port);
-  }
-  if (queryParams.password) {
-    ui.connectDialog.password(queryParams.password);
-  }
-  ko.applyBindings(ui);
 
   // Initialize auth asynchronously (don't block UI)
   (async () => {
@@ -546,75 +421,43 @@ function log() {
 }
 
 async function main() {
+  console.log('[DEBUG] main() called - starting initialization');
   document.title = globalThis.location.hostname;
+  console.log('[DEBUG] About to initialize localization');
   await localizationInitialize('en'); // Always use English
+  console.log('[DEBUG] Localization complete, translating everything');
   translateEverything();
-  initializeUI(); // Initialize UI (Knockout bindings applied immediately, auth loads async)
+  console.log('[DEBUG] Translation complete, initializing UI');
   
-  // Mount Vue.js ConnectDialog (replaces Knockout version)
+  // Initialize UI state and auth
+  initializeUI();
+  console.log('[DEBUG] UI initialized, mounting Vue app');
+  
+  // Mount Vue.js App component (single root that contains all UI)
   try {
-    const vueApp = createApp(ConnectDialogVue);
+    const vueApp = createApp(AppVue);
     
-    // Provide AppState and config to Vue components
+    // Provide AppState, config, and translate function to all Vue components
     vueApp.provide('appState', ui);
     vueApp.provide('config', globalThis.mumbleWebConfig);
+    vueApp.provide('translate', translate);
     
-    const mountedApp = vueApp.mount('#vue-connect-dialog-root');
-    
-    // Make Vue app inspectable in DevTools
-    globalThis.__VUE_CONNECT_DIALOG__ = mountedApp;
-  } catch (error) {
-    console.error('[VUE] ❌ Failed to mount ConnectDialog:', error);
-  }
-  
-  // Mount Vue.js ConnectionInfoDialog (replaces Knockout version)
-  try {
-    const vueInfoApp = createApp(ConnectionInfoDialogVue);
-    
-    // Provide AppState to Vue components
-    vueInfoApp.provide('appState', ui);
-    
-    const mountedInfoApp = vueInfoApp.mount('#vue-connection-info-dialog-root');
+    const mountedApp = vueApp.mount('#app');
     
     // Make Vue app inspectable in DevTools
-    globalThis.__VUE_CONNECTION_INFO__ = mountedInfoApp;
+    globalThis.__VUE_APP__ = mountedApp;
+    
+    console.log('[VUE] ✅ App mounted successfully');
   } catch (error) {
-    console.error('[VUE] ❌ Failed to mount ConnectionInfoDialog:', error);
-  }
-  
-  // Mount Vue.js SettingsDialog (replaces Knockout version)
-  try {
-    const vueSettingsApp = createApp(SettingsDialogVue);
-    
-    // Provide AppState and translate function to Vue components
-    vueSettingsApp.provide('appState', ui);
-    vueSettingsApp.provide('translate', translate);
-    
-    const mountedSettingsApp = vueSettingsApp.mount('#vue-settings-dialog-root');
-    
-    // Make Vue app inspectable in DevTools
-    globalThis.__VUE_SETTINGS_DIALOG__ = mountedSettingsApp;
-  } catch (error) {
-    console.error('[VUE] ❌ Failed to mount SettingsDialog:', error);
-  }
-  
-  // Mount Vue.js GuacamoleFrame (replaces Knockout version)
-  try {
-    const vueGuacApp = createApp(GuacamoleFrameVue);
-    
-    // Provide AppState to Vue components
-    vueGuacApp.provide('appState', ui);
-    
-    const mountedGuacApp = vueGuacApp.mount('#vue-guacamole-frame-root');
-    
-    // Replace placeholder with Vue component instance
-    // AppState calls ui.guacamoleFrame.start(), .show(), .hide()
-    ui.guacamoleFrame = mountedGuacApp;
-    
-    // Make Vue app inspectable in DevTools
-    globalThis.__VUE_GUACAMOLE_FRAME__ = mountedGuacApp;
-  } catch (error) {
-    console.error('[VUE] ❌ Failed to mount GuacamoleFrame:', error);
+    console.error('[VUE] ❌ Failed to mount App:', error);
+    // Fall back to showing an error message
+    document.getElementById('app').innerHTML = `
+      <div style="padding: 20px; color: red; font-family: sans-serif;">
+        <h2>Failed to load application</h2>
+        <p>Please refresh the page or contact support.</p>
+        <pre>${error.message}</pre>
+      </div>
+    `;
   }
   
   enumMicrophones();

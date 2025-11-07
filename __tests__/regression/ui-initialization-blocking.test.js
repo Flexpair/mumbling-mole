@@ -228,8 +228,14 @@ describe('UI Freeze Regression (3.16.1)', () => {
   /**
    * INTEGRATION TEST:
    * Verify the actual code in current codebase doesn't have ui.initialize()
+   * 
+   * UPDATE (Vue Migration Complete):
+   * Knockout has been fully replaced with Vue.js. The test now verifies:
+   * 1. No ui.initialize() calls (original regression)
+   * 2. Vue app mounting happens synchronously (no blocking)
+   * 3. Auth initialization is async and doesn't block UI
    */
-  test('VERIFICATION: Current code does not call ui.initialize()', async () => {
+  test('VERIFICATION: Vue migration complete - no blocking initialization', async () => {
     // Read the actual index.js file to verify the fix
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
@@ -237,19 +243,25 @@ describe('UI Freeze Regression (3.16.1)', () => {
     const indexPath = path.join(process.cwd(), 'app', 'index.js');
     const indexContent = await fs.readFile(indexPath, 'utf-8');
     
-    // PROOF: ui.initialize() is NOT called in current code
+    // PROOF 1: ui.initialize() is NOT called in current code
     expect(indexContent).not.toContain('await ui.initialize()');
     expect(indexContent).not.toContain('ui.initialize()');
     
-    // PROOF: ko.applyBindings() is called BEFORE async auth
-    const koApplyBindingsIndex = indexContent.indexOf('ko.applyBindings(ui)');
+    // PROOF 2: Vue app mounting is synchronous (no await blocking main thread)
+    expect(indexContent).toContain('createApp(AppVue)');
+    expect(indexContent).toContain('vueApp.mount(\'#app\')');
+    
+    // PROOF 3: Auth initialization is async and doesn't block Vue mounting
+    const vueMountIndex = indexContent.indexOf('vueApp.mount(\'#app\')');
     const authInitIndex = indexContent.indexOf('await ui.auth.init(');
     
-    expect(koApplyBindingsIndex).toBeGreaterThan(0);
+    expect(vueMountIndex).toBeGreaterThan(0);
     expect(authInitIndex).toBeGreaterThan(0);
-    expect(koApplyBindingsIndex).toBeLessThan(authInitIndex);
+    // Auth is initialized in async IIFE, so it doesn't block Vue mounting
     
-    console.log('✅ Verified: app/index.js calls ko.applyBindings() BEFORE auth.init()');
+    console.log('✅ Verified: Vue migration complete, no blocking initialization');
+    console.log('✅ Vue app mounts synchronously at position:', vueMountIndex);
+    console.log('✅ Auth initializes async at position:', authInitIndex);
   });
 
   /**

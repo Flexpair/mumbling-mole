@@ -318,6 +318,16 @@ watch(visible, (val) => {
 /* Component-specific styles if needed */
 /* Most styles come from themes/MetroMumbleLight/main.scss */
 
+/* Ensure settings dialog floats above everything and is centered */
+.settings-dialog.dialog {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  z-index: 30 !important;
+}
+
 /* Ensure dialog backdrop works correctly */
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
