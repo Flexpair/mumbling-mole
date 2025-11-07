@@ -15,7 +15,7 @@
       <select id="audioSource" style="display: none; width: 100%; box-sizing: border-box;"></select>
       
       <!-- Container components (GuacamoleFrame first, Toolbar at bottom) -->
-      <GuacamoleFrame />
+      <GuacamoleFrame ref="guacamoleFrameRef" />
       <Toolbar />
       <MicPermissionRetryOverlay />
     </div>
@@ -55,6 +55,9 @@ const showPreloader = ref(true);
 const preloaderLoaded = ref(false);
 const containerVisible = ref(true);
 
+// Ref to GuacamoleFrame component instance
+const guacamoleFrameRef = ref(null);
+
 // Handle preloader removal on window load
 onMounted(() => {
   const finalize = () => {
@@ -68,6 +71,12 @@ onMounted(() => {
     finalize();
   } else {
     window.addEventListener('load', finalize, { once: true });
+  }
+  
+  // Wire up GuacamoleFrame reference to appState
+  if (guacamoleFrameRef.value && appState) {
+    appState.guacamoleFrame = guacamoleFrameRef.value;
+    console.log('[App.vue] GuacamoleFrame reference assigned to appState.guacamoleFrame');
   }
 });
 </script>
