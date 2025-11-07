@@ -1,0 +1,728 @@
+import ko from 'knockout';
+import { watch } from 'vue';
+import {
+  useConnectionState,
+  useAudioState,
+  useVoiceState,
+  useUIState,
+  useUserState,
+} from '../composables';
+import { translate } from '../localize';
+import packageJson from '../../package.json';
+
+/**
+ * AppState - main state coordinator (Vue composables + Knockout backward compatibility)
+ * 
+ * Composes all state modules using Vue composables while maintaining Knockout API.
+ * Provides bidirectional sync between Vue refs and Knockout observables for gradual migration.
+ * 
+ * Architecture:
+ * - ConnectionState: client connection, root user/channel setup
+ * - AudioState: AudioContext, beeper, audio pipeline
+ * - VoiceState: voice handler, loopback mode, voice controls
+ * - UIState: modals, message box, settings dialog
+ * - UserState: current user, self mute/deaf, user registration, voice streams
+ * 
+ * Migration strategy:
+ * 1. Vue composables are the source of truth (ref/reactive)
+ * 2. Knockout observables are synchronized for backward compatibility
+ * 3. Watchers maintain bidirectional sync during transition
+ */
+export default class AppState {
+  constructor(config, log) {
+    this.config = config;
+    this.log = log || console.log.bind(console);
+    
+    // Initialize Vue composables (source of truth)
+    const connectionState = useConnectionState(this.log);
+    const audioState = useAudioState();
+    const voiceState = useVoiceState();
+    const uiState = useUIState();
+    const userState = useUserState(audioState, voiceState);
+    
+    // Store composable references
+    this._vueState = {
+      connection: connectionState,
+      audio: audioState,
+      voice: voiceState,
+      ui: uiState,
+      user: userState,
+    };
+    
+    // Create Knockout observable wrappers for backward compatibility
+    this._setupKnockoutWrappers();
+    
+    // Set up bidirectional sync between Vue and Knockout
+    this._setupBidirectionalSync();
+    
+    // Store references for backward compatibility
+    this.settings = null; // Set externally
+    this.connectDialog = null; // Set externally
+    this.connectErrorDialog = null; // Set externally
+    this.sampleRateWarningDialog = null; // Set externally
+    this.guacamoleFrame = null; // Set externally
+    this.connectionInfo = null; // Set externally
+    this.auth = null; // Set externally
+    
+    // Guacamole credentials storage
+    this._guacLogin = null;
+    this._guacPassword = null;
+    
+    // Connection tracking for race safety
+    this._currentConnectionId = null;
+    
+    // Set up cross-module subscriptions
+    this._setupSubscriptions();
+  }
+
+  /**
+   * Create Knockout observable wrappers for Vue refs
+   * These observables are kept in sync with Vue state for backward compatibility
+   * @private
+   */
+  _setupKnockoutWrappers() {
+    // Connection state
+    this._ko_remoteHost = ko.observable(null);
+    this._ko_remotePort = ko.observable(null);
+    
+    // Audio state
+    this._ko_audioLockActive = ko.observable(false);
+    this._ko_audioLockReason = ko.observable(null);
+    this._ko_audioLockDetails = ko.observable(null);
+    this._ko_micPermissionDenied = ko.observable(false);
+    this._ko_micPermissionErrorMessage = ko.observable('');
+    this._ko_isBeeping = ko.observable(false);
+    this._ko_beeperReady = ko.observable(false);
+    
+    // Voice state
+    this._ko_isLoopbackMode = ko.observable(false);
+    this._ko_voiceHandlerReady = ko.observable(false);
+    this._ko_loopbackDominantFrequency = ko.observable(0);
+    
+    // UI state
+    this._ko_currentOpenModal = ko.observable(null);
+    this._ko_messageBox = ko.observable('');
+    this._ko_settingsDialog = ko.observable(null);
+    
+    // User state
+    this._ko_thisUser = ko.observable(null);
+    this._ko_selfMute = ko.observable(false);
+    this._ko_selfDeaf = ko.observable(false);
+  }
+
+  /**
+   * Set up bidirectional sync between Vue refs and Knockout observables
+   * @private
+   */
+  _setupBidirectionalSync() {
+    const v = this._vueState;
+    
+    // Connection state: Vue → Knockout
+    watch(() => v.connection.remoteHost.value, (val) => this._ko_remoteHost(val));
+    watch(() => v.connection.remotePort.value, (val) => this._ko_remotePort(val));
+    
+    // Audio state: Vue → Knockout
+    watch(() => v.audio.audioLockActive.value, (val) => this._ko_audioLockActive(val));
+    watch(() => v.audio.audioLockReason.value, (val) => this._ko_audioLockReason(val));
+    watch(() => v.audio.audioLockDetails.value, (val) => this._ko_audioLockDetails(val));
+    watch(() => v.audio.micPermissionDenied.value, (val) => this._ko_micPermissionDenied(val));
+    watch(() => v.audio.micPermissionErrorMessage.value, (val) => this._ko_micPermissionErrorMessage(val));
+    watch(() => v.audio.isBeeping.value, (val) => this._ko_isBeeping(val));
+    watch(() => v.audio.beeperReady.value, (val) => this._ko_beeperReady(val));
+    
+    // Voice state: Vue → Knockout
+    watch(() => v.voice.isLoopbackMode.value, (val) => this._ko_isLoopbackMode(val));
+    watch(() => v.voice.voiceHandlerReady.value, (val) => this._ko_voiceHandlerReady(val));
+    watch(() => v.voice.loopbackDominantFrequency.value, (val) => this._ko_loopbackDominantFrequency(val));
+    
+    // UI state: Vue → Knockout
+    watch(() => v.ui.currentOpenModal.value, (val) => this._ko_currentOpenModal(val));
+    watch(() => v.ui.messageBox.value, (val) => this._ko_messageBox(val));
+    watch(() => v.ui.settingsDialog.value, (val) => this._ko_settingsDialog(val));
+    
+    // User state: Vue → Knockout
+    watch(() => v.user.thisUser.value, (val) => this._ko_thisUser(val));
+    watch(() => v.user.selfMute.value, (val) => this._ko_selfMute(val));
+    watch(() => v.user.selfDeaf.value, (val) => this._ko_selfDeaf(val));
+    
+    // Knockout → Vue (for external updates to Knockout observables)
+    this._ko_remoteHost.subscribe((val) => { if (v.connection.remoteHost.value !== val) v.connection.remoteHost.value = val; });
+    this._ko_remotePort.subscribe((val) => { if (v.connection.remotePort.value !== val) v.connection.remotePort.value = val; });
+    this._ko_audioLockActive.subscribe((val) => { if (v.audio.audioLockActive.value !== val) v.audio.audioLockActive.value = val; });
+    this._ko_isLoopbackMode.subscribe((val) => { if (v.voice.isLoopbackMode.value !== val) v.voice.isLoopbackMode.value = val; });
+    this._ko_messageBox.subscribe((val) => { if (v.ui.messageBox.value !== val) v.ui.messageBox.value = val; });
+    this._ko_selfMute.subscribe((val) => { if (v.user.selfMute.value !== val) v.user.selfMute.value = val; });
+    this._ko_selfDeaf.subscribe((val) => { if (v.user.selfDeaf.value !== val) v.user.selfDeaf.value = val; });
+  }
+
+  /**
+   * Set up reactive subscriptions between modules
+   * @private
+   */
+  _setupSubscriptions() {
+    // When selfMute changes, update voice handler
+    watch(() => this._vueState.user.selfMute.value, (mute) => {
+      this._vueState.voice.setMute(mute);
+    });
+  }
+
+  // ============================================================
+  // PUBLIC API - Expose module functionality via Knockout observables
+  // ============================================================
+
+  /**
+   * Check if connected
+   * @returns {boolean}
+   */
+  connected = () => {
+    return this._vueState.user.thisUser.value != null;
+  }
+
+  /**
+   * Get current client
+   * @returns {object|null}
+   */
+  getClient = () => {
+    return this._vueState.connection.getClient();
+  }
+
+  /**
+   * Connect to Mumble server
+   */
+  async connect(host, port, username, password, tokens = [], channelName = '') {
+    // Auth check
+    const identity = this.auth.currentUser();
+    if (!identity?.app_metadata) {
+      alert('You do not have permission to connect to the server. Please contact the administrator.');
+      return;
+    }
+
+    let user_roles = identity.app_metadata.roles || [];
+    if (!Array.isArray(user_roles)) {
+      user_roles = [];
+    }
+
+    if (!user_roles.includes('watch')) user_roles.push('watch');
+    if (!user_roles.includes('listen')) user_roles.push('listen');
+    identity.app_metadata.roles = user_roles;
+
+    // Prepare AudioContext
+    if (!this._vueState.audio.audioContext) {
+      await this._vueState.audio.initializeAudioContext();
+    }
+    
+    const currentSampleRate = this._vueState.audio.audioContext ? this._vueState.audio.audioContext.sampleRate : null;
+    const audioCompatible = currentSampleRate === 48000;
+    const connectionParams = { host, port, username, password, tokens, channelName };
+
+    if (!audioCompatible) {
+      this.sampleRateWarningDialog.show(currentSampleRate, connectionParams);
+      return;
+    }
+
+    // Request microphone permission
+    // Store connection ID to detect if connection was cancelled during async operations
+    const connectionId = Symbol('connection');
+    this._currentConnectionId = connectionId;
+    
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this._vueState.audio.micPermissionDenied.value = false;
+          }
+          // Always stop tracks to avoid mic staying active
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+        })
+        .catch((err) => {
+          console.warn('Microphone permission denied:', err);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this._vueState.audio.micPermissionDenied.value = true;
+          }
+        });
+    }
+
+    this._vueState.audio.clearAudioLock({ resetStates: true });
+    await this._performConnect(connectionParams, { audioEnabled: true });
+  }
+
+  /**
+   * Connect in loopback test mode
+   */
+  async connectLoopback(host, port, username, password, tokens = [], channelName = '') {
+    const identity = this.auth.currentUser();
+    if (!identity?.app_metadata) {
+      alert('You do not have permission to connect to the server. Please contact the administrator.');
+      return;
+    }
+
+    let user_roles = identity.app_metadata.roles || [];
+    if (!Array.isArray(user_roles)) {
+      user_roles = [];
+    }
+
+    if (!user_roles.includes('watch')) user_roles.push('watch');
+    if (!user_roles.includes('listen')) user_roles.push('listen');
+    identity.app_metadata.roles = user_roles;
+
+    if (!this._vueState.audio.audioContext) {
+      await this._vueState.audio.initializeAudioContext();
+    }
+
+    const connectionParams = {
+      host, port, username, password, tokens, channelName,
+      isLoopback: true,
+    };
+
+    // Store connection ID to detect if connection was cancelled during async operations
+    const connectionId = Symbol('loopback-connection');
+    this._currentConnectionId = connectionId;
+
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this._vueState.audio.micPermissionDenied.value = false;
+          }
+          // Always stop tracks to avoid mic staying active
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+        })
+        .catch((err) => {
+          console.warn('Microphone permission denied:', err);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (this._currentConnectionId === connectionId) {
+            this._vueState.audio.micPermissionDenied.value = true;
+          }
+        });
+    }
+
+    this._vueState.audio.clearAudioLock({ resetStates: true });
+    this._vueState.voice.isLoopbackMode.value = true;
+    
+    // Ensure microphone is NOT muted for loopback test
+    this._vueState.user.selfMute.value = false;
+    
+    await this._performConnect(connectionParams, { audioEnabled: true });
+  }
+
+  /**
+   * Start loopback test on existing connection
+   */
+  startLoopbackTest = async () => {
+    if (this.connected()) {
+      this._vueState.voice.isLoopbackMode.value = true;
+      
+      if (this._vueState.voice.voiceHandler) {
+        this._vueState.voice.setMute(true);
+        this._vueState.voice.endVoiceHandler();
+      }
+      
+      this._updateVoiceHandler();
+      await this._vueState.audio.initializePersistentBeeper();
+    } else {
+      const host = this.config.defaults.host || 'localhost';
+      const port = this.config.defaults.port || 64738;
+      const username = this.config.defaults.username || 'WebClient';
+      const password = this.config.defaults.password || '';
+      this.connectLoopback(host, port, username, password);
+    }
+  }
+
+  /**
+   * Setup audio for connection
+   * @private
+   */
+  async _setupAudioForConnection(audioEnabled, sampleRate, isLoopback) {
+    if (audioEnabled) {
+      this._vueState.voice.initVoiceInput(
+        (data) => {
+          if (this._vueState.connection.getClient()) {
+            this._vueState.voice.writeVoiceData(data);
+          } else {
+            this._vueState.voice.endVoiceHandler();
+          }
+        },
+        (err) => {
+          this.log(translate('logentry.mic_init_error'), err);
+        },
+        () => {
+          this._vueState.audio.initializePersistentBeeper();
+          if (this._vueState.voice.isLoopbackMode.value) {
+            this._vueState.voice.voiceHandlerReady.value = true;
+          }
+        }
+      );
+    } else {
+      this._vueState.audio.activateAudioLock('sample-rate', { sampleRate });
+      this._vueState.voice.endVoiceHandler();
+    }
+
+    try {
+      await this._vueState.audio.resumeAudioContext();
+      
+      try {
+        await this._vueState.audio.loadAudioWorkletModule('playback-buffer-processor.js');
+      } catch (err) {
+        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
+      }
+    } catch (error) {
+      console.warn('AudioContext resume failed, continuing anyway:', error);
+    }
+  }
+
+  /**
+   * Reset UI state for new connection
+   * @private
+   */
+  _resetUIForConnection() {
+    this._vueState.audio.stopBeep();
+    this._vueState.user.thisUser.value = null;
+    
+    const wasLoopback = this._vueState.voice.isLoopbackMode.value;
+    if (!wasLoopback) {
+      this._vueState.audio.beeperReady.value = false;
+      this._vueState.voice.voiceHandlerReady.value = false;
+    }
+  }
+
+  /**
+   * Setup Guacamole frame if needed
+   * @private
+   */
+  _setupGuacamoleFrame(guac_login) {
+    if (guac_login && !this._vueState.voice.isLoopbackMode.value) {
+      this.guacamoleFrame.start(guac_login, this._guacPassword);
+      this.guacamoleFrame.show();
+    } else if (!guac_login && !this._vueState.voice.isLoopbackMode.value) {
+      alert('For visual access please ask your administrator.');
+    }
+  }
+
+  /**
+   * Setup minimal client event handlers
+   * @private
+   */
+  _setupClientHandlers(client) {
+    // No dynamic registration needed - single channel mode
+  }
+
+  /**
+   * Establish client connection and setup
+   * @private
+   */
+  async _establishClientConnection(host, port, username, password, tokens, channelName) {
+    const client = await this._vueState.connection.connect(host, port, username, password, tokens);
+    
+    const user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
+    let guac_login = false;
+    if (user_roles.includes('admin')) {
+      guac_login = 'admin';
+    } else if (user_roles.includes('edit')) {
+      guac_login = 'editor';
+    } else if (user_roles.includes('watch')) {
+      guac_login = 'watcher';
+    }
+    
+    this._guacLogin = guac_login;
+    this._guacPassword = this.connectDialog.password();
+    this._setupGuacamoleFrame(guac_login);
+    
+    if (this._vueState.voice.isLoopbackMode.value) {
+      this.log(translate('logentry.connected_loopback'));
+    } else {
+      this.log(translate('logentry.connected'));
+    }
+
+    // Register root channel and self user
+    this._registerChannel(client.root);
+    
+    if (client.self) {
+      this._vueState.user.registerUser(client.self);
+      this._vueState.user.thisUser.value = client.self.__ui;
+    }
+
+    this._setupClientHandlers(client);
+    this._updateVoiceHandler();
+
+    if (this._vueState.audio.audioLockActive.value) {
+      this._vueState.connection.getClient().setSelfMute(true);
+      this._vueState.connection.getClient().setSelfDeaf(true);
+    } else if (this._vueState.user.selfDeaf.value) {
+      this._vueState.connection.getClient().setSelfDeaf(true);
+    } else if (this._vueState.user.selfMute.value) {
+      this._vueState.connection.getClient().setSelfMute(true);
+    }
+  }
+
+  /**
+   * Register channel with minimal UI wrapper
+   * @private
+   */
+  _registerChannel(channel) {
+    if (channel.__ui) {
+      return;
+    }
+    
+    channel.__ui = {
+      model: channel,
+      name: ko.observable(channel.name),
+    };
+  }
+
+  /**
+   * Perform the actual connection
+   * @private
+   */
+  async _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
+    const { host, port, username, password, tokens = [], channelName: targetChannel = '' } = connectionParams;
+    const isLoopback = connectionParams.isLoopback || false;
+
+    if (isLoopback) {
+      this._vueState.voice.isLoopbackMode.value = true;
+    }
+
+    await this._setupAudioForConnection(audioEnabled, sampleRate, isLoopback);
+    this._resetUIForConnection();
+
+    try {
+      await this._establishClientConnection(host, port, username, password, tokens, targetChannel);
+    } catch (err) {
+      if (err.$type?.name === 'Reject') {
+        this.connectErrorDialog.type(err.type);
+        this.connectErrorDialog.reason(err.reason);
+        this.connectErrorDialog.show();
+      } else {
+        this.log(translate('logentry.connection_error'), err);
+      }
+    }
+  }
+
+  /**
+   * Update voice handler
+   * @private
+   */
+  _updateVoiceHandler() {
+    this._vueState.voice.updateVoiceHandler(
+      this._vueState.connection.getClient(),
+      this.settings,
+      () => {
+        if (this._vueState.user.thisUser.value) {
+          this._vueState.user.thisUser.value.talking('on');
+        }
+      },
+      () => {
+        if (this._vueState.user.thisUser.value) {
+          this._vueState.user.thisUser.value.talking('off');
+        }
+        if (this._vueState.voice.isLoopbackMode.value) {
+          this._vueState.voice.loopbackDominantFrequency.value = 0;
+        }
+      }
+    );
+    
+    if (this._vueState.voice.isLoopbackMode.value) {
+      this._vueState.voice.setMute(false);
+    } else if (this._vueState.audio.audioLockActive.value || this._vueState.user.selfMute.value) {
+      this._vueState.voice.setMute(true);
+    }
+
+    const client = this._vueState.connection.getClient();
+    if (client) {
+      client.setAudioQuality(
+        this.settings.audioBitrate,
+        this.settings.samplesPerPacket
+      );
+    }
+  }
+
+  /**
+   * Reset client and all state
+   */
+  resetClient = () => {
+    this._currentConnectionId = null;
+    this._vueState.audio.stopBeep();
+    this._vueState.connection.disconnect();
+    this._vueState.user.thisUser.value = null;
+    
+    const wasLoopback = this._vueState.voice.isLoopbackMode.value;
+    this._vueState.voice.isLoopbackMode.value = false;
+    
+    if (!wasLoopback) {
+      this._vueState.audio.beeperReady.value = false;
+      this._vueState.voice.voiceHandlerReady.value = false;
+    }
+  }
+
+  /**
+   * Send message to channel or user
+   */
+  sendMessage = (target, message) => {
+    if (this.connected()) {
+      if (!target) {
+        target = this._vueState.user.thisUser.value?.channel();
+      }
+      if (!target) {
+        return;
+      }
+      target.model.sendMessage(message);
+    }
+  }
+
+  // ============================================================
+  // DELEGATION - Expose Knockout observables for backward compatibility
+  // ============================================================
+
+  // Audio module
+  get audioContext() { return this._vueState.audio.audioContext; }
+  get audioLockActive() { return this._ko_audioLockActive; }
+  get audioLockReason() { return this._ko_audioLockReason; }
+  get audioLockDetails() { return this._ko_audioLockDetails; }
+  get micPermissionDenied() { return this._ko_micPermissionDenied; }
+  get micPermissionErrorMessage() { return this._ko_micPermissionErrorMessage; }
+  get isBeeping() { return this._ko_isBeeping; }
+  get beeperReady() { return this._ko_beeperReady; }
+  
+  startBeep = () => { return this._vueState.audio.startBeep(); }
+  stopBeep = () => { return this._vueState.audio.stopBeep(); }
+  retryMicrophonePermission = () => { return this._vueState.audio.retryMicrophonePermission(); }
+  initializeAudioContext = () => { return this._vueState.audio.initializeAudioContext(); }
+  _initializePersistentBeeper = () => { return this._vueState.audio.initializePersistentBeeper(); }
+
+  // Voice module
+  get isLoopbackMode() { return this._ko_isLoopbackMode; }
+  get voiceHandlerReady() { return this._ko_voiceHandlerReady; }
+  get voiceHandler() { return this._vueState.voice.voiceHandler; }
+
+  // UI module
+  get currentOpenModal() { return this._ko_currentOpenModal; }
+  get messageBox() { return this._ko_messageBox; }
+  get settingsDialog() { return this._ko_settingsDialog; }
+  
+  openSettings = (SettingsDialogClass) => { return this._vueState.ui.openSettings(this.settings, SettingsDialogClass); }
+  closeSettings = () => { return this._vueState.ui.closeSettings(); }
+  submitMessageBox = () => {
+    const target = this._vueState.user.thisUser.value?.channel();
+    return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
+  }
+
+  // User module
+  get thisUser() { return this._ko_thisUser; }
+  get selfMute() { return this._ko_selfMute; }
+  get selfDeaf() { return this._ko_selfDeaf; }
+  
+  requestMute = (user) => { 
+    this._vueState.user.requestMute(user);
+    if (this.connected()) {
+      this._vueState.connection.getClient().setSelfMute(true);
+    }
+  }
+  
+  requestDeaf = (user) => { 
+    this._vueState.user.requestDeaf(user, this._vueState.voice.isLoopbackMode.value);
+    if (this.connected()) {
+      this._vueState.connection.getClient().setSelfDeaf(true);
+    }
+  }
+  
+  requestUnmute = (user) => {
+    if (this._vueState.audio.audioLockActive.value) {
+      this.notifyAudioLock();
+      return;
+    }
+    this._vueState.user.requestUnmute(user);
+    if (this.connected()) {
+      this._vueState.connection.getClient().setSelfMute(false);
+      this._vueState.connection.getClient().setSelfDeaf(false);
+    }
+  }
+  
+  requestUndeaf = (user) => {
+    if (this._vueState.audio.audioLockActive.value) {
+      this.notifyAudioLock();
+      return;
+    }
+    this._vueState.user.requestUndeaf(user);
+    if (this.connected()) {
+      this._vueState.connection.getClient().setSelfDeaf(false);
+    }
+  }
+
+  // Connection module
+  get remoteHost() { return this._ko_remoteHost; }
+  get remotePort() { return this._ko_remotePort; }
+  get client() { return this._vueState.connection.getClient(); }
+  set client(value) { 
+    // This setter is for backward compatibility, but we don't expose client mutation in composables
+    console.warn('Direct client assignment is deprecated');
+  }
+
+  // Helpers
+  notifyAudioLock = () => {
+    const details = this._vueState.audio.audioLockDetails.value || {};
+    const sr = details.sampleRate ?? this._vueState.audio.audioContext?.sampleRate;
+    this.sampleRateWarningDialog.showInfo(sr);
+  }
+
+  handleUnmuteClick = () => {
+    if (this._vueState.user.thisUser.value) {
+      this.requestUnmute(this._vueState.user.thisUser.value);
+    }
+  }
+
+  handleUndeafClick = () => {
+    if (this._vueState.user.thisUser.value) {
+      this.requestUndeaf(this._vueState.user.thisUser.value);
+    }
+  }
+
+  applySettings = () => {
+    const settingsDialog = this._vueState.ui.settingsDialog.value;
+    settingsDialog.applyTo(this.settings);
+    this._updateVoiceHandler();
+    this.settings.save();
+    this._vueState.ui.closeSettings();
+  }
+
+  // Computed observables
+  messageBoxHint = ko.pureComputed(() => {
+    if (!this._vueState.user.thisUser.value) {
+      return '';
+    }
+    const target = this._vueState.user.thisUser.value.channel();
+    if (!target) {
+      return '';
+    }
+    return translate('chat.channel_message_placeholder').replace('%1', target.name());
+  });
+
+  mailToDesktop = ko.observable(
+    'mailto:mail@' +
+    globalThis.location.hostname +
+    '?subject=Send%20attachment%20to%20desktop'
+  );
+
+  logoutUser = () => {
+    this.auth.logout();
+    location.reload();
+  }
+
+  openSourceCode = () => {
+    window.open(packageJson.homepage, '_blank').focus();
+  }
+
+  // Expose Vue state for direct access from Vue components
+  get connection() { return this._vueState.connection; }
+  get audio() { return this._vueState.audio; }
+  get voice() { return this._vueState.voice; }
+  get ui() { return this._vueState.ui; }
+  get user() { return this._vueState.user; }
+}

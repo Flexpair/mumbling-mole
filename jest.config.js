@@ -19,6 +19,8 @@ export default {
     // Mock fs module to avoid graceful-fs import issues
     '^fs$': '<rootDir>/__mocks__/fs.cjs',
     '^node:fs$': '<rootDir>/__mocks__/fs.cjs',
+    // Mock Vue for Jest tests (Vue composables tested via integration, not unit tests)
+    '^vue$': '<rootDir>/__mocks__/vue.js',
   },
 
   // Test file patterns
