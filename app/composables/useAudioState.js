@@ -3,6 +3,7 @@ import audioContextManager, { ensureAudioContext } from '../audio/audio-context-
 import { getCurrentMixer } from '../audio/voice';
 import { debugLog } from './debug-utils';
 import { createCachedInitWithCheck } from './promise-cache-utils';
+import { createMicrophonePermissionManager } from '../utils/microphone-permission';
 
 /**
  * useAudioState - Vue composable for audio context, permissions, and beeper
@@ -30,9 +31,7 @@ export function useAudioState() {
   // Microphone permission state (reactive)
   const micPermissionDenied = ref(false);
   const micPermissionErrorMessage = ref('');
-  let micPermissionRetryCount = 0;
-  const maxMicPermissionRetryCount = 3;
-  const micPermissionRetryDelayMs = 1000;
+  let _micPermissionManager = null; // Lazy-initialized permission manager
   
   // Beeper state (reactive)
   const isBeeping = ref(false);
@@ -152,52 +151,31 @@ export function useAudioState() {
    * Attempt to get microphone permission
    */
   function attemptMicrophonePermission() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      return;
-    }
-
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        micPermissionRetryCount = 0;
-        micPermissionDenied.value = false;
-        micPermissionErrorMessage.value = '';
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-      })
-      .catch((err) => {
-        console.error('Microphone permission denied on retry:', err);
-        micPermissionRetryCount += 1;
-        const isPermissionBlocked =
-          err &&
-          (err.name === 'NotAllowedError' ||
-            err.name === 'SecurityError' ||
-            (typeof err.message === 'string' &&
-              err.message.toLowerCase().includes('denied')));
-
-        if (isPermissionBlocked) {
-          micPermissionErrorMessage.value =
-            'Microphone access is blocked by the browser. Please allow it in the address bar or system settings, then try again.';
-        }
-
-        if (micPermissionRetryCount >= maxMicPermissionRetryCount) {
-          return;
-        }
-        if (isPermissionBlocked) {
-          return;
-        }
-        setTimeout(() => attemptMicrophonePermission(), micPermissionRetryDelayMs);
+    // Lazy-initialize permission manager
+    if (!_micPermissionManager) {
+      _micPermissionManager = createMicrophonePermissionManager({
+        onGranted: () => {
+          micPermissionDenied.value = false;
+          micPermissionErrorMessage.value = '';
+        },
+        onDenied: (errorMessage) => {
+          micPermissionErrorMessage.value = errorMessage;
+        },
+        maxRetryCount: 3,
+        retryDelayMs: 1000
       });
+    }
+    
+    _micPermissionManager.attemptPermission();
   }
 
   /**
    * Retry microphone permission request
    */
   function retryMicrophonePermission() {
-    micPermissionRetryCount = 0;
-    micPermissionErrorMessage.value = '';
-    attemptMicrophonePermission();
+    if (_micPermissionManager) {
+      _micPermissionManager.retryPermission();
+    }
   }
 
   /**
