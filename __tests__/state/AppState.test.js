@@ -138,32 +138,6 @@ describe('AppState - Vue Composables Architecture', () => {
       expect(appState._vueState.user).toBeDefined();
     });
 
-    test('creates Knockout observables for backward compatibility', () => {
-      // Connection state
-      expect(typeof appState._ko_remoteHost).toBe('function');
-      expect(typeof appState._ko_remotePort).toBe('function');
-      
-      // Audio state
-      expect(typeof appState._ko_audioLockActive).toBe('function');
-      expect(typeof appState._ko_micPermissionDenied).toBe('function');
-      expect(typeof appState._ko_isBeeping).toBe('function');
-      expect(typeof appState._ko_beeperReady).toBe('function');
-      
-      // Voice state
-      expect(typeof appState._ko_isLoopbackMode).toBe('function');
-      expect(typeof appState._ko_voiceHandlerReady).toBe('function');
-      expect(typeof appState._ko_loopbackDominantFrequency).toBe('function');
-      
-      // UI state
-      expect(typeof appState._ko_currentOpenModal).toBe('function');
-      expect(typeof appState._ko_messageBox).toBe('function');
-      
-      // User state
-      expect(typeof appState._ko_thisUser).toBe('function');
-      expect(typeof appState._ko_selfMute).toBe('function');
-      expect(typeof appState._ko_selfDeaf).toBe('function');
-    });
-
     test('initializes settings from config', () => {
       expect(appState.settings).toBeDefined();
       expect(appState.settings.voiceMode()).toBe('cont');
@@ -173,9 +147,9 @@ describe('AppState - Vue Composables Architecture', () => {
   });
 
   describe('Root-Level Getters (Backward Compatibility API)', () => {
-    test('connection getters expose Knockout observables', () => {
-      expect(appState.remoteHost).toBe(appState._ko_remoteHost);
-      expect(appState.remotePort).toBe(appState._ko_remotePort);
+    test('connection getters expose Vue refs', () => {
+      expect(appState.remoteHost).toBe(appState._vueState.connection.remoteHost);
+      expect(appState.remotePort).toBe(appState._vueState.connection.remotePort);
     });
 
     test('audio getters expose Vue refs', () => {
@@ -213,60 +187,14 @@ describe('AppState - Vue Composables Architecture', () => {
     });
   });
 
-  describe('Bidirectional Synchronization (Vue ↔ Knockout)', () => {
-    test('Vue → Knockout: changing Vue ref updates Knockout observable', async () => {
-      appState._vueState.voice.isLoopbackMode.value = true;
-      
-      // In the mock Vue environment, watch callbacks may not trigger automatically
-      // This tests that the mechanism is set up, even if it doesn't run in jsdom
-      expect(appState._vueState.voice.isLoopbackMode.value).toBe(true);
-      
-      // The sync would happen via Vue's watch() in a real browser
-      // For now, we validate the setup exists by checking the Vue ref changed
-    });
-
-    test('Knockout → Vue: changing Knockout observable updates Vue ref', () => {
-      appState._ko_selfMute(true);
-      
-      return new Promise(resolve => {
-        setTimeout(() => {
-          // In jsdom with mocked Vue, the subscription should still work
-          // The value should sync via Knockout's subscribe mechanism
-          resolve();
-        }, 10);
-      });
-    });
-
-    test('sync prevents infinite loops', () => {
-      const subscribeSpy = jest.fn();
-      
-      // Subscribe to Knockout observable
-      appState._vueState.user.selfMute.value = false;
-      appState._ko_selfMute.subscribe(subscribeSpy);
-      
-      // Change via Knockout
-      appState._ko_selfMute(true);
-      
-      return new Promise(resolve => {
-        setTimeout(() => {
-          // Should only trigger once (no infinite loop)
-          expect(subscribeSpy).toHaveBeenCalledTimes(1);
-          resolve();
-        }, 20);
-      });
-    });
-  });
-
   describe('Connection Management', () => {
     test('connected() returns true when thisUser exists', () => {
       appState._vueState.user.thisUser.value = { id: 1, name: 'Test' };
-      appState._ko_thisUser({ id: 1, name: 'Test' });
       expect(appState.connected()).toBe(true);
     });
 
     test('connected() returns false when thisUser is null', () => {
       appState._vueState.user.thisUser.value = null;
-      appState._ko_thisUser(null);
       expect(appState.connected()).toBe(false);
     });
 

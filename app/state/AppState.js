@@ -49,12 +49,6 @@ export default class AppState {
       user: userState,
     };
     
-    // Create Knockout observable wrappers for backward compatibility
-    this._setupKnockoutWrappers();
-    
-    // Set up bidirectional sync between Vue and Knockout
-    this._setupBidirectionalSync();
-    
     // Store references for backward compatibility
     this.settings = null; // Set externally
     this.connectDialog = null; // Set externally
@@ -73,86 +67,6 @@ export default class AppState {
     
     // Set up cross-module subscriptions
     this._setupSubscriptions();
-  }
-
-  /**
-   * Create Knockout observable wrappers for Vue refs
-   * These observables are kept in sync with Vue state for backward compatibility
-   * @private
-   */
-  _setupKnockoutWrappers() {
-    // Connection state
-    this._ko_remoteHost = ko.observable(null);
-    this._ko_remotePort = ko.observable(null);
-    
-    // Audio state
-    this._ko_audioLockActive = ko.observable(false);
-    this._ko_audioLockReason = ko.observable(null);
-    this._ko_audioLockDetails = ko.observable(null);
-    this._ko_micPermissionDenied = ko.observable(false);
-    this._ko_micPermissionErrorMessage = ko.observable('');
-    this._ko_isBeeping = ko.observable(false);
-    this._ko_beeperReady = ko.observable(false);
-    
-    // Voice state
-    this._ko_isLoopbackMode = ko.observable(false);
-    this._ko_voiceHandlerReady = ko.observable(false);
-    this._ko_loopbackDominantFrequency = ko.observable(0);
-    
-    // UI state
-    this._ko_currentOpenModal = ko.observable(null);
-    this._ko_messageBox = ko.observable('');
-    this._ko_settingsDialog = ko.observable(null);
-    
-    // User state
-    this._ko_thisUser = ko.observable(null);
-    this._ko_selfMute = ko.observable(false);
-    this._ko_selfDeaf = ko.observable(false);
-  }
-
-  /**
-   * Set up bidirectional sync between Vue refs and Knockout observables
-   * @private
-   */
-  _setupBidirectionalSync() {
-    const v = this._vueState;
-    
-    // Connection state: Vue → Knockout
-    watch(() => v.connection.remoteHost.value, (val) => this._ko_remoteHost(val));
-    watch(() => v.connection.remotePort.value, (val) => this._ko_remotePort(val));
-    
-    // Audio state: Vue → Knockout
-    watch(() => v.audio.audioLockActive.value, (val) => this._ko_audioLockActive(val));
-    watch(() => v.audio.audioLockReason.value, (val) => this._ko_audioLockReason(val));
-    watch(() => v.audio.audioLockDetails.value, (val) => this._ko_audioLockDetails(val));
-    watch(() => v.audio.micPermissionDenied.value, (val) => this._ko_micPermissionDenied(val));
-    watch(() => v.audio.micPermissionErrorMessage.value, (val) => this._ko_micPermissionErrorMessage(val));
-    watch(() => v.audio.isBeeping.value, (val) => this._ko_isBeeping(val));
-    watch(() => v.audio.beeperReady.value, (val) => this._ko_beeperReady(val));
-    
-    // Voice state: Vue → Knockout
-    watch(() => v.voice.isLoopbackMode.value, (val) => this._ko_isLoopbackMode(val));
-    watch(() => v.voice.voiceHandlerReady.value, (val) => this._ko_voiceHandlerReady(val));
-    watch(() => v.voice.loopbackDominantFrequency.value, (val) => this._ko_loopbackDominantFrequency(val));
-    
-    // UI state: Vue → Knockout
-    watch(() => v.ui.currentOpenModal.value, (val) => this._ko_currentOpenModal(val));
-    watch(() => v.ui.messageBox.value, (val) => this._ko_messageBox(val));
-    watch(() => v.ui.settingsDialog.value, (val) => this._ko_settingsDialog(val));
-    
-    // User state: Vue → Knockout
-    watch(() => v.user.thisUser.value, (val) => this._ko_thisUser(val));
-    watch(() => v.user.selfMute.value, (val) => this._ko_selfMute(val));
-    watch(() => v.user.selfDeaf.value, (val) => this._ko_selfDeaf(val));
-    
-    // Knockout → Vue (for external updates to Knockout observables)
-    this._ko_remoteHost.subscribe((val) => { if (v.connection.remoteHost.value !== val) v.connection.remoteHost.value = val; });
-    this._ko_remotePort.subscribe((val) => { if (v.connection.remotePort.value !== val) v.connection.remotePort.value = val; });
-    this._ko_audioLockActive.subscribe((val) => { if (v.audio.audioLockActive.value !== val) v.audio.audioLockActive.value = val; });
-    this._ko_isLoopbackMode.subscribe((val) => { if (v.voice.isLoopbackMode.value !== val) v.voice.isLoopbackMode.value = val; });
-    this._ko_messageBox.subscribe((val) => { if (v.ui.messageBox.value !== val) v.ui.messageBox.value = val; });
-    this._ko_selfMute.subscribe((val) => { if (v.user.selfMute.value !== val) v.user.selfMute.value = val; });
-    this._ko_selfDeaf.subscribe((val) => { if (v.user.selfDeaf.value !== val) v.user.selfDeaf.value = val; });
   }
 
   /**
@@ -658,8 +572,8 @@ export default class AppState {
   }
 
   // Connection module
-  get remoteHost() { return this._ko_remoteHost; }
-  get remotePort() { return this._ko_remotePort; }
+  get remoteHost() { return this._vueState.connection.remoteHost; }
+  get remotePort() { return this._vueState.connection.remotePort; }
   get client() { return this._vueState.connection.getClient(); }
   set client(value) { 
     // Direct assignment is no longer supported - use composable API or connection methods
