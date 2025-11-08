@@ -111,9 +111,9 @@ test.describe('Loopback Frequency Test', () => {
     await testToggle.click();
     console.log('✅ Test toggle clicked');
     
-    // Verify test mode is active
+    // Verify test mode is active - Vue ref
     const isTestActive = await page.evaluate(() => {
-      return window.mumbleUi?.connectDialog?.isTestActive() || false;
+      return window.mumbleUi?.connectDialog?.isTestActive?.value || false;
     });
     expect(isTestActive).toBe(true);
     console.log('✅ Test mode activated');
@@ -204,8 +204,8 @@ test.describe('Loopback Frequency Test', () => {
           console.log('[TEST-CHECK] AudioContext not running:', ui.audio?.audioContext?.state);
         }
         
-        // Check if test mode components are ready
-        const testModeReady = ui.connectDialog?.isTestActive() === true;
+        // Check if test mode components are ready - Vue ref
+        const testModeReady = ui.connectDialog?.isTestActive?.value === true;
         if (!testModeReady) {
           console.log('[TEST-CHECK] Test mode not active');
         }

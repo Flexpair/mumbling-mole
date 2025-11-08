@@ -6,6 +6,7 @@ import {
   useVoiceState,
   useUIState,
   useUserState,
+  useConnectionDialog,
 } from '../composables';
 import { translate } from '../localize';
 import packageJson from '../../package.json';
@@ -39,6 +40,7 @@ export default class AppState {
     const voiceState = useVoiceState();
     const uiState = useUIState();
     const userState = useUserState(audioState, voiceState);
+    const connectionDialog = useConnectionDialog();
     
     // Store composable references
     this._vueState = {
@@ -47,11 +49,11 @@ export default class AppState {
       voice: voiceState,
       ui: uiState,
       user: userState,
+      dialog: connectionDialog,
     };
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
-    this.connectDialog = null; // Set externally
     this.connectErrorDialog = null; // Set externally
     this.sampleRateWarningDialog = null; // Set externally
     this.guacamoleFrame = null; // Set externally
@@ -347,7 +349,7 @@ export default class AppState {
     }
     
     this._guacLogin = guac_login;
-    this._guacPassword = this.connectDialog.password();
+    this._guacPassword = this.connectDialog.password.value; // Vue ref
     this._setupGuacamoleFrame(guac_login);
     
     if (this._vueState.voice.isLoopbackMode.value) {
@@ -494,6 +496,9 @@ export default class AppState {
   // ============================================================
   // DELEGATION - Expose Knockout observables for backward compatibility
   // ============================================================
+
+  // Connection Dialog module (Vue refs, no Knockout wrapper needed)
+  get connectDialog() { return this._vueState.dialog; }
 
   // Audio module
   get audioContext() { return this._vueState.audio.audioContext; }

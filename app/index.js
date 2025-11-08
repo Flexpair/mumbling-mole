@@ -240,71 +240,18 @@ const ui = new AppState(globalThis.mumbleWebConfig, log);
 
 // [MIGRATION WORKAROUND] Exposing AppState on window global is required for Knockout.js + Vue.js dual runtime.
 // This creates tight coupling and bypasses Vue's dependency injection.
-// TODO: Remove this in Phase 4 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
+// TODO: Remove this in Phase 5 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-// Create placeholder objects with Knockout observables for backward compatibility
-ui.connectDialog = {
-  address: ko.observable(""),
-  port: ko.observable(""),
-  username: ko.observable(""),
-  password: ko.observable(""),
-  visible: ko.observable(false),
-  isTestActive: ko.observable(false),
-  show: function() { this.visible(true); },
-  hide: function() { this.visible(false); },
-  connect: function() {
-    // Delegate to AppState's connect method (builds connectionParams internally)
-    if (ui.connect) {
-      this.hide();
-      
-      // If already connected, exit test mode and return to normal
-      if (ui.connected()) {
-        this.isTestActive(false);
-        ui.isLoopbackMode.value = false; // Use Vue ref
-        ui._updateVoiceHandler();
-        
-        // Show Guacamole desktop if credentials exist
-        if (ui._guacLogin && ui.guacamoleFrame?.start) {
-          ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
-          if (ui.guacamoleFrame.show) ui.guacamoleFrame.show();
-        }
-      } else {
-        // Normal connection flow
-        this.isTestActive(false);
-        ui.connect(this.address(), this.port(), this.username(), this.password());
-      }
-    } else {
-      console.error('[connectDialog] ui.connect not available');
-    }
-  },
-  toggleLoopback: async function() {
-    // Delegate to AppState's connectLoopback method
-    if (ui.connectLoopback) {
-      if (this.isTestActive()) {
-        console.log('[connectDialog] Test already active, ignoring toggle');
-        return;
-      }
-      
-      // DO NOT hide dialog - keep it visible during loopback test
-      this.isTestActive(true);
-      await ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
-    } else {
-      console.error('[connectDialog] ui.connectLoopback not available');
-    }
-  },
-  exitTestMode: function() {
-    // Delegate back to connect() method which handles exiting test mode
-    this.connect();
-  }
-};
+// Note: connectDialog is now a Vue composable in AppState, no adapter needed
 ui.connectErrorDialog = {
   type: ko.observable(0),
   reason: ko.observable(""),
   visible: ko.observable(false),
-  username: ui.connectDialog.username,
-  password: ui.connectDialog.password,
+  // Direct refs to connectDialog Vue refs (not Knockout observables)
+  get username() { return ui.connectDialog.username; },
+  get password() { return ui.connectDialog.password; },
   show: function() { this.visible(true); },
   hide: function() { this.visible(false); }
 };
@@ -352,30 +299,30 @@ function initializeUI() {
   let queryParams = url.parse(document.location.href, true).query;
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
-    ui.connectDialog.address(queryParams.address);
+    ui.connectDialog.address.value = queryParams.address;
   }
   if (queryParams.port) {
-    ui.connectDialog.port(queryParams.port);
+    ui.connectDialog.port.value = queryParams.port;
   }
   if (queryParams.password) {
-    ui.connectDialog.password(queryParams.password);
+    ui.connectDialog.password.value = queryParams.password;
   }
 
   // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
     const username = getUsernameFromMetadata(user);
     if (username) {
-      ui.connectDialog.username(username);
+      ui.connectDialog.username.value = username;
     }
     ui.auth.close();
     // Show connect dialog after successful authentication
-    ui.connectDialog.show();
+    ui.connectDialog.visible.value = true;
   });
 
   ui.auth.on("close", () => {
-    if (ui.connectDialog.username()) {
+    if (ui.connectDialog.username.value) {
       // Show connect dialog when auth modal is closed and user is authenticated
-      ui.connectDialog.show();
+      ui.connectDialog.visible.value = true;
     } else {
       ui.auth.open("login"); // open the modal to the login tab
     }
@@ -384,7 +331,7 @@ function initializeUI() {
   ui.auth.on("error", (err) => {
     console.warn("[Auth] Authentication error:", err);
     // Show connect dialog even if auth fails to allow retry
-    ui.connectDialog.show();
+    ui.connectDialog.visible.value = true;
   });
 
   // Initialize auth asynchronously (don't block UI)
@@ -403,15 +350,15 @@ function initializeUI() {
 
     if (user == null) {
       // Hide connect dialog when showing authentication modal
-      ui.connectDialog.hide();
+      ui.connectDialog.visible.value = false;
       ui.auth.open("signup"); // open the modal to the signup tab
     } else {
       const username = getUsernameFromMetadata(user);
       if (username) {
-        ui.connectDialog.username(username);
+        ui.connectDialog.username.value = username;
       }
       // User is already authenticated, show connect dialog
-      ui.connectDialog.show();
+      ui.connectDialog.visible.value = true;
     }
   })();
 }

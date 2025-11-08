@@ -98,14 +98,13 @@ describe('AppState - Vue Composables Architecture', () => {
       testToneVolume: ko.observable(1),
       toolbarVertical: ko.observable(false)
     };
-    appState.connectDialog = {
-      visible: ko.observable(false),
-      address: ko.observable('localhost'),
-      port: ko.observable(64738),
-      username: ko.observable('TestUser'),
-      password: ko.observable(''),
-      isTestActive: ko.observable(false)
-    };
+    // connectDialog is now a Vue composable (getter), initialize its refs directly
+    appState.connectDialog.address.value = 'localhost';
+    appState.connectDialog.port.value = '64738';
+    appState.connectDialog.username.value = 'TestUser';
+    appState.connectDialog.password.value = '';
+    appState.connectDialog.visible.value = false;
+    appState.connectDialog.isTestActive.value = false;
     appState.connectionInfo = {};
     appState.connectErrorDialog = {};
     appState.sampleRateWarningDialog = {};
@@ -258,7 +257,19 @@ describe('AppState - Vue Composables Architecture', () => {
   describe('Dialog Management', () => {
     test('connectDialog is initialized', () => {
       expect(appState.connectDialog).toBeDefined();
-      expect(typeof appState.connectDialog.visible).toBe('function');
+      // connectDialog is now a Vue composable with refs (not Knockout observables)
+      expect(typeof appState.connectDialog.visible).toBe('object');
+      expect(appState.connectDialog.visible).toHaveProperty('value');
+      expect(typeof appState.connectDialog.address).toBe('object');
+      expect(appState.connectDialog.address).toHaveProperty('value');
+      expect(typeof appState.connectDialog.port).toBe('object');
+      expect(appState.connectDialog.port).toHaveProperty('value');
+      expect(typeof appState.connectDialog.username).toBe('object');
+      expect(appState.connectDialog.username).toHaveProperty('value');
+      expect(typeof appState.connectDialog.password).toBe('object');
+      expect(appState.connectDialog.password).toHaveProperty('value');
+      expect(typeof appState.connectDialog.isTestActive).toBe('object');
+      expect(appState.connectDialog.isTestActive).toHaveProperty('value');
     });
 
     test('connectionInfo is initialized', () => {
