@@ -1,5 +1,6 @@
 import ko from "knockout";
 import BufferQueueNode from "../audio/buffer-queue-node";
+import { createVoiceStreamManager } from "../utils/voice-stream-manager";
 
 const DEBUG_VOICE_LOGGING = false; // Set to true to see frequency analysis logs in console
 
@@ -34,11 +35,9 @@ export default class UserState {
     this.selfMute = ko.observable();
     this.selfDeaf = ko.observable();
     
-    // CLEANUP-TRACKING: Track active voice stream resources for proper cleanup
+    // CLEANUP-TRACKING: Voice stream resource manager
     // Prevents memory leaks from intervals and subscriptions
-    // Key can be either streamId (unique per stream) or sessionId (user session)
-    // streamId format: 'sessionId_timestamp_random' for uniqueness
-    this._activeVoiceStreams = new Map();
+    this._streamManager = createVoiceStreamManager();
   }
 
   /**
@@ -173,7 +172,7 @@ export default class UserState {
         
         // CLEANUP-TRACKING: Store resources for proper cleanup
         // Use streamId as key for this specific stream, store sessionId for fallback cleanup
-        this._activeVoiceStreams.set(streamId, {
+        this._streamManager.set(streamId, {
           sessionId: user.session,
           interval: frequencyAnalysisInterval,
           subscription: deafSubscription,
@@ -214,55 +213,17 @@ export default class UserState {
    * @private
    */
   _cleanupVoiceStream(identifier) {
-    // Try direct lookup first (streamId)
-    const resources = this._activeVoiceStreams.get(identifier);
-    if (resources) {
-      this._disposeStreamResources(resources, identifier);
-      return;
-    }
-    
-    // If not found, cleanup all streams for this session (sessionId)
-    for (const [streamId, res] of this._activeVoiceStreams.entries()) {
-      if (res.sessionId === identifier) {
-        this._disposeStreamResources(res, streamId);
+    this._streamManager.cleanup(identifier, (resources) => {
+      // Knockout-specific disposal
+      if (resources.subscription) {
+        try {
+          resources.subscription.dispose();
+          debugLog('[VOICE]', 'Deaf subscription disposed');
+        } catch (err) {
+          console.error('[VOICE] Error disposing subscription:', err);
+        }
       }
-    }
-  }
-
-  /**
-   * Dispose individual stream resources
-   * @param {object} resources - Stream resources object
-   * @param {string} identifier - Stream or session identifier
-   * @private
-   */
-  _disposeStreamResources(resources, identifier) {
-    // Clear frequency analysis interval
-    if (resources.interval) {
-      clearInterval(resources.interval);
-      debugLog('[LOOPBACK-FREQ]', 'Frequency analysis stopped');
-    }
-    
-    // Dispose subscription
-    if (resources.subscription) {
-      try {
-        resources.subscription.dispose();
-        debugLog('[VOICE]', 'Deaf subscription disposed');
-      } catch (err) {
-        console.error('[VOICE] Error disposing subscription:', err);
-      }
-    }
-    
-    // End audio node
-    if (resources.userNode) {
-      try {
-        resources.userNode.end();
-      } catch (err) {
-        console.error('[VOICE] Error ending userNode:', err);
-      }
-    }
-    
-    // Remove from tracking
-    this._activeVoiceStreams.delete(identifier);
+    });
   }
 
   /**

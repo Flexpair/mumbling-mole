@@ -2,6 +2,7 @@ import { ref, watch } from 'vue';
 import BufferQueueNode from '../audio/buffer-queue-node';
 import ko from 'knockout';
 import { debugLog } from './debug-utils';
+import { createVoiceStreamManager } from '../utils/voice-stream-manager';
 
 /**
  * useUserState - Vue composable for user-related state and operations
@@ -28,11 +29,9 @@ export function useUserState(audioState, voiceState) {
   const selfMute = ref(false);
   const selfDeaf = ref(false);
   
-  // CLEANUP-TRACKING: Track active voice stream resources for proper cleanup
+  // CLEANUP-TRACKING: Voice stream resource manager
   // Prevents memory leaks from intervals and subscriptions
-  // Key can be either streamId (unique per stream) or sessionId (user session)
-  // streamId format: 'sessionId_timestamp_random' for uniqueness
-  const _activeVoiceStreams = new Map();
+  const _streamManager = createVoiceStreamManager();
 
   /**
    * Register a user with minimal UI wrapper
@@ -168,7 +167,7 @@ export function useUserState(audioState, voiceState) {
         
         // CLEANUP-TRACKING: Store resources for proper cleanup
         // Use streamId as key for this specific stream, store sessionId for fallback cleanup
-        _activeVoiceStreams.set(streamId, {
+        _streamManager.set(streamId, {
           sessionId: user.session,
           interval: frequencyAnalysisInterval,
           stopWatch: stopDeafWatch, // Vue watch cleanup function
@@ -209,55 +208,17 @@ export function useUserState(audioState, voiceState) {
    * @private
    */
   function _cleanupVoiceStream(identifier) {
-    // Try direct lookup first (streamId)
-    const resources = _activeVoiceStreams.get(identifier);
-    if (resources) {
-      _disposeStreamResources(resources, identifier);
-      return;
-    }
-    
-    // If not found, cleanup all streams for this session (sessionId)
-    for (const [streamId, res] of _activeVoiceStreams.entries()) {
-      if (res.sessionId === identifier) {
-        _disposeStreamResources(res, streamId);
+    _streamManager.cleanup(identifier, (resources) => {
+      // Vue-specific disposal
+      if (resources.stopWatch) {
+        try {
+          resources.stopWatch();
+          debugLog('[VOICE]', 'Deaf watcher stopped');
+        } catch (err) {
+          console.error('[VOICE] Error stopping watcher:', err);
+        }
       }
-    }
-  }
-
-  /**
-   * Dispose individual stream resources
-   * @param {object} resources - Stream resources object
-   * @param {string} identifier - Stream or session identifier
-   * @private
-   */
-  function _disposeStreamResources(resources, identifier) {
-    // Clear frequency analysis interval
-    if (resources.interval) {
-      clearInterval(resources.interval);
-      debugLog('[LOOPBACK-FREQ]', 'Frequency analysis stopped');
-    }
-    
-    // Stop Vue watcher
-    if (resources.stopWatch) {
-      try {
-        resources.stopWatch();
-        debugLog('[VOICE]', 'Deaf watcher stopped');
-      } catch (err) {
-        console.error('[VOICE] Error stopping watcher:', err);
-      }
-    }
-    
-    // End audio node
-    if (resources.userNode) {
-      try {
-        resources.userNode.end();
-      } catch (err) {
-        console.error('[VOICE] Error ending userNode:', err);
-      }
-    }
-    
-    // Remove from tracking
-    _activeVoiceStreams.delete(identifier);
+    });
   }
 
   /**
