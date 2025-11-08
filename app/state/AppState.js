@@ -583,13 +583,13 @@ export default class AppState {
 
   // Audio module
   get audioContext() { return this._vueState.audio.audioContext; }
-  get audioLockActive() { return this._ko_audioLockActive; }
-  get audioLockReason() { return this._ko_audioLockReason; }
-  get audioLockDetails() { return this._ko_audioLockDetails; }
-  get micPermissionDenied() { return this._ko_micPermissionDenied; }
-  get micPermissionErrorMessage() { return this._ko_micPermissionErrorMessage; }
-  get isBeeping() { return this._ko_isBeeping; }
-  get beeperReady() { return this._ko_beeperReady; }
+  get audioLockActive() { return this._vueState.audio.audioLockActive; }
+  get audioLockReason() { return this._vueState.audio.audioLockReason; }
+  get audioLockDetails() { return this._vueState.audio.audioLockDetails; }
+  get micPermissionDenied() { return this._vueState.audio.micPermissionDenied; }
+  get micPermissionErrorMessage() { return this._vueState.audio.micPermissionErrorMessage; }
+  get isBeeping() { return this._vueState.audio.isBeeping; }
+  get beeperReady() { return this._vueState.audio.beeperReady; }
   
   startBeep = () => { return this._vueState.audio.startBeep(); }
   stopBeep = () => { return this._vueState.audio.stopBeep(); }
@@ -598,15 +598,15 @@ export default class AppState {
   _initializePersistentBeeper = () => { return this._vueState.audio.initializePersistentBeeper(); }
 
   // Voice module
-  get isLoopbackMode() { return this._ko_isLoopbackMode; }
-  get voiceHandlerReady() { return this._ko_voiceHandlerReady; }
-  get loopbackDominantFrequency() { return this._ko_loopbackDominantFrequency; }
+  get isLoopbackMode() { return this._vueState.voice.isLoopbackMode; }
+  get voiceHandlerReady() { return this._vueState.voice.voiceHandlerReady; }
+  get loopbackDominantFrequency() { return this._vueState.voice.loopbackDominantFrequency; }
   get voiceHandler() { return this._vueState.voice.voiceHandler; }
 
   // UI module
-  get currentOpenModal() { return this._ko_currentOpenModal; }
-  get messageBox() { return this._ko_messageBox; }
-  get settingsDialog() { return this._ko_settingsDialog; }
+  get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
+  get messageBox() { return this._vueState.ui.messageBox; }
+  get settingsDialog() { return this._vueState.ui.settingsDialog; }
   
   openSettings = (SettingsDialogClass) => { return this._vueState.ui.openSettings(this.settings, SettingsDialogClass); }
   closeSettings = () => { return this._vueState.ui.closeSettings(); }
@@ -616,9 +616,9 @@ export default class AppState {
   }
 
   // User module
-  get thisUser() { return this._ko_thisUser; }
-  get selfMute() { return this._ko_selfMute; }
-  get selfDeaf() { return this._ko_selfDeaf; }
+  get thisUser() { return this._vueState.user.thisUser; }
+  get selfMute() { return this._vueState.user.selfMute; }
+  get selfDeaf() { return this._vueState.user.selfDeaf; }
   
   requestMute = (user) => { 
     this._vueState.user.requestMute(user);
