@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import WorkerBasedMumbleConnector from '../worker-client';
 import { translate } from '../localize';
+import { buildWebSocketUrl } from '../utils/websocket-url';
 
 /**
  * useConnectionState - Vue composable for Mumble server connection lifecycle
@@ -56,27 +57,7 @@ export function useConnectionState(log) {
     logger(translate('logentry.connecting'), host);
 
     try {
-      // Parse port format: can be "443/murmur" (port + path) or just "64738" (port only)
-      // For HTTPS (443) and HTTP (80), omit port from URL
-      let wsUrl;
-      const portStr = String(port);
-      
-      if (portStr.includes('/')) {
-        // Format: "443/path" or "443/path/subpath" → wss://host/path or wss://host/path/subpath
-        const slashIndex = portStr.indexOf('/');
-        const portNum = portStr.substring(0, slashIndex);
-        const path = portStr.substring(slashIndex + 1);
-        const protocol = portNum === '443' ? 'wss' : 'ws';
-        wsUrl = portNum === '443' || portNum === '80'
-          ? `${protocol}://${host}/${path}`
-          : `${protocol}://${host}:${portNum}/${path}`;
-      } else {
-        // Format: "64738" → wss://host:64738
-        const protocol = portStr === '443' ? 'wss' : 'ws';
-        wsUrl = portStr === '443' || portStr === '80'
-          ? `${protocol}://${host}`
-          : `${protocol}://${host}:${portStr}`;
-      }
+      const wsUrl = buildWebSocketUrl(host, port);
 
       client = await connector.connect(wsUrl, {
         username: username,
