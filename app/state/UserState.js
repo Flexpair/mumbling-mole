@@ -1,6 +1,7 @@
 import ko from "knockout";
 import BufferQueueNode from "../audio/buffer-queue-node";
 import { createVoiceStreamManager } from "../utils/voice-stream-manager";
+import { createFrequencyAnalyzer } from "../utils/frequency-analyzer";
 
 const DEBUG_VOICE_LOGGING = false; // Set to true to see frequency analysis logs in console
 
@@ -90,7 +91,7 @@ export default class UserState {
         
         // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
         let analyserNode = null;
-        let frequencyAnalysisInterval = null;
+        let frequencyAnalyzer = null;
         
         if (this.voiceState.isLoopbackMode()) {
           analyserNode = this.audioState.audioContext.createAnalyser();
@@ -103,59 +104,14 @@ export default class UserState {
           gainNode.connect(analyserNode);
           analyserNode.connect(this.audioState.audioContext.destination);
           
-          // Start frequency analysis loop (runs continuously, checks selfDeaf internally)
-          const bufferLength = analyserNode.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          let noAudioCount = 0;
-          const NO_AUDIO_THRESHOLD = 3; // Hide after 3 consecutive checks without audio (300ms)
-          
-          frequencyAnalysisInterval = setInterval(() => {
-            // Skip analysis if muted or deafened
-            if (this.selfMute() || this.selfDeaf()) {
-              if (this.voiceState.loopbackDominantFrequency() > 0) {
-                this.voiceState.updateLoopbackFrequency(0);
-                debugLog('[LOOPBACK-FREQ]', 'Display cleared (muted or deafened)');
-              }
-              return;
-            }
-            
-            analyserNode.getByteFrequencyData(dataArray);
-            
-            // Find dominant frequency (bin with highest amplitude)
-            let maxAmplitude = 0;
-            let maxIndex = 0;
-            
-            for (let i = 0; i < bufferLength; i++) {
-              if (dataArray[i] > maxAmplitude) {
-                maxAmplitude = dataArray[i];
-                maxIndex = i;
-              }
-            }
-            
-            // Convert bin index to frequency (Hz)
-            // frequency = (index * sampleRate) / fftSize
-            const sampleRate = this.audioState.audioContext.sampleRate;
-            const dominantFrequency = (maxIndex * sampleRate) / analyserNode.fftSize;
-            
-            // Update voice state with detected frequency (only if significant amplitude)
-            // Threshold (50) to ensure display disappears quickly when audio stops
-            if (maxAmplitude > 50) {
-              this.voiceState.updateLoopbackFrequency(dominantFrequency);
-              noAudioCount = 0; // Reset counter when audio detected
-              debugLog('[LOOPBACK-FREQ]', 'Dominant frequency:', dominantFrequency.toFixed(1), 'Hz, amplitude:', maxAmplitude);
-            } else {
-              // No significant audio - increment counter
-              noAudioCount++;
-              
-              // Only clear display after consecutive checks without audio (and only if display is visible)
-              if (noAudioCount >= NO_AUDIO_THRESHOLD && this.voiceState.loopbackDominantFrequency() > 0) {
-                this.voiceState.updateLoopbackFrequency(0);
-                debugLog('[LOOPBACK-FREQ]', 'Display cleared after', noAudioCount, 'checks, amplitude:', maxAmplitude);
-              } else if (noAudioCount < NO_AUDIO_THRESHOLD) {
-                debugLog('[LOOPBACK-FREQ]', 'Low audio, amplitude:', maxAmplitude, 'count:', noAudioCount, '/', NO_AUDIO_THRESHOLD);
-              }
-            }
-          }, 100); // Update every 100ms
+          // Create and start frequency analyzer
+          frequencyAnalyzer = createFrequencyAnalyzer({
+            analyserNode,
+            onFrequencyUpdate: (freq) => this.voiceState.updateLoopbackFrequency(freq),
+            isMuted: () => this.selfMute(),
+            isDeafened: () => this.selfDeaf()
+          });
+          frequencyAnalyzer.start();
           
           debugLog('[LOOPBACK-FREQ]', 'Frequency analysis started for loopback mode');
         } else {
@@ -174,7 +130,7 @@ export default class UserState {
         // Use streamId as key for this specific stream, store sessionId for fallback cleanup
         this._streamManager.set(streamId, {
           sessionId: user.session,
-          interval: frequencyAnalysisInterval,
+          analyzer: frequencyAnalyzer, // Store analyzer instead of interval
           subscription: deafSubscription,
           userNode: userNode
         });

@@ -70,7 +70,16 @@ export function createVoiceStreamManager() {
    * @private
    */
   function disposeResources(resources, identifier, disposeCallback) {
-    // Clear frequency analysis interval
+    // Stop frequency analyzer (if present)
+    if (resources.analyzer) {
+      try {
+        resources.analyzer.stop();
+      } catch (err) {
+        console.error('[VOICE] Error stopping analyzer:', err);
+      }
+    }
+    
+    // Clear frequency analysis interval (legacy support)
     if (resources.interval) {
       clearInterval(resources.interval);
     }
