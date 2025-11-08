@@ -27,7 +27,7 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 - **Architecture**: Vue components use `provide/inject` to access Knockout `AppState` for backward compatibility
 - **State synchronization**: Bidirectional sync via `watch()` (Vue → Knockout) and `observable.subscribe()` (Knockout → Vue)
 - **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`
-- **Test coverage**: 1511 tests passing; VoiceState (97.82%), AudioState (93.6%), UserState (94.47%), AppState (78.46%)
+- **Test coverage**: 1477 tests passing; VoiceState (97.82%), AudioState (93.6%), UserState (94.47%), AppState (78.46%)
 - **Critical constraint**: Audio pipeline, worker threads, and Mumble protocol remain UNCHANGED
 - **Next phase**: Core state modules (AppState, AudioState, etc.) still use Knockout observables for backward compatibility - future migration target
 
@@ -183,7 +183,7 @@ onMounted(() => {
 watch(visible, (val) => appState.connectDialog.visible(val));
 ```
 - **Build integration**: `esbuild-plugin-vue3` handles `.vue` compilation; no separate toolchain needed
-- **Testing**: 1511 integration tests validate Vue ↔ Knockout dual-runtime contract
+- **Testing**: 1477 integration tests validate Vue ↔ Knockout dual-runtime contract
 
 **🎯 Next Phase: State Module Migration to Vue.js** (Future Work):
 - **Scope**: Migrate 5 core state modules (`AppState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ConnectionState`) from Knockout observables to Vue `ref()`/`reactive()`
@@ -321,7 +321,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
 
 ## Test infrastructure (Jest + Playwright)
-**Unit tests** (Jest 30.2.0): 1395 tests, ES modules with jsdom environment.
+**Unit tests** (Jest 30.2.0): 1477 tests, ES modules with jsdom environment.
 - **Excellent coverage** (>90%): AudioState (93.6%), ConnectionState (100%), UIState (100%), UserState (94.47%), VoiceState (97.82%), worker-client.js (92.92%), voice.js (96.02%), encoder-stream (94.11%)
 - **Good coverage** (>80%): AppState (78.46%), decoder-stream (82.53%), buffer-queue-node (81.08%)
 - **Auth modules**: AuthProvider (100%), MockAuthAdapter (98.92%), NetlifyIdentityAdapter (100%), AuthFactory (100%)
