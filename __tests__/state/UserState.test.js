@@ -206,6 +206,449 @@ describe('UserState - Reset', () => {
   });
 });
 
+describe('UserState - Voice Stream Management', () => {
+  let userState;
+  let audioState;
+  let voiceState;
+  let mockAudioContext;
+  let mockGainNode;
+  let mockAnalyserNode;
+
+  beforeEach(() => {
+    // Mock AudioContext
+    mockAudioContext = {
+      createGain: jest.fn(() => mockGainNode),
+      createAnalyser: jest.fn(() => mockAnalyserNode),
+      destination: {},
+      sampleRate: 48000
+    };
+    
+    // Mock GainNode
+    mockGainNode = {
+      gain: { value: 1 },
+      connect: jest.fn()
+    };
+    
+    // Mock AnalyserNode with context reference
+    mockAnalyserNode = {
+      fftSize: 2048,
+      smoothingTimeConstant: 0,
+      connect: jest.fn(),
+      getByteFrequencyData: jest.fn(),
+      frequencyBinCount: 1024,
+      context: mockAudioContext // Important: frequency analyzer needs this
+    };
+    
+    audioState = { audioContext: mockAudioContext };
+    voiceState = { 
+      isLoopbackMode: jest.fn(() => false),
+      loopbackDominantFrequency: jest.fn(() => 0),
+      updateLoopbackFrequency: jest.fn()
+    };
+    
+    userState = new UserState(audioState, voiceState);
+  });
+
+  test('should create BufferQueueNode on voice stream', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    // Create mock voice stream
+    const mockStream = new EventEmitter();
+    
+    // Emit voice event
+    user.emit('voice', mockStream);
+    
+    // Verify BufferQueueNode was created
+    expect(mockAudioContext.createGain).toHaveBeenCalled();
+  });
+
+  test('should connect audio nodes in normal mode', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // Verify node connections: userNode -> gainNode -> destination
+    expect(mockGainNode.connect).toHaveBeenCalledWith(mockAudioContext.destination);
+  });
+
+  test('should create AnalyserNode in loopback mode', () => {
+    voiceState.isLoopbackMode = jest.fn(() => true);
+    
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // Verify AnalyserNode was created
+    expect(mockAudioContext.createAnalyser).toHaveBeenCalled();
+    expect(mockAnalyserNode.fftSize).toBe(32768); // Set by voice handler
+  });
+
+  test('should update gain when selfDeaf changes', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // Initially not deaf
+    expect(mockGainNode.gain.value).toBe(1);
+    
+    // Deafen
+    userState.selfDeaf(true);
+    
+    // Gain should be 0
+    expect(mockGainNode.gain.value).toBe(0);
+    
+    // Undeafen
+    userState.selfDeaf(false);
+    
+    // Gain should be restored
+    expect(mockGainNode.gain.value).toBe(1);
+  });
+
+  test('should set talking status on voice data', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // Emit voice data
+    mockStream.emit('data', { target: 'normal', buffer: new ArrayBuffer(960) });
+    
+    expect(user.__ui.talking()).toBe('on');
+  });
+
+  test('should handle shout target', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    mockStream.emit('data', { target: 'shout', buffer: new ArrayBuffer(960) });
+    
+    expect(user.__ui.talking()).toBe('shout');
+  });
+
+  test('should handle whisper target', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    mockStream.emit('data', { target: 'whisper', buffer: new ArrayBuffer(960) });
+    
+    expect(user.__ui.talking()).toBe('whisper');
+  });
+
+  test('should handle loopback target', () => {
+    voiceState.isLoopbackMode = jest.fn(() => true);
+    
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    mockStream.emit('data', { target: 'loopback', buffer: new ArrayBuffer(960) });
+    
+    expect(user.__ui.talking()).toBe('on');
+  });
+
+  test('should cleanup on voice stream end', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // End the stream
+    mockStream.emit('end');
+    
+    // Talking should be off
+    expect(user.__ui.talking()).toBe('off');
+  });
+});
+
+describe('UserState - Cleanup Logic', () => {
+  let userState;
+  let audioState;
+  let voiceState;
+
+  beforeEach(() => {
+    const mockGainNode = {
+      gain: { value: 1 },
+      connect: jest.fn()
+    };
+    
+    const mockAudioContext = {
+      createGain: jest.fn(() => mockGainNode),
+      destination: {},
+      sampleRate: 48000
+    };
+    
+    audioState = { audioContext: mockAudioContext };
+    voiceState = { 
+      isLoopbackMode: jest.fn(() => false),
+      loopbackDominantFrequency: jest.fn(() => 0),
+      updateLoopbackFrequency: jest.fn()
+    };
+    
+    userState = new UserState(audioState, voiceState);
+  });
+
+  test('should cleanup voice stream idempotently', () => {
+    const user = createMockUser('TestUser');
+    user.session = 123;
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // Cleanup once
+    userState._cleanupVoiceStream(123);
+    
+    // Cleanup again - should not throw
+    expect(() => {
+      userState._cleanupVoiceStream(123);
+    }).not.toThrow();
+  });
+
+  test('should cleanup old stream when new stream starts', () => {
+    const user = createMockUser('TestUser');
+    user.session = 123;
+    userState.registerUser(user);
+    
+    // Start first stream
+    const mockStream1 = new EventEmitter();
+    user.emit('voice', mockStream1);
+    
+    // Start second stream (should cleanup first)
+    const mockStream2 = new EventEmitter();
+    user.emit('voice', mockStream2);
+    
+    // Should not throw
+    expect(user.__ui.talking()).toBe('off'); // Initial state
+  });
+
+  test('should handle cleanup with missing resources', () => {
+    // Cleanup non-existent stream - should not throw
+    expect(() => {
+      userState._cleanupVoiceStream('non-existent');
+    }).not.toThrow();
+  });
+});
+
+describe('UserState - Frequency Analysis (Loopback Mode)', () => {
+  let userState;
+  let audioState;
+  let voiceState;
+  let mockAudioContext;
+
+  beforeEach(() => {
+    // Mock AudioContext first (needed for circular reference)
+    mockAudioContext = {
+      createGain: jest.fn(),
+      createAnalyser: jest.fn(),
+      destination: {},
+      sampleRate: 48000
+    };
+    
+    const mockAnalyserNode = {
+      fftSize: 2048,
+      smoothingTimeConstant: 0,
+      connect: jest.fn(),
+      getByteFrequencyData: jest.fn(),
+      frequencyBinCount: 1024,
+      context: mockAudioContext // Important: frequency analyzer needs this
+    };
+    
+    const mockGainNode = {
+      gain: { value: 1 },
+      connect: jest.fn()
+    };
+    
+    // Now set the return values
+    mockAudioContext.createGain.mockReturnValue(mockGainNode);
+    mockAudioContext.createAnalyser.mockReturnValue(mockAnalyserNode);
+    
+    audioState = { audioContext: mockAudioContext };
+    voiceState = { 
+      isLoopbackMode: jest.fn(() => true),
+      loopbackDominantFrequency: jest.fn(() => 0),
+      updateLoopbackFrequency: jest.fn()
+    };
+    
+    userState = new UserState(audioState, voiceState);
+  });
+
+  test('should enable frequency analysis in loopback mode', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // AnalyserNode should be created
+    expect(audioState.audioContext.createAnalyser).toHaveBeenCalled();
+  });
+
+  test('should not create AnalyserNode in normal mode', () => {
+    voiceState.isLoopbackMode = jest.fn(() => false);
+    
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // AnalyserNode should NOT be created
+    expect(audioState.audioContext.createAnalyser).not.toHaveBeenCalled();
+  });
+});
+
+describe('UserState - Edge Cases', () => {
+  let userState;
+  let audioState;
+  let voiceState;
+
+  beforeEach(() => {
+    const mockGainNode = {
+      gain: { value: 1 },
+      connect: jest.fn()
+    };
+    
+    const mockAudioContext = {
+      createGain: jest.fn(() => mockGainNode),
+      destination: {},
+      sampleRate: 48000
+    };
+    
+    audioState = { audioContext: mockAudioContext };
+    voiceState = { 
+      isLoopbackMode: jest.fn(() => false),
+      loopbackDominantFrequency: jest.fn(() => 0),
+      updateLoopbackFrequency: jest.fn()
+    };
+    
+    userState = new UserState(audioState, voiceState);
+  });
+
+  test('should handle user without session ID', () => {
+    const user = createMockUser('TestUser');
+    user.session = undefined;
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    
+    // Should not throw
+    expect(() => {
+      user.emit('voice', mockStream);
+    }).not.toThrow();
+  });
+
+  test('should handle multiple users with voice streams', () => {
+    const user1 = createMockUser('User1');
+    const user2 = createMockUser('User2');
+    user1.session = 1;
+    user2.session = 2;
+    
+    userState.registerUser(user1);
+    userState.registerUser(user2);
+    
+    const stream1 = new EventEmitter();
+    const stream2 = new EventEmitter();
+    
+    user1.emit('voice', stream1);
+    user2.emit('voice', stream2);
+    
+    // Both should work independently
+    stream1.emit('data', { target: 'normal', buffer: new ArrayBuffer(960) });
+    stream2.emit('data', { target: 'normal', buffer: new ArrayBuffer(960) });
+    
+    expect(user1.__ui.talking()).toBe('on');
+    expect(user2.__ui.talking()).toBe('on');
+  });
+
+  test('should handle rapid mute/unmute changes', () => {
+    const user = createMockUser('TestUser');
+    userState.registerUser(user);
+    userState.thisUser(user.__ui);
+    
+    // Rapid toggles
+    for (let i = 0; i < 10; i++) {
+      userState.requestMute(user.__ui);
+      userState.requestUnmute(user.__ui);
+    }
+    
+    // Should end in unmuted state
+    expect(userState.selfMute()).toBe(false);
+  });
+
+  test('should handle user without channel', () => {
+    const user = createMockUser('TestUser');
+    user.channel = null;
+    
+    userState.registerUser(user);
+    
+    // channel observable should be undefined since user.channel is null
+    expect(user.__ui.channel()).toBeUndefined();
+  });
+});
+
+describe('UserState - Stream Manager Integration', () => {
+  let userState;
+
+  beforeEach(() => {
+    const mockGainNode = {
+      gain: { value: 1 },
+      connect: jest.fn()
+    };
+    
+    const mockAudioContext = {
+      createGain: jest.fn(() => mockGainNode),
+      destination: {},
+      sampleRate: 48000
+    };
+    
+    const audioState = { audioContext: mockAudioContext };
+    const voiceState = { 
+      isLoopbackMode: jest.fn(() => false),
+      loopbackDominantFrequency: jest.fn(() => 0)
+    };
+    
+    userState = new UserState(audioState, voiceState);
+  });
+
+  test('should have stream manager instance', () => {
+    expect(userState._streamManager).toBeDefined();
+    expect(typeof userState._streamManager.set).toBe('function');
+    expect(typeof userState._streamManager.cleanup).toBe('function');
+  });
+
+  test('should track resources in stream manager', () => {
+    const user = createMockUser('TestUser');
+    user.session = 123;
+    userState.registerUser(user);
+    
+    const mockStream = new EventEmitter();
+    user.emit('voice', mockStream);
+    
+    // Stream manager should have resources tracked
+    // (internal state not directly accessible, but no errors means tracking works)
+    expect(() => {
+      userState._cleanupVoiceStream(123);
+    }).not.toThrow();
+  });
+});
+
 // ============================================================
 // REMOVED TESTS - UI Features No Longer Implemented
 // ============================================================

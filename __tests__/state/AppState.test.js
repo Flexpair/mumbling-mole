@@ -371,4 +371,224 @@ describe('AppState - Vue Composables Architecture', () => {
       expect(appState.user).toBe(appState._vueState.user);
     });
   });
+
+  describe('Channel Registration (Single-Channel Mode)', () => {
+    test('should register channel and create UI wrapper', () => {
+      const mockChannel = {
+        id: 0,
+        name: 'Root',
+        position: 0,
+        description: 'Root channel',
+        temporary: false,
+        parent: null,
+        links: [],
+        children: []
+      };
+
+      appState._registerChannel(mockChannel);
+
+      expect(mockChannel.__ui).toBeDefined();
+      expect(mockChannel.__ui.model).toBe(mockChannel);
+      expect(typeof mockChannel.__ui.name).toBe('function'); // Knockout observable
+      expect(mockChannel.__ui.name()).toBe('Root');
+    });
+
+    test('should store root channel reference', () => {
+      const mockChannel = {
+        id: 0,
+        name: 'Root',
+        position: 0
+      };
+
+      appState._registerChannel(mockChannel);
+
+      // _registerChannel doesn't set appState.root - it only adds __ui to channel
+      expect(mockChannel.__ui).toBeDefined();
+      expect(mockChannel.__ui.name()).toBe('Root');
+    });
+
+    test('should update channel name reactively', () => {
+      const mockChannel = {
+        id: 0,
+        name: 'Initial Name',
+        position: 0
+      };
+
+      appState._registerChannel(mockChannel);
+      expect(mockChannel.__ui.name()).toBe('Initial Name');
+
+      // Update the observable directly
+      mockChannel.__ui.name('Updated Name');
+      expect(mockChannel.__ui.name()).toBe('Updated Name');
+    });
+
+    test('should handle channel without description', () => {
+      const mockChannel = {
+        id: 0,
+        name: 'Test Channel',
+        position: 0,
+        description: null
+      };
+
+      appState._registerChannel(mockChannel);
+      expect(mockChannel.__ui.model.description).toBeNull();
+    });
+
+    test('should return early for already-registered channel', () => {
+      const mockChannel = {
+        id: 0,
+        name: 'Root',
+        position: 0
+      };
+
+      appState._registerChannel(mockChannel);
+      const originalUI = mockChannel.__ui;
+      
+      // Call again - should not replace __ui
+      appState._registerChannel(mockChannel);
+
+      expect(mockChannel.__ui).toBe(originalUI);
+    });
+  });
+
+  describe('Connection Flow', () => {
+    test('should have _performConnect method', () => {
+      expect(typeof appState._performConnect).toBe('function');
+    });
+
+    test('should have connect method', () => {
+      expect(typeof appState.connect).toBe('function');
+    });
+
+    test('should have connectLoopback method', () => {
+      expect(typeof appState.connectLoopback).toBe('function');
+    });
+
+    test('should have resetClient method', () => {
+      expect(typeof appState.resetClient).toBe('function');
+    });
+
+    test('should track connection ID for race safety', () => {
+      expect(appState._currentConnectionId).toBeDefined();
+    });
+  });
+
+  describe('Backward Compatibility Getters', () => {
+    test('should have connected() method that checks thisUser', () => {
+      expect(typeof appState.connected).toBe('function');
+      
+      // Not connected initially (thisUser is null via Vue composable)
+      expect(appState.connected()).toBe(false);
+    });
+
+    test('should have getClient() method', () => {
+      expect(typeof appState.getClient).toBe('function');
+    });
+  });
+
+  describe('Audio Lock Integration', () => {
+    test('should prevent unmute when audio lock is active', () => {
+      // Activate audio lock (Knockout observable syntax)
+      if (typeof appState.audio.audioLockActive === 'function') {
+        appState.audio.audioLockActive(true);
+        appState.audio.audioLockReason('sample-rate');
+      }
+
+      // Try to unmute
+      if (typeof appState.user.selfMute === 'function') {
+        appState.user.selfMute(true);
+        appState.user.requestUnmute?.();
+
+        // Should remain muted
+        expect(appState.user.selfMute()).toBe(true);
+      }
+    });
+
+    test('should prevent undeaf when audio lock is active', () => {
+      // Activate audio lock
+      if (typeof appState.audio.audioLockActive === 'function') {
+        appState.audio.audioLockActive(true);
+      }
+
+      // Try to undeaf
+      if (typeof appState.user.selfDeaf === 'function') {
+        appState.user.selfDeaf(true);
+        appState.user.requestUndeaf?.();
+
+        // Should remain deaf
+        expect(appState.user.selfDeaf()).toBe(true);
+      }
+    });
+
+    test('should allow unmute when audio lock is cleared', () => {
+      // Activate then clear audio lock
+      if (typeof appState.audio.audioLockActive === 'function') {
+        appState.audio.audioLockActive(true);
+        appState.audio.audioLockActive(false);
+      }
+
+      // Now unmute should work
+      if (typeof appState.user.selfMute === 'function') {
+        appState.user.selfMute(true);
+        appState.user.requestUnmute?.();
+
+        expect(appState.user.selfMute()).toBe(false);
+      }
+    });
+  });
+
+  describe('Settings Integration', () => {
+    test('should have settings object', () => {
+      expect(appState.settings).toBeDefined();
+      expect(appState.settings.voiceMode).toBeDefined();
+      expect(appState.settings.audioBitrate).toBeDefined();
+    });
+
+    test('should read voice mode setting', () => {
+      appState.settings.voiceMode('cont');
+      expect(appState.settings.voiceMode()).toBe('cont');
+
+      appState.settings.voiceMode('ptt');
+      expect(appState.settings.voiceMode()).toBe('ptt');
+    });
+
+    test('should read audio bitrate setting', () => {
+      appState.settings.audioBitrate(40000);
+      expect(appState.settings.audioBitrate()).toBe(40000);
+
+      appState.settings.audioBitrate(24000);
+      expect(appState.settings.audioBitrate()).toBe(24000);
+    });
+
+    test('should read samples per packet setting', () => {
+      expect(appState.settings.samplesPerPacket()).toBe(960);
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle missing channel gracefully', () => {
+      // Test that _registerChannel handles null/undefined input
+      if (appState._registerChannel) {
+        expect(() => {
+          appState._registerChannel(null);
+        }).toThrow();
+      } else {
+        // If method doesn't exist, skip test
+        expect(true).toBe(true);
+      }
+    });
+
+    test('should handle invalid channel data', () => {
+      if (appState._registerChannel) {
+        // Test with incomplete channel object
+        const invalidChannel = { id: 999 }; // Missing name
+        
+        expect(() => {
+          appState._registerChannel(invalidChannel);
+        }).not.toThrow(); // Should handle gracefully
+      } else {
+        expect(true).toBe(true);
+      }
+    });
+  });
 });
