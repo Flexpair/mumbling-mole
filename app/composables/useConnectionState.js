@@ -27,14 +27,6 @@ export function useConnectionState(log) {
   const remotePort = ref(null);
   
   /**
-   * Check if currently connected to a Mumble server
-   * @returns {boolean} true if connected
-   */
-  function isConnected() {
-    return client !== null;
-  }
-  
-  /**
    * Get current client instance
    * @returns {object|null} client instance
    */

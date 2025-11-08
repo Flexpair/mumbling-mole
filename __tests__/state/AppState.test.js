@@ -215,7 +215,6 @@ describe('AppState - Vue Composables Architecture', () => {
 
   describe('Bidirectional Synchronization (Vue ↔ Knockout)', () => {
     test('Vue → Knockout: changing Vue ref updates Knockout observable', async () => {
-      const initialValue = appState._ko_isLoopbackMode();
       appState._vueState.voice.isLoopbackMode.value = true;
       
       // In the mock Vue environment, watch callbacks may not trigger automatically

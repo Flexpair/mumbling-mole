@@ -662,8 +662,8 @@ export default class AppState {
   get remotePort() { return this._ko_remotePort; }
   get client() { return this._vueState.connection.getClient(); }
   set client(value) { 
-    // This setter is for backward compatibility, but we don't expose client mutation in composables
-    console.warn('Direct client assignment is deprecated');
+    // Direct assignment is no longer supported - use composable API or connection methods
+    throw new Error('Direct assignment to appState.client is no longer supported. Use the composable API or appropriate methods to update the client.');
   }
 
   // Helpers

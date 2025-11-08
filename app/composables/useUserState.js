@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue';
 import BufferQueueNode from '../audio/buffer-queue-node';
+import ko from 'knockout';
 
 const DEBUG_VOICE_LOGGING = false;
 
@@ -53,8 +54,7 @@ export function useUserState(audioState, voiceState) {
       return;
     }
     
-    // Import ko for backward compatibility with mixed Knockout code
-    const ko = require('knockout');
+    // Use imported ko for backward compatibility with mixed Knockout code
     
     // Minimal wrapper: model, name, channel, self mute/deaf, talking
     // Protocol user.channel exists on model; channel.users managed by mumble-client
