@@ -178,30 +178,30 @@ describe('AppState - Vue Composables Architecture', () => {
       expect(appState.remotePort).toBe(appState._ko_remotePort);
     });
 
-    test('audio getters expose Knockout observables', () => {
-      expect(appState.audioLockActive).toBe(appState._ko_audioLockActive);
-      expect(appState.micPermissionDenied).toBe(appState._ko_micPermissionDenied);
-      expect(appState.micPermissionErrorMessage).toBe(appState._ko_micPermissionErrorMessage);
-      expect(appState.isBeeping).toBe(appState._ko_isBeeping);
-      expect(appState.beeperReady).toBe(appState._ko_beeperReady);
+    test('audio getters expose Vue refs', () => {
+      expect(appState.audioLockActive).toBe(appState._vueState.audio.audioLockActive);
+      expect(appState.micPermissionDenied).toBe(appState._vueState.audio.micPermissionDenied);
+      expect(appState.micPermissionErrorMessage).toBe(appState._vueState.audio.micPermissionErrorMessage);
+      expect(appState.isBeeping).toBe(appState._vueState.audio.isBeeping);
+      expect(appState.beeperReady).toBe(appState._vueState.audio.beeperReady);
     });
 
-    test('voice getters expose Knockout observables', () => {
-      expect(appState.isLoopbackMode).toBe(appState._ko_isLoopbackMode);
-      expect(appState.voiceHandlerReady).toBe(appState._ko_voiceHandlerReady);
-      expect(appState.loopbackDominantFrequency).toBe(appState._ko_loopbackDominantFrequency);
+    test('voice getters expose Vue refs', () => {
+      expect(appState.isLoopbackMode).toBe(appState._vueState.voice.isLoopbackMode);
+      expect(appState.voiceHandlerReady).toBe(appState._vueState.voice.voiceHandlerReady);
+      expect(appState.loopbackDominantFrequency).toBe(appState._vueState.voice.loopbackDominantFrequency);
     });
 
-    test('UI getters expose Knockout observables', () => {
-      expect(appState.currentOpenModal).toBe(appState._ko_currentOpenModal);
-      expect(appState.messageBox).toBe(appState._ko_messageBox);
-      expect(appState.settingsDialog).toBe(appState._ko_settingsDialog);
+    test('UI getters expose Vue refs', () => {
+      expect(appState.currentOpenModal).toBe(appState._vueState.ui.currentOpenModal);
+      expect(appState.messageBox).toBe(appState._vueState.ui.messageBox);
+      expect(appState.settingsDialog).toBe(appState._vueState.ui.settingsDialog);
     });
 
-    test('user getters expose Knockout observables', () => {
-      expect(appState.thisUser).toBe(appState._ko_thisUser);
-      expect(appState.selfMute).toBe(appState._ko_selfMute);
-      expect(appState.selfDeaf).toBe(appState._ko_selfDeaf);
+    test('user getters expose Vue refs', () => {
+      expect(appState.thisUser).toBe(appState._vueState.user.thisUser);
+      expect(appState.selfMute).toBe(appState._vueState.user.selfMute);
+      expect(appState.selfDeaf).toBe(appState._vueState.user.selfDeaf);
     });
 
     test('audioContext getter returns Vue composable value', () => {

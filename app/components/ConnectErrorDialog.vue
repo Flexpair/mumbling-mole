@@ -87,13 +87,14 @@ import { ref, inject, watch, onMounted, onUnmounted } from 'vue';
 const appState = inject('appState');
 
 // Local reactive state
+// Local state refs (synced with AppState connectErrorDialog and connectDialog)
 const visible = ref(false);
 const type = ref(0);
 const reason = ref('');
 const username = ref('');
 const password = ref('');
 
-// Subscriptions for cleanup
+// Subscriptions for cleanup (connectDialog properties are still Knockout observables)
 const subscriptions = [];
 
 // Methods
@@ -122,7 +123,7 @@ onMounted(() => {
   username.value = appState.connectDialog.username();
   password.value = appState.connectDialog.password();
 
-  // Knockout → Vue sync
+  // Knockout → Vue sync (connectErrorDialog and connectDialog are still Knockout)
   subscriptions.push(
     appState.connectErrorDialog.visible.subscribe((val) => {
       visible.value = val;

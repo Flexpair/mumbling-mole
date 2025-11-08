@@ -208,18 +208,15 @@ if (appState?.connectDialog) {
   });
 }
 
-// Computed state from AppState (use root-level Knockout observables)
+// Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
 const isBeeping = computed(() => appState?.isBeeping() ?? false);
 
-// Reactive refs for Knockout observables (updated via subscriptions)
-const beeperReady = ref(false);
-const voiceHandlerReady = ref(false);
-const isLoopbackMode = ref(false); // Changed from computed to ref with subscription
-const dominantFrequency = ref(0); // Changed from computed to ref with subscription
-
-// Knockout subscriptions (for cleanup)
-let sub1, sub2, sub3, sub4;
+// Computed properties from Vue refs in AppState
+const beeperReady = computed(() => appState?.beeperReady?.value ?? false);
+const voiceHandlerReady = computed(() => appState?.voiceHandlerReady?.value ?? false);
+const isLoopbackMode = computed(() => appState?.isLoopbackMode?.value ?? false);
+const dominantFrequency = computed(() => appState?.loopbackDominantFrequency?.value ?? 0);
 
 // Subscribe to Knockout observables
 onMounted(() => {
@@ -227,39 +224,6 @@ onMounted(() => {
   if (pianoButton.value) {
     pianoButton.value.addEventListener('touchstart', startBeep, { passive: true });
     pianoButton.value.addEventListener('touchend', stopBeep, { passive: true });
-  }
-  
-  // Subscribe to beeperReady (use root-level Knockout observable)
-  if (appState?.beeperReady) {
-    beeperReady.value = appState.beeperReady();
-    sub1 = appState.beeperReady.subscribe((val) => {
-      beeperReady.value = val;
-    });
-  }
-  
-  // Subscribe to voiceHandlerReady (use root-level Knockout observable)
-  if (appState?.voiceHandlerReady) {
-    voiceHandlerReady.value = appState.voiceHandlerReady();
-    sub2 = appState.voiceHandlerReady.subscribe((val) => {
-      voiceHandlerReady.value = val;
-    });
-  }
-  
-  // Subscribe to isLoopbackMode (use root-level Knockout observable)
-  if (appState?.isLoopbackMode) {
-    isLoopbackMode.value = appState.isLoopbackMode();
-    sub3 = appState.isLoopbackMode.subscribe((val) => {
-      console.log('[ConnectDialog Vue] isLoopbackMode changed to:', val);
-      isLoopbackMode.value = val;
-    });
-  }
-  
-  // Subscribe to loopbackDominantFrequency (use root-level Knockout observable)
-  if (appState?.loopbackDominantFrequency) {
-    dominantFrequency.value = appState.loopbackDominantFrequency();
-    sub4 = appState.loopbackDominantFrequency.subscribe((freq) => {
-      dominantFrequency.value = freq;
-    });
   }
 });
 
@@ -270,11 +234,6 @@ onUnmounted(() => {
     pianoButton.value.removeEventListener('touchstart', startBeep);
     pianoButton.value.removeEventListener('touchend', stopBeep);
   }
-  
-  if (sub1) sub1.dispose();
-  if (sub2) sub2.dispose();
-  if (sub3) sub3.dispose();
-  if (sub4) sub4.dispose();
 });
 
 /**
