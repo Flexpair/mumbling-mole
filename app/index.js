@@ -262,7 +262,7 @@ ui.connectDialog = {
       // If already connected, exit test mode and return to normal
       if (ui.connected()) {
         this.isTestActive(false);
-        ui.isLoopbackMode(false); // Use root-level Knockout observable
+        ui.isLoopbackMode.value = false; // Use Vue ref
         ui._updateVoiceHandler();
         
         // Show Guacamole desktop if credentials exist

@@ -210,7 +210,7 @@ if (appState?.connectDialog) {
 
 // Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
-const isBeeping = computed(() => appState?.isBeeping() ?? false);
+const isBeeping = computed(() => appState?.isBeeping?.value ?? false);
 
 // Computed properties from Vue refs in AppState
 const beeperReady = computed(() => appState?.beeperReady?.value ?? false);

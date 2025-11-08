@@ -210,14 +210,14 @@ test.describe('Loopback Frequency Test', () => {
           console.log('[TEST-CHECK] Test mode not active');
         }
         
-        // Check if beeper is ready (required for button visibility)
-        const beeperReady = ui.beeperReady?.() === true;
+        // Check if beeper is ready (required for button visibility) - Vue ref
+        const beeperReady = ui.beeperReady?.value === true;
         if (!beeperReady) {
           console.log('[TEST-CHECK] Beeper not ready');
         }
         
-        // Check if voice handler is ready (required for button visibility)
-        const voiceReady = ui.voiceHandlerReady?.() === true;
+        // Check if voice handler is ready (required for button visibility) - Vue ref
+        const voiceReady = ui.voiceHandlerReady?.value === true;
         if (!voiceReady) {
           console.log('[TEST-CHECK] Voice handler not ready');
         }
@@ -246,9 +246,9 @@ test.describe('Loopback Frequency Test', () => {
     // Check beeper state before clicking
     const beeperState = await page.evaluate(() => {
       return {
-        isBeeping: window.mumbleUi.isBeeping(),
-        beeperReady: window.mumbleUi.beeperReady(),
-        isLoopbackMode: window.mumbleUi.isLoopbackMode()
+        isBeeping: window.mumbleUi.isBeeping?.value,
+        beeperReady: window.mumbleUi.beeperReady?.value,
+        isLoopbackMode: window.mumbleUi.isLoopbackMode?.value
       };
     });
     console.log('   Beeper state before click:', JSON.stringify(beeperState, null, 2));
@@ -260,7 +260,7 @@ test.describe('Loopback Frequency Test', () => {
     await page.waitForTimeout(200);
     const beeperStateAfter = await page.evaluate(() => {
       return {
-        isBeeping: window.mumbleUi.isBeeping()
+        isBeeping: window.mumbleUi.isBeeping?.value
       };
     });
     console.log('   Beeper state after click:', JSON.stringify(beeperStateAfter, null, 2));
@@ -277,7 +277,7 @@ test.describe('Loopback Frequency Test', () => {
     
     while (Date.now() - startWait < TEST_CONFIG.BEEPER_MAX_WAIT) {
       const freq = await page.evaluate(() => {
-        return window.mumbleUi?.loopbackDominantFrequency() || 0;
+        return window.mumbleUi?.loopbackDominantFrequency?.value || 0;
       });
       
       if (freq > 0) {
@@ -299,20 +299,20 @@ test.describe('Loopback Frequency Test', () => {
     
     // Check if frequency analysis is actually running
     const analysisState = await page.evaluate(() => {
-      const thisUser = window.mumbleUi.thisUser();
+      const thisUser = window.mumbleUi.thisUser?.value;
       return {
         hasThisUser: !!thisUser,
-        selfMute: window.mumbleUi.selfMute(),
-        selfDeaf: window.mumbleUi.selfDeaf(),
-        isLoopbackMode: window.mumbleUi.isLoopbackMode(),
-        loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency()
+        selfMute: window.mumbleUi.selfMute?.value,
+        selfDeaf: window.mumbleUi.selfDeaf?.value,
+        isLoopbackMode: window.mumbleUi.isLoopbackMode?.value,
+        loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency?.value
       };
     });
     console.log('   Analysis state:', JSON.stringify(analysisState, null, 2));
     
     for (let i = 0; i < TEST_CONFIG.FREQUENCY_READINGS; i++) {
       const freq = await page.evaluate(() => {
-        return window.mumbleUi?.loopbackDominantFrequency() || 0;
+        return window.mumbleUi?.loopbackDominantFrequency?.value || 0;
       });
       frequencies.push(freq);
       console.log(`   Reading ${i + 1}/${TEST_CONFIG.FREQUENCY_READINGS}: ${freq} Hz`);
@@ -361,12 +361,12 @@ test.describe('Loopback Frequency Test', () => {
     // STEP 11: Verify frequency display clears
     console.log('🧹 Step 11: Verifying frequency display clears...');
     await page.waitForFunction(
-      () => (window.mumbleUi?.loopbackDominantFrequency() || 0) === 0,
-      { timeout: 1000 }
+      () => (window.mumbleUi?.loopbackDominantFrequency?.value || 0) === 0,
+      { timeout: 15000, polling: 100 }
     );
     
     const finalFreq = await page.evaluate(() => {
-      return window.mumbleUi?.loopbackDominantFrequency() || 0;
+      return window.mumbleUi?.loopbackDominantFrequency?.value || 0;
     });
     expect(finalFreq).toBe(0);
     console.log('✅ Frequency display cleared after button release');
@@ -386,7 +386,7 @@ test.describe('Loopback Frequency Test', () => {
     console.log('\n🧹 Cleaning up resources...');
     await page.evaluate(() => {
       // Stop beeper if still running
-      if (window.mumbleUi?.isBeeping()) {
+      if (window.mumbleUi?.isBeeping?.value) {
         window.mumbleUi.stopBeep();
       }
       

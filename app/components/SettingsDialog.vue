@@ -245,8 +245,8 @@ const handleCancel = () => {
 let settingsDialogSubscription = null;
 
 onMounted(() => {
-  // Initialize from current Knockout state
-  const koDialog = appState.settingsDialog();
+  // Initialize from current Vue ref state
+  const koDialog = appState.settingsDialog?.value;
   if (koDialog) {
     visible.value = true;
     voiceMode.value = koDialog.voiceMode();
@@ -261,8 +261,8 @@ onMounted(() => {
     }
   }
 
-  // Subscribe to Knockout settingsDialog changes
-  settingsDialogSubscription = appState.settingsDialog.subscribe((dialog) => {
+  // Watch Vue ref for changes
+  watch(() => appState.settingsDialog?.value, (dialog) => {
     if (dialog) {
       visible.value = true;
       voiceMode.value = dialog.voiceMode();
@@ -290,16 +290,11 @@ onBeforeUnmount(() => {
   if (keydownHandler && keyupHandler) {
     keyboardjs.unbind('', keydownHandler, keyupHandler);
   }
-
-  // Dispose Knockout subscription
-  if (settingsDialogSubscription) {
-    settingsDialogSubscription.dispose();
-  }
 });
 
 // Vue → Knockout sync (bidirectional)
 watch(visible, (val) => {
-  if (!val && appState.settingsDialog()) {
+  if (!val && appState.settingsDialog?.value) {
     appState.closeSettings();
   }
   
