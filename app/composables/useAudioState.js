@@ -1,14 +1,7 @@
 import { ref } from 'vue';
 import audioContextManager, { ensureAudioContext } from '../audio/audio-context-manager';
 import { getCurrentMixer } from '../audio/voice';
-
-const DEBUG_VOICE_LOGGING = false;
-
-function debugLog(tag, ...args) {
-  if (DEBUG_VOICE_LOGGING) {
-    console.log(tag, ...args);
-  }
-}
+import { debugLog } from './debug-utils';
 
 /**
  * useAudioState - Vue composable for audio context, permissions, and beeper

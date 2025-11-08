@@ -6,14 +6,7 @@ import {
   onAudioMixerReady,
 } from '../audio/voice';
 import { translate } from '../localize';
-
-const DEBUG_VOICE_LOGGING = false;
-
-function debugLog(tag, ...args) {
-  if (DEBUG_VOICE_LOGGING) {
-    console.log(tag, ...args);
-  }
-}
+import { debugLog } from './debug-utils';
 
 /**
  * useVoiceState - Vue composable for voice handler and loopback testing

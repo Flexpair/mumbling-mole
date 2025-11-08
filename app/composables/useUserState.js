@@ -1,14 +1,7 @@
 import { ref, watch } from 'vue';
 import BufferQueueNode from '../audio/buffer-queue-node';
 import ko from 'knockout';
-
-const DEBUG_VOICE_LOGGING = false;
-
-function debugLog(tag, ...args) {
-  if (DEBUG_VOICE_LOGGING) {
-    console.log(tag, ...args);
-  }
-}
+import { debugLog } from './debug-utils';
 
 /**
  * useUserState - Vue composable for user-related state and operations
