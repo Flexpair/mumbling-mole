@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import audioContextManager, { ensureAudioContext } from '../audio/audio-context-manager';
 import { getCurrentMixer } from '../audio/voice';
 import { debugLog } from './debug-utils';
+import { createCachedInitWithCheck } from './promise-cache-utils';
 
 /**
  * useAudioState - Vue composable for audio context, permissions, and beeper
@@ -19,7 +20,6 @@ import { debugLog } from './debug-utils';
 export function useAudioState() {
   // Audio context (internal state, not reactive)
   let audioContext = null;
-  let _audioContextInitPromise = null;
   let _audioWorkletModulesLoaded = new Set();
   
   // Audio lock state (reactive)
@@ -38,7 +38,6 @@ export function useAudioState() {
   const isBeeping = ref(false);
   const beeperReady = ref(false);
   let _persistentBeeper = null;
-  let _beeperInitPromise = null;
 
   /**
    * Get AudioContext instance
@@ -52,19 +51,9 @@ export function useAudioState() {
    * Initialize managed AudioContext with autoplay policy handling
    * RACE-SAFE: Multiple concurrent calls will reuse the same initialization
    */
-  async function initializeAudioContext() {
-    // Return existing instance if already initialized
-    if (audioContext) {
-      return;
-    }
-    
-    // Return pending promise if initialization is in progress
-    if (_audioContextInitPromise) {
-      return _audioContextInitPromise;
-    }
-    
-    // Start new initialization
-    _audioContextInitPromise = (async () => {
+  const initializeAudioContext = createCachedInitWithCheck(
+    () => audioContext,
+    async () => {
       try {
         // Use managed AudioContext that handles browser autoplay restrictions
         audioContext = await ensureAudioContext({ 
@@ -93,14 +82,11 @@ export function useAudioState() {
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
         }
-      } finally {
-        // Clear promise reference once complete
-        _audioContextInitPromise = null;
       }
-    })();
-    
-    return _audioContextInitPromise;
-  }
+      
+      return audioContext;
+    }
+  );
 
   /**
    * Resume AudioContext if suspended
@@ -220,48 +206,37 @@ export function useAudioState() {
    * EVENT-BASED: No timeouts! This method is called when audio mixer becomes available.
    * RACE-SAFE: Multiple concurrent calls will reuse the same initialization.
    */
-  async function initializePersistentBeeper() {
-    // Return if already initialized
-    if (_persistentBeeper) {
-      beeperReady.value = true;
-      return;
-    }
-    
-    // Return pending promise if initialization is in progress
-    if (_beeperInitPromise) {
-      return _beeperInitPromise;
-    }
-    
-    // Start new initialization
-    _beeperInitPromise = (async () => {
+  const initializePersistentBeeper = createCachedInitWithCheck(
+    () => _persistentBeeper,
+    async () => {
+      // Check if mixer is available NOW (no waiting, no timeout)
+      // RACE-SAFE: Use getCurrentMixer() instead of window._audioMixer to avoid race conditions
+      const mixer = getCurrentMixer();
+      if (!mixer) {
+        debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
+        beeperReady.value = false;
+        return null;
+      }
+      
+      const ac = await globalThis.audioContextManager.getAudioContext();
+      if (!ac) {
+        debugLog('[BEEP]', 'AudioContext not available');
+        beeperReady.value = false;
+        return null;
+      }
+      
+      // AUTOPLAY-POLICY: Allow beeper initialization even when AudioContext is suspended
+      // The Piano button click will resume the context via user gesture
+      // Only block if context is closed or in an error state
+      if (ac.state === 'closed') {
+        debugLog('[BEEP]', 'AudioContext is closed', { state: ac.state });
+        beeperReady.value = false;
+        return null;
+      }
+      
+      debugLog('[BEEP]', 'Initializing persistent beeper...', { state: ac.state });
+      
       try {
-        // Check if mixer is available NOW (no waiting, no timeout)
-        // RACE-SAFE: Use getCurrentMixer() instead of window._audioMixer to avoid race conditions
-        const mixer = getCurrentMixer();
-        if (!mixer) {
-          debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
-          beeperReady.value = false;
-          return;
-        }
-        
-        const ac = await globalThis.audioContextManager.getAudioContext();
-        if (!ac) {
-          debugLog('[BEEP]', 'AudioContext not available');
-          beeperReady.value = false;
-          return;
-        }
-        
-        // AUTOPLAY-POLICY: Allow beeper initialization even when AudioContext is suspended
-        // The Piano button click will resume the context via user gesture
-        // Only block if context is closed or in an error state
-        if (ac.state === 'closed') {
-          debugLog('[BEEP]', 'AudioContext is closed', { state: ac.state });
-          beeperReady.value = false;
-          return;
-        }
-        
-        debugLog('[BEEP]', 'Initializing persistent beeper...', { state: ac.state });
-        
         // Create permanent oscillator with split output for local+remote playback
         const oscillator = ac.createOscillator();
         const beepGain = ac.createGain();
@@ -290,17 +265,14 @@ export function useAudioState() {
         
         beeperReady.value = true;
         console.log('[BEEP] Persistent beeper initialized successfully');
+        return _persistentBeeper;
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
         beeperReady.value = false;
-      } finally {
-        // Clear promise reference once complete
-        _beeperInitPromise = null;
+        return null;
       }
-    })();
-    
-    return _beeperInitPromise;
-  }
+    }
+  );
 
   /**
    * Start beeping
