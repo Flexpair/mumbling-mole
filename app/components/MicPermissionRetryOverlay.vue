@@ -32,23 +32,25 @@ const handleRetry = () => {
 
 // Bidirectional sync with Knockout AppState
 onMounted(() => {
-  // Initialize from AppState
-  if (appState.audio) {
-    visible.value = appState.audio.micPermissionDenied() || false;
-    errorMessage.value = appState.audio.micPermissionErrorMessage() || '';
+  // Initialize from AppState (use root-level Knockout observables)
+  if (appState.micPermissionDenied) {
+    visible.value = appState.micPermissionDenied() || false;
+  }
+  if (appState.micPermissionErrorMessage) {
+    errorMessage.value = appState.micPermissionErrorMessage() || '';
   }
 
-  // Knockout → Vue sync
-  if (appState.audio && appState.audio.micPermissionDenied) {
+  // Knockout → Vue sync (use root-level observables)
+  if (appState.micPermissionDenied) {
     subscriptions.push(
-      appState.audio.micPermissionDenied.subscribe((val) => {
+      appState.micPermissionDenied.subscribe((val) => {
         visible.value = val || false;
       })
     );
   }
-  if (appState.audio && appState.audio.micPermissionErrorMessage) {
+  if (appState.micPermissionErrorMessage) {
     subscriptions.push(
-      appState.audio.micPermissionErrorMessage.subscribe((val) => {
+      appState.micPermissionErrorMessage.subscribe((val) => {
         errorMessage.value = val || '';
       })
     );

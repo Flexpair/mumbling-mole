@@ -365,7 +365,7 @@ describe('AudioState', () => {
       expect(mockGetUserMedia).toHaveBeenCalledWith({ audio: true });
     });
 
-    test('attemptMicrophonePermission handles success', async () => {
+    test('attemptMicrophonePermission resets counter on success', async () => {
       const mockTrack = { stop: jest.fn() };
       const mockStream = {
         getTracks: jest.fn(() => [mockTrack])
@@ -373,7 +373,19 @@ describe('AudioState', () => {
       mockGetUserMedia.mockResolvedValue(mockStream);
       
       audioState = new AudioState();
-      audioState.micPermissionRetryCount = 2;
+      
+      // First call - triggers internal retry count
+      const error = new Error('Temporary error');
+      error.name = 'DeviceBusyError';
+      mockGetUserMedia.mockRejectedValueOnce(error);
+      audioState.attemptMicrophonePermission();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Should have incremented retry count internally
+      expect(audioState.micPermissionRetryCount).toBeGreaterThan(0);
+      
+      // Second call succeeds
+      mockGetUserMedia.mockResolvedValue(mockStream);
       
       // Call and wait for promise
       audioState.attemptMicrophonePermission();
@@ -412,17 +424,30 @@ describe('AudioState', () => {
       globalThis.navigator.mediaDevices.getUserMedia = originalGetUserMedia;
     });
 
-    test('retryMicrophonePermission resets counter', () => {
-      audioState = new AudioState();
-      audioState.micPermissionRetryCount = 5;
-      audioState.micPermissionErrorMessage("Some error");
-      
+    test('retryMicrophonePermission resets counter', async () => {
       const mockStream = {
         getTracks: jest.fn(() => [{ stop: jest.fn() }])
       };
-      mockGetUserMedia.mockResolvedValue(mockStream);
       
+      audioState = new AudioState();
+      
+      // First attempt fails - increments retry count internally
+      const error = new Error('Temporary error');
+      error.name = 'DeviceBusyError';
+      mockGetUserMedia.mockRejectedValueOnce(error);
+      audioState.attemptMicrophonePermission();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Verify retry count was incremented
+      expect(audioState.micPermissionRetryCount).toBeGreaterThan(0);
+      
+      // Set error message to verify it gets cleared
+      audioState.micPermissionErrorMessage("Some error");
+      
+      // Retry succeeds
+      mockGetUserMedia.mockResolvedValue(mockStream);
       audioState.retryMicrophonePermission();
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       expect(audioState.micPermissionRetryCount).toBe(0);
       expect(audioState.micPermissionErrorMessage()).toBe("");

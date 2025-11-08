@@ -245,12 +245,10 @@ test.describe('Loopback Frequency Test', () => {
     
     // Check beeper state before clicking
     const beeperState = await page.evaluate(() => {
-      const audio = window.mumbleUi.audio;
       return {
-        isBeeping: audio.isBeeping(),
-        hasPersistentBeeper: !!audio._persistentBeeper,
+        isBeeping: window.mumbleUi.isBeeping(),
         beeperReady: window.mumbleUi.beeperReady(),
-        isLoopbackMode: window.mumbleUi.voice.isLoopbackMode()
+        isLoopbackMode: window.mumbleUi.isLoopbackMode()
       };
     });
     console.log('   Beeper state before click:', JSON.stringify(beeperState, null, 2));
@@ -261,11 +259,8 @@ test.describe('Loopback Frequency Test', () => {
     // Check beeper state after clicking
     await page.waitForTimeout(200);
     const beeperStateAfter = await page.evaluate(() => {
-      const audio = window.mumbleUi.audio;
       return {
-        isBeeping: audio.isBeeping(),
-        hasPersistentBeeper: !!audio._persistentBeeper,
-        beeperIsPlaying: audio._persistentBeeper?.isPlaying
+        isBeeping: window.mumbleUi.isBeeping()
       };
     });
     console.log('   Beeper state after click:', JSON.stringify(beeperStateAfter, null, 2));
@@ -282,7 +277,7 @@ test.describe('Loopback Frequency Test', () => {
     
     while (Date.now() - startWait < TEST_CONFIG.BEEPER_MAX_WAIT) {
       const freq = await page.evaluate(() => {
-        return window.mumbleUi?.voice?.loopbackDominantFrequency() || 0;
+        return window.mumbleUi?.loopbackDominantFrequency() || 0;
       });
       
       if (freq > 0) {
@@ -304,20 +299,20 @@ test.describe('Loopback Frequency Test', () => {
     
     // Check if frequency analysis is actually running
     const analysisState = await page.evaluate(() => {
-      const thisUser = window.mumbleUi.user.thisUser();
+      const thisUser = window.mumbleUi.thisUser();
       return {
         hasThisUser: !!thisUser,
-        selfMute: window.mumbleUi.user.selfMute(),
-        selfDeaf: window.mumbleUi.user.selfDeaf(),
-        isLoopbackMode: window.mumbleUi.voice.isLoopbackMode(),
-        loopbackDominantFrequency: window.mumbleUi.voice.loopbackDominantFrequency()
+        selfMute: window.mumbleUi.selfMute(),
+        selfDeaf: window.mumbleUi.selfDeaf(),
+        isLoopbackMode: window.mumbleUi.isLoopbackMode(),
+        loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency()
       };
     });
     console.log('   Analysis state:', JSON.stringify(analysisState, null, 2));
     
     for (let i = 0; i < TEST_CONFIG.FREQUENCY_READINGS; i++) {
       const freq = await page.evaluate(() => {
-        return window.mumbleUi?.voice?.loopbackDominantFrequency() || 0;
+        return window.mumbleUi?.loopbackDominantFrequency() || 0;
       });
       frequencies.push(freq);
       console.log(`   Reading ${i + 1}/${TEST_CONFIG.FREQUENCY_READINGS}: ${freq} Hz`);
@@ -366,12 +361,12 @@ test.describe('Loopback Frequency Test', () => {
     // STEP 11: Verify frequency display clears
     console.log('🧹 Step 11: Verifying frequency display clears...');
     await page.waitForFunction(
-      () => (window.mumbleUi?.voice?.loopbackDominantFrequency() || 0) === 0,
+      () => (window.mumbleUi?.loopbackDominantFrequency() || 0) === 0,
       { timeout: 1000 }
     );
     
     const finalFreq = await page.evaluate(() => {
-      return window.mumbleUi?.voice?.loopbackDominantFrequency() || 0;
+      return window.mumbleUi?.loopbackDominantFrequency() || 0;
     });
     expect(finalFreq).toBe(0);
     console.log('✅ Frequency display cleared after button release');
@@ -391,11 +386,11 @@ test.describe('Loopback Frequency Test', () => {
     console.log('\n🧹 Cleaning up resources...');
     await page.evaluate(() => {
       // Stop beeper if still running
-      if (window.mumbleUi?.audio?.isBeeping()) {
-        window.mumbleUi.audio.stopBeep();
+      if (window.mumbleUi?.isBeeping()) {
+        window.mumbleUi.stopBeep();
       }
       
-      // Disconnect from server
+      // Disconnect from server (connection module is still nested)
       if (window.mumbleUi?.connection?.client) {
         window.mumbleUi.connection.resetClient();
       }

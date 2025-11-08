@@ -152,47 +152,51 @@ const handleLogoutClick = () => {
 
 // Bidirectional sync with Knockout AppState
 onMounted(() => {
-  // Initialize from AppState
-  if (appState.user) {
-    selfMute.value = appState.user.selfMute() || false;
-    selfDeaf.value = appState.user.selfDeaf() || false;
+  // Initialize from AppState (use root-level Knockout observables)
+  if (appState.selfMute) {
+    selfMute.value = appState.selfMute() || false;
   }
-  if (appState.audio) {
-    audioLockActive.value = appState.audio.audioLockActive() || false;
+  if (appState.selfDeaf) {
+    selfDeaf.value = appState.selfDeaf() || false;
   }
-  if (appState.ui) {
-    messageBox.value = appState.ui.messageBox() || '';
+  if (appState.audioLockActive) {
+    audioLockActive.value = appState.audioLockActive() || false;
+  }
+  if (appState.messageBox) {
+    messageBox.value = appState.messageBox() || '';
+  }
+  if (appState.messageBoxHint) {
     messageBoxHint.value = appState.messageBoxHint() || '';
   }
   if (appState.mailToDesktop) {
     mailToDesktop.value = appState.mailToDesktop() || '';
   }
 
-  // Knockout → Vue sync
-  if (appState.user && appState.user.selfMute) {
+  // Knockout → Vue sync (use root-level observables)
+  if (appState.selfMute) {
     subscriptions.push(
-      appState.user.selfMute.subscribe((val) => {
+      appState.selfMute.subscribe((val) => {
         selfMute.value = val || false;
       })
     );
   }
-  if (appState.user && appState.user.selfDeaf) {
+  if (appState.selfDeaf) {
     subscriptions.push(
-      appState.user.selfDeaf.subscribe((val) => {
+      appState.selfDeaf.subscribe((val) => {
         selfDeaf.value = val || false;
       })
     );
   }
-  if (appState.audio && appState.audio.audioLockActive) {
+  if (appState.audioLockActive) {
     subscriptions.push(
-      appState.audio.audioLockActive.subscribe((val) => {
+      appState.audioLockActive.subscribe((val) => {
         audioLockActive.value = val || false;
       })
     );
   }
-  if (appState.ui && appState.ui.messageBox) {
+  if (appState.messageBox) {
     subscriptions.push(
-      appState.ui.messageBox.subscribe((val) => {
+      appState.messageBox.subscribe((val) => {
         messageBox.value = val || '';
       })
     );
@@ -215,8 +219,8 @@ onMounted(() => {
 
 // Vue → Knockout sync (messageBox is the only user-editable field)
 watch(messageBox, (val) => {
-  if (appState.ui && appState.ui.messageBox) {
-    appState.ui.messageBox(val);
+  if (appState.messageBox) {
+    appState.messageBox(val);
   }
 });
 

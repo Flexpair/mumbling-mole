@@ -1326,3 +1326,135 @@ This refactoring transforms a 1785-line god object into a clean, modular archite
 - **Comprehensive documentation** for future maintainers
 
 The new architecture follows SOLID principles and modern software engineering best practices while maintaining compatibility with the existing Knockout.js-based UI.
+
+---
+
+# Vue.js Migration History
+
+## Phase 1: Vue Composables Creation (November 7, 2025) ✅
+
+**Status:** Complete and Tested  
+**Branch:** `vue-state-migration`
+
+### Summary
+
+Created Vue 3 composables for all 5 state modules, maintaining full backward compatibility with the existing Knockout system. All 1517 unit tests pass.
+
+### Created Composables
+
+- **`app/composables/useConnectionState.js`** - WebSocket connection, client lifecycle
+- **`app/composables/useAudioState.js`** - AudioContext, beeper, audio lock
+- **`app/composables/useVoiceState.js`** - Voice handler, loopback mode
+- **`app/composables/useUIState.js`** - Modal management, message box
+- **`app/composables/useUserState.js`** - Current user, mute/deaf state
+
+### Dual-Runtime Architecture
+
+AppState now maintains both Vue and Knockout reactive systems:
+
+```javascript
+// Vue refs are source of truth
+const selfMute = ref(false);
+
+// Knockout observables sync FROM Vue
+this._ko_selfMute = ko.observable(false);
+watch(() => v.user.selfMute.value, (val) => this._ko_selfMute(val));
+```
+
+**API Surface:**
+- **Knockout API** (backward compatible): `appState.selfMute()` 
+- **Vue API** (new): `appState.user.selfMute.value`
+
+### Test Results
+- ✅ All 1517 unit tests passing
+- ✅ Production build successful (682KB index.js)
+- ✅ 6 new composable tests added
+
+---
+
+## Phase 2: Dual-Runtime API Fixes (November 8, 2025) ✅
+
+**Status:** Complete and Tested  
+**PR:** #195
+
+### Summary
+
+Fixed dual-runtime API inconsistencies and added comprehensive test coverage. All Vue components now correctly use root-level Knockout observables for backward compatibility.
+
+### Key Changes
+
+**Component API Fixes:**
+- Fixed all Vue components to use `appState.isBeeping()` not `appState.audio.isBeeping()`
+- Root-level API returns Knockout observables (callable functions)
+- Nested API returns Vue composables (ref properties)
+
+**Bug Fixes:**
+- Fixed `app/index.js` line 265: `ui.voice.isLoopbackMode(false)` → `ui.isLoopbackMode(false)`
+- Prevented "not a function" error when exiting loopback test mode
+
+**Test Coverage:**
+- Rewrote `__tests__/state/AppState.test.js` with 35 comprehensive tests (was 1 skipped)
+- Fixed Playwright E2E test (`loopback-frequency.spec.js`) for root-level API
+- Coverage: AppState 78%, AudioState 94%, VoiceState 98%, UserState 94%
+
+### Test Results
+- ✅ 1477 unit tests passing (0 skipped)
+- ✅ Playwright E2E test passing (440 Hz frequency detection)
+- ✅ All integration tests passing
+
+---
+
+## Phase 3: Complete Knockout Removal (Future) ⏸️
+
+**Status:** Deferred - Complex Refactor Required
+
+### Scope
+Would require coordinating changes across:
+1. All Vue components (change from `inject('appState')` to direct composable usage)
+2. Remove all `_ko_*` observables from state modules
+3. Remove bidirectional sync mechanisms (`watch()` and `subscribe()`)
+4. Rewrite `app/index.js` legacy classes (ConnectionInfo, SettingsDialog, Settings)
+5. Update all Playwright tests
+6. Remove Knockout dependency from `package.json`
+
+### Decision
+**Keep current dual-runtime architecture.** It's stable, fully tested, and allows gradual migration if needed in the future. The ~100KB Knockout dependency is acceptable given the complexity and risk of complete removal.
+
+---
+
+## Architecture Evolution
+
+### Before Migration (Knockout Only)
+```
+AppState (1785 lines, god object)
+ ConnectionState logic
+ AudioState logic
+ VoiceState logic  
+ UIState logic
+ UserState logic
+```
+
+### After Phase 1 (Vue Composables + Knockout Bridge)
+```
+AppState (modular, dual-runtime)
+ Vue Composables (source of truth)
+   ├── useConnectionState() → ref/reactive
+   ├── useAudioState() → ref/reactive
+   ├── useVoiceState() → ref/reactive
+   ├── useUIState() → ref/reactive
+   └── useUserState() → ref/reactive
+ Knockout Observables (backward compat)
+    ├── _ko_* properties
+    ├── Root-level getters (e.g., selfMute())
+    └── Bidirectional sync (watch + subscribe)
+```
+
+### After Phase 2 (API Fixes + Tests)
+- ✅ All components use correct API
+- ✅ Comprehensive test coverage
+- ✅ E2E tests passing
+- ✅ Production-ready
+
+---
+
+**Current Status:** Vue migration Phases 1-2 complete. System is stable with dual-runtime architecture providing full backward compatibility while enabling future Vue-only development.

@@ -1,18 +1,12 @@
-import ko from "knockout";
-import BufferQueueNode from "../audio/buffer-queue-node";
-import { createVoiceStreamManager } from "../utils/voice-stream-manager";
-import { createFrequencyAnalyzer } from "../utils/frequency-analyzer";
-
-const DEBUG_VOICE_LOGGING = false; // Set to true to see frequency analysis logs in console
-
-function debugLog(tag, ...args) {
-  if (DEBUG_VOICE_LOGGING) {
-    console.log(tag, ...args);
-  }
-}
+import { ref, watch } from 'vue';
+import BufferQueueNode from '../audio/buffer-queue-node';
+import ko from 'knockout';
+import { debugLog } from './debug-utils';
+import { createVoiceStreamManager } from '../utils/voice-stream-manager';
+import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
 
 /**
- * UserState - manages user-related state and operations
+ * useUserState - Vue composable for user-related state and operations
  * 
  * Responsibilities:
  * - Current user (thisUser) tracking
@@ -20,26 +14,25 @@ function debugLog(tag, ...args) {
  * - Minimal user registration (protocol support)
  * - Voice stream playback for users
  * 
+ * Migration from Knockout:
+ * - ko.observable() → ref()
+ * - observable.subscribe() → watch()
+ * 
  * NOTE: No UI rendering of user lists - app displays minimal UI (MessageBox + audio controls).
  * User protocol objects (mumble-client/user.js) maintain channel.users array.
  * UI only needs user.channel() reference for sendMessage and messageBoxHint.
  */
-export default class UserState {
-  constructor(audioState, voiceState) {
-    this.audioState = audioState;
-    this.voiceState = voiceState;
-    
-    // Current user
-    this.thisUser = ko.observable();
-    
-    // Self mute/deaf state
-    this.selfMute = ko.observable();
-    this.selfDeaf = ko.observable();
-    
-    // CLEANUP-TRACKING: Voice stream resource manager
-    // Prevents memory leaks from intervals and subscriptions
-    this._streamManager = createVoiceStreamManager();
-  }
+export function useUserState(audioState, voiceState) {
+  // Current user
+  const thisUser = ref(null);
+  
+  // Self mute/deaf state
+  const selfMute = ref(false);
+  const selfDeaf = ref(false);
+  
+  // CLEANUP-TRACKING: Voice stream resource manager
+  // Prevents memory leaks from intervals and subscriptions
+  const _streamManager = createVoiceStreamManager();
 
   /**
    * Register a user with minimal UI wrapper
@@ -48,11 +41,13 @@ export default class UserState {
    * 
    * @param {object} user - User model from mumble-client
    */
-  registerUser(user) {
+  function registerUser(user) {
     // Skip if UI already initialized
     if (user.__ui) {
       return;
     }
+    
+    // Use imported ko for backward compatibility with mixed Knockout code
     
     // Minimal wrapper: model, name, channel, self mute/deaf, talking
     // Protocol user.channel exists on model; channel.users managed by mumble-client
@@ -62,11 +57,11 @@ export default class UserState {
       channel: ko.observable(user.channel?.__ui),
       selfMute: ko.observable(user.selfMute),
       selfDeaf: ko.observable(user.selfDeaf),
-      talking: ko.observable("off"), // Needed for voice stream UI
+      talking: ko.observable('off'), // Needed for voice stream UI
     });
 
     // Voice stream handler (needed for audio playback)
-    user.on("voice", (stream) => {
+    user.on('voice', (stream) => {
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
         // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
@@ -75,26 +70,26 @@ export default class UserState {
         
         // Clear any previous voice stream resources for this user (using session ID)
         // This stops old intervals before starting new ones
-        this._cleanupVoiceStream(user.session);
+        _cleanupVoiceStream(user.session);
         
         // Create audio node for playing back received voice
         let userNode = new BufferQueueNode({
-          audioContext: this.audioState.audioContext,
+          audioContext: audioState.getAudioContext(),
         });
         
         // Create a GainNode to control volume (for deafen functionality)
-        let gainNode = this.audioState.audioContext.createGain();
+        let gainNode = audioState.getAudioContext().createGain();
         
         // Set initial gain based on current deafen state
-        gainNode.gain.value = this.selfDeaf() ? 0 : 1;
+        gainNode.gain.value = selfDeaf.value ? 0 : 1;
         debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value);
         
         // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
         let analyserNode = null;
         let frequencyAnalyzer = null;
         
-        if (this.voiceState.isLoopbackMode()) {
-          analyserNode = this.audioState.audioContext.createAnalyser();
+        if (voiceState.isLoopbackMode.value) {
+          analyserNode = audioState.getAudioContext().createAnalyser();
           analyserNode.fftSize = 32768; // FFT size for frequency resolution (~1.46 Hz resolution @ 48kHz)
           analyserNode.smoothingTimeConstant = 0.8; // Smooth frequency data
           
@@ -102,14 +97,14 @@ export default class UserState {
           // Frequency analysis AFTER gain node, so it only measures audible audio
           userNode.connect(gainNode);
           gainNode.connect(analyserNode);
-          analyserNode.connect(this.audioState.audioContext.destination);
+          analyserNode.connect(audioState.getAudioContext().destination);
           
           // Create and start frequency analyzer
           frequencyAnalyzer = createFrequencyAnalyzer({
             analyserNode,
-            onFrequencyUpdate: (freq) => this.voiceState.updateLoopbackFrequency(freq),
-            isMuted: () => this.selfMute(),
-            isDeafened: () => this.selfDeaf()
+            onFrequencyUpdate: (freq) => voiceState.updateLoopbackFrequency(freq),
+            isMuted: () => selfMute.value,
+            isDeafened: () => selfDeaf.value
           });
           frequencyAnalyzer.start();
           
@@ -117,66 +112,66 @@ export default class UserState {
         } else {
           // Normal mode: Connect: userNode -> gainNode -> destination
           userNode.connect(gainNode);
-          gainNode.connect(this.audioState.audioContext.destination);
+          gainNode.connect(audioState.getAudioContext().destination);
         }
         
-        // Subscribe to selfDeaf changes to update gain
-        let deafSubscription = this.selfDeaf.subscribe((isDeaf) => {
+        // Subscribe to selfDeaf changes to update gain (Vue watcher)
+        const stopDeafWatch = watch(selfDeaf, (isDeaf) => {
           gainNode.gain.value = isDeaf ? 0 : 1;
           debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
         });
         
         // CLEANUP-TRACKING: Store resources for proper cleanup
         // Use streamId as key for this specific stream, store sessionId for fallback cleanup
-        this._streamManager.set(streamId, {
+        _streamManager.set(streamId, {
           sessionId: user.session,
           analyzer: frequencyAnalyzer, // Store analyzer instead of interval
-          subscription: deafSubscription,
+          stopWatch: stopDeafWatch, // Vue watch cleanup function
           userNode: userNode
         });
 
         stream
-          .on("data", (data) => {
+          .on('data', (data) => {
             debugLog('[VOICE]', 'Audio data received, target:', data.target);
             
-            if (data.target === "normal") {
-              ui.talking("on");
-            } else if (data.target === "shout") {
-              ui.talking("shout");
-            } else if (data.target === "whisper") {
-              ui.talking("whisper");
-            } else if (data.target === "loopback") {
-              ui.talking("on");
+            if (data.target === 'normal') {
+              ui.talking('on');
+            } else if (data.target === 'shout') {
+              ui.talking('shout');
+            } else if (data.target === 'whisper') {
+              ui.talking('whisper');
+            } else if (data.target === 'loopback') {
+              ui.talking('on');
               debugLog('[VOICE]', 'Loopback audio received!');
             }
             
             userNode.write(data.buffer);
           })
-          .on("end", () => {
+          .on('end', () => {
             debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
-            ui.talking("off");
+            ui.talking('off');
             
             // CLEANUP: Use streamId to clean up this specific stream
-            this._cleanupVoiceStream(streamId);
+            _cleanupVoiceStream(streamId);
           });
       });
   }
   
   /**
-   * Clean up voice stream resources (intervals, subscriptions, audio nodes)
+   * Clean up voice stream resources (intervals, watchers, audio nodes)
    * RACE-SAFE: Can be called multiple times safely (idempotent)
    * @param {string|number} identifier - Either streamId (specific stream) or sessionId (all streams for user)
    * @private
    */
-  _cleanupVoiceStream(identifier) {
-    this._streamManager.cleanup(identifier, (resources) => {
-      // Knockout-specific disposal
-      if (resources.subscription) {
+  function _cleanupVoiceStream(identifier) {
+    _streamManager.cleanup(identifier, (resources) => {
+      // Vue-specific disposal
+      if (resources.stopWatch) {
         try {
-          resources.subscription.dispose();
-          debugLog('[VOICE]', 'Deaf subscription disposed');
+          resources.stopWatch();
+          debugLog('[VOICE]', 'Deaf watcher stopped');
         } catch (err) {
-          console.error('[VOICE] Error disposing subscription:', err);
+          console.error('[VOICE] Error stopping watcher:', err);
         }
       }
     });
@@ -187,9 +182,9 @@ export default class UserState {
    * @param {object} user - User UI object
    * @param {Function} onAudioLocked - Callback when audio is locked
    */
-  requestMute(user, onAudioLocked) {
-    if (user !== this.thisUser()) return;
-    this.selfMute(true);
+  function requestMute(user, onAudioLocked) {
+    if (user !== thisUser.value) return;
+    selfMute.value = true;
   }
 
   /**
@@ -197,16 +192,16 @@ export default class UserState {
    * @param {object} user - User UI object
    * @param {boolean} isLoopbackMode - Whether in loopback mode
    */
-  requestDeaf(user, isLoopbackMode = false) {
-    if (user !== this.thisUser()) return;
+  function requestDeaf(user, isLoopbackMode = false) {
+    if (user !== thisUser.value) return;
     
     // In loopback mode, allow deaf without mute
     // In normal mode, deaf automatically enables mute
     if (!isLoopbackMode) {
-      this.selfMute(true);
+      selfMute.value = true;
     }
     
-    this.selfDeaf(true);
+    selfDeaf.value = true;
   }
 
   /**
@@ -214,13 +209,13 @@ export default class UserState {
    * @param {object} user - User UI object
    * @param {Function} onAudioLocked - Callback when audio is locked
    */
-  requestUnmute(user, onAudioLocked) {
-    if (user !== this.thisUser()) {
+  function requestUnmute(user, onAudioLocked) {
+    if (user !== thisUser.value) {
       return;
     }
     
-    this.selfMute(false);
-    this.selfDeaf(false);
+    selfMute.value = false;
+    selfDeaf.value = false;
   }
 
   /**
@@ -228,17 +223,33 @@ export default class UserState {
    * @param {object} user - User UI object
    * @param {Function} onAudioLocked - Callback when audio is locked
    */
-  requestUndeaf(user, onAudioLocked) {
-    if (user !== this.thisUser()) return;
-    this.selfDeaf(false);
+  function requestUndeaf(user, onAudioLocked) {
+    if (user !== thisUser.value) return;
+    selfDeaf.value = false;
   }
 
   /**
    * Reset user state
    */
-  reset() {
-    this.thisUser(null);
-    this.selfMute(false);
-    this.selfDeaf(false);
+  function reset() {
+    thisUser.value = null;
+    selfMute.value = false;
+    selfDeaf.value = false;
   }
+
+  // Return composable API
+  return {
+    // State (reactive)
+    thisUser,
+    selfMute,
+    selfDeaf,
+    
+    // Methods
+    registerUser,
+    requestMute,
+    requestDeaf,
+    requestUnmute,
+    requestUndeaf,
+    reset,
+  };
 }
