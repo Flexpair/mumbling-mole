@@ -93,31 +93,31 @@ const hints = computed(() => {
 
 // Methods
 const show = (sr, params) => {
-  if (appState.ui.currentOpenModal() !== null) {
+  if (appState.currentOpenModal() !== null) {
     return;
   }
   mode.value = 'confirm';
   sampleRate.value = sr || null;
   pendingConnection = params || null;
   visible.value = true;
-  appState.ui.currentOpenModal('sampleRateWarning');
+  appState.currentOpenModal('sampleRateWarning');
 };
 
 const showInfo = (sr) => {
-  if (appState.ui.currentOpenModal() !== null) {
+  if (appState.currentOpenModal() !== null) {
     return;
   }
   mode.value = 'info';
   sampleRate.value = sr || null;
   pendingConnection = null;
   visible.value = true;
-  appState.ui.currentOpenModal('sampleRateWarning');
+  appState.currentOpenModal('sampleRateWarning');
 };
 
 const hide = () => {
   visible.value = false;
-  if (appState.ui.currentOpenModal() === 'sampleRateWarning') {
-    appState.ui.currentOpenModal(null);
+  if (appState.currentOpenModal() === 'sampleRateWarning') {
+    appState.currentOpenModal(null);
   }
   pendingConnection = null;
 };

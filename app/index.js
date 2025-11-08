@@ -262,7 +262,7 @@ ui.connectDialog = {
       // If already connected, exit test mode and return to normal
       if (ui.connected()) {
         this.isTestActive(false);
-        ui.voice.isLoopbackMode(false);
+        ui.isLoopbackMode(false); // Use root-level Knockout observable
         ui._updateVoiceHandler();
         
         // Show Guacamole desktop if credentials exist

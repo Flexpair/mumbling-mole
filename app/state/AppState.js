@@ -1,17 +1,20 @@
-import ko from "knockout";
-import ConnectionState from "./ConnectionState";
-import AudioState from "./AudioState";
-import VoiceState from "./VoiceState";
-import UIState from "./UIState";
-import UserState from "./UserState";
-import { translate } from "../localize";
-import packageJson from "../../package.json";
+import ko from 'knockout';
+import { watch } from 'vue';
+import {
+  useConnectionState,
+  useAudioState,
+  useVoiceState,
+  useUIState,
+  useUserState,
+} from '../composables';
+import { translate } from '../localize';
+import packageJson from '../../package.json';
 
 /**
- * AppState - main state coordinator
+ * AppState - main state coordinator (Vue composables + Knockout backward compatibility)
  * 
- * Composes all state modules and provides a unified API.
- * Replaces the GlobalBindings god object with a modular architecture.
+ * Composes all state modules using Vue composables while maintaining Knockout API.
+ * Provides bidirectional sync between Vue refs and Knockout observables for gradual migration.
  * 
  * Architecture:
  * - ConnectionState: client connection, root user/channel setup
@@ -19,18 +22,38 @@ import packageJson from "../../package.json";
  * - VoiceState: voice handler, loopback mode, voice controls
  * - UIState: modals, message box, settings dialog
  * - UserState: current user, self mute/deaf, user registration, voice streams
+ * 
+ * Migration strategy:
+ * 1. Vue composables are the source of truth (ref/reactive)
+ * 2. Knockout observables are synchronized for backward compatibility
+ * 3. Watchers maintain bidirectional sync during transition
  */
 export default class AppState {
   constructor(config, log) {
     this.config = config;
     this.log = log || console.log.bind(console);
     
-    // Initialize state modules
-    this.connection = new ConnectionState(this.log);
-    this.audio = new AudioState();
-    this.voice = new VoiceState();
-    this.ui = new UIState();
-    this.user = new UserState(this.audio, this.voice);
+    // Initialize Vue composables (source of truth)
+    const connectionState = useConnectionState(this.log);
+    const audioState = useAudioState();
+    const voiceState = useVoiceState();
+    const uiState = useUIState();
+    const userState = useUserState(audioState, voiceState);
+    
+    // Store composable references
+    this._vueState = {
+      connection: connectionState,
+      audio: audioState,
+      voice: voiceState,
+      ui: uiState,
+      user: userState,
+    };
+    
+    // Create Knockout observable wrappers for backward compatibility
+    this._setupKnockoutWrappers();
+    
+    // Set up bidirectional sync between Vue and Knockout
+    this._setupBidirectionalSync();
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
@@ -45,22 +68,106 @@ export default class AppState {
     this._guacLogin = null;
     this._guacPassword = null;
     
-    // Set up subscriptions
+    // Connection tracking for race safety
+    this._currentConnectionId = null;
+    
+    // Set up cross-module subscriptions
     this._setupSubscriptions();
   }
 
   /**
+   * Create Knockout observable wrappers for Vue refs
+   * These observables are kept in sync with Vue state for backward compatibility
+   * @private
+   */
+  _setupKnockoutWrappers() {
+    // Connection state
+    this._ko_remoteHost = ko.observable(null);
+    this._ko_remotePort = ko.observable(null);
+    
+    // Audio state
+    this._ko_audioLockActive = ko.observable(false);
+    this._ko_audioLockReason = ko.observable(null);
+    this._ko_audioLockDetails = ko.observable(null);
+    this._ko_micPermissionDenied = ko.observable(false);
+    this._ko_micPermissionErrorMessage = ko.observable('');
+    this._ko_isBeeping = ko.observable(false);
+    this._ko_beeperReady = ko.observable(false);
+    
+    // Voice state
+    this._ko_isLoopbackMode = ko.observable(false);
+    this._ko_voiceHandlerReady = ko.observable(false);
+    this._ko_loopbackDominantFrequency = ko.observable(0);
+    
+    // UI state
+    this._ko_currentOpenModal = ko.observable(null);
+    this._ko_messageBox = ko.observable('');
+    this._ko_settingsDialog = ko.observable(null);
+    
+    // User state
+    this._ko_thisUser = ko.observable(null);
+    this._ko_selfMute = ko.observable(false);
+    this._ko_selfDeaf = ko.observable(false);
+  }
+
+  /**
+   * Set up bidirectional sync between Vue refs and Knockout observables
+   * @private
+   */
+  _setupBidirectionalSync() {
+    const v = this._vueState;
+    
+    // Connection state: Vue → Knockout
+    watch(() => v.connection.remoteHost.value, (val) => this._ko_remoteHost(val));
+    watch(() => v.connection.remotePort.value, (val) => this._ko_remotePort(val));
+    
+    // Audio state: Vue → Knockout
+    watch(() => v.audio.audioLockActive.value, (val) => this._ko_audioLockActive(val));
+    watch(() => v.audio.audioLockReason.value, (val) => this._ko_audioLockReason(val));
+    watch(() => v.audio.audioLockDetails.value, (val) => this._ko_audioLockDetails(val));
+    watch(() => v.audio.micPermissionDenied.value, (val) => this._ko_micPermissionDenied(val));
+    watch(() => v.audio.micPermissionErrorMessage.value, (val) => this._ko_micPermissionErrorMessage(val));
+    watch(() => v.audio.isBeeping.value, (val) => this._ko_isBeeping(val));
+    watch(() => v.audio.beeperReady.value, (val) => this._ko_beeperReady(val));
+    
+    // Voice state: Vue → Knockout
+    watch(() => v.voice.isLoopbackMode.value, (val) => this._ko_isLoopbackMode(val));
+    watch(() => v.voice.voiceHandlerReady.value, (val) => this._ko_voiceHandlerReady(val));
+    watch(() => v.voice.loopbackDominantFrequency.value, (val) => this._ko_loopbackDominantFrequency(val));
+    
+    // UI state: Vue → Knockout
+    watch(() => v.ui.currentOpenModal.value, (val) => this._ko_currentOpenModal(val));
+    watch(() => v.ui.messageBox.value, (val) => this._ko_messageBox(val));
+    watch(() => v.ui.settingsDialog.value, (val) => this._ko_settingsDialog(val));
+    
+    // User state: Vue → Knockout
+    watch(() => v.user.thisUser.value, (val) => this._ko_thisUser(val));
+    watch(() => v.user.selfMute.value, (val) => this._ko_selfMute(val));
+    watch(() => v.user.selfDeaf.value, (val) => this._ko_selfDeaf(val));
+    
+    // Knockout → Vue (for external updates to Knockout observables)
+    this._ko_remoteHost.subscribe((val) => { if (v.connection.remoteHost.value !== val) v.connection.remoteHost.value = val; });
+    this._ko_remotePort.subscribe((val) => { if (v.connection.remotePort.value !== val) v.connection.remotePort.value = val; });
+    this._ko_audioLockActive.subscribe((val) => { if (v.audio.audioLockActive.value !== val) v.audio.audioLockActive.value = val; });
+    this._ko_isLoopbackMode.subscribe((val) => { if (v.voice.isLoopbackMode.value !== val) v.voice.isLoopbackMode.value = val; });
+    this._ko_messageBox.subscribe((val) => { if (v.ui.messageBox.value !== val) v.ui.messageBox.value = val; });
+    this._ko_selfMute.subscribe((val) => { if (v.user.selfMute.value !== val) v.user.selfMute.value = val; });
+    this._ko_selfDeaf.subscribe((val) => { if (v.user.selfDeaf.value !== val) v.user.selfDeaf.value = val; });
+  }
+
+  /**
    * Set up reactive subscriptions between modules
+   * @private
    */
   _setupSubscriptions() {
     // When selfMute changes, update voice handler
-    this.user.selfMute.subscribe((mute) => {
-      this.voice.setMute(mute);
+    watch(() => this._vueState.user.selfMute.value, (mute) => {
+      this._vueState.voice.setMute(mute);
     });
   }
 
   // ============================================================
-  // PUBLIC API - Expose module functionality
+  // PUBLIC API - Expose module functionality via Knockout observables
   // ============================================================
 
   /**
@@ -68,7 +175,7 @@ export default class AppState {
    * @returns {boolean}
    */
   connected = () => {
-    return this.user.thisUser() != null;
+    return this._vueState.user.thisUser.value != null;
   }
 
   /**
@@ -76,17 +183,17 @@ export default class AppState {
    * @returns {object|null}
    */
   getClient = () => {
-    return this.connection.getClient();
+    return this._vueState.connection.getClient();
   }
 
   /**
    * Connect to Mumble server
    */
-  async connect(host, port, username, password, tokens = [], channelName = "") {
+  async connect(host, port, username, password, tokens = [], channelName = '') {
     // Auth check
     const identity = this.auth.currentUser();
     if (!identity?.app_metadata) {
-      alert("You do not have permission to connect to the server. Please contact the administrator.");
+      alert('You do not have permission to connect to the server. Please contact the administrator.');
       return;
     }
 
@@ -95,16 +202,16 @@ export default class AppState {
       user_roles = [];
     }
 
-    if (!user_roles.includes("watch")) user_roles.push("watch");
-    if (!user_roles.includes("listen")) user_roles.push("listen");
+    if (!user_roles.includes('watch')) user_roles.push('watch');
+    if (!user_roles.includes('listen')) user_roles.push('listen');
     identity.app_metadata.roles = user_roles;
 
     // Prepare AudioContext
-    if (!this.audio.audioContext) {
-      await this.audio.initializeAudioContext();
+    if (!this._vueState.audio.audioContext) {
+      await this._vueState.audio.initializeAudioContext();
     }
     
-    const currentSampleRate = this.audio.audioContext ? this.audio.audioContext.sampleRate : null;
+    const currentSampleRate = this._vueState.audio.audioContext ? this._vueState.audio.audioContext.sampleRate : null;
     const audioCompatible = currentSampleRate === 48000;
     const connectionParams = { host, port, username, password, tokens, channelName };
 
@@ -124,7 +231,7 @@ export default class AppState {
         .then((stream) => {
           // RACE-SAFE: Only update state if this connection is still active
           if (this._currentConnectionId === connectionId) {
-            this.audio.micPermissionDenied(false);
+            this._vueState.audio.micPermissionDenied.value = false;
           }
           // Always stop tracks to avoid mic staying active
           for (const track of stream.getTracks()) {
@@ -132,25 +239,25 @@ export default class AppState {
           }
         })
         .catch((err) => {
-          console.warn("Microphone permission denied:", err);
+          console.warn('Microphone permission denied:', err);
           // RACE-SAFE: Only update state if this connection is still active
           if (this._currentConnectionId === connectionId) {
-            this.audio.micPermissionDenied(true);
+            this._vueState.audio.micPermissionDenied.value = true;
           }
         });
     }
 
-    this.audio.clearAudioLock({ resetStates: true });
+    this._vueState.audio.clearAudioLock({ resetStates: true });
     await this._performConnect(connectionParams, { audioEnabled: true });
   }
 
   /**
    * Connect in loopback test mode
    */
-  async connectLoopback(host, port, username, password, tokens = [], channelName = "") {
+  async connectLoopback(host, port, username, password, tokens = [], channelName = '') {
     const identity = this.auth.currentUser();
     if (!identity?.app_metadata) {
-      alert("You do not have permission to connect to the server. Please contact the administrator.");
+      alert('You do not have permission to connect to the server. Please contact the administrator.');
       return;
     }
 
@@ -159,12 +266,12 @@ export default class AppState {
       user_roles = [];
     }
 
-    if (!user_roles.includes("watch")) user_roles.push("watch");
-    if (!user_roles.includes("listen")) user_roles.push("listen");
+    if (!user_roles.includes('watch')) user_roles.push('watch');
+    if (!user_roles.includes('listen')) user_roles.push('listen');
     identity.app_metadata.roles = user_roles;
 
-    if (!this.audio.audioContext) {
-      await this.audio.initializeAudioContext();
+    if (!this._vueState.audio.audioContext) {
+      await this._vueState.audio.initializeAudioContext();
     }
 
     const connectionParams = {
@@ -182,7 +289,7 @@ export default class AppState {
         .then((stream) => {
           // RACE-SAFE: Only update state if this connection is still active
           if (this._currentConnectionId === connectionId) {
-            this.audio.micPermissionDenied(false);
+            this._vueState.audio.micPermissionDenied.value = false;
           }
           // Always stop tracks to avoid mic staying active
           for (const track of stream.getTracks()) {
@@ -190,19 +297,19 @@ export default class AppState {
           }
         })
         .catch((err) => {
-          console.warn("Microphone permission denied:", err);
+          console.warn('Microphone permission denied:', err);
           // RACE-SAFE: Only update state if this connection is still active
           if (this._currentConnectionId === connectionId) {
-            this.audio.micPermissionDenied(true);
+            this._vueState.audio.micPermissionDenied.value = true;
           }
         });
     }
 
-    this.audio.clearAudioLock({ resetStates: true });
-    this.voice.isLoopbackMode(true);
+    this._vueState.audio.clearAudioLock({ resetStates: true });
+    this._vueState.voice.isLoopbackMode.value = true;
     
     // Ensure microphone is NOT muted for loopback test
-    this.user.selfMute(false);
+    this._vueState.user.selfMute.value = false;
     
     await this._performConnect(connectionParams, { audioEnabled: true });
   }
@@ -212,45 +319,22 @@ export default class AppState {
    */
   startLoopbackTest = async () => {
     if (this.connected()) {
-      this.voice.isLoopbackMode(true);
+      this._vueState.voice.isLoopbackMode.value = true;
       
-      if (this.voice.voiceHandler) {
-        this.voice.setMute(true);
-        this.voice.endVoiceHandler();
+      if (this._vueState.voice.voiceHandler) {
+        this._vueState.voice.setMute(true);
+        this._vueState.voice.endVoiceHandler();
       }
       
       this._updateVoiceHandler();
-      await this.audio.initializePersistentBeeper();
+      await this._vueState.audio.initializePersistentBeeper();
     } else {
-      const host = this.config.defaults.host || "localhost";
+      const host = this.config.defaults.host || 'localhost';
       const port = this.config.defaults.port || 64738;
-      const username = this.config.defaults.username || "WebClient";
-      const password = this.config.defaults.password || "";
+      const username = this.config.defaults.username || 'WebClient';
+      const password = this.config.defaults.password || '';
       this.connectLoopback(host, port, username, password);
     }
-  }
-
-  /**
-   * Validate authentication for connection
-   * @private
-   */
-  _validateAuthForConnection() {
-    const identity = this.auth.currentUser();
-    if (!identity?.app_metadata) {
-      alert("You do not have permission to connect to the server. Please contact the administrator.");
-      return false;
-    }
-
-    let user_roles = identity.app_metadata.roles || [];
-    if (!Array.isArray(user_roles)) {
-      user_roles = [];
-    }
-
-    if (!user_roles.includes("watch")) user_roles.push("watch");
-    if (!user_roles.includes("listen")) user_roles.push("listen");
-    identity.app_metadata.roles = user_roles;
-    
-    return true;
   }
 
   /**
@@ -259,39 +343,39 @@ export default class AppState {
    */
   async _setupAudioForConnection(audioEnabled, sampleRate, isLoopback) {
     if (audioEnabled) {
-      this.voice.initVoiceInput(
+      this._vueState.voice.initVoiceInput(
         (data) => {
-          if (this.connection.client) {
-            this.voice.writeVoiceData(data);
+          if (this._vueState.connection.getClient()) {
+            this._vueState.voice.writeVoiceData(data);
           } else {
-            this.voice.endVoiceHandler();
+            this._vueState.voice.endVoiceHandler();
           }
         },
         (err) => {
-          this.log(translate("logentry.mic_init_error"), err);
+          this.log(translate('logentry.mic_init_error'), err);
         },
         () => {
-          this.audio.initializePersistentBeeper();
-          if (this.voice.isLoopbackMode()) {
-            this.voice.voiceHandlerReady(true);
+          this._vueState.audio.initializePersistentBeeper();
+          if (this._vueState.voice.isLoopbackMode.value) {
+            this._vueState.voice.voiceHandlerReady.value = true;
           }
         }
       );
     } else {
-      this.audio.activateAudioLock("sample-rate", { sampleRate });
-      this.voice.endVoiceHandler();
+      this._vueState.audio.activateAudioLock('sample-rate', { sampleRate });
+      this._vueState.voice.endVoiceHandler();
     }
 
     try {
-      await this.audio.resumeAudioContext();
+      await this._vueState.audio.resumeAudioContext();
       
       try {
-        await this.audio.loadAudioWorkletModule('playback-buffer-processor.js');
+        await this._vueState.audio.loadAudioWorkletModule('playback-buffer-processor.js');
       } catch (err) {
         console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
       }
     } catch (error) {
-      console.warn("AudioContext resume failed, continuing anyway:", error);
+      console.warn('AudioContext resume failed, continuing anyway:', error);
     }
   }
 
@@ -300,13 +384,13 @@ export default class AppState {
    * @private
    */
   _resetUIForConnection() {
-    this.audio.stopBeep();
-    this.user.thisUser(null);
+    this._vueState.audio.stopBeep();
+    this._vueState.user.thisUser.value = null;
     
-    const wasLoopback = this.voice.isLoopbackMode();
+    const wasLoopback = this._vueState.voice.isLoopbackMode.value;
     if (!wasLoopback) {
-      this.audio.beeperReady(false);
-      this.voice.voiceHandlerReady(false);
+      this._vueState.audio.beeperReady.value = false;
+      this._vueState.voice.voiceHandlerReady.value = false;
     }
   }
 
@@ -315,23 +399,20 @@ export default class AppState {
    * @private
    */
   _setupGuacamoleFrame(guac_login) {
-    if (guac_login && !this.voice.isLoopbackMode()) {
+    if (guac_login && !this._vueState.voice.isLoopbackMode.value) {
       this.guacamoleFrame.start(guac_login, this._guacPassword);
       this.guacamoleFrame.show();
-    } else if (!guac_login && !this.voice.isLoopbackMode()) {
-      alert("For visual access please ask your administrator.");
+    } else if (!guac_login && !this._vueState.voice.isLoopbackMode.value) {
+      alert('For visual access please ask your administrator.');
     }
   }
 
   /**
    * Setup minimal client event handlers
-   * Only registers self user initially - no dynamic channel/user registration.
-   * App uses single-channel mode with all users in same room.
    * @private
    */
   _setupClientHandlers(client) {
     // No dynamic registration needed - single channel mode
-    // Users/channels managed by protocol, not UI
   }
 
   /**
@@ -339,59 +420,56 @@ export default class AppState {
    * @private
    */
   async _establishClientConnection(host, port, username, password, tokens, channelName) {
-    const client = await this.connection.connect(host, port, username, password, tokens);
+    const client = await this._vueState.connection.connect(host, port, username, password, tokens);
     
     const user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
     let guac_login = false;
-    if (user_roles.includes("admin")) {
-      guac_login = "admin";
-    } else if (user_roles.includes("edit")) {
-      guac_login = "editor";
-    } else if (user_roles.includes("watch")) {
-      guac_login = "watcher";
+    if (user_roles.includes('admin')) {
+      guac_login = 'admin';
+    } else if (user_roles.includes('edit')) {
+      guac_login = 'editor';
+    } else if (user_roles.includes('watch')) {
+      guac_login = 'watcher';
     }
     
     this._guacLogin = guac_login;
     this._guacPassword = this.connectDialog.password();
     this._setupGuacamoleFrame(guac_login);
     
-    if (this.voice.isLoopbackMode()) {
-      this.log(translate("logentry.connected_loopback"));
+    if (this._vueState.voice.isLoopbackMode.value) {
+      this.log(translate('logentry.connected_loopback'));
     } else {
-      this.log(translate("logentry.connected"));
+      this.log(translate('logentry.connected'));
     }
 
-    // Register root channel and self user (minimal UI wrappers for protocol)
-    // Single channel mode - no tree traversal
+    // Register root channel and self user
     this._registerChannel(client.root);
     
     if (client.self) {
-      this.user.registerUser(client.self);
-      this.user.thisUser(client.self.__ui);
+      this._vueState.user.registerUser(client.self);
+      this._vueState.user.thisUser.value = client.self.__ui;
     }
 
     this._setupClientHandlers(client);
-
     this._updateVoiceHandler();
 
-    if (this.audio.audioLockActive()) {
-      this.connection.setSelfMute(true);
-      this.connection.setSelfDeaf(true);
-    } else if (this.user.selfDeaf()) {
-      this.connection.setSelfDeaf(true);
-    } else if (this.user.selfMute()) {
-      this.connection.setSelfMute(true);
+    if (this._vueState.audio.audioLockActive.value) {
+      this._vueState.connection.getClient().setSelfMute(true);
+      this._vueState.connection.getClient().setSelfDeaf(true);
+    } else if (this._vueState.user.selfDeaf.value) {
+      this._vueState.connection.getClient().setSelfDeaf(true);
+    } else if (this._vueState.user.selfMute.value) {
+      this._vueState.connection.getClient().setSelfMute(true);
     }
   }
 
   /**
-   * Register channel with minimal UI wrapper for protocol compatibility
-   * Creates channel.__ui with model and name observable only.
+   * Register channel with minimal UI wrapper
    * @private
    */
   _registerChannel(channel) {
     if (channel.__ui) {
-      return; // Skip if already initialized
+      return;
     }
     
     channel.__ui = {
@@ -405,11 +483,11 @@ export default class AppState {
    * @private
    */
   async _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { host, port, username, password, tokens = [], channelName: targetChannel = "" } = connectionParams;
+    const { host, port, username, password, tokens = [], channelName: targetChannel = '' } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
 
     if (isLoopback) {
-      this.voice.isLoopbackMode(true);
+      this._vueState.voice.isLoopbackMode.value = true;
     }
 
     await this._setupAudioForConnection(audioEnabled, sampleRate, isLoopback);
@@ -418,12 +496,12 @@ export default class AppState {
     try {
       await this._establishClientConnection(host, port, username, password, tokens, targetChannel);
     } catch (err) {
-      if (err.$type?.name === "Reject") {
+      if (err.$type?.name === 'Reject') {
         this.connectErrorDialog.type(err.type);
         this.connectErrorDialog.reason(err.reason);
         this.connectErrorDialog.show();
       } else {
-        this.log(translate("logentry.connection_error"), err);
+        this.log(translate('logentry.connection_error'), err);
       }
     }
   }
@@ -433,61 +511,54 @@ export default class AppState {
    * @private
    */
   _updateVoiceHandler() {
-    this.voice.updateVoiceHandler(
-      this.connection.client,
+    this._vueState.voice.updateVoiceHandler(
+      this._vueState.connection.getClient(),
       this.settings,
       () => {
-        if (this.user.thisUser()) {
-          this.user.thisUser().talking("on");
+        if (this._vueState.user.thisUser.value) {
+          this._vueState.user.thisUser.value.talking('on');
         }
       },
       () => {
-        if (this.user.thisUser()) {
-          this.user.thisUser().talking("off");
+        if (this._vueState.user.thisUser.value) {
+          this._vueState.user.thisUser.value.talking('off');
         }
-        // Clear frequency display when stopped talking in loopback mode
-        // This happens when mute is activated or voice stream ends
-        if (this.voice.isLoopbackMode()) {
-          this.voice.loopbackDominantFrequency(0);
+        if (this._vueState.voice.isLoopbackMode.value) {
+          this._vueState.voice.loopbackDominantFrequency.value = 0;
         }
       }
     );
     
-    // In loopback mode, ensure microphone is NOT muted initially
-    if (this.voice.isLoopbackMode()) {
-      this.voice.setMute(false);
-    } else if (this.audio.audioLockActive() || this.user.selfMute()) {
-      this.voice.setMute(true);
+    if (this._vueState.voice.isLoopbackMode.value) {
+      this._vueState.voice.setMute(false);
+    } else if (this._vueState.audio.audioLockActive.value || this._vueState.user.selfMute.value) {
+      this._vueState.voice.setMute(true);
     }
 
-    this.connection.setAudioQuality(
-      this.settings.audioBitrate,
-      this.settings.samplesPerPacket
-    );
-    
-    // EVENT-BASED: Beeper initialization happens automatically when mixer becomes ready
-    // No need for setTimeout() - see _performConnect() mixer ready callback
+    const client = this._vueState.connection.getClient();
+    if (client) {
+      client.setAudioQuality(
+        this.settings.audioBitrate,
+        this.settings.samplesPerPacket
+      );
+    }
   }
 
   /**
    * Reset client and all state
    */
   resetClient = () => {
-    // RACE-SAFE: Cancel any in-progress connections
     this._currentConnectionId = null;
+    this._vueState.audio.stopBeep();
+    this._vueState.connection.disconnect();
+    this._vueState.user.thisUser.value = null;
     
-    this.audio.stopBeep();
-    this.connection.resetClient();
-    this.user.thisUser(null);
-    
-    // Keep beeper/voice ready state in loopback mode (for test button)
-    // Only reset loopback mode flag itself
-    const wasLoopback = this.voice.isLoopbackMode();
-    this.voice.isLoopbackMode(false);
+    const wasLoopback = this._vueState.voice.isLoopbackMode.value;
+    this._vueState.voice.isLoopbackMode.value = false;
     
     if (!wasLoopback) {
-      this.audio.beeperReady(false);
-      this.voice.voiceHandlerReady(false);
+      this._vueState.audio.beeperReady.value = false;
+      this._vueState.voice.voiceHandlerReady.value = false;
     }
   }
 
@@ -497,149 +568,147 @@ export default class AppState {
   sendMessage = (target, message) => {
     if (this.connected()) {
       if (!target) {
-        // Default to current channel
-        target = this.user.thisUser()?.channel();
+        target = this._vueState.user.thisUser.value?.channel();
       }
       if (!target) {
-        return; // No target available
+        return;
       }
       target.model.sendMessage(message);
     }
   }
 
   // ============================================================
-  // DELEGATION - Expose module properties/methods
+  // DELEGATION - Expose Knockout observables for backward compatibility
   // ============================================================
 
   // Audio module
-  get audioContext() { return this.audio.audioContext; }
-  get audioLockActive() { return this.audio.audioLockActive; }
-  get audioLockReason() { return this.audio.audioLockReason; }
-  get audioLockDetails() { return this.audio.audioLockDetails; }
-  get micPermissionDenied() { return this.audio.micPermissionDenied; }
-  get micPermissionErrorMessage() { return this.audio.micPermissionErrorMessage; }
-  get isBeeping() { return this.audio.isBeeping; }
-  get beeperReady() { return this.audio.beeperReady; }
+  get audioContext() { return this._vueState.audio.audioContext; }
+  get audioLockActive() { return this._ko_audioLockActive; }
+  get audioLockReason() { return this._ko_audioLockReason; }
+  get audioLockDetails() { return this._ko_audioLockDetails; }
+  get micPermissionDenied() { return this._ko_micPermissionDenied; }
+  get micPermissionErrorMessage() { return this._ko_micPermissionErrorMessage; }
+  get isBeeping() { return this._ko_isBeeping; }
+  get beeperReady() { return this._ko_beeperReady; }
   
-  startBeep = () => { return this.audio.startBeep(); }
-  stopBeep = () => { return this.audio.stopBeep(); }
-  retryMicrophonePermission = () => { return this.audio.retryMicrophonePermission(); }
-  initializeAudioContext = () => { return this.audio.initializeAudioContext(); }
-  _initializePersistentBeeper = () => { return this.audio.initializePersistentBeeper(); }
+  startBeep = () => { return this._vueState.audio.startBeep(); }
+  stopBeep = () => { return this._vueState.audio.stopBeep(); }
+  retryMicrophonePermission = () => { return this._vueState.audio.retryMicrophonePermission(); }
+  initializeAudioContext = () => { return this._vueState.audio.initializeAudioContext(); }
+  _initializePersistentBeeper = () => { return this._vueState.audio.initializePersistentBeeper(); }
 
   // Voice module
-  get isLoopbackMode() { return this.voice.isLoopbackMode; }
-  get voiceHandlerReady() { return this.voice.voiceHandlerReady; }
-  get voiceHandler() { return this.voice.voiceHandler; }
+  get isLoopbackMode() { return this._ko_isLoopbackMode; }
+  get voiceHandlerReady() { return this._ko_voiceHandlerReady; }
+  get loopbackDominantFrequency() { return this._ko_loopbackDominantFrequency; }
+  get voiceHandler() { return this._vueState.voice.voiceHandler; }
 
   // UI module
-  get currentOpenModal() { return this.ui.currentOpenModal; }
-  get messageBox() { return this.ui.messageBox; }
-  get settingsDialog() { return this.ui.settingsDialog; }
+  get currentOpenModal() { return this._ko_currentOpenModal; }
+  get messageBox() { return this._ko_messageBox; }
+  get settingsDialog() { return this._ko_settingsDialog; }
   
-  openSettings = (SettingsDialogClass) => { return this.ui.openSettings(this.settings, SettingsDialogClass); }
-  closeSettings = () => { return this.ui.closeSettings(); }
-  /**
-   * Submit message box - always sends to current channel
-   */
+  openSettings = (SettingsDialogClass) => { return this._vueState.ui.openSettings(this.settings, SettingsDialogClass); }
+  closeSettings = () => { return this._vueState.ui.closeSettings(); }
   submitMessageBox = () => {
-    const target = this.user.thisUser()?.channel();
-    return this.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
+    const target = this._vueState.user.thisUser.value?.channel();
+    return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
   }
 
   // User module
-  get thisUser() { return this.user.thisUser; }
-  get selfMute() { return this.user.selfMute; }
-  get selfDeaf() { return this.user.selfDeaf; }
+  get thisUser() { return this._ko_thisUser; }
+  get selfMute() { return this._ko_selfMute; }
+  get selfDeaf() { return this._ko_selfDeaf; }
   
   requestMute = (user) => { 
-    this.user.requestMute(user);
+    this._vueState.user.requestMute(user);
     if (this.connected()) {
-      this.connection.setSelfMute(true);
+      this._vueState.connection.getClient().setSelfMute(true);
     }
   }
   
   requestDeaf = (user) => { 
-    this.user.requestDeaf(user, this.voice.isLoopbackMode());
+    this._vueState.user.requestDeaf(user, this._vueState.voice.isLoopbackMode.value);
     if (this.connected()) {
-      this.connection.setSelfDeaf(true);
+      this._vueState.connection.getClient().setSelfDeaf(true);
     }
   }
   
   requestUnmute = (user) => {
-    if (this.audio.audioLockActive()) {
+    if (this._vueState.audio.audioLockActive.value) {
       this.notifyAudioLock();
       return;
     }
-    this.user.requestUnmute(user);
+    this._vueState.user.requestUnmute(user);
     if (this.connected()) {
-      this.connection.setSelfMute(false);
-      this.connection.setSelfDeaf(false);
+      this._vueState.connection.getClient().setSelfMute(false);
+      this._vueState.connection.getClient().setSelfDeaf(false);
     }
   }
   
   requestUndeaf = (user) => {
-    if (this.audio.audioLockActive()) {
+    if (this._vueState.audio.audioLockActive.value) {
       this.notifyAudioLock();
       return;
     }
-    this.user.requestUndeaf(user);
+    this._vueState.user.requestUndeaf(user);
     if (this.connected()) {
-      this.connection.setSelfDeaf(false);
+      this._vueState.connection.getClient().setSelfDeaf(false);
     }
   }
 
   // Connection module
-  get remoteHost() { return this.connection.remoteHost; }
-  get remotePort() { return this.connection.remotePort; }
-  get client() { return this.connection.client; }
-  set client(value) { this.connection.client = value; }
+  get remoteHost() { return this._ko_remoteHost; }
+  get remotePort() { return this._ko_remotePort; }
+  get client() { return this._vueState.connection.getClient(); }
+  set client(value) { 
+    // This setter is for backward compatibility, but we don't expose client mutation in composables
+    console.warn('Direct client assignment is deprecated');
+  }
 
   // Helpers
   notifyAudioLock = () => {
-    const details = this.audio.audioLockDetails() || {};
-    const sr = details.sampleRate ?? this.audio.audioContext?.sampleRate;
+    const details = this._vueState.audio.audioLockDetails.value || {};
+    const sr = details.sampleRate ?? this._vueState.audio.audioContext?.sampleRate;
     this.sampleRateWarningDialog.showInfo(sr);
   }
 
   handleUnmuteClick = () => {
-    if (this.user.thisUser()) {
-      this.requestUnmute(this.user.thisUser());
+    if (this._vueState.user.thisUser.value) {
+      this.requestUnmute(this._vueState.user.thisUser.value);
     }
   }
 
   handleUndeafClick = () => {
-    if (this.user.thisUser()) {
-      this.requestUndeaf(this.user.thisUser());
+    if (this._vueState.user.thisUser.value) {
+      this.requestUndeaf(this._vueState.user.thisUser.value);
     }
   }
 
   applySettings = () => {
-    const settingsDialog = this.ui.settingsDialog();
+    const settingsDialog = this._vueState.ui.settingsDialog.value;
     settingsDialog.applyTo(this.settings);
     this._updateVoiceHandler();
     this.settings.save();
-    this.ui.closeSettings();
+    this._vueState.ui.closeSettings();
   }
 
   // Computed observables
   messageBoxHint = ko.pureComputed(() => {
-    if (!this.user.thisUser()) {
-      return "";
+    if (!this._vueState.user.thisUser.value) {
+      return '';
     }
-    // Always send to current channel - no selection UI exists
-    const target = this.user.thisUser().channel();
+    const target = this._vueState.user.thisUser.value.channel();
     if (!target) {
-      return "";
+      return '';
     }
-    // Single-channel mode: messages always go to channel (never private user messages)
-    return translate("chat.channel_message_placeholder").replace("%1", target.name());
+    return translate('chat.channel_message_placeholder').replace('%1', target.name());
   });
 
   mailToDesktop = ko.observable(
-    "mailto:mail@" +
+    'mailto:mail@' +
     globalThis.location.hostname +
-    "?subject=Send%20attachment%20to%20desktop"
+    '?subject=Send%20attachment%20to%20desktop'
   );
 
   logoutUser = () => {
@@ -648,6 +717,13 @@ export default class AppState {
   }
 
   openSourceCode = () => {
-    window.open(packageJson.homepage, "_blank").focus();
+    window.open(packageJson.homepage, '_blank').focus();
   }
+
+  // Expose Vue state for direct access from Vue components
+  get connection() { return this._vueState.connection; }
+  get audio() { return this._vueState.audio; }
+  get voice() { return this._vueState.voice; }
+  get ui() { return this._vueState.ui; }
+  get user() { return this._vueState.user; }
 }

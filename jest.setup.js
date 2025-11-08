@@ -68,6 +68,22 @@ global.AudioWorkletNode = class MockAudioWorkletNode {
   disconnect() {}
 };
 
+// Mock Worker (Web Workers API)
+class MockWorker {
+  constructor(scriptURL, options) {
+    this.scriptURL = scriptURL;
+    this.options = options;
+    this.onmessage = null;
+    this.onerror = null;
+    this.addEventListener = jest.fn();
+    this.removeEventListener = jest.fn();
+    this.postMessage = jest.fn();
+    this.terminate = jest.fn();
+  }
+}
+
+global.Worker = MockWorker;
+
 // Mock localStorage (jsdom provides this, but ensure it's clean)
 beforeEach(() => {
   localStorage.clear();
