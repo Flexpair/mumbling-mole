@@ -8,6 +8,7 @@ import {
   useUserState,
   useConnectionDialog,
   useConnectErrorDialog,
+  useSampleRateWarningDialog,
 } from '../composables';
 import { translate } from '../localize';
 import packageJson from '../../package.json';
@@ -43,6 +44,7 @@ export default class AppState {
     const userState = useUserState(audioState, voiceState);
     const connectionDialog = useConnectionDialog();
     const connectErrorDialog = useConnectErrorDialog();
+    const sampleRateWarningDialog = useSampleRateWarningDialog();
     
     // Store composable references
     this._vueState = {
@@ -53,11 +55,11 @@ export default class AppState {
       user: userState,
       dialog: connectionDialog,
       errorDialog: connectErrorDialog,
+      sampleRateDialog: sampleRateWarningDialog,
     };
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
-    this.sampleRateWarningDialog = null; // Set externally
     this.guacamoleFrame = null; // Set externally
     this.connectionInfo = null; // Set externally
     this.auth = null; // Set externally
@@ -647,6 +649,6 @@ export default class AppState {
   get voice() { return this._vueState.voice; }
   get ui() { return this._vueState.ui; }
   get user() { return this._vueState.user; }
-  get connectDialog() { return this._vueState.dialog; }
   get connectErrorDialog() { return this._vueState.errorDialog; }
+  get sampleRateWarningDialog() { return this._vueState.sampleRateDialog; }
 }

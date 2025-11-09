@@ -10,5 +10,6 @@ export { useAudioState } from './useAudioState';
 export { useVoiceState } from './useVoiceState';
 export { useUIState } from './useUIState';
 export { useUserState } from './useUserState';
-export { useConnectionDialog } from './useConnectionDialog';
-export { useConnectErrorDialog } from './useConnectErrorDialog';
+export { useConnectionDialog } from './useConnectionDialog.js';
+export { useConnectErrorDialog } from './useConnectErrorDialog.js';
+export { useSampleRateWarningDialog } from './useSampleRateWarningDialog.js';

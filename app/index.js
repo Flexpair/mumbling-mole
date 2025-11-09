@@ -67,18 +67,18 @@ class ConnectionInfo {
 
     this.show = () => {
       // Prevent opening connection info if another modal is already open
-      if (this._ui.currentOpenModal() !== null) {
+      if (this._ui.ui.currentOpenModal.value !== null) {
         return;
       }
       this.update();
       this.visible(true);
-      this._ui.currentOpenModal('connectionInfo');
+      this._ui.ui.currentOpenModal.value = 'connectionInfo';
     };
     this.hide = () => {
       this.visible(false);
       // Clear the modal state when connection info dialog is closed
-      if (this._ui.currentOpenModal() === 'connectionInfo') {
-        this._ui.currentOpenModal(null);
+      if (this._ui.ui.currentOpenModal.value === 'connectionInfo') {
+        this._ui.ui.currentOpenModal.value = null;
       }
     };
   }
@@ -100,8 +100,8 @@ class ConnectionInfo {
       this.latencyMs(Number.NaN);
       this.latencyDeviation(Number.NaN);
     }
-    this.remoteHost(this._ui.remoteHost());
-    this.remotePort(this._ui.remotePort());
+    this.remoteHost(this._ui.connection.remoteHost.value);
+    this.remotePort(this._ui.connection.remotePort.value);
 
     let spp = this._ui.settings.samplesPerPacket;
     if (client) {
@@ -244,14 +244,7 @@ const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-// Note: connectDialog and connectErrorDialog are now Vue composables in AppState
-ui.sampleRateWarningDialog = {
-  visible: ko.observable(false),
-  mode: ko.observable("confirm"),
-  sampleRate: ko.observable(null),
-  show: function() { this.visible(true); },
-  hide: function() { this.visible(false); }
-};
+// Note: connectDialog, connectErrorDialog, and sampleRateWarningDialog are now Vue composables in AppState
 ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
 ui.connectionInfo = new ConnectionInfo(ui);
 ui.settings = new Settings(globalThis.mumbleWebConfig.settings);

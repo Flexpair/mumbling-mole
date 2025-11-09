@@ -186,9 +186,9 @@ function updateStats() {
 function handleHide() {
   visible.value = false;
   
-  // Clear modal state in Knockout (use root-level observable)
-  if (appState?.currentOpenModal() === 'connectionInfo') {
-    appState.currentOpenModal(null);
+  // Clear modal state in UIState (Vue ref)
+  if (appState?.ui.currentOpenModal.value === 'connectionInfo') {
+    appState.ui.currentOpenModal.value = null;
   }
 }
 </script>

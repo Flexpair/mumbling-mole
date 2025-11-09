@@ -98,7 +98,7 @@ describe('AppState - Vue Composables Architecture', () => {
       testToneVolume: ko.observable(1),
       toolbarVertical: ko.observable(false)
     };
-    // connectDialog and connectErrorDialog are now Vue composables (getters), initialize their refs directly
+    // connectDialog, connectErrorDialog, and sampleRateWarningDialog are now Vue composables (getters), initialize their refs directly
     appState.connectDialog.address.value = 'localhost';
     appState.connectDialog.port.value = '64738';
     appState.connectDialog.username.value = 'TestUser';
@@ -108,8 +108,10 @@ describe('AppState - Vue Composables Architecture', () => {
     appState.connectErrorDialog.type.value = 0;
     appState.connectErrorDialog.reason.value = '';
     appState.connectErrorDialog.visible.value = false;
+    appState.sampleRateWarningDialog.visible.value = false;
+    appState.sampleRateWarningDialog.mode.value = 'confirm';
+    appState.sampleRateWarningDialog.sampleRate.value = null;
     appState.connectionInfo = {};
-    appState.sampleRateWarningDialog = {};
     appState.guacamoleFrame = {};
   });
 
@@ -291,6 +293,14 @@ describe('AppState - Vue Composables Architecture', () => {
 
     test('sampleRateWarningDialog is initialized', () => {
       expect(appState.sampleRateWarningDialog).toBeDefined();
+      expect(typeof appState.sampleRateWarningDialog).toBe('object');
+      // Verify it's a Vue composable with refs
+      expect(typeof appState.sampleRateWarningDialog.visible).toBe('object');
+      expect(appState.sampleRateWarningDialog.visible).toHaveProperty('value');
+      expect(typeof appState.sampleRateWarningDialog.mode).toBe('object');
+      expect(appState.sampleRateWarningDialog.mode).toHaveProperty('value');
+      expect(typeof appState.sampleRateWarningDialog.sampleRate).toBe('object');
+      expect(appState.sampleRateWarningDialog.sampleRate).toHaveProperty('value');
     });
 
     test('guacamoleFrame is initialized', () => {
