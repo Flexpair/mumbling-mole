@@ -42,7 +42,7 @@ class VoiceHandler extends Writable {
       // samplesPerPacket controls frame size (default 960 samples = 20ms @ 48kHz)
       // target parameter routes voice to different destinations
       this._outbound = this._client.createVoiceStream(
-        this._settings.samplesPerPacket,
+        this._settings.samplesPerPacket.value,
         this._target
       );
 
@@ -100,7 +100,7 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
   // LOOPBACK-FEATURE: Pass target parameter to base class for routing
   constructor(client, settings, target = 0) {
     super(client, settings, target);
-    this._key = settings.pttKey;
+    this._key = settings.pttKey.value;
     this._pushed = false;
     this._keydown_handler = () => (this._pushed = true);
     this._keyup_handler = () => {

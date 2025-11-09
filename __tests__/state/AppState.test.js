@@ -89,14 +89,25 @@ describe('AppState - Vue Composables Architecture', () => {
     // Set external properties (as done in index.js)
     appState.auth = mockAuth;
     appState.config = mockConfig;
+    // Settings is now a Vue composable with refs (not Knockout observables)
     appState.settings = {
-      voiceMode: ko.observable('cont'),
-      audioBitrate: ko.observable(40000),
-      samplesPerPacket: ko.observable(960),
-      pttKey: ko.observable('ctrl + shift'),
-      vadLevel: ko.observable(0.3),
-      testToneVolume: ko.observable(1),
-      toolbarVertical: ko.observable(false)
+      voiceMode: { value: 'cont' },
+      audioBitrate: { value: 40000 },
+      samplesPerPacket: { value: 960 },
+      pttKey: { value: 'ctrl + shift' },
+      vadLevel: { value: 0.3 },
+      testToneVolume: { value: 1 },
+      toolbarVertical: { value: false },
+      pttKeyDisplay: { value: 'ctrl + shift' },
+      userCountInChannelName: { value: false },
+      // Computed properties
+      msPerPacket: { value: 20 },
+      totalBandwidth: { value: 0 },
+      positionBandwidth: { value: 0 },
+      overheadBandwidth: { value: 0 },
+      // Methods
+      save: jest.fn(),
+      recordPttKey: jest.fn()
     };
     // connectDialog, connectErrorDialog, sampleRateWarningDialog, and connectionInfo are now Vue composables (getters), initialize their refs directly
     appState.connectDialog.address.value = 'localhost';
@@ -153,9 +164,10 @@ describe('AppState - Vue Composables Architecture', () => {
 
     test('initializes settings from config', () => {
       expect(appState.settings).toBeDefined();
-      expect(appState.settings.voiceMode()).toBe('cont');
-      expect(appState.settings.audioBitrate()).toBe(40000);
-      expect(appState.settings.samplesPerPacket()).toBe(960);
+      // Settings is now a Vue composable with refs (not Knockout observables)
+      expect(appState.settings.voiceMode.value).toBe('cont');
+      expect(appState.settings.audioBitrate.value).toBe(40000);
+      expect(appState.settings.samplesPerPacket.value).toBe(960);
     });
   });
 
@@ -255,16 +267,19 @@ describe('AppState - Vue Composables Architecture', () => {
   describe('Settings Management', () => {
     test('settings object is initialized from config', () => {
       expect(appState.settings).toBeDefined();
-      expect(typeof appState.settings.voiceMode).toBe('function');
-      expect(typeof appState.settings.audioBitrate).toBe('function');
+      // Settings is now a Vue composable with refs (not Knockout observables)
+      expect(typeof appState.settings.voiceMode).toBe('object');
+      expect(appState.settings.voiceMode).toHaveProperty('value');
+      expect(typeof appState.settings.audioBitrate).toBe('object');
+      expect(appState.settings.audioBitrate).toHaveProperty('value');
     });
 
     test('settings values can be changed', () => {
-      appState.settings.voiceMode('ptt');
-      expect(appState.settings.voiceMode()).toBe('ptt');
+      appState.settings.voiceMode.value = 'ptt';
+      expect(appState.settings.voiceMode.value).toBe('ptt');
       
-      appState.settings.audioBitrate(48000);
-      expect(appState.settings.audioBitrate()).toBe(48000);
+      appState.settings.audioBitrate.value = 48000;
+      expect(appState.settings.audioBitrate.value).toBe(48000);
     });
   });
 
@@ -525,23 +540,23 @@ describe('AppState - Vue Composables Architecture', () => {
     });
 
     test('should read voice mode setting', () => {
-      appState.settings.voiceMode('cont');
-      expect(appState.settings.voiceMode()).toBe('cont');
+      appState.settings.voiceMode.value = 'cont';
+      expect(appState.settings.voiceMode.value).toBe('cont');
 
-      appState.settings.voiceMode('ptt');
-      expect(appState.settings.voiceMode()).toBe('ptt');
+      appState.settings.voiceMode.value = 'ptt';
+      expect(appState.settings.voiceMode.value).toBe('ptt');
     });
 
     test('should read audio bitrate setting', () => {
-      appState.settings.audioBitrate(40000);
-      expect(appState.settings.audioBitrate()).toBe(40000);
+      appState.settings.audioBitrate.value = 40000;
+      expect(appState.settings.audioBitrate.value).toBe(40000);
 
-      appState.settings.audioBitrate(24000);
-      expect(appState.settings.audioBitrate()).toBe(24000);
+      appState.settings.audioBitrate.value = 24000;
+      expect(appState.settings.audioBitrate.value).toBe(24000);
     });
 
     test('should read samples per packet setting', () => {
-      expect(appState.settings.samplesPerPacket()).toBe(960);
+      expect(appState.settings.samplesPerPacket.value).toBe(960);
     });
   });
 

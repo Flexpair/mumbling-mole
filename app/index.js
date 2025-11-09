@@ -50,112 +50,7 @@ function getUsernameFromMetadata(user) {
 // DEPRECATED Knockout classes - kept for backward compatibility during migration
 // These will be removed once Vue migration is complete
 import ko from "knockout";
-
-class SettingsDialog {
-  constructor(settings) {
-    this.voiceMode = ko.observable(settings.voiceMode);
-    this.pttKey = ko.observable(settings.pttKey);
-    this.pttKeyDisplay = ko.observable(settings.pttKey);
-    this.userCountInChannelName = ko.observable(
-      settings.userCountInChannelName()
-    );
-    // Need to wrap this in a pureComputed to make sure it's always numeric
-    let audioBitrate = ko.observable(settings.audioBitrate);
-    this.audioBitrate = ko.pureComputed({
-      read: audioBitrate,
-      write: (value) => audioBitrate(Number(value)),
-    });
-    this.samplesPerPacket = ko.observable(settings.samplesPerPacket);
-    this.msPerPacket = ko.pureComputed({
-      read: () => this.samplesPerPacket() / 48,
-      write: (value) => this.samplesPerPacket(value * 48),
-    });
-  }
-
-  applyTo(settings) {
-    settings.voiceMode = this.voiceMode();
-    settings.pttKey = this.pttKey();
-    settings.userCountInChannelName(this.userCountInChannelName());
-    settings.audioBitrate = this.audioBitrate();
-    settings.samplesPerPacket = this.samplesPerPacket();
-  }
-
-  recordPttKey() {
-    let combo = [];
-    const keydown = (e) => {
-      combo = e.pressedKeys;
-      let comboStr = combo.join(" + ");
-      this.pttKeyDisplay("> " + comboStr + " <");
-    };
-    const keyup = () => {
-      keyboardjs.unbind("", keydown, keyup);
-      let comboStr = combo.join(" + ");
-      if (comboStr) {
-        this.pttKey(comboStr).pttKeyDisplay(comboStr);
-      } else {
-        this.pttKeyDisplay(this.pttKey());
-      }
-    };
-    keyboardjs.bind("", keydown, keyup);
-    this.pttKeyDisplay("> ? <");
-  }
-
-  totalBandwidth() {
-    return MumbleClient.calcEnforcableBandwidth(
-      this.audioBitrate(),
-      this.samplesPerPacket(),
-      true
-    );
-  }
-
-  positionBandwidth() {
-    return (
-      this.totalBandwidth() -
-      MumbleClient.calcEnforcableBandwidth(
-        this.audioBitrate(),
-        this.samplesPerPacket(),
-        false
-      )
-    );
-  }
-
-  overheadBandwidth() {
-    return MumbleClient.calcEnforcableBandwidth(
-      0,
-      this.samplesPerPacket(),
-      false
-    );
-  }
-
-  end() {
-    // Cleanup method called when dialog is closed
-    // Currently no cleanup needed, but method must exist for UIState.closeSettings()
-  }
-}
-
-class Settings {
-  constructor(defaults) {
-    const load = (key) => globalThis.localStorage.getItem("mumble." + key);
-    this.voiceMode = load("voiceMode") || defaults.voiceMode;
-    this.pttKey = load("pttKey") || defaults.pttKey;
-    this.userCountInChannelName = ko.observable(
-      load("userCountInChannelName") || defaults.userCountInChannelName
-    );
-    this.audioBitrate = Number(load("audioBitrate")) || defaults.audioBitrate;
-    this.samplesPerPacket =
-      Number(load("samplesPerPacket")) || defaults.samplesPerPacket;
-  }
-
-  save() {
-    const save = (key, val) =>
-      globalThis.localStorage.setItem("mumble." + key, val);
-    save("voiceMode", this.voiceMode);
-    save("pttKey", this.pttKey);
-    save("userCountInChannelName", this.userCountInChannelName());
-    save("audioBitrate", this.audioBitrate);
-    save("samplesPerPacket", this.samplesPerPacket);
-  }
-}
+import { useSettings } from "./composables/index.js";
 
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
@@ -166,26 +61,22 @@ const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-// Note: connectDialog, connectErrorDialog, sampleRateWarningDialog, and connectionInfo are now Vue composables in AppState
+// Note: connectDialog, connectErrorDialog, sampleRateWarningDialog, connectionInfo are now Vue composables in AppState
+// Settings is now a Vue composable too
 ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
-ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
-ui.settingsDialogInstance = new SettingsDialog(ui.settings);
+ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
+// settingsDialogInstance is now deprecated - SettingsDialog.vue uses ui.settings directly
 
 // Initialize auth
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
 ui.netlifyIdentity = ui.auth; // Backward compatibility
 
-// Override openSettings to ensure the local SettingsDialog class is used
-// Knockout click bindings pass the event as first parameter, so we ignore it
-// and always use the local SettingsDialog constructor
+// Delegate UI methods to UIState composable
 ui.openSettings = function() {
-  // Ignore any parameters (e.g., click events from Knockout bindings)
-  // Always use the local SettingsDialog class defined in this file
-  return ui.ui.openSettings(ui.settings, SettingsDialog);
+  return ui.ui.openSettings(); // No more SettingsDialog class needed
 };
 
-// Expose closeSettings at root level for Knockout bindings
 ui.closeSettings = function() {
   return ui.ui.closeSettings();
 };

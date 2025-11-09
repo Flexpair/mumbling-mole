@@ -460,8 +460,8 @@ export default class AppState {
     const client = this._vueState.connection.getClient();
     if (client) {
       client.setAudioQuality(
-        this.settings.audioBitrate,
-        this.settings.samplesPerPacket
+        this.settings.audioBitrate.value,
+        this.settings.samplesPerPacket.value
       );
     }
   }
@@ -533,7 +533,7 @@ export default class AppState {
   get messageBox() { return this._vueState.ui.messageBox; }
   get settingsDialog() { return this._vueState.ui.settingsDialog; }
   
-  openSettings = (SettingsDialogClass) => { return this._vueState.ui.openSettings(this.settings, SettingsDialogClass); }
+  openSettings = () => { return this._vueState.ui.openSettings(); }
   closeSettings = () => { return this._vueState.ui.closeSettings(); }
   submitMessageBox = () => {
     const target = this._vueState.user.thisUser.value?.channel();
@@ -611,11 +611,9 @@ export default class AppState {
   }
 
   applySettings = () => {
-    const settingsDialog = this._vueState.ui.settingsDialog.value;
-    settingsDialog.applyTo(this.settings);
+    // Settings are now managed by Vue composable and saved via dialog
+    // Just update the voice handler with new settings
     this._updateVoiceHandler();
-    this.settings.save();
-    this._vueState.ui.closeSettings();
   }
 
   // Computed observables

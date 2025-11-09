@@ -14,3 +14,4 @@ export { useConnectionDialog } from './useConnectionDialog.js';
 export { useConnectErrorDialog } from './useConnectErrorDialog.js';
 export { useSampleRateWarningDialog } from './useSampleRateWarningDialog.js';
 export { useConnectionInfo } from './useConnectionInfo.js';
+export { useSettings } from './useSettings.js';

@@ -105,10 +105,10 @@ describe('voice.js - VoiceHandler classes', () => {
       }))
     };
 
-    // Mock settings
+    // Mock settings (Vue composable with refs)
     mockSettings = {
-      samplesPerPacket: 960,
-      pttKey: 'ctrl+space'
+      samplesPerPacket: { value: 960 },
+      pttKey: { value: 'ctrl+space' }
     };
 
     // Reset mocks

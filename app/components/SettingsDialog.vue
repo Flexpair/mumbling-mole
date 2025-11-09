@@ -147,165 +147,97 @@ const t = inject('translate');
 const visible = ref(false);
 const dialogElement = ref(null);
 
-// Form state - matches Knockout SettingsDialog constructor
-const voiceMode = ref('cont');
-const pttKey = ref('ctrl + shift');
-const pttKeyDisplay = ref('ctrl + shift');
-const audioBitrate = ref(40000);
-const samplesPerPacket = ref(960);
+// Form state - writable computed that point to AppState.settings Vue refs
+const voiceMode = computed({
+  get: () => appState.settings.voiceMode.value,
+  set: (val) => { appState.settings.voiceMode.value = val; }
+});
+
+const pttKey = computed({
+  get: () => appState.settings.pttKey.value,
+  set: (val) => { appState.settings.pttKey.value = val; }
+});
+
+const pttKeyDisplay = computed({
+  get: () => appState.settings.pttKeyDisplay.value,
+  set: (val) => { appState.settings.pttKeyDisplay.value = val; }
+});
+
+const audioBitrate = computed({
+  get: () => appState.settings.audioBitrate.value,
+  set: (val) => { appState.settings.audioBitrate.value = val; }
+});
+
+const samplesPerPacket = computed({
+  get: () => appState.settings.samplesPerPacket.value,
+  set: (val) => { appState.settings.samplesPerPacket.value = val; }
+});
 
 // Computed: msPerPacket (bidirectional conversion)
 const msPerPacket = computed({
-  get: () => samplesPerPacket.value / 48,
+  get: () => appState.settings.msPerPacket.value,
   set: (value) => {
-    samplesPerPacket.value = value * 48;
+    appState.settings.samplesPerPacket.value = value * 48;
   }
 });
 
-// Computed: Bandwidth calculations (matches Knockout SettingsDialog methods)
-const totalBandwidth = computed(() => {
-  if (!MumbleClient) return 0;
-  return MumbleClient.calcEnforcableBandwidth(
-    audioBitrate.value,
-    samplesPerPacket.value,
-    true
-  );
-});
+// Computed: Bandwidth calculations (from AppState.settings)
+const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
+const positionBandwidth = computed(() => appState.settings.positionBandwidth.value);
+const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
 
-const positionBandwidth = computed(() => {
-  if (!MumbleClient) return 0;
-  return (
-    totalBandwidth.value -
-    MumbleClient.calcEnforcableBandwidth(
-      audioBitrate.value,
-      samplesPerPacket.value,
-      false
-    )
-  );
-});
-
-const overheadBandwidth = computed(() => {
-  if (!MumbleClient) return 0;
-  return MumbleClient.calcEnforcableBandwidth(0, samplesPerPacket.value, false);
-});
-
-// PTT Key Recording
-let keydownHandler = null;
-let keyupHandler = null;
-
+// PTT Key Recording - delegate to AppState.settings
 const recordPttKey = () => {
-  let combo = [];
-
-  keydownHandler = (e) => {
-    combo = e.pressedKeys;
-    const comboStr = combo.join(' + ');
-    pttKeyDisplay.value = `> ${comboStr} <`;
-  };
-
-  keyupHandler = () => {
-    keyboardjs.unbind('', keydownHandler, keyupHandler);
-    const comboStr = combo.join(' + ');
-    if (comboStr) {
-      pttKey.value = comboStr;
-      pttKeyDisplay.value = comboStr;
-    } else {
-      pttKeyDisplay.value = pttKey.value;
-    }
-  };
-
-  keyboardjs.bind('', keydownHandler, keyupHandler);
-  pttKeyDisplay.value = '> ? <';
+  appState.settings.recordPttKey(keyboardjs);
 };
 
 // Form submission
 const handleSubmit = () => {
-  // Apply settings to Knockout settings object
-  appState.settings.voiceMode = voiceMode.value;
-  appState.settings.pttKey = pttKey.value;
-  appState.settings.audioBitrate = audioBitrate.value;
-  appState.settings.samplesPerPacket = samplesPerPacket.value;
+  // Save settings to localStorage
+  appState.settings.save();
 
-  // Trigger AppState.applySettings behavior
+  // Trigger AppState.applySettings behavior (recreates voice handler with new settings)
   appState.applySettings();
   
   // Close the dialog
-  if (dialogElement.value) {
-    dialogElement.value.close();
-  }
-};
-
-const handleCancel = () => {
+  visible.value = false;
   if (dialogElement.value) {
     dialogElement.value.close();
   }
   appState.closeSettings();
 };
 
-// Lifecycle: Sync Knockout settingsDialog visibility with Vue
-let settingsDialogSubscription = null;
+const handleCancel = () => {
+  if (dialogElement.value) {
+    dialogElement.value.close();
+  }
+  visible.value = false;
+  appState.closeSettings();
+};
 
+// Lifecycle: Watch UIState.settingsDialog for visibility changes
 onMounted(() => {
-  // Initialize from current Vue ref state
-  const koDialog = appState.settingsDialog?.value;
-  if (koDialog) {
-    visible.value = true;
-    voiceMode.value = koDialog.voiceMode();
-    pttKey.value = koDialog.pttKey();
-    pttKeyDisplay.value = koDialog.pttKeyDisplay();
-    audioBitrate.value = koDialog.audioBitrate();
-    samplesPerPacket.value = koDialog.samplesPerPacket();
-    
-    // Show dialog modally
-    if (dialogElement.value && !dialogElement.value.open) {
-      dialogElement.value.showModal();
-    }
+  // Initialize from UIState
+  visible.value = appState.ui.settingsDialog.value !== null;
+  if (visible.value && dialogElement.value && !dialogElement.value.open) {
+    dialogElement.value.showModal();
   }
 
-  // Watch Vue ref for changes
-  watch(() => appState.settingsDialog?.value, (dialog) => {
-    if (dialog) {
-      visible.value = true;
-      voiceMode.value = dialog.voiceMode();
-      pttKey.value = dialog.pttKey();
-      pttKeyDisplay.value = dialog.pttKeyDisplay();
-      audioBitrate.value = dialog.audioBitrate();
-      samplesPerPacket.value = dialog.samplesPerPacket();
-      
-      // Show dialog modally
-      if (dialogElement.value && !dialogElement.value.open) {
-        dialogElement.value.showModal();
-      }
-    } else {
-      visible.value = false;
-      // Close dialog
-      if (dialogElement.value && dialogElement.value.open) {
-        dialogElement.value.close();
-      }
+  // Watch UIState.settingsDialog for changes
+  watch(() => appState.ui.settingsDialog.value, (dialog) => {
+    visible.value = dialog !== null;
+    if (visible.value && dialogElement.value && !dialogElement.value.open) {
+      dialogElement.value.showModal();
+    } else if (!visible.value && dialogElement.value?.open) {
+      dialogElement.value.close();
     }
   });
 });
 
 onBeforeUnmount(() => {
-  // Cleanup keyboard bindings
-  if (keydownHandler && keyupHandler) {
-    keyboardjs.unbind('', keydownHandler, keyupHandler);
-  }
-});
-
-// Vue → Knockout sync (bidirectional)
-watch(visible, (val) => {
-  if (!val && appState.settingsDialog?.value) {
-    appState.closeSettings();
-  }
-  
-  // Sync dialog state with visibility
-  if (dialogElement.value) {
-    if (val && !dialogElement.value.open) {
-      dialogElement.value.showModal();
-    } else if (!val && dialogElement.value.open) {
-      dialogElement.value.close();
-    }
-  }
+  // Cleanup keyboard bindings if recordPttKey was called
+  // (Note: recordPttKey now delegates to appState.settings.recordPttKey,
+  // which handles its own cleanup internally)
 });
 </script>
 
