@@ -98,7 +98,7 @@ describe('AppState - Vue Composables Architecture', () => {
       testToneVolume: ko.observable(1),
       toolbarVertical: ko.observable(false)
     };
-    // connectDialog, connectErrorDialog, and sampleRateWarningDialog are now Vue composables (getters), initialize their refs directly
+    // connectDialog, connectErrorDialog, sampleRateWarningDialog, and connectionInfo are now Vue composables (getters), initialize their refs directly
     appState.connectDialog.address.value = 'localhost';
     appState.connectDialog.port.value = '64738';
     appState.connectDialog.username.value = 'TestUser';
@@ -111,7 +111,17 @@ describe('AppState - Vue Composables Architecture', () => {
     appState.sampleRateWarningDialog.visible.value = false;
     appState.sampleRateWarningDialog.mode.value = 'confirm';
     appState.sampleRateWarningDialog.sampleRate.value = null;
-    appState.connectionInfo = {};
+    appState.connectionInfo.visible.value = false;
+    appState.connectionInfo.serverVersion.value = null;
+    appState.connectionInfo.latencyMs.value = Number.NaN;
+    appState.connectionInfo.latencyDeviation.value = Number.NaN;
+    appState.connectionInfo.remoteHost.value = null;
+    appState.connectionInfo.remotePort.value = null;
+    appState.connectionInfo.maxBitrate.value = Number.NaN;
+    appState.connectionInfo.currentBitrate.value = Number.NaN;
+    appState.connectionInfo.maxBandwidth.value = Number.NaN;
+    appState.connectionInfo.currentBandwidth.value = Number.NaN;
+    appState.connectionInfo.codec.value = 'Unknown';
     appState.guacamoleFrame = {};
   });
 
@@ -278,6 +288,18 @@ describe('AppState - Vue Composables Architecture', () => {
 
     test('connectionInfo is initialized', () => {
       expect(appState.connectionInfo).toBeDefined();
+      expect(typeof appState.connectionInfo).toBe('object');
+      // Verify it's a Vue composable with refs
+      expect(typeof appState.connectionInfo.visible).toBe('object');
+      expect(appState.connectionInfo.visible).toHaveProperty('value');
+      expect(typeof appState.connectionInfo.serverVersion).toBe('object');
+      expect(appState.connectionInfo.serverVersion).toHaveProperty('value');
+      expect(typeof appState.connectionInfo.latencyMs).toBe('object');
+      expect(appState.connectionInfo.latencyMs).toHaveProperty('value');
+      expect(typeof appState.connectionInfo.remoteHost).toBe('object');
+      expect(appState.connectionInfo.remoteHost).toHaveProperty('value');
+      expect(typeof appState.connectionInfo.codec).toBe('object');
+      expect(appState.connectionInfo.codec).toHaveProperty('value');
     });
 
     test('connectErrorDialog is initialized', () => {

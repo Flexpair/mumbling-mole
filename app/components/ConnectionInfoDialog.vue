@@ -65,65 +65,35 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, onUnmounted, watch } from 'vue';
+import { computed, inject, watch } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 
 /**
- * Vue 3 ConnectionInfoDialog Component (DUAL RUNTIME)
+ * Vue 3 ConnectionInfoDialog Component
  * 
  * Displays connection statistics and server information.
- * Integrates with existing Knockout AppState via provide/inject.
+ * Uses Vue refs directly from AppState connectionInfo composable.
  */
 
 // Inject AppState (from main app)
 const appState = inject('appState');
 
-// Local reactive state
-const visible = ref(false);
-const serverVersion = ref(null);
-const latencyMs = ref(Number.NaN);
-const latencyDeviation = ref(Number.NaN);
-const remoteHost = ref('');
-const remotePort = ref('');
-const maxBitrate = ref(Number.NaN);
-const currentBitrate = ref(Number.NaN);
-const maxBandwidth = ref(Number.NaN);
-const currentBandwidth = ref(Number.NaN);
-const codec = ref('Unknown');
-
-// Track subscription for cleanup
-let visibleSubscription = null;
-
-// Sync with Knockout observable
-onMounted(() => {
-  if (appState?.connectionInfo) {
-    // Initialize from Knockout state
-    visible.value = appState.connectionInfo.visible();
-    
-    // Subscribe to Knockout visible changes
-    visibleSubscription = appState.connectionInfo.visible.subscribe((val) => {
-      visible.value = val;
-      if (val) {
-        // Update stats when dialog becomes visible
-        updateStats();
-      }
-    });
-  }
+// Direct access to AppState Vue refs (no local state, no sync needed)
+const visible = computed({
+  get: () => appState.connectionInfo.visible.value,
+  set: (val) => { appState.connectionInfo.visible.value = val; }
 });
 
-// Cleanup subscription
-onUnmounted(() => {
-  if (visibleSubscription) {
-    visibleSubscription.dispose();
-  }
-});
-
-// Sync Vue visible changes back to Knockout
-watch(visible, (val) => {
-  if (appState?.connectionInfo) {
-    appState.connectionInfo.visible(val);
-  }
-});
+const serverVersion = computed(() => appState.connectionInfo.serverVersion.value);
+const latencyMs = computed(() => appState.connectionInfo.latencyMs.value);
+const latencyDeviation = computed(() => appState.connectionInfo.latencyDeviation.value);
+const remoteHost = computed(() => appState.connectionInfo.remoteHost.value);
+const remotePort = computed(() => appState.connectionInfo.remotePort.value);
+const maxBitrate = computed(() => appState.connectionInfo.maxBitrate.value);
+const currentBitrate = computed(() => appState.connectionInfo.currentBitrate.value);
+const maxBandwidth = computed(() => appState.connectionInfo.maxBandwidth.value);
+const currentBandwidth = computed(() => appState.connectionInfo.currentBandwidth.value);
+const codec = computed(() => appState.connectionInfo.codec.value);
 
 /**
  * Update connection statistics from client
@@ -132,25 +102,25 @@ function updateStats() {
   const client = appState?.client;
   
   if (client) {
-    serverVersion.value = client.serverVersion || null;
+    appState.connectionInfo.serverVersion.value = client.serverVersion || null;
     
     const dataStats = client.dataStats;
     if (dataStats) {
-      latencyMs.value = dataStats.mean;
-      latencyDeviation.value = Math.sqrt(dataStats.variance);
+      appState.connectionInfo.latencyMs.value = dataStats.mean;
+      appState.connectionInfo.latencyDeviation.value = Math.sqrt(dataStats.variance);
     } else {
-      latencyMs.value = Number.NaN;
-      latencyDeviation.value = Number.NaN;
+      appState.connectionInfo.latencyMs.value = Number.NaN;
+      appState.connectionInfo.latencyDeviation.value = Number.NaN;
     }
   } else {
     // Not connected
-    serverVersion.value = null;
-    latencyMs.value = Number.NaN;
-    latencyDeviation.value = Number.NaN;
+    appState.connectionInfo.serverVersion.value = null;
+    appState.connectionInfo.latencyMs.value = Number.NaN;
+    appState.connectionInfo.latencyDeviation.value = Number.NaN;
   }
   
-  remoteHost.value = appState?.remoteHost() || '';
-  remotePort.value = appState?.remotePort() || '';
+  appState.connectionInfo.remoteHost.value = appState?.connection.remoteHost.value || '';
+  appState.connectionInfo.remotePort.value = appState?.connection.remotePort.value || '';
   
   const spp = appState?.settings?.samplesPerPacket;
   if (client && spp) {
@@ -165,20 +135,27 @@ function updateStats() {
       false
     );
     
-    maxBitrate.value = maxBitrateValue;
-    currentBitrate.value = actualBitrate;
-    maxBandwidth.value = maxBandwidthValue;
-    currentBandwidth.value = actualBandwidth;
-    codec.value = "Opus"; // only one supported for sending
+    appState.connectionInfo.maxBitrate.value = maxBitrateValue;
+    appState.connectionInfo.currentBitrate.value = actualBitrate;
+    appState.connectionInfo.maxBandwidth.value = maxBandwidthValue;
+    appState.connectionInfo.currentBandwidth.value = actualBandwidth;
+    appState.connectionInfo.codec.value = "Opus"; // only one supported for sending
   } else {
     // Not connected or no settings
-    maxBitrate.value = Number.NaN;
-    currentBitrate.value = Number.NaN;
-    maxBandwidth.value = Number.NaN;
-    currentBandwidth.value = Number.NaN;
-    codec.value = "Unknown";
+    appState.connectionInfo.maxBitrate.value = Number.NaN;
+    appState.connectionInfo.currentBitrate.value = Number.NaN;
+    appState.connectionInfo.maxBandwidth.value = Number.NaN;
+    appState.connectionInfo.currentBandwidth.value = Number.NaN;
+    appState.connectionInfo.codec.value = "Unknown";
   }
 }
+
+// Watch for visibility changes and update stats when dialog opens
+watch(visible, (val) => {
+  if (val) {
+    updateStats();
+  }
+});
 
 /**
  * Handle hide button click
@@ -191,6 +168,19 @@ function handleHide() {
     appState.ui.currentOpenModal.value = null;
   }
 }
+
+// Expose show method to appState for Toolbar click handler
+appState.connectionInfo.show = () => {
+  // Prevent opening if another modal is already open
+  if (appState.ui.currentOpenModal.value !== null) {
+    return;
+  }
+  updateStats();
+  visible.value = true;
+  appState.ui.currentOpenModal.value = 'connectionInfo';
+};
+
+appState.connectionInfo.hide = handleHide;
 </script>
 
 <style scoped>

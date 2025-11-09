@@ -9,6 +9,7 @@ import {
   useConnectionDialog,
   useConnectErrorDialog,
   useSampleRateWarningDialog,
+  useConnectionInfo,
 } from '../composables';
 import { translate } from '../localize';
 import packageJson from '../../package.json';
@@ -45,6 +46,7 @@ export default class AppState {
     const connectionDialog = useConnectionDialog();
     const connectErrorDialog = useConnectErrorDialog();
     const sampleRateWarningDialog = useSampleRateWarningDialog();
+    const connectionInfo = useConnectionInfo();
     
     // Store composable references
     this._vueState = {
@@ -56,12 +58,12 @@ export default class AppState {
       dialog: connectionDialog,
       errorDialog: connectErrorDialog,
       sampleRateDialog: sampleRateWarningDialog,
+      connectionInfoDialog: connectionInfo,
     };
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
     this.guacamoleFrame = null; // Set externally
-    this.connectionInfo = null; // Set externally
     this.auth = null; // Set externally
     
     // Guacamole credentials storage
@@ -651,4 +653,5 @@ export default class AppState {
   get user() { return this._vueState.user; }
   get connectErrorDialog() { return this._vueState.errorDialog; }
   get sampleRateWarningDialog() { return this._vueState.sampleRateDialog; }
+  get connectionInfo() { return this._vueState.connectionInfoDialog; }
 }

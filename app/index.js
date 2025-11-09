@@ -47,87 +47,9 @@ function getUsernameFromMetadata(user) {
 }
 
 // DEPRECATED Knockout classes - kept for backward compatibility during migration
+// DEPRECATED Knockout classes - kept for backward compatibility during migration
 // These will be removed once Vue migration is complete
 import ko from "knockout";
-
-class ConnectionInfo {
-  constructor(ui) {
-    this._ui = ui;
-    this.visible = ko.observable(false);
-    this.serverVersion = ko.observable();
-    this.latencyMs = ko.observable(Number.NaN);
-    this.latencyDeviation = ko.observable(Number.NaN);
-    this.remoteHost = ko.observable();
-    this.remotePort = ko.observable();
-    this.maxBitrate = ko.observable(Number.NaN);
-    this.currentBitrate = ko.observable(Number.NaN);
-    this.maxBandwidth = ko.observable(Number.NaN);
-    this.currentBandwidth = ko.observable(Number.NaN);
-    this.codec = ko.observable();
-
-    this.show = () => {
-      // Prevent opening connection info if another modal is already open
-      if (this._ui.ui.currentOpenModal.value !== null) {
-        return;
-      }
-      this.update();
-      this.visible(true);
-      this._ui.ui.currentOpenModal.value = 'connectionInfo';
-    };
-    this.hide = () => {
-      this.visible(false);
-      // Clear the modal state when connection info dialog is closed
-      if (this._ui.ui.currentOpenModal.value === 'connectionInfo') {
-        this._ui.ui.currentOpenModal.value = null;
-      }
-    };
-  }
-
-  update() {
-    let client = this._ui.client;
-
-    if (client) {
-      this.serverVersion(client.serverVersion);
-
-      let dataStats = client.dataStats;
-      if (dataStats) {
-        this.latencyMs(dataStats.mean);
-        this.latencyDeviation(Math.sqrt(dataStats.variance));
-      }
-    } else {
-      // Handle case when not connected to server
-      this.serverVersion(null);
-      this.latencyMs(Number.NaN);
-      this.latencyDeviation(Number.NaN);
-    }
-    this.remoteHost(this._ui.connection.remoteHost.value);
-    this.remotePort(this._ui.connection.remotePort.value);
-
-    let spp = this._ui.settings.samplesPerPacket;
-    if (client) {
-      let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = maxBandwidth === null || maxBandwidth === undefined ? Number.NaN : client.getMaxBitrate(spp, false);
-      let actualBitrate = client.getActualBitrate(spp, false);
-      let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
-        actualBitrate,
-        spp,
-        false
-      );
-      this.maxBitrate(maxBitrate);
-      this.currentBitrate(actualBitrate);
-      this.maxBandwidth(maxBandwidth);
-      this.currentBandwidth(actualBandwidth);
-      this.codec("Opus"); // only one supported for sending
-    } else {
-      // Handle case when not connected to server
-      this.maxBitrate(Number.NaN);
-      this.currentBitrate(Number.NaN);
-      this.maxBandwidth(Number.NaN);
-      this.currentBandwidth(Number.NaN);
-      this.codec("Unknown");
-    }
-  }
-}
 
 class SettingsDialog {
   constructor(settings) {
@@ -244,9 +166,8 @@ const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-// Note: connectDialog, connectErrorDialog, and sampleRateWarningDialog are now Vue composables in AppState
+// Note: connectDialog, connectErrorDialog, sampleRateWarningDialog, and connectionInfo are now Vue composables in AppState
 ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
-ui.connectionInfo = new ConnectionInfo(ui);
 ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
 ui.settingsDialogInstance = new SettingsDialog(ui.settings);
 
