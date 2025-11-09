@@ -105,9 +105,9 @@ const messageBox = computed({
   }
 });
 
-// Knockout-based computed properties (AppState-specific, not from state modules)
-const messageBoxHint = computed(() => appState.messageBoxHint?.() || '');
-const mailToDesktop = computed(() => appState.mailToDesktop?.() || '');
+// AppState computed properties (now Vue computed refs, not Knockout)
+const messageBoxHint = computed(() => appState.messageBoxHint?.value || '');
+const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 
 // Methods
 const handleMuteClick = () => {
@@ -159,7 +159,6 @@ const handleLogoutClick = () => {
     appState.logoutUser();
   }
 };
-</script>
 </script>
 
 <style scoped>

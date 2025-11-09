@@ -1,6 +1,5 @@
 import { ref, watch } from 'vue';
 import BufferQueueNode from '../audio/buffer-queue-node';
-import ko from 'knockout';
 import { debugLog } from './debug-utils';
 import { createVoiceStreamManager } from '../utils/voice-stream-manager';
 import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
@@ -47,17 +46,16 @@ export function useUserState(audioState, voiceState) {
       return;
     }
     
-    // Use imported ko for backward compatibility with mixed Knockout code
-    
     // Minimal wrapper: model, name, channel, self mute/deaf, talking
     // Protocol user.channel exists on model; channel.users managed by mumble-client
+    // Using Vue refs instead of Knockout observables
     let ui = (user.__ui = {
       model: user,
-      name: ko.observable(user.username),
-      channel: ko.observable(user.channel?.__ui),
-      selfMute: ko.observable(user.selfMute),
-      selfDeaf: ko.observable(user.selfDeaf),
-      talking: ko.observable('off'), // Needed for voice stream UI
+      name: ref(user.username),
+      channel: ref(user.channel?.__ui),
+      selfMute: ref(user.selfMute),
+      selfDeaf: ref(user.selfDeaf),
+      talking: ref('off'), // Needed for voice stream UI
     });
 
     // Voice stream handler (needed for audio playback)
@@ -135,13 +133,13 @@ export function useUserState(audioState, voiceState) {
             debugLog('[VOICE]', 'Audio data received, target:', data.target);
             
             if (data.target === 'normal') {
-              ui.talking('on');
+              ui.talking.value = 'on';
             } else if (data.target === 'shout') {
-              ui.talking('shout');
+              ui.talking.value = 'shout';
             } else if (data.target === 'whisper') {
-              ui.talking('whisper');
+              ui.talking.value = 'whisper';
             } else if (data.target === 'loopback') {
-              ui.talking('on');
+              ui.talking.value = 'on';
               debugLog('[VOICE]', 'Loopback audio received!');
             }
             
@@ -149,7 +147,7 @@ export function useUserState(audioState, voiceState) {
           })
           .on('end', () => {
             debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
-            ui.talking('off');
+            ui.talking.value = 'off';
             
             // CLEANUP: Use streamId to clean up this specific stream
             _cleanupVoiceStream(streamId);

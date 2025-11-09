@@ -1,5 +1,4 @@
-import ko from 'knockout';
-import { watch } from 'vue';
+import { watch, ref, computed } from 'vue';
 import {
   useConnectionState,
   useAudioState,
@@ -36,6 +35,9 @@ export default class AppState {
   constructor(config, log) {
     this.config = config;
     this.log = log || console.log.bind(console);
+    
+    // Store Vue runtime for creating refs/computed
+    this._vue = { ref, computed };
     
     // Initialize Vue composables (source of truth)
     const connectionState = useConnectionState(this.log);
@@ -75,6 +77,34 @@ export default class AppState {
     
     // Set up cross-module subscriptions
     this._setupSubscriptions();
+    
+    // Initialize lazy computed properties after _vueState is ready
+    this._initializeComputedProperties();
+  }
+
+  /**
+   * Initialize computed properties (called after _vueState is ready)
+   * @private
+   */
+  _initializeComputedProperties() {
+    // Message box placeholder hint
+    this.messageBoxHint = this._vue.computed(() => {
+      if (!this._vueState.user.thisUser.value) {
+        return '';
+      }
+      const target = this._vueState.user.thisUser.value.channel.value;
+      if (!target) {
+        return '';
+      }
+      return translate('chat.channel_message_placeholder').replace('%1', target.name.value);
+    });
+    
+    // Mailto link for desktop attachment
+    this.mailToDesktop = this._vue.ref(
+      'mailto:mail@' +
+      globalThis.location.hostname +
+      '?subject=Send%20attachment%20to%20desktop'
+    );
   }
 
   /**
@@ -386,7 +416,7 @@ export default class AppState {
   }
 
   /**
-   * Register channel with minimal UI wrapper
+   * Register channel UI wrapper (Vue refs instead of Knockout)
    * @private
    */
   _registerChannel(channel) {
@@ -394,9 +424,10 @@ export default class AppState {
       return;
     }
     
+    const { ref } = this._vue;
     channel.__ui = {
       model: channel,
-      name: ko.observable(channel.name),
+      name: ref(channel.name),
     };
   }
 
@@ -438,12 +469,12 @@ export default class AppState {
       this.settings,
       () => {
         if (this._vueState.user.thisUser.value) {
-          this._vueState.user.thisUser.value.talking('on');
+          this._vueState.user.thisUser.value.talking.value = 'on';
         }
       },
       () => {
         if (this._vueState.user.thisUser.value) {
-          this._vueState.user.thisUser.value.talking('off');
+          this._vueState.user.thisUser.value.talking.value = 'off';
         }
         if (this._vueState.voice.isLoopbackMode.value) {
           this._vueState.voice.loopbackDominantFrequency.value = 0;
@@ -490,7 +521,7 @@ export default class AppState {
   sendMessage = (target, message) => {
     if (this.connected()) {
       if (!target) {
-        target = this._vueState.user.thisUser.value?.channel();
+        target = this._vueState.user.thisUser.value?.channel.value;
       }
       if (!target) {
         return;
@@ -536,7 +567,7 @@ export default class AppState {
   openSettings = () => { return this._vueState.ui.openSettings(); }
   closeSettings = () => { return this._vueState.ui.closeSettings(); }
   submitMessageBox = () => {
-    const target = this._vueState.user.thisUser.value?.channel();
+    const target = this._vueState.user.thisUser.value?.channel.value;
     return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
   }
 
@@ -615,24 +646,6 @@ export default class AppState {
     // Just update the voice handler with new settings
     this._updateVoiceHandler();
   }
-
-  // Computed observables
-  messageBoxHint = ko.pureComputed(() => {
-    if (!this._vueState.user.thisUser.value) {
-      return '';
-    }
-    const target = this._vueState.user.thisUser.value.channel();
-    if (!target) {
-      return '';
-    }
-    return translate('chat.channel_message_placeholder').replace('%1', target.name());
-  });
-
-  mailToDesktop = ko.observable(
-    'mailto:mail@' +
-    globalThis.location.hostname +
-    '?subject=Send%20attachment%20to%20desktop'
-  );
 
   logoutUser = () => {
     this.auth.logout();

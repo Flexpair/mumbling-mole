@@ -384,8 +384,10 @@ describe('AppState - Vue Composables Architecture', () => {
 
       expect(mockChannel.__ui).toBeDefined();
       expect(mockChannel.__ui.model).toBe(mockChannel);
-      expect(typeof mockChannel.__ui.name).toBe('function'); // Knockout observable
-      expect(mockChannel.__ui.name()).toBe('Root');
+      // Channel name is now a Vue ref (not Knockout observable)
+      expect(typeof mockChannel.__ui.name).toBe('object');
+      expect(mockChannel.__ui.name).toHaveProperty('value');
+      expect(mockChannel.__ui.name.value).toBe('Root');
     });
 
     test('should store root channel reference', () => {
@@ -399,7 +401,7 @@ describe('AppState - Vue Composables Architecture', () => {
 
       // _registerChannel doesn't set appState.root - it only adds __ui to channel
       expect(mockChannel.__ui).toBeDefined();
-      expect(mockChannel.__ui.name()).toBe('Root');
+      expect(mockChannel.__ui.name.value).toBe('Root');
     });
 
     test('should update channel name reactively', () => {
@@ -410,11 +412,11 @@ describe('AppState - Vue Composables Architecture', () => {
       };
 
       appState._registerChannel(mockChannel);
-      expect(mockChannel.__ui.name()).toBe('Initial Name');
+      expect(mockChannel.__ui.name.value).toBe('Initial Name');
 
-      // Update the observable directly
-      mockChannel.__ui.name('Updated Name');
-      expect(mockChannel.__ui.name()).toBe('Updated Name');
+      // Update the ref directly
+      mockChannel.__ui.name.value = 'Updated Name';
+      expect(mockChannel.__ui.name.value).toBe('Updated Name');
     });
 
     test('should handle channel without description', () => {

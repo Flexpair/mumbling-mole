@@ -47,9 +47,7 @@ function getUsernameFromMetadata(user) {
 }
 
 // DEPRECATED Knockout classes - kept for backward compatibility during migration
-// DEPRECATED Knockout classes - kept for backward compatibility during migration
-// These will be removed once Vue migration is complete
-import ko from "knockout";
+// Import Vue composables for settings
 import { useSettings } from "./composables/index.js";
 
 // Initialize UI with modular AppState architecture
