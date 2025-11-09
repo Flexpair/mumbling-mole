@@ -11,3 +11,4 @@ export { useVoiceState } from './useVoiceState';
 export { useUIState } from './useUIState';
 export { useUserState } from './useUserState';
 export { useConnectionDialog } from './useConnectionDialog';
+export { useConnectErrorDialog } from './useConnectErrorDialog';

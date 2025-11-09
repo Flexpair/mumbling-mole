@@ -82,36 +82,45 @@
 </template>
 
 <script setup>
-import { ref, inject, watch, onMounted, onUnmounted } from 'vue';
+import { computed, inject, nextTick, watch } from 'vue';
 
 const appState = inject('appState');
 
-// Local reactive state
-// Local state refs (synced with AppState connectErrorDialog and connectDialog)
-const visible = ref(false);
-const type = ref(0);
-const reason = ref('');
-const username = ref('');
-const password = ref('');
+// Direct computed getters/setters pointing to AppState connectErrorDialog Vue refs
+const visible = computed({
+  get: () => appState.connectErrorDialog.visible.value,
+  set: (val) => { appState.connectErrorDialog.visible.value = val; }
+});
 
-// Subscriptions for cleanup (connectDialog properties are still Knockout observables)
-const subscriptions = [];
+const type = computed({
+  get: () => appState.connectErrorDialog.type.value,
+  set: (val) => { appState.connectErrorDialog.type.value = val; }
+});
+
+const reason = computed({
+  get: () => appState.connectErrorDialog.reason.value,
+  set: (val) => { appState.connectErrorDialog.reason.value = val; }
+});
+
+// Username and password are shared with connectDialog
+const username = computed({
+  get: () => appState.connectDialog.username.value,
+  set: (val) => { appState.connectDialog.username.value = val; }
+});
+
+const password = computed({
+  get: () => appState.connectDialog.password.value,
+  set: (val) => { appState.connectDialog.password.value = val; }
+});
 
 // Methods
-const show = () => {
-  visible.value = true;
-};
-
 const hide = () => {
   visible.value = false;
 };
 
 const handleConnect = () => {
   hide();
-  // Update AppState values before connecting (connectDialog now has Vue refs)
-  appState.connectDialog.username.value = username.value;
-  appState.connectDialog.password.value = password.value;
-  // Call connect via Vue component's handleConnect (which will be exposed or use appState.connect directly)
+  // Call AppState.connect directly
   if (appState.connect) {
     appState.connect(
       appState.connectDialog.address.value,
@@ -121,58 +130,6 @@ const handleConnect = () => {
     );
   }
 };
-
-// Bidirectional sync with Knockout AppState
-onMounted(() => {
-  // Initialize from AppState (connectDialog now has Vue refs, connectErrorDialog still Knockout)
-  visible.value = appState.connectErrorDialog.visible();
-  type.value = appState.connectErrorDialog.type();
-  reason.value = appState.connectErrorDialog.reason();
-  username.value = appState.connectDialog.username.value; // Vue ref
-  password.value = appState.connectDialog.password.value; // Vue ref
-
-  // Knockout → Vue sync (only connectErrorDialog is still Knockout)
-  subscriptions.push(
-    appState.connectErrorDialog.visible.subscribe((val) => {
-      visible.value = val;
-    })
-  );
-  subscriptions.push(
-    appState.connectErrorDialog.type.subscribe((val) => {
-      type.value = val;
-    })
-  );
-  subscriptions.push(
-    appState.connectErrorDialog.reason.subscribe((val) => {
-      reason.value = val;
-    })
-  );
-  
-  // Watch connectDialog Vue refs for changes
-  watch(() => appState.connectDialog.username.value, (val) => {
-    username.value = val;
-  });
-  watch(() => appState.connectDialog.password.value, (val) => {
-    password.value = val;
-  });
-});
-
-// Vue → Knockout sync (only for connectErrorDialog)
-watch(visible, (val) => appState.connectErrorDialog.visible(val));
-watch(type, (val) => appState.connectErrorDialog.type(val));
-watch(reason, (val) => appState.connectErrorDialog.reason(val));
-// Sync username/password back to connectDialog Vue refs
-watch(username, (val) => appState.connectDialog.username.value = val);
-watch(password, (val) => appState.connectDialog.password.value = val);
-
-// Cleanup subscriptions
-onUnmounted(() => {
-  subscriptions.forEach(sub => sub.dispose());
-});
-
-// Expose methods to appState for backward compatibility
-appState.connectErrorDialog.show = show;
-appState.connectErrorDialog.hide = hide;
 </script>
 
 <style scoped>

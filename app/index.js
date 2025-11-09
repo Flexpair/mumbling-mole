@@ -244,17 +244,7 @@ const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-// Note: connectDialog is now a Vue composable in AppState, no adapter needed
-ui.connectErrorDialog = {
-  type: ko.observable(0),
-  reason: ko.observable(""),
-  visible: ko.observable(false),
-  // Direct refs to connectDialog Vue refs (not Knockout observables)
-  get username() { return ui.connectDialog.username; },
-  get password() { return ui.connectDialog.password; },
-  show: function() { this.visible(true); },
-  hide: function() { this.visible(false); }
-};
+// Note: connectDialog and connectErrorDialog are now Vue composables in AppState
 ui.sampleRateWarningDialog = {
   visible: ko.observable(false),
   mode: ko.observable("confirm"),

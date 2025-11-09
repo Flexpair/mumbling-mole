@@ -7,6 +7,7 @@ import {
   useUIState,
   useUserState,
   useConnectionDialog,
+  useConnectErrorDialog,
 } from '../composables';
 import { translate } from '../localize';
 import packageJson from '../../package.json';
@@ -41,6 +42,7 @@ export default class AppState {
     const uiState = useUIState();
     const userState = useUserState(audioState, voiceState);
     const connectionDialog = useConnectionDialog();
+    const connectErrorDialog = useConnectErrorDialog();
     
     // Store composable references
     this._vueState = {
@@ -50,11 +52,11 @@ export default class AppState {
       ui: uiState,
       user: userState,
       dialog: connectionDialog,
+      errorDialog: connectErrorDialog,
     };
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
-    this.connectErrorDialog = null; // Set externally
     this.sampleRateWarningDialog = null; // Set externally
     this.guacamoleFrame = null; // Set externally
     this.connectionInfo = null; // Set externally
@@ -413,9 +415,9 @@ export default class AppState {
       await this._establishClientConnection(host, port, username, password, tokens, targetChannel);
     } catch (err) {
       if (err.$type?.name === 'Reject') {
-        this.connectErrorDialog.type(err.type);
-        this.connectErrorDialog.reason(err.reason);
-        this.connectErrorDialog.show();
+        this.connectErrorDialog.type.value = err.type;
+        this.connectErrorDialog.reason.value = err.reason;
+        this.connectErrorDialog.visible.value = true;
       } else {
         this.log(translate('logentry.connection_error'), err);
       }
@@ -645,4 +647,6 @@ export default class AppState {
   get voice() { return this._vueState.voice; }
   get ui() { return this._vueState.ui; }
   get user() { return this._vueState.user; }
+  get connectDialog() { return this._vueState.dialog; }
+  get connectErrorDialog() { return this._vueState.errorDialog; }
 }
