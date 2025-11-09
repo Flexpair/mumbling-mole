@@ -3,7 +3,6 @@
  */
 
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import ko from 'knockout';
 
 /**
  * Tests for ConnectErrorDialog.vue component
@@ -26,43 +25,43 @@ describe('ConnectErrorDialog Vue Component Integration', () => {
     // Create mock AppState with Knockout observables
     mockAppState = {
       connectErrorDialog: {
-        visible: ko.observable(false),
-        type: ko.observable(0),
-        reason: ko.observable(''),
+        visible: { value: false },
+        type: { value: 0 },
+        reason: { value: '' },
         show: jest.fn(),
         hide: jest.fn(),
         connect: jest.fn()
       },
       connectDialog: {
-        username: ko.observable('testuser'),
-        password: ko.observable(''),
+        username: { value: 'testuser' },
+        password: { value: '' },
         connect: jest.fn()
       },
       ui: {
-        currentOpenModal: ko.observable(null)
+        currentOpenModal: { value: null }
       }
     };
   });
 
   describe('Visibility Management', () => {
     test('should sync visible state with Knockout', () => {
-      expect(mockAppState.connectErrorDialog.visible()).toBe(false);
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(false);
       
-      mockAppState.connectErrorDialog.visible(true);
+      mockAppState.connectErrorDialog.visible.value = true;
       
-      expect(mockAppState.connectErrorDialog.visible()).toBe(true);
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(true);
     });
 
     test('should toggle visibility bidirectionally', () => {
-      mockAppState.connectErrorDialog.visible(true);
-      expect(mockAppState.connectErrorDialog.visible()).toBe(true);
+      mockAppState.connectErrorDialog.visible.value = true;
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(true);
       
-      mockAppState.connectErrorDialog.visible(false);
-      expect(mockAppState.connectErrorDialog.visible()).toBe(false);
+      mockAppState.connectErrorDialog.visible.value = false;
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(false);
     });
 
     test('should hide dialog when hide() is called', () => {
-      mockAppState.connectErrorDialog.visible(true);
+      mockAppState.connectErrorDialog.visible.value = true;
       mockAppState.connectErrorDialog.hide();
       
       // In the real implementation, hide() sets visible to false
@@ -72,104 +71,104 @@ describe('ConnectErrorDialog Vue Component Integration', () => {
 
   describe('Error Type Handling', () => {
     test('should handle connection refused (type 0)', () => {
-      mockAppState.connectErrorDialog.type(0);
-      mockAppState.connectErrorDialog.reason('Connection refused by server');
+      mockAppState.connectErrorDialog.type.value = 0;
+      mockAppState.connectErrorDialog.reason.value = 'Connection refused by server';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(0);
-      expect(mockAppState.connectErrorDialog.reason()).toBe('Connection refused by server');
+      expect(mockAppState.connectErrorDialog.type.value).toBe(0);
+      expect(mockAppState.connectErrorDialog.reason.value).toBe('Connection refused by server');
     });
 
     test('should handle incompatible version (type 1)', () => {
-      mockAppState.connectErrorDialog.type(1);
-      mockAppState.connectErrorDialog.reason('Protocol version mismatch');
+      mockAppState.connectErrorDialog.type.value = 1;
+      mockAppState.connectErrorDialog.reason.value = 'Protocol version mismatch';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(1);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(1);
     });
 
     test('should handle username rejected (type 2)', () => {
-      mockAppState.connectErrorDialog.type(2);
-      mockAppState.connectErrorDialog.reason('Username not allowed');
+      mockAppState.connectErrorDialog.type.value = 2;
+      mockAppState.connectErrorDialog.reason.value = 'Username not allowed';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(2);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(2);
     });
 
     test('should handle user password incorrect (type 3)', () => {
-      mockAppState.connectErrorDialog.type(3);
-      mockAppState.connectErrorDialog.reason('Invalid user password');
+      mockAppState.connectErrorDialog.type.value = 3;
+      mockAppState.connectErrorDialog.reason.value = 'Invalid user password';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(3);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(3);
     });
 
     test('should handle server password incorrect (type 4)', () => {
-      mockAppState.connectErrorDialog.type(4);
-      mockAppState.connectErrorDialog.reason('Invalid server password');
+      mockAppState.connectErrorDialog.type.value = 4;
+      mockAppState.connectErrorDialog.reason.value = 'Invalid server password';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(4);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(4);
     });
 
     test('should handle username in use (type 5)', () => {
-      mockAppState.connectErrorDialog.type(5);
-      mockAppState.connectErrorDialog.reason('Username already taken');
+      mockAppState.connectErrorDialog.type.value = 5;
+      mockAppState.connectErrorDialog.reason.value = 'Username already taken';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(5);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(5);
     });
 
     test('should handle server full (type 6)', () => {
-      mockAppState.connectErrorDialog.type(6);
-      mockAppState.connectErrorDialog.reason('Server capacity reached');
+      mockAppState.connectErrorDialog.type.value = 6;
+      mockAppState.connectErrorDialog.reason.value = 'Server capacity reached';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(6);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(6);
     });
 
     test('should handle client certificate required (type 7)', () => {
-      mockAppState.connectErrorDialog.type(7);
-      mockAppState.connectErrorDialog.reason('Client certificate required');
+      mockAppState.connectErrorDialog.type.value = 7;
+      mockAppState.connectErrorDialog.reason.value = 'Client certificate required';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(7);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(7);
     });
 
     test('should handle connection refused alternate (type 8)', () => {
-      mockAppState.connectErrorDialog.type(8);
-      mockAppState.connectErrorDialog.reason('Connection timeout');
+      mockAppState.connectErrorDialog.type.value = 8;
+      mockAppState.connectErrorDialog.reason.value = 'Connection timeout';
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(8);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(8);
     });
   });
 
   describe('Form Field Sync', () => {
     test('should sync username field with Knockout', () => {
-      mockAppState.connectDialog.username('newuser');
+      mockAppState.connectDialog.username.value = 'newuser';
       
-      expect(mockAppState.connectDialog.username()).toBe('newuser');
+      expect(mockAppState.connectDialog.username.value).toBe('newuser');
     });
 
     test('should sync password field with Knockout', () => {
-      mockAppState.connectDialog.password('newpassword');
+      mockAppState.connectDialog.password.value = 'newpassword';
       
-      expect(mockAppState.connectDialog.password()).toBe('newpassword');
+      expect(mockAppState.connectDialog.password.value).toBe('newpassword');
     });
 
     test('should preserve username from connect dialog', () => {
-      mockAppState.connectDialog.username('original_user');
-      mockAppState.connectErrorDialog.type(2); // Username rejected
+      mockAppState.connectDialog.username.value = 'original_user';
+      mockAppState.connectErrorDialog.type.value = 2; // Username rejected
       
-      expect(mockAppState.connectDialog.username()).toBe('original_user');
+      expect(mockAppState.connectDialog.username.value).toBe('original_user');
     });
 
     test('should allow password retry for type 3 and 4 errors', () => {
-      mockAppState.connectErrorDialog.type(3);
-      mockAppState.connectDialog.password('retry_password');
+      mockAppState.connectErrorDialog.type.value = 3;
+      mockAppState.connectDialog.password.value = 'retry_password';
       
-      expect(mockAppState.connectDialog.password()).toBe('retry_password');
-      expect(mockAppState.connectErrorDialog.type()).toBe(3);
+      expect(mockAppState.connectDialog.password.value).toBe('retry_password');
+      expect(mockAppState.connectErrorDialog.type.value).toBe(3);
     });
   });
 
   describe('Retry Logic', () => {
     test('should call connect on form submit', () => {
-      mockAppState.connectErrorDialog.visible(true);
-      mockAppState.connectErrorDialog.type(4);
-      mockAppState.connectDialog.password('newpass');
+      mockAppState.connectErrorDialog.visible.value = true;
+      mockAppState.connectErrorDialog.type.value = 4;
+      mockAppState.connectDialog.password.value = 'newpass';
       
       // Simulate form submission
       mockAppState.connectErrorDialog.connect();
@@ -178,7 +177,7 @@ describe('ConnectErrorDialog Vue Component Integration', () => {
     });
 
     test('should hide dialog after retry', () => {
-      mockAppState.connectErrorDialog.visible(true);
+      mockAppState.connectErrorDialog.visible.value = true;
       mockAppState.connectErrorDialog.hide();
       
       expect(mockAppState.connectErrorDialog.hide).toHaveBeenCalled();
@@ -197,8 +196,8 @@ describe('ConnectErrorDialog Vue Component Integration', () => {
       const showUsernameTypes = [2, 3, 5];
       
       showUsernameTypes.forEach(type => {
-        mockAppState.connectErrorDialog.type(type);
-        expect([2, 3, 5].includes(mockAppState.connectErrorDialog.type())).toBe(true);
+        mockAppState.connectErrorDialog.type.value = type;
+        expect([2, 3, 5].includes(mockAppState.connectErrorDialog.type.value)).toBe(true);
       });
     });
 
@@ -206,115 +205,68 @@ describe('ConnectErrorDialog Vue Component Integration', () => {
       const showPasswordTypes = [3, 4];
       
       showPasswordTypes.forEach(type => {
-        mockAppState.connectErrorDialog.type(type);
-        expect([3, 4].includes(mockAppState.connectErrorDialog.type())).toBe(true);
+        mockAppState.connectErrorDialog.type.value = type;
+        expect([3, 4].includes(mockAppState.connectErrorDialog.type.value)).toBe(true);
       });
     });
 
     test('should not show username field for type 0', () => {
-      mockAppState.connectErrorDialog.type(0);
-      expect([2, 3, 5].includes(mockAppState.connectErrorDialog.type())).toBe(false);
+      mockAppState.connectErrorDialog.type.value = 0;
+      expect([2, 3, 5].includes(mockAppState.connectErrorDialog.type.value)).toBe(false);
     });
 
     test('should not show password field for type 2', () => {
-      mockAppState.connectErrorDialog.type(2);
-      expect([3, 4].includes(mockAppState.connectErrorDialog.type())).toBe(false);
+      mockAppState.connectErrorDialog.type.value = 2;
+      expect([3, 4].includes(mockAppState.connectErrorDialog.type.value)).toBe(false);
     });
   });
 
   describe('Edge Cases', () => {
     test('should handle empty reason text', () => {
-      mockAppState.connectErrorDialog.reason('');
-      expect(mockAppState.connectErrorDialog.reason()).toBe('');
+      mockAppState.connectErrorDialog.reason.value = '';
+      expect(mockAppState.connectErrorDialog.reason.value).toBe('');
     });
 
     test('should handle reason with special characters', () => {
       const specialReason = 'Error: "Connection" <failed> & terminated';
-      mockAppState.connectErrorDialog.reason(specialReason);
-      expect(mockAppState.connectErrorDialog.reason()).toBe(specialReason);
+      mockAppState.connectErrorDialog.reason.value = specialReason;
+      expect(mockAppState.connectErrorDialog.reason.value).toBe(specialReason);
     });
 
     test('should handle rapid visibility toggles', () => {
-      mockAppState.connectErrorDialog.visible(true);
-      mockAppState.connectErrorDialog.visible(false);
-      mockAppState.connectErrorDialog.visible(true);
+      mockAppState.connectErrorDialog.visible.value = true;
+      mockAppState.connectErrorDialog.visible.value = false;
+      mockAppState.connectErrorDialog.visible.value = true;
       
-      expect(mockAppState.connectErrorDialog.visible()).toBe(true);
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(true);
     });
 
     test('should handle type changes while visible', () => {
-      mockAppState.connectErrorDialog.visible(true);
-      mockAppState.connectErrorDialog.type(2);
-      mockAppState.connectErrorDialog.type(4);
+      mockAppState.connectErrorDialog.visible.value = true;
+      mockAppState.connectErrorDialog.type.value = 2;
+      mockAppState.connectErrorDialog.type.value = 4;
       
-      expect(mockAppState.connectErrorDialog.type()).toBe(4);
-      expect(mockAppState.connectErrorDialog.visible()).toBe(true);
+      expect(mockAppState.connectErrorDialog.type.value).toBe(4);
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(true);
     });
   });
 
   describe('Modal State Integration', () => {
     test('should track modal state via currentOpenModal', () => {
-      expect(mockAppState.ui.currentOpenModal()).toBe(null);
+      expect(mockAppState.ui.currentOpenModal.value).toBe(null);
       
-      mockAppState.ui.currentOpenModal('connectErrorDialog');
+      mockAppState.ui.currentOpenModal.value = 'connectErrorDialog';
       
-      expect(mockAppState.ui.currentOpenModal()).toBe('connectErrorDialog');
+      expect(mockAppState.ui.currentOpenModal.value).toBe('connectErrorDialog');
     });
 
     test('should clear modal state when hidden', () => {
-      mockAppState.ui.currentOpenModal('connectErrorDialog');
-      mockAppState.connectErrorDialog.visible(false);
+      mockAppState.ui.currentOpenModal.value = 'connectErrorDialog';
+      mockAppState.connectErrorDialog.visible.value = false;
       
       // Modal clearing would happen in the real implementation
-      expect(mockAppState.connectErrorDialog.visible()).toBe(false);
+      expect(mockAppState.connectErrorDialog.visible.value).toBe(false);
     });
   });
 
-  describe('Subscription Lifecycle', () => {
-    test('should support multiple subscriptions to visible', () => {
-      const callbacks = [];
-      const sub1 = mockAppState.connectErrorDialog.visible.subscribe((val) => {
-        callbacks.push(`sub1: ${val}`);
-      });
-      const sub2 = mockAppState.connectErrorDialog.visible.subscribe((val) => {
-        callbacks.push(`sub2: ${val}`);
-      });
-      
-      mockAppState.connectErrorDialog.visible(true);
-      
-      expect(callbacks).toContain('sub1: true');
-      expect(callbacks).toContain('sub2: true');
-      
-      sub1.dispose();
-      sub2.dispose();
-    });
-
-    test('should support subscriptions to type changes', () => {
-      const types = [];
-      const sub = mockAppState.connectErrorDialog.type.subscribe((val) => {
-        types.push(val);
-      });
-      
-      mockAppState.connectErrorDialog.type(2);
-      mockAppState.connectErrorDialog.type(4);
-      
-      expect(types).toEqual([2, 4]);
-      
-      sub.dispose();
-    });
-
-    test('should support subscriptions to reason changes', () => {
-      const reasons = [];
-      const sub = mockAppState.connectErrorDialog.reason.subscribe((val) => {
-        reasons.push(val);
-      });
-      
-      mockAppState.connectErrorDialog.reason('First error');
-      mockAppState.connectErrorDialog.reason('Second error');
-      
-      expect(reasons).toEqual(['First error', 'Second error']);
-      
-      sub.dispose();
-    });
-  });
 });

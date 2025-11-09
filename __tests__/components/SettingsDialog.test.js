@@ -1,5 +1,4 @@
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import ko from 'knockout';
 
 describe('SettingsDialog.vue - Integration Tests', () => {
   let mockAppState;
@@ -7,30 +6,34 @@ describe('SettingsDialog.vue - Integration Tests', () => {
 
   beforeEach(() => {
     mockSettingsDialog = {
-      voiceMode: ko.observable('cont'),
-      pttKey: ko.observable('ctrl + shift'),
-      pttKeyDisplay: ko.observable('ctrl + shift'),
-      audioBitrate: ko.observable(40000),
-      samplesPerPacket: ko.observable(960)
+      voiceMode: { value: 'cont' },
+      pttKey: { value: 'ctrl + shift' },
+      pttKeyDisplay: { value: 'ctrl + shift' },
+      audioBitrate: { value: 40000 },
+      samplesPerPacket: { value: 960 }
     };
     
-    // Create msPerPacket computed after other observables are initialized
-    mockSettingsDialog.msPerPacket = ko.pureComputed({
-      read: () => mockSettingsDialog.samplesPerPacket() / 48,
-      write: (value) => mockSettingsDialog.samplesPerPacket(value * 48)
-    });
+    // Create msPerPacket computed - simple getter/setter wrapper
+    mockSettingsDialog.msPerPacket = {
+      get value() {
+        return mockSettingsDialog.samplesPerPacket.value / 48;
+      },
+      set value(ms) {
+        mockSettingsDialog.samplesPerPacket.value = ms * 48;
+      }
+    };
     
     // Add methods
     mockSettingsDialog.applyTo = jest.fn((settings) => {
-      settings.voiceMode = mockSettingsDialog.voiceMode();
-      settings.pttKey = mockSettingsDialog.pttKey();
-      settings.audioBitrate = mockSettingsDialog.audioBitrate();
-      settings.samplesPerPacket = mockSettingsDialog.samplesPerPacket();
+      settings.voiceMode = mockSettingsDialog.voiceMode.value;
+      settings.pttKey = mockSettingsDialog.pttKey.value;
+      settings.audioBitrate = mockSettingsDialog.audioBitrate.value;
+      settings.samplesPerPacket = mockSettingsDialog.samplesPerPacket.value;
     });
     mockSettingsDialog.recordPttKey = jest.fn();
-    mockSettingsDialog.totalBandwidth = ko.observable(41500);
-    mockSettingsDialog.positionBandwidth = ko.observable(500);
-    mockSettingsDialog.overheadBandwidth = ko.observable(1000);
+    mockSettingsDialog.totalBandwidth = { value: 41500 };
+    mockSettingsDialog.positionBandwidth = { value: 500 };
+    mockSettingsDialog.overheadBandwidth = { value: 1000 };
     mockSettingsDialog.end = jest.fn();
 
     mockAppState = {
@@ -41,9 +44,9 @@ describe('SettingsDialog.vue - Integration Tests', () => {
         samplesPerPacket: 960,
         save: jest.fn()
       },
-      settingsDialog: ko.observable(null),
+      settingsDialog: { value: null },
       ui: {
-        settingsDialog: ko.observable(null),
+        settingsDialog: { value: null },
         closeSettings: jest.fn()
       },
       applySettings: jest.fn(),
@@ -55,87 +58,87 @@ describe('SettingsDialog.vue - Integration Tests', () => {
 
   describe('Knockout State Structure', () => {
     test('settingsDialog observable starts as null', () => {
-      expect(mockAppState.settingsDialog()).toBeNull();
+      expect(mockAppState.settingsDialog.value).toBeNull();
     });
 
     test('settingsDialog can be set to dialog instance', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      expect(mockAppState.settingsDialog()).toBe(mockSettingsDialog);
-      expect(mockAppState.settingsDialog().voiceMode()).toBe('cont');
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      expect(mockAppState.settingsDialog.value).toBe(mockSettingsDialog);
+      expect(mockAppState.settingsDialog.value.voiceMode.value).toBe('cont');
     });
 
     test('msPerPacket computed converts samplesPerPacket to milliseconds', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      expect(dialog.msPerPacket()).toBe(20);
-      dialog.msPerPacket(40);
-      expect(dialog.samplesPerPacket()).toBe(1920);
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.msPerPacket.value).toBe(20);
+      dialog.msPerPacket.value = 40;
+      expect(dialog.samplesPerPacket.value).toBe(1920);
     });
   });
 
   describe('Voice Mode Settings', () => {
     test('voiceMode observable defaults to continuous', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      expect(dialog.voiceMode()).toBe('cont');
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.voiceMode.value).toBe('cont');
     });
 
     test('voiceMode can be changed to PTT', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      dialog.voiceMode('ptt');
-      expect(dialog.voiceMode()).toBe('ptt');
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      dialog.voiceMode.value = 'ptt';
+      expect(dialog.voiceMode.value).toBe('ptt');
     });
 
     test('PTT key observable tracks key binding', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      expect(dialog.pttKey()).toBe('ctrl + shift');
-      dialog.pttKey('alt + space');
-      expect(dialog.pttKey()).toBe('alt + space');
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.pttKey.value).toBe('ctrl + shift');
+      dialog.pttKey.value = 'alt + space';
+      expect(dialog.pttKey.value).toBe('alt + space');
     });
   });
 
   describe('Audio Quality Settings', () => {
     test('audioBitrate observable defaults to 40000', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      expect(dialog.audioBitrate()).toBe(40000);
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.audioBitrate.value).toBe(40000);
     });
 
     test('audioBitrate can be updated', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      dialog.audioBitrate(80000);
-      expect(dialog.audioBitrate()).toBe(80000);
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      dialog.audioBitrate.value = 80000;
+      expect(dialog.audioBitrate.value).toBe(80000);
     });
 
     test('samplesPerPacket observable defaults to 960', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      expect(dialog.samplesPerPacket()).toBe(960);
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.samplesPerPacket.value).toBe(960);
     });
 
     test('samplesPerPacket maps to valid audio packet sizes', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
       const validSizes = [480, 960, 1920, 2880];
       for (const size of validSizes) {
-        dialog.samplesPerPacket(size);
-        expect(dialog.samplesPerPacket()).toBe(size);
-        expect(dialog.msPerPacket()).toBe(size / 48);
+        dialog.samplesPerPacket.value = size;
+        expect(dialog.samplesPerPacket.value).toBe(size);
+        expect(dialog.msPerPacket.value).toBe(size / 48);
       }
     });
   });
 
   describe('Form Submission', () => {
     test('applyTo method updates AppState settings', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      dialog.voiceMode('ptt');
-      dialog.pttKey('ctrl + alt + k');
-      dialog.audioBitrate(60000);
-      dialog.samplesPerPacket(1920);
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      dialog.voiceMode.value = 'ptt';
+      dialog.pttKey.value = 'ctrl + alt + k';
+      dialog.audioBitrate.value = 60000;
+      dialog.samplesPerPacket.value = 1920;
       dialog.applyTo(mockAppState.settings);
       expect(mockAppState.settings.voiceMode).toBe('ptt');
       expect(mockAppState.settings.pttKey).toBe('ctrl + alt + k');
@@ -144,7 +147,7 @@ describe('SettingsDialog.vue - Integration Tests', () => {
     });
 
     test('applySettings triggers action', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
+      mockAppState.settingsDialog.value = mockSettingsDialog;
       mockAppState.applySettings();
       expect(mockAppState.applySettings).toHaveBeenCalledTimes(1);
     });
@@ -152,39 +155,17 @@ describe('SettingsDialog.vue - Integration Tests', () => {
 
   describe('Dialog Lifecycle', () => {
     test('settingsDialog can be closed', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      expect(mockAppState.settingsDialog()).not.toBeNull();
-      mockAppState.settingsDialog(null);
-      expect(mockAppState.settingsDialog()).toBeNull();
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      expect(mockAppState.settingsDialog.value).not.toBeNull();
+      mockAppState.settingsDialog.value = null;
+      expect(mockAppState.settingsDialog.value).toBeNull();
     });
 
     test('end method exists', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
       dialog.end();
       expect(dialog.end).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('Observable Subscriptions', () => {
-    test('voiceMode observable supports subscriptions', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      const callback = jest.fn();
-      const subscription = dialog.voiceMode.subscribe(callback);
-      dialog.voiceMode('ptt');
-      expect(callback).toHaveBeenCalledWith('ptt');
-      subscription.dispose();
-    });
-
-    test('subscription disposal prevents updates', () => {
-      mockAppState.settingsDialog(mockSettingsDialog);
-      const dialog = mockAppState.settingsDialog();
-      const callback = jest.fn();
-      const subscription = dialog.voiceMode.subscribe(callback);
-      subscription.dispose();
-      dialog.voiceMode('ptt');
-      expect(callback).not.toHaveBeenCalled();
     });
   });
 });

@@ -39,7 +39,6 @@ jest.unstable_mockModule('../../app/audio/voice.js', () => ({
 
 // Import after mocks
 const { default: AppState } = await import('../../app/state/AppState.js');
-const ko = (await import('knockout')).default;
 
 describe('AppState - Vue Composables Architecture', () => {
   let appState;
@@ -47,14 +46,16 @@ describe('AppState - Vue Composables Architecture', () => {
   let mockConfig;
 
   beforeEach(() => {
-    // Mock auth
+    // Mock auth (using plain objects instead of knockout observables)
     mockAuth = {
-      currentUser: ko.observable({
-        email: 'test@example.com',
-        app_metadata: {
-          roles: ['watch', 'listen']
+      currentUser: {
+        value: {
+          email: 'test@example.com',
+          app_metadata: {
+            roles: ['watch', 'listen']
+          }
         }
-      }),
+      },
       init: jest.fn(),
       on: jest.fn()
     };

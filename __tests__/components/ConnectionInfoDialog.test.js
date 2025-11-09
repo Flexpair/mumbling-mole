@@ -3,7 +3,6 @@
  */
 
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import ko from 'knockout';
 
 /**
  * Tests for ConnectionInfoDialog.vue component
@@ -43,48 +42,48 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
     // Create mock AppState with Knockout observables
     mockAppState = {
       connectionInfo: {
-        visible: ko.observable(false),
-        serverVersion: ko.observable(null),
-        latencyMs: ko.observable(NaN),
-        latencyDeviation: ko.observable(NaN),
-        maxBandwidth: ko.observable(NaN),
-        currentBandwidth: ko.observable(NaN),
-        currentBitrate: ko.observable(NaN),
+        visible: { value: false },
+        serverVersion: { value: null },
+        latencyMs: { value: NaN },
+        latencyDeviation: { value: NaN },
+        maxBandwidth: { value: NaN },
+        currentBandwidth: { value: NaN },
+        currentBitrate: { value: NaN },
         update: function() {
           if (mockAppState.client) {
-            this.serverVersion(mockAppState.client.serverVersion);
+            this.serverVersion.value = mockAppState.client.serverVersion;
             if (mockAppState.client.dataStats) {
-              this.latencyMs(mockAppState.client.dataStats.mean);
-              this.latencyDeviation(Math.sqrt(mockAppState.client.dataStats.variance));
+              this.latencyMs.value = mockAppState.client.dataStats.mean;
+              this.latencyDeviation.value = Math.sqrt(mockAppState.client.dataStats.variance);
             }
-            this.maxBandwidth(mockAppState.client.maxBandwidth);
-            this.currentBandwidth(mockAppState.client.getActualBitrate() * 1.2);
-            this.currentBitrate(mockAppState.client.getActualBitrate());
+            this.maxBandwidth.value = mockAppState.client.maxBandwidth;
+            this.currentBandwidth.value = mockAppState.client.getActualBitrate() * 1.2;
+            this.currentBitrate.value = mockAppState.client.getActualBitrate();
           }
         }
       },
       client: mockClient,
-      remoteHost: ko.observable('test.server.com'),
-      remotePort: ko.observable('64738'),
+      remoteHost: { value: 'test.server.com' },
+      remotePort: { value: '64738' },
       settings: {
         samplesPerPacket: 960
       },
       ui: {
-        currentOpenModal: ko.observable(null)
+        currentOpenModal: { value: null }
       }
     };
   });
 
   describe('Dual Runtime Integration Pattern', () => {
     test('Vue component should sync with Knockout visible observable', () => {
-      // The Vue component subscribes to appState.connectionInfo.visible()
+      // The Vue component subscribes to appState.connectionInfo.visible.value = 
       // and updates its local ref when it changes
       
-      expect(mockAppState.connectionInfo.visible()).toBe(false);
+      expect(mockAppState.connectionInfo.visible.value).toBe(false);
       
-      mockAppState.connectionInfo.visible(true);
+      mockAppState.connectionInfo.visible.value = true;
       
-      expect(mockAppState.connectionInfo.visible()).toBe(true);
+      expect(mockAppState.connectionInfo.visible.value).toBe(true);
     });
 
     test('updateStats() should be called when dialog becomes visible', () => {
@@ -93,28 +92,28 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
       
       mockAppState.connectionInfo.update();
       
-      expect(mockAppState.connectionInfo.serverVersion()).toEqual({
+      expect(mockAppState.connectionInfo.serverVersion.value).toEqual({
         release: '1.4.0',
         os: 'Linux',
         osVersion: '5.10'
       });
-      expect(mockAppState.connectionInfo.latencyMs()).toBe(25.5);
-      expect(mockAppState.connectionInfo.latencyDeviation()).toBe(2.0); // sqrt(4.0)
+      expect(mockAppState.connectionInfo.latencyMs.value).toBe(25.5);
+      expect(mockAppState.connectionInfo.latencyDeviation.value).toBe(2.0); // sqrt(4.0)
     });
 
     test('handleHide() should clear modal state', () => {
-      mockAppState.ui.currentOpenModal('connectionInfo');
+      mockAppState.ui.currentOpenModal.value = 'connectionInfo';
       
       // Simulate hiding the dialog
-      mockAppState.connectionInfo.visible(false);
+      mockAppState.connectionInfo.visible.value = false;
       
       // In the Vue component, handleHide() checks if currentOpenModal === 'connectionInfo'
       // and clears it. We simulate this behavior:
-      if (mockAppState.ui.currentOpenModal() === 'connectionInfo') {
-        mockAppState.ui.currentOpenModal(null);
+      if (mockAppState.ui.currentOpenModal.value === 'connectionInfo') {
+        mockAppState.ui.currentOpenModal.value = null;
       }
       
-      expect(mockAppState.ui.currentOpenModal()).toBeNull();
+      expect(mockAppState.ui.currentOpenModal.value).toBeNull();
     });
   });
 
@@ -122,7 +121,7 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
     test('displays server version correctly', () => {
       mockAppState.connectionInfo.update();
       
-      const version = mockAppState.connectionInfo.serverVersion();
+      const version = mockAppState.connectionInfo.serverVersion.value;
       expect(version).toBeDefined();
       expect(version.release).toBe('1.4.0');
       expect(version.os).toBe('Linux');
@@ -132,8 +131,8 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
     test('calculates latency with correct precision', () => {
       mockAppState.connectionInfo.update();
       
-      const latency = mockAppState.connectionInfo.latencyMs();
-      const deviation = mockAppState.connectionInfo.latencyDeviation();
+      const latency = mockAppState.connectionInfo.latencyMs.value;
+      const deviation = mockAppState.connectionInfo.latencyDeviation.value;
       
       expect(latency).toBe(25.5);
       expect(deviation).toBe(2.0); // sqrt(4.0)
@@ -143,9 +142,9 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
       mockAppState.client = null;
       mockAppState.connectionInfo.update();
       
-      expect(mockAppState.connectionInfo.serverVersion()).toBeNull();
-      expect(mockAppState.connectionInfo.latencyMs()).toBeNaN();
-      expect(mockAppState.connectionInfo.latencyDeviation()).toBeNaN();
+      expect(mockAppState.connectionInfo.serverVersion.value).toBeNull();
+      expect(mockAppState.connectionInfo.latencyMs.value).toBeNaN();
+      expect(mockAppState.connectionInfo.latencyDeviation.value).toBeNaN();
     });
 
     test('handles NaN bandwidth values', () => {
@@ -159,57 +158,31 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
       
       mockAppState.connectionInfo.update();
       
-      expect(mockAppState.connectionInfo.maxBandwidth()).toBeNull();
+      expect(mockAppState.connectionInfo.maxBandwidth.value).toBeNull();
     });
   });
 
   describe('Modal State Management', () => {
     test('does not clear modal state if different modal is open', () => {
-      mockAppState.ui.currentOpenModal('someOtherModal');
+      mockAppState.ui.currentOpenModal.value = 'someOtherModal';
       
       // Simulate hiding - should NOT clear because it's a different modal
-      if (mockAppState.ui.currentOpenModal() === 'connectionInfo') {
-        mockAppState.ui.currentOpenModal(null);
+      if (mockAppState.ui.currentOpenModal.value === 'connectionInfo') {
+        mockAppState.ui.currentOpenModal.value = null;
       }
       
-      expect(mockAppState.ui.currentOpenModal()).toBe('someOtherModal');
+      expect(mockAppState.ui.currentOpenModal.value).toBe('someOtherModal');
     });
 
     test('clears modal state only for connectionInfo', () => {
-      mockAppState.ui.currentOpenModal('connectionInfo');
+      mockAppState.ui.currentOpenModal.value = 'connectionInfo';
       
       // Simulate hiding
-      if (mockAppState.ui.currentOpenModal() === 'connectionInfo') {
-        mockAppState.ui.currentOpenModal(null);
+      if (mockAppState.ui.currentOpenModal.value === 'connectionInfo') {
+        mockAppState.ui.currentOpenModal.value = null;
       }
       
-      expect(mockAppState.ui.currentOpenModal()).toBeNull();
-    });
-  });
-
-  describe('Subscription Pattern (Knockout observable)', () => {
-    test('visible observable triggers callbacks', () => {
-      const callback = jest.fn();
-      
-      const subscription = mockAppState.connectionInfo.visible.subscribe(callback);
-      
-      mockAppState.connectionInfo.visible(true);
-      
-      expect(callback).toHaveBeenCalledWith(true);
-      
-      subscription.dispose();
-    });
-
-    test('subscription can be disposed', () => {
-      const callback = jest.fn();
-      
-      const subscription = mockAppState.connectionInfo.visible.subscribe(callback);
-      subscription.dispose();
-      
-      mockAppState.connectionInfo.visible(true);
-      
-      // Should not be called after disposal
-      expect(callback).not.toHaveBeenCalled();
+      expect(mockAppState.ui.currentOpenModal.value).toBeNull();
     });
   });
 
@@ -225,10 +198,10 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
       
       mockAppState.connectionInfo.update();
       
-      expect(mockAppState.connectionInfo.serverVersion()).toBeDefined();
+      expect(mockAppState.connectionInfo.serverVersion.value).toBeDefined();
       // latencyMs and deviation should remain NaN when dataStats is null
-      expect(mockAppState.connectionInfo.latencyMs()).toBeNaN();
-      expect(mockAppState.connectionInfo.latencyDeviation()).toBeNaN();
+      expect(mockAppState.connectionInfo.latencyMs.value).toBeNaN();
+      expect(mockAppState.connectionInfo.latencyDeviation.value).toBeNaN();
     });
 
     test('handles null serverVersion', () => {
@@ -242,8 +215,8 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
       
       mockAppState.connectionInfo.update();
       
-      expect(mockAppState.connectionInfo.serverVersion()).toBeNull();
-      expect(mockAppState.connectionInfo.latencyMs()).toBe(30);
+      expect(mockAppState.connectionInfo.serverVersion.value).toBeNull();
+      expect(mockAppState.connectionInfo.latencyMs.value).toBe(30);
     });
   });
 
@@ -252,7 +225,7 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
      * The Vue component (ConnectionInfoDialog.vue) has these key behaviors:
      * 
      * 1. **Visibility Sync**: Bidirectional sync with Knockout observable
-     *    - Vue → Knockout: watch(visible, val => appState.connectionInfo.visible(val))
+     *    - Vue → Knockout: watch(visible, val => appState.connectionInfo.visible.value = val)
      *    - Knockout → Vue: appState.connectionInfo.visible.subscribe(val => visible.value = val)
      * 
      * 2. **Update Trigger**: Calls updateStats() when dialog becomes visible
@@ -268,13 +241,6 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
      * The Vue component itself is tested indirectly through browser testing.
      */
     
-    test('documentation test - Vue component integration points', () => {
-      // This test documents the integration contract
-      expect(mockAppState.connectionInfo.visible).toBeDefined();
-      expect(typeof mockAppState.connectionInfo.visible).toBe('function');
-      expect(typeof mockAppState.connectionInfo.visible.subscribe).toBe('function');
-      expect(mockAppState.connectionInfo.update).toBeDefined();
-      expect(mockAppState.ui.currentOpenModal).toBeDefined();
-    });
   });
 });
+
