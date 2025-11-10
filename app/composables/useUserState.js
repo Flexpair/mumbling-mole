@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue';
+import { ref, watch, markRaw } from 'vue';
 import BufferQueueNode from '../audio/buffer-queue-node';
 import { debugLog } from './debug-utils';
 import { createVoiceStreamManager } from '../utils/voice-stream-manager';
@@ -41,22 +41,23 @@ export function useUserState(audioState, voiceState) {
    * @param {object} user - User model from mumble-client
    */
   function registerUser(user) {
-    // Skip if UI already initialized
+    // FORCE RECREATION: Always delete old __ui and create fresh Vue-based one
+    // This ensures we never have stale Knockout or plain objects
     if (user.__ui) {
-      return;
+      delete user.__ui;
     }
     
-    // Minimal wrapper: model, name, channel, self mute/deaf, talking
+    // Create new minimal wrapper with Vue refs
     // Protocol user.channel exists on model; channel.users managed by mumble-client
-    // Using Vue refs instead of Knockout observables
-    let ui = (user.__ui = {
+    // Use markRaw to prevent Vue from making this reactive and unwrapping nested refs
+    let ui = (user.__ui = markRaw({
       model: user,
       name: ref(user.username),
       channel: ref(user.channel?.__ui),
       selfMute: ref(user.selfMute),
       selfDeaf: ref(user.selfDeaf),
       talking: ref('off'), // Needed for voice stream UI
-    });
+    }));
 
     // Voice stream handler (needed for audio playback)
     user.on('voice', (stream) => {
@@ -177,53 +178,61 @@ export function useUserState(audioState, voiceState) {
 
   /**
    * Request mute for user
-   * @param {object} user - User UI object
+   * @param {object} user - User UI object (optional, defaults to thisUser)
    * @param {Function} onAudioLocked - Callback when audio is locked
    */
   function requestMute(user, onAudioLocked) {
-    if (user !== thisUser.value) return;
-    selfMute.value = true;
+    // If no user specified or user matches thisUser, toggle selfMute
+    // This allows muting even before connection (thisUser === null)
+    if (user === undefined || user === thisUser.value) {
+      selfMute.value = true;
+    }
   }
 
   /**
    * Request deaf for user
-   * @param {object} user - User UI object
+   * @param {object} user - User UI object (optional, defaults to thisUser)
    * @param {boolean} isLoopbackMode - Whether in loopback mode
    */
   function requestDeaf(user, isLoopbackMode = false) {
-    if (user !== thisUser.value) return;
-    
-    // In loopback mode, allow deaf without mute
-    // In normal mode, deaf automatically enables mute
-    if (!isLoopbackMode) {
-      selfMute.value = true;
+    // If no user specified or user matches thisUser, toggle selfDeaf
+    // This allows deafening even before connection (thisUser === null)
+    if (user === undefined || user === thisUser.value) {
+      // In loopback mode, allow deaf without mute
+      // In normal mode, deaf automatically enables mute
+      if (!isLoopbackMode) {
+        selfMute.value = true;
+      }
+      
+      selfDeaf.value = true;
     }
-    
-    selfDeaf.value = true;
   }
 
   /**
    * Request unmute for user
-   * @param {object} user - User UI object
+   * @param {object} user - User UI object (optional, defaults to thisUser)
    * @param {Function} onAudioLocked - Callback when audio is locked
    */
   function requestUnmute(user, onAudioLocked) {
-    if (user !== thisUser.value) {
-      return;
+    // If no user specified or user matches thisUser, toggle selfMute
+    // This allows unmuting even before connection (thisUser === null)
+    if (user === undefined || user === thisUser.value) {
+      selfMute.value = false;
+      selfDeaf.value = false;
     }
-    
-    selfMute.value = false;
-    selfDeaf.value = false;
   }
 
   /**
    * Request undeaf for user
-   * @param {object} user - User UI object
+   * @param {object} user - User UI object (optional, defaults to thisUser)
    * @param {Function} onAudioLocked - Callback when audio is locked
    */
   function requestUndeaf(user, onAudioLocked) {
-    if (user !== thisUser.value) return;
-    selfDeaf.value = false;
+    // If no user specified or user matches thisUser, toggle selfDeaf
+    // This allows undeafening even before connection (thisUser === null)
+    if (user === undefined || user === thisUser.value) {
+      selfDeaf.value = false;
+    }
   }
 
   /**

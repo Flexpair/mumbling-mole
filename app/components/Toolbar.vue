@@ -111,10 +111,7 @@ const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 
 // Methods
 const handleMuteClick = () => {
-  const user = appState.thisUser?.value;
-  if (user) {
-    appState.requestMute(user);
-  }
+  appState.requestMute(appState.thisUser?.value);
 };
 
 const handleUnmuteClick = () => {
@@ -122,10 +119,7 @@ const handleUnmuteClick = () => {
 };
 
 const handleDeafClick = () => {
-  const user = appState.thisUser?.value;
-  if (user) {
-    appState.requestDeaf(user);
-  }
+  appState.requestDeaf(appState.thisUser?.value);
 };
 
 const handleUndeafClick = () => {

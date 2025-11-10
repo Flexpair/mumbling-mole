@@ -19,6 +19,11 @@ export function reactive(obj) {
   return obj;
 }
 
+// markRaw implementation for tests - prevents reactivity
+export function markRaw(obj) {
+  return obj;
+}
+
 // Simple computed implementation for tests
 export function computed(getter) {
   return {

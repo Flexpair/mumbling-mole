@@ -92,8 +92,13 @@ export default class AppState {
       if (!this._vueState.user.thisUser.value) {
         return '';
       }
-      const target = this._vueState.user.thisUser.value.channel.value;
-      if (!target) {
+      // With markRaw, channel is a ref that might be undefined
+      const channelRef = this._vueState.user.thisUser.value.channel;
+      if (!channelRef || !channelRef.value) {
+        return '';
+      }
+      const target = channelRef.value;
+      if (!target || !target.name) {
         return '';
       }
       return translate('chat.channel_message_placeholder').replace('%1', target.name.value);
