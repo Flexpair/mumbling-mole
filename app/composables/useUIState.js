@@ -25,16 +25,16 @@ export function useUIState() {
   const settingsDialog = ref(null);
 
   /**
-   * Open settings dialog
-   * @param {object} settings - Settings instance
-   * @param {Function} SettingsDialogClass - Settings dialog constructor
+   * Open settings dialog (simplified for Vue composables)
+   * Just sets settingsDialog.value to a truthy marker to trigger visibility
    */
-  function openSettings(settings, SettingsDialogClass) {
+  function openSettings() {
     // Prevent opening if another modal is already open
     if (currentOpenModal.value !== null) {
       return;
     }
-    settingsDialog.value = new SettingsDialogClass(settings);
+    // Set to true to indicate settings dialog should be visible
+    settingsDialog.value = true;
     currentOpenModal.value = 'settings';
   }
 
@@ -42,9 +42,6 @@ export function useUIState() {
    * Close settings dialog
    */
   function closeSettings() {
-    if (settingsDialog.value) {
-      settingsDialog.value.end();
-    }
     settingsDialog.value = null;
     
     // Clear the modal state

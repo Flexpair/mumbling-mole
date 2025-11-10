@@ -69,8 +69,9 @@ describe('ContinuousVoiceHandler', () => {
     mockClient = {
       createVoiceStream: jest.fn()
     };
+    // Settings is now a Vue composable with refs
     settings = {
-      samplesPerPacket: 960
+      samplesPerPacket: { value: 960 }
     };
   });
 
@@ -333,9 +334,10 @@ describe('PushToTalkVoiceHandler', () => {
     mockClient = {
       createVoiceStream: jest.fn()
     };
+    // Settings is now a Vue composable with refs
     settings = {
-      samplesPerPacket: 960,
-      pttKey: 'ctrl'
+      samplesPerPacket: { value: 960 },
+      pttKey: { value: 'ctrl' }
     };
     mockKeyboardjs.bind.mockClear();
     mockKeyboardjs.unbind.mockClear();

@@ -86,26 +86,32 @@
 </template>
 
 <script setup>
-import { ref, inject, watch, onMounted, onUnmounted } from 'vue';
+import { computed, inject } from 'vue';
 
 const appState = inject('appState');
 
-// Local reactive state
-const selfMute = ref(false);
-const selfDeaf = ref(false);
-const audioLockActive = ref(false);
-const messageBox = ref('');
-const messageBoxHint = ref('');
-const mailToDesktop = ref('');
+// Computed properties that directly track Vue refs
+const selfMute = computed(() => appState.selfMute?.value || false);
+const selfDeaf = computed(() => appState.selfDeaf?.value || false);
+const audioLockActive = computed(() => appState.audioLockActive?.value || false);
 
-// Subscriptions for cleanup
-const subscriptions = [];
+// Writable computed for 2-way binding with messageBox
+const messageBox = computed({
+  get: () => appState.messageBox?.value || '',
+  set: (val) => {
+    if (appState.messageBox) {
+      appState.messageBox.value = val;
+    }
+  }
+});
+
+// AppState computed properties (now Vue computed refs, not Knockout)
+const messageBoxHint = computed(() => appState.messageBoxHint?.value || '');
+const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 
 // Methods
 const handleMuteClick = () => {
-  if (appState.thisUser && appState.thisUser()) {
-    appState.requestMute(appState.thisUser());
-  }
+  appState.requestMute(appState.thisUser?.value);
 };
 
 const handleUnmuteClick = () => {
@@ -113,9 +119,7 @@ const handleUnmuteClick = () => {
 };
 
 const handleDeafClick = () => {
-  if (appState.thisUser && appState.thisUser()) {
-    appState.requestDeaf(appState.thisUser());
-  }
+  appState.requestDeaf(appState.thisUser?.value);
 };
 
 const handleUndeafClick = () => {
@@ -127,7 +131,7 @@ const handleSubmitMessageBox = () => {
 };
 
 const handleConnectionInfoClick = () => {
-  if (appState.connectionInfo && appState.connectionInfo.show) {
+  if (appState.connectionInfo?.show) {
     appState.connectionInfo.show();
   }
 };
@@ -149,85 +153,6 @@ const handleLogoutClick = () => {
     appState.logoutUser();
   }
 };
-
-// Bidirectional sync with Knockout AppState
-onMounted(() => {
-  // Initialize from AppState (use root-level Knockout observables)
-  if (appState.selfMute) {
-    selfMute.value = appState.selfMute() || false;
-  }
-  if (appState.selfDeaf) {
-    selfDeaf.value = appState.selfDeaf() || false;
-  }
-  if (appState.audioLockActive) {
-    audioLockActive.value = appState.audioLockActive() || false;
-  }
-  if (appState.messageBox) {
-    messageBox.value = appState.messageBox() || '';
-  }
-  if (appState.messageBoxHint) {
-    messageBoxHint.value = appState.messageBoxHint() || '';
-  }
-  if (appState.mailToDesktop) {
-    mailToDesktop.value = appState.mailToDesktop() || '';
-  }
-
-  // Knockout → Vue sync (use root-level observables)
-  if (appState.selfMute) {
-    subscriptions.push(
-      appState.selfMute.subscribe((val) => {
-        selfMute.value = val || false;
-      })
-    );
-  }
-  if (appState.selfDeaf) {
-    subscriptions.push(
-      appState.selfDeaf.subscribe((val) => {
-        selfDeaf.value = val || false;
-      })
-    );
-  }
-  if (appState.audioLockActive) {
-    subscriptions.push(
-      appState.audioLockActive.subscribe((val) => {
-        audioLockActive.value = val || false;
-      })
-    );
-  }
-  if (appState.messageBox) {
-    subscriptions.push(
-      appState.messageBox.subscribe((val) => {
-        messageBox.value = val || '';
-      })
-    );
-  }
-  if (appState.messageBoxHint) {
-    subscriptions.push(
-      appState.messageBoxHint.subscribe((val) => {
-        messageBoxHint.value = val || '';
-      })
-    );
-  }
-  if (appState.mailToDesktop) {
-    subscriptions.push(
-      appState.mailToDesktop.subscribe((val) => {
-        mailToDesktop.value = val || '';
-      })
-    );
-  }
-});
-
-// Vue → Knockout sync (messageBox is the only user-editable field)
-watch(messageBox, (val) => {
-  if (appState.messageBox) {
-    appState.messageBox(val);
-  }
-});
-
-// Cleanup subscriptions
-onUnmounted(() => {
-  subscriptions.forEach(sub => sub.dispose());
-});
 </script>
 
 <style scoped>

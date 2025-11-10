@@ -1,11 +1,14 @@
-import ko from 'knockout';
-import { watch } from 'vue';
+import { watch, ref, computed } from 'vue';
 import {
   useConnectionState,
   useAudioState,
   useVoiceState,
   useUIState,
   useUserState,
+  useConnectionDialog,
+  useConnectErrorDialog,
+  useSampleRateWarningDialog,
+  useConnectionInfo,
 } from '../composables';
 import { translate } from '../localize';
 import packageJson from '../../package.json';
@@ -33,12 +36,19 @@ export default class AppState {
     this.config = config;
     this.log = log || console.log.bind(console);
     
+    // Store Vue runtime for creating refs/computed
+    this._vue = { ref, computed };
+    
     // Initialize Vue composables (source of truth)
     const connectionState = useConnectionState(this.log);
     const audioState = useAudioState();
     const voiceState = useVoiceState();
     const uiState = useUIState();
     const userState = useUserState(audioState, voiceState);
+    const connectionDialog = useConnectionDialog();
+    const connectErrorDialog = useConnectErrorDialog();
+    const sampleRateWarningDialog = useSampleRateWarningDialog();
+    const connectionInfo = useConnectionInfo();
     
     // Store composable references
     this._vueState = {
@@ -47,21 +57,15 @@ export default class AppState {
       voice: voiceState,
       ui: uiState,
       user: userState,
+      dialog: connectionDialog,
+      errorDialog: connectErrorDialog,
+      sampleRateDialog: sampleRateWarningDialog,
+      connectionInfoDialog: connectionInfo,
     };
-    
-    // Create Knockout observable wrappers for backward compatibility
-    this._setupKnockoutWrappers();
-    
-    // Set up bidirectional sync between Vue and Knockout
-    this._setupBidirectionalSync();
     
     // Store references for backward compatibility
     this.settings = null; // Set externally
-    this.connectDialog = null; // Set externally
-    this.connectErrorDialog = null; // Set externally
-    this.sampleRateWarningDialog = null; // Set externally
     this.guacamoleFrame = null; // Set externally
-    this.connectionInfo = null; // Set externally
     this.auth = null; // Set externally
     
     // Guacamole credentials storage
@@ -73,86 +77,39 @@ export default class AppState {
     
     // Set up cross-module subscriptions
     this._setupSubscriptions();
+    
+    // Initialize lazy computed properties after _vueState is ready
+    this._initializeComputedProperties();
   }
 
   /**
-   * Create Knockout observable wrappers for Vue refs
-   * These observables are kept in sync with Vue state for backward compatibility
+   * Initialize computed properties (called after _vueState is ready)
    * @private
    */
-  _setupKnockoutWrappers() {
-    // Connection state
-    this._ko_remoteHost = ko.observable(null);
-    this._ko_remotePort = ko.observable(null);
+  _initializeComputedProperties() {
+    // Message box placeholder hint
+    this.messageBoxHint = this._vue.computed(() => {
+      if (!this._vueState.user.thisUser.value) {
+        return '';
+      }
+      // With markRaw, channel is a ref that might be undefined
+      const channelRef = this._vueState.user.thisUser.value.channel;
+      if (!channelRef || !channelRef.value) {
+        return '';
+      }
+      const target = channelRef.value;
+      if (!target || !target.name) {
+        return '';
+      }
+      return translate('chat.channel_message_placeholder').replace('%1', target.name.value);
+    });
     
-    // Audio state
-    this._ko_audioLockActive = ko.observable(false);
-    this._ko_audioLockReason = ko.observable(null);
-    this._ko_audioLockDetails = ko.observable(null);
-    this._ko_micPermissionDenied = ko.observable(false);
-    this._ko_micPermissionErrorMessage = ko.observable('');
-    this._ko_isBeeping = ko.observable(false);
-    this._ko_beeperReady = ko.observable(false);
-    
-    // Voice state
-    this._ko_isLoopbackMode = ko.observable(false);
-    this._ko_voiceHandlerReady = ko.observable(false);
-    this._ko_loopbackDominantFrequency = ko.observable(0);
-    
-    // UI state
-    this._ko_currentOpenModal = ko.observable(null);
-    this._ko_messageBox = ko.observable('');
-    this._ko_settingsDialog = ko.observable(null);
-    
-    // User state
-    this._ko_thisUser = ko.observable(null);
-    this._ko_selfMute = ko.observable(false);
-    this._ko_selfDeaf = ko.observable(false);
-  }
-
-  /**
-   * Set up bidirectional sync between Vue refs and Knockout observables
-   * @private
-   */
-  _setupBidirectionalSync() {
-    const v = this._vueState;
-    
-    // Connection state: Vue → Knockout
-    watch(() => v.connection.remoteHost.value, (val) => this._ko_remoteHost(val));
-    watch(() => v.connection.remotePort.value, (val) => this._ko_remotePort(val));
-    
-    // Audio state: Vue → Knockout
-    watch(() => v.audio.audioLockActive.value, (val) => this._ko_audioLockActive(val));
-    watch(() => v.audio.audioLockReason.value, (val) => this._ko_audioLockReason(val));
-    watch(() => v.audio.audioLockDetails.value, (val) => this._ko_audioLockDetails(val));
-    watch(() => v.audio.micPermissionDenied.value, (val) => this._ko_micPermissionDenied(val));
-    watch(() => v.audio.micPermissionErrorMessage.value, (val) => this._ko_micPermissionErrorMessage(val));
-    watch(() => v.audio.isBeeping.value, (val) => this._ko_isBeeping(val));
-    watch(() => v.audio.beeperReady.value, (val) => this._ko_beeperReady(val));
-    
-    // Voice state: Vue → Knockout
-    watch(() => v.voice.isLoopbackMode.value, (val) => this._ko_isLoopbackMode(val));
-    watch(() => v.voice.voiceHandlerReady.value, (val) => this._ko_voiceHandlerReady(val));
-    watch(() => v.voice.loopbackDominantFrequency.value, (val) => this._ko_loopbackDominantFrequency(val));
-    
-    // UI state: Vue → Knockout
-    watch(() => v.ui.currentOpenModal.value, (val) => this._ko_currentOpenModal(val));
-    watch(() => v.ui.messageBox.value, (val) => this._ko_messageBox(val));
-    watch(() => v.ui.settingsDialog.value, (val) => this._ko_settingsDialog(val));
-    
-    // User state: Vue → Knockout
-    watch(() => v.user.thisUser.value, (val) => this._ko_thisUser(val));
-    watch(() => v.user.selfMute.value, (val) => this._ko_selfMute(val));
-    watch(() => v.user.selfDeaf.value, (val) => this._ko_selfDeaf(val));
-    
-    // Knockout → Vue (for external updates to Knockout observables)
-    this._ko_remoteHost.subscribe((val) => { if (v.connection.remoteHost.value !== val) v.connection.remoteHost.value = val; });
-    this._ko_remotePort.subscribe((val) => { if (v.connection.remotePort.value !== val) v.connection.remotePort.value = val; });
-    this._ko_audioLockActive.subscribe((val) => { if (v.audio.audioLockActive.value !== val) v.audio.audioLockActive.value = val; });
-    this._ko_isLoopbackMode.subscribe((val) => { if (v.voice.isLoopbackMode.value !== val) v.voice.isLoopbackMode.value = val; });
-    this._ko_messageBox.subscribe((val) => { if (v.ui.messageBox.value !== val) v.ui.messageBox.value = val; });
-    this._ko_selfMute.subscribe((val) => { if (v.user.selfMute.value !== val) v.user.selfMute.value = val; });
-    this._ko_selfDeaf.subscribe((val) => { if (v.user.selfDeaf.value !== val) v.user.selfDeaf.value = val; });
+    // Mailto link for desktop attachment
+    this.mailToDesktop = this._vue.ref(
+      'mailto:mail@' +
+      globalThis.location.hostname +
+      '?subject=Send%20attachment%20to%20desktop'
+    );
   }
 
   /**
@@ -433,7 +390,7 @@ export default class AppState {
     }
     
     this._guacLogin = guac_login;
-    this._guacPassword = this.connectDialog.password();
+    this._guacPassword = this.connectDialog.password.value; // Vue ref
     this._setupGuacamoleFrame(guac_login);
     
     if (this._vueState.voice.isLoopbackMode.value) {
@@ -464,7 +421,7 @@ export default class AppState {
   }
 
   /**
-   * Register channel with minimal UI wrapper
+   * Register channel UI wrapper (Vue refs instead of Knockout)
    * @private
    */
   _registerChannel(channel) {
@@ -472,9 +429,10 @@ export default class AppState {
       return;
     }
     
+    const { ref } = this._vue;
     channel.__ui = {
       model: channel,
-      name: ko.observable(channel.name),
+      name: ref(channel.name),
     };
   }
 
@@ -497,9 +455,9 @@ export default class AppState {
       await this._establishClientConnection(host, port, username, password, tokens, targetChannel);
     } catch (err) {
       if (err.$type?.name === 'Reject') {
-        this.connectErrorDialog.type(err.type);
-        this.connectErrorDialog.reason(err.reason);
-        this.connectErrorDialog.show();
+        this.connectErrorDialog.type.value = err.type;
+        this.connectErrorDialog.reason.value = err.reason;
+        this.connectErrorDialog.visible.value = true;
       } else {
         this.log(translate('logentry.connection_error'), err);
       }
@@ -516,12 +474,12 @@ export default class AppState {
       this.settings,
       () => {
         if (this._vueState.user.thisUser.value) {
-          this._vueState.user.thisUser.value.talking('on');
+          this._vueState.user.thisUser.value.talking.value = 'on';
         }
       },
       () => {
         if (this._vueState.user.thisUser.value) {
-          this._vueState.user.thisUser.value.talking('off');
+          this._vueState.user.thisUser.value.talking.value = 'off';
         }
         if (this._vueState.voice.isLoopbackMode.value) {
           this._vueState.voice.loopbackDominantFrequency.value = 0;
@@ -538,8 +496,8 @@ export default class AppState {
     const client = this._vueState.connection.getClient();
     if (client) {
       client.setAudioQuality(
-        this.settings.audioBitrate,
-        this.settings.samplesPerPacket
+        this.settings.audioBitrate.value,
+        this.settings.samplesPerPacket.value
       );
     }
   }
@@ -568,7 +526,7 @@ export default class AppState {
   sendMessage = (target, message) => {
     if (this.connected()) {
       if (!target) {
-        target = this._vueState.user.thisUser.value?.channel();
+        target = this._vueState.user.thisUser.value?.channel.value;
       }
       if (!target) {
         return;
@@ -581,15 +539,18 @@ export default class AppState {
   // DELEGATION - Expose Knockout observables for backward compatibility
   // ============================================================
 
+  // Connection Dialog module (Vue refs, no Knockout wrapper needed)
+  get connectDialog() { return this._vueState.dialog; }
+
   // Audio module
   get audioContext() { return this._vueState.audio.audioContext; }
-  get audioLockActive() { return this._ko_audioLockActive; }
-  get audioLockReason() { return this._ko_audioLockReason; }
-  get audioLockDetails() { return this._ko_audioLockDetails; }
-  get micPermissionDenied() { return this._ko_micPermissionDenied; }
-  get micPermissionErrorMessage() { return this._ko_micPermissionErrorMessage; }
-  get isBeeping() { return this._ko_isBeeping; }
-  get beeperReady() { return this._ko_beeperReady; }
+  get audioLockActive() { return this._vueState.audio.audioLockActive; }
+  get audioLockReason() { return this._vueState.audio.audioLockReason; }
+  get audioLockDetails() { return this._vueState.audio.audioLockDetails; }
+  get micPermissionDenied() { return this._vueState.audio.micPermissionDenied; }
+  get micPermissionErrorMessage() { return this._vueState.audio.micPermissionErrorMessage; }
+  get isBeeping() { return this._vueState.audio.isBeeping; }
+  get beeperReady() { return this._vueState.audio.beeperReady; }
   
   startBeep = () => { return this._vueState.audio.startBeep(); }
   stopBeep = () => { return this._vueState.audio.stopBeep(); }
@@ -598,27 +559,27 @@ export default class AppState {
   _initializePersistentBeeper = () => { return this._vueState.audio.initializePersistentBeeper(); }
 
   // Voice module
-  get isLoopbackMode() { return this._ko_isLoopbackMode; }
-  get voiceHandlerReady() { return this._ko_voiceHandlerReady; }
-  get loopbackDominantFrequency() { return this._ko_loopbackDominantFrequency; }
+  get isLoopbackMode() { return this._vueState.voice.isLoopbackMode; }
+  get voiceHandlerReady() { return this._vueState.voice.voiceHandlerReady; }
+  get loopbackDominantFrequency() { return this._vueState.voice.loopbackDominantFrequency; }
   get voiceHandler() { return this._vueState.voice.voiceHandler; }
 
   // UI module
-  get currentOpenModal() { return this._ko_currentOpenModal; }
-  get messageBox() { return this._ko_messageBox; }
-  get settingsDialog() { return this._ko_settingsDialog; }
+  get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
+  get messageBox() { return this._vueState.ui.messageBox; }
+  get settingsDialog() { return this._vueState.ui.settingsDialog; }
   
-  openSettings = (SettingsDialogClass) => { return this._vueState.ui.openSettings(this.settings, SettingsDialogClass); }
+  openSettings = () => { return this._vueState.ui.openSettings(); }
   closeSettings = () => { return this._vueState.ui.closeSettings(); }
   submitMessageBox = () => {
-    const target = this._vueState.user.thisUser.value?.channel();
+    const target = this._vueState.user.thisUser.value?.channel.value;
     return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
   }
 
   // User module
-  get thisUser() { return this._ko_thisUser; }
-  get selfMute() { return this._ko_selfMute; }
-  get selfDeaf() { return this._ko_selfDeaf; }
+  get thisUser() { return this._vueState.user.thisUser; }
+  get selfMute() { return this._vueState.user.selfMute; }
+  get selfDeaf() { return this._vueState.user.selfDeaf; }
   
   requestMute = (user) => { 
     this._vueState.user.requestMute(user);
@@ -658,8 +619,8 @@ export default class AppState {
   }
 
   // Connection module
-  get remoteHost() { return this._ko_remoteHost; }
-  get remotePort() { return this._ko_remotePort; }
+  get remoteHost() { return this._vueState.connection.remoteHost; }
+  get remotePort() { return this._vueState.connection.remotePort; }
   get client() { return this._vueState.connection.getClient(); }
   set client(value) { 
     // Direct assignment is no longer supported - use composable API or connection methods
@@ -686,30 +647,10 @@ export default class AppState {
   }
 
   applySettings = () => {
-    const settingsDialog = this._vueState.ui.settingsDialog.value;
-    settingsDialog.applyTo(this.settings);
+    // Settings are now managed by Vue composable and saved via dialog
+    // Just update the voice handler with new settings
     this._updateVoiceHandler();
-    this.settings.save();
-    this._vueState.ui.closeSettings();
   }
-
-  // Computed observables
-  messageBoxHint = ko.pureComputed(() => {
-    if (!this._vueState.user.thisUser.value) {
-      return '';
-    }
-    const target = this._vueState.user.thisUser.value.channel();
-    if (!target) {
-      return '';
-    }
-    return translate('chat.channel_message_placeholder').replace('%1', target.name());
-  });
-
-  mailToDesktop = ko.observable(
-    'mailto:mail@' +
-    globalThis.location.hostname +
-    '?subject=Send%20attachment%20to%20desktop'
-  );
 
   logoutUser = () => {
     this.auth.logout();
@@ -726,4 +667,7 @@ export default class AppState {
   get voice() { return this._vueState.voice; }
   get ui() { return this._vueState.ui; }
   get user() { return this._vueState.user; }
+  get connectErrorDialog() { return this._vueState.errorDialog; }
+  get sampleRateWarningDialog() { return this._vueState.sampleRateDialog; }
+  get connectionInfo() { return this._vueState.connectionInfoDialog; }
 }

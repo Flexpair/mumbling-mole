@@ -32,22 +32,28 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue';
+import { computed, inject } from 'vue';
 
 const appState = inject('appState');
-
-// Import translate function from localize module
-// This needs to be available in the component context
 const translate = inject('translate');
 
-// Local reactive state
-const visible = ref(false);
-const mode = ref('confirm');
-const sampleRate = ref(null);
-let pendingConnection = null;
+// Direct access to AppState Vue refs (no local state, no sync needed)
+const visible = computed({
+  get: () => appState.sampleRateWarningDialog.visible.value,
+  set: (val) => { appState.sampleRateWarningDialog.visible.value = val; }
+});
 
-// Subscriptions for cleanup
-const subscriptions = [];
+const mode = computed({
+  get: () => appState.sampleRateWarningDialog.mode.value,
+  set: (val) => { appState.sampleRateWarningDialog.mode.value = val; }
+});
+
+const sampleRate = computed({
+  get: () => appState.sampleRateWarningDialog.sampleRate.value,
+  set: (val) => { appState.sampleRateWarningDialog.sampleRate.value = val; }
+});
+
+let pendingConnection = null;
 
 // Computed properties
 const isConfirm = computed(() => mode.value === 'confirm');
@@ -93,31 +99,31 @@ const hints = computed(() => {
 
 // Methods
 const show = (sr, params) => {
-  if (appState.currentOpenModal() !== null) {
+  if (appState.ui.currentOpenModal.value !== null) {
     return;
   }
   mode.value = 'confirm';
   sampleRate.value = sr || null;
   pendingConnection = params || null;
   visible.value = true;
-  appState.currentOpenModal('sampleRateWarning');
+  appState.ui.currentOpenModal.value = 'sampleRateWarning';
 };
 
 const showInfo = (sr) => {
-  if (appState.currentOpenModal() !== null) {
+  if (appState.ui.currentOpenModal.value !== null) {
     return;
   }
   mode.value = 'info';
   sampleRate.value = sr || null;
   pendingConnection = null;
   visible.value = true;
-  appState.currentOpenModal('sampleRateWarning');
+  appState.ui.currentOpenModal.value = 'sampleRateWarning';
 };
 
 const hide = () => {
   visible.value = false;
-  if (appState.currentOpenModal() === 'sampleRateWarning') {
-    appState.currentOpenModal(null);
+  if (appState.ui.currentOpenModal.value === 'sampleRateWarning') {
+    appState.ui.currentOpenModal.value = null;
   }
   pendingConnection = null;
 };
@@ -137,41 +143,6 @@ const joinWithoutAudio = () => {
 const cancel = () => {
   hide();
 };
-
-// Bidirectional sync with Knockout AppState
-onMounted(() => {
-  // Initialize from AppState
-  visible.value = appState.sampleRateWarningDialog.visible();
-  mode.value = appState.sampleRateWarningDialog.mode();
-  sampleRate.value = appState.sampleRateWarningDialog.sampleRate();
-
-  // Knockout → Vue sync
-  subscriptions.push(
-    appState.sampleRateWarningDialog.visible.subscribe((val) => {
-      visible.value = val;
-    })
-  );
-  subscriptions.push(
-    appState.sampleRateWarningDialog.mode.subscribe((val) => {
-      mode.value = val;
-    })
-  );
-  subscriptions.push(
-    appState.sampleRateWarningDialog.sampleRate.subscribe((val) => {
-      sampleRate.value = val;
-    })
-  );
-});
-
-// Vue → Knockout sync
-watch(visible, (val) => appState.sampleRateWarningDialog.visible(val));
-watch(mode, (val) => appState.sampleRateWarningDialog.mode(val));
-watch(sampleRate, (val) => appState.sampleRateWarningDialog.sampleRate(val));
-
-// Cleanup subscriptions
-onUnmounted(() => {
-  subscriptions.forEach(sub => sub.dispose());
-});
 
 // Expose methods to appState for backward compatibility
 appState.sampleRateWarningDialog.show = show;

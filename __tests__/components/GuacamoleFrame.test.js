@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import ko from 'knockout';
 
 /**
  * GuacamoleFrame Integration Tests
@@ -45,16 +44,16 @@ describe('GuacamoleFrame - Knockout State Management', () => {
 
     // Define GuacamoleFrame constructor (from index.js)
     GuacamoleFrame = function() {
-      this.guacSource = ko.observable(null);
-      this.visible = ko.observable(false);
-      this.show = this.visible.bind(this.visible, true);
-      this.hide = this.visible.bind(this.visible, false);
-      this.loading = ko.observable(false);
-      this.error = ko.observable(null);
+      this.guacSource = { value: null };
+      this.visible = { value: false };
+      this.show = () => { this.visible.value = true; };
+      this.hide = () => { this.visible.value = false; };
+      this.loading = { value: false };
+      this.error = { value: null };
 
       this.start = function (guacUser, password) {
-        this.loading(true);
-        this.error(null);
+        this.loading.value = true;
+        this.error.value = null;
         // Sanitize previously bad localStorage entries
         try {
           for (let i = 0; i < localStorage.length; i++) {
@@ -75,11 +74,11 @@ describe('GuacamoleFrame - Knockout State Management', () => {
           guacUser +
           "&password=" +
           encodeURIComponent(password || "");
-        this.guacSource(src);
+        this.guacSource.value = src;
       };
 
       this.onLoad = function () {
-        this.loading(false);
+        this.loading.value = false;
       };
     };
 
@@ -95,19 +94,12 @@ describe('GuacamoleFrame - Knockout State Management', () => {
   // ========================================
 
   it('initializes with default state', () => {
-    expect(instance.guacSource()).toBeNull();
-    expect(instance.visible()).toBe(false);
-    expect(instance.loading()).toBe(false);
-    expect(instance.error()).toBeNull();
+    expect(instance.guacSource.value).toBeNull();
+    expect(instance.visible.value).toBe(false);
+    expect(instance.loading.value).toBe(false);
+    expect(instance.error.value).toBeNull();
   });
 
-  it('observable changes are reactive', () => {
-    const callback = jest.fn();
-    instance.guacSource.subscribe(callback);
-    
-    instance.guacSource('/test');
-    expect(callback).toHaveBeenCalledWith('/test');
-  });
 
   // ========================================
   // SHOW/HIDE METHODS
@@ -115,13 +107,13 @@ describe('GuacamoleFrame - Knockout State Management', () => {
 
   it('show() method sets visible to true', () => {
     instance.show();
-    expect(instance.visible()).toBe(true);
+    expect(instance.visible.value).toBe(true);
   });
 
   it('hide() method sets visible to false', () => {
-    instance.visible(true);
+    instance.visible.value = true;
     instance.hide();
-    expect(instance.visible()).toBe(false);
+    expect(instance.visible.value).toBe(false);
   });
 
   // ========================================
@@ -131,27 +123,27 @@ describe('GuacamoleFrame - Knockout State Management', () => {
   it('start() method sets loading state and builds Guacamole URL', () => {
     instance.start('admin', 'secret123');
 
-    expect(instance.loading()).toBe(true);
-    expect(instance.error()).toBeNull();
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=admin&password=secret123');
+    expect(instance.loading.value).toBe(true);
+    expect(instance.error.value).toBeNull();
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=admin&password=secret123');
   });
 
   it('start() method URL-encodes password correctly', () => {
     instance.start('user', 'p@ss w0rd!');
 
-    expect(instance.guacSource()).toContain('password=p%40ss%20w0rd!');
+    expect(instance.guacSource.value).toContain('password=p%40ss%20w0rd!');
   });
 
   it('start() method handles empty password', () => {
     instance.start('user', '');
 
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=user&password=');
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=user&password=');
   });
 
   it('start() method handles undefined password', () => {
     instance.start('user', undefined);
 
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=user&password=');
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=user&password=');
   });
 
   // ========================================
@@ -168,7 +160,7 @@ describe('GuacamoleFrame - Knockout State Management', () => {
     }).not.toThrow();
 
     // URL should still be built correctly
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=admin&password=pass');
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=admin&password=pass');
   });
 
   // ========================================
@@ -176,9 +168,9 @@ describe('GuacamoleFrame - Knockout State Management', () => {
   // ========================================
 
   it('onLoad() sets loading to false', () => {
-    instance.loading(true);
+    instance.loading.value = true;
     instance.onLoad();
-    expect(instance.loading()).toBe(false);
+    expect(instance.loading.value).toBe(false);
   });
 
   // ========================================
@@ -187,52 +179,52 @@ describe('GuacamoleFrame - Knockout State Management', () => {
 
   it('simulates complete Guacamole session flow', () => {
     // Initial state: hidden, no source
-    expect(instance.visible()).toBe(false);
-    expect(instance.guacSource()).toBeNull();
+    expect(instance.visible.value).toBe(false);
+    expect(instance.guacSource.value).toBeNull();
 
     // Start session (called from AppState)
     instance.start('admin', 'password123');
-    expect(instance.loading()).toBe(true);
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=admin&password=password123');
+    expect(instance.loading.value).toBe(true);
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=admin&password=password123');
 
     // Show frame
     instance.show();
-    expect(instance.visible()).toBe(true);
+    expect(instance.visible.value).toBe(true);
 
     // Simulate iframe load
     instance.onLoad();
-    expect(instance.loading()).toBe(false);
+    expect(instance.loading.value).toBe(false);
 
     // Hide frame
     instance.hide();
-    expect(instance.visible()).toBe(false);
+    expect(instance.visible.value).toBe(false);
   });
 
   it('maintains state across multiple start() calls', () => {
     instance.start('user1', 'pass1');
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=user1&password=pass1');
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=user1&password=pass1');
 
     instance.start('user2', 'pass2');
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=user2&password=pass2');
-    expect(instance.loading()).toBe(true);
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=user2&password=pass2');
+    expect(instance.loading.value).toBe(true);
   });
 
   it('error state can be set and cleared', () => {
-    instance.error('Network timeout');
-    expect(instance.error()).toBe('Network timeout');
+    instance.error.value = 'Network timeout';
+    expect(instance.error.value).toBe('Network timeout');
 
     instance.start('admin', 'pass');
-    expect(instance.error()).toBeNull(); // start() clears errors
+    expect(instance.error.value).toBeNull(); // start() clears errors
   });
 
   it('loading state is managed independently', () => {
-    expect(instance.loading()).toBe(false);
+    expect(instance.loading.value).toBe(false);
     
-    instance.loading(true);
-    expect(instance.loading()).toBe(true);
+    instance.loading.value = true;
+    expect(instance.loading.value).toBe(true);
     
     instance.onLoad();
-    expect(instance.loading()).toBe(false);
+    expect(instance.loading.value).toBe(false);
   });
 
   // ========================================
@@ -243,16 +235,16 @@ describe('GuacamoleFrame - Knockout State Management', () => {
     instance.show();
     instance.hide();
     instance.show();
-    expect(instance.visible()).toBe(true);
+    expect(instance.visible.value).toBe(true);
   });
 
   it('handles start() with special characters in username', () => {
     instance.start('user@domain.com', 'pass');
-    expect(instance.guacSource()).toBe('/guacamole/#/?username=user@domain.com&password=pass');
+    expect(instance.guacSource.value).toBe('/guacamole/#/?username=user@domain.com&password=pass');
   });
 
   it('handles start() with Unicode password', () => {
     instance.start('user', 'пароль');
-    expect(instance.guacSource()).toContain('password=%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C');
+    expect(instance.guacSource.value).toContain('password=%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C');
   });
 });

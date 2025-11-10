@@ -47,294 +47,34 @@ function getUsernameFromMetadata(user) {
 }
 
 // DEPRECATED Knockout classes - kept for backward compatibility during migration
-// These will be removed once Vue migration is complete
-import ko from "knockout";
-
-class ConnectionInfo {
-  constructor(ui) {
-    this._ui = ui;
-    this.visible = ko.observable(false);
-    this.serverVersion = ko.observable();
-    this.latencyMs = ko.observable(Number.NaN);
-    this.latencyDeviation = ko.observable(Number.NaN);
-    this.remoteHost = ko.observable();
-    this.remotePort = ko.observable();
-    this.maxBitrate = ko.observable(Number.NaN);
-    this.currentBitrate = ko.observable(Number.NaN);
-    this.maxBandwidth = ko.observable(Number.NaN);
-    this.currentBandwidth = ko.observable(Number.NaN);
-    this.codec = ko.observable();
-
-    this.show = () => {
-      // Prevent opening connection info if another modal is already open
-      if (this._ui.currentOpenModal() !== null) {
-        return;
-      }
-      this.update();
-      this.visible(true);
-      this._ui.currentOpenModal('connectionInfo');
-    };
-    this.hide = () => {
-      this.visible(false);
-      // Clear the modal state when connection info dialog is closed
-      if (this._ui.currentOpenModal() === 'connectionInfo') {
-        this._ui.currentOpenModal(null);
-      }
-    };
-  }
-
-  update() {
-    let client = this._ui.client;
-
-    if (client) {
-      this.serverVersion(client.serverVersion);
-
-      let dataStats = client.dataStats;
-      if (dataStats) {
-        this.latencyMs(dataStats.mean);
-        this.latencyDeviation(Math.sqrt(dataStats.variance));
-      }
-    } else {
-      // Handle case when not connected to server
-      this.serverVersion(null);
-      this.latencyMs(Number.NaN);
-      this.latencyDeviation(Number.NaN);
-    }
-    this.remoteHost(this._ui.remoteHost());
-    this.remotePort(this._ui.remotePort());
-
-    let spp = this._ui.settings.samplesPerPacket;
-    if (client) {
-      let maxBandwidth = client.maxBandwidth;
-      let maxBitrate = maxBandwidth === null || maxBandwidth === undefined ? Number.NaN : client.getMaxBitrate(spp, false);
-      let actualBitrate = client.getActualBitrate(spp, false);
-      let actualBandwidth = MumbleClient.calcEnforcableBandwidth(
-        actualBitrate,
-        spp,
-        false
-      );
-      this.maxBitrate(maxBitrate);
-      this.currentBitrate(actualBitrate);
-      this.maxBandwidth(maxBandwidth);
-      this.currentBandwidth(actualBandwidth);
-      this.codec("Opus"); // only one supported for sending
-    } else {
-      // Handle case when not connected to server
-      this.maxBitrate(Number.NaN);
-      this.currentBitrate(Number.NaN);
-      this.maxBandwidth(Number.NaN);
-      this.currentBandwidth(Number.NaN);
-      this.codec("Unknown");
-    }
-  }
-}
-
-class SettingsDialog {
-  constructor(settings) {
-    this.voiceMode = ko.observable(settings.voiceMode);
-    this.pttKey = ko.observable(settings.pttKey);
-    this.pttKeyDisplay = ko.observable(settings.pttKey);
-    this.userCountInChannelName = ko.observable(
-      settings.userCountInChannelName()
-    );
-    // Need to wrap this in a pureComputed to make sure it's always numeric
-    let audioBitrate = ko.observable(settings.audioBitrate);
-    this.audioBitrate = ko.pureComputed({
-      read: audioBitrate,
-      write: (value) => audioBitrate(Number(value)),
-    });
-    this.samplesPerPacket = ko.observable(settings.samplesPerPacket);
-    this.msPerPacket = ko.pureComputed({
-      read: () => this.samplesPerPacket() / 48,
-      write: (value) => this.samplesPerPacket(value * 48),
-    });
-  }
-
-  applyTo(settings) {
-    settings.voiceMode = this.voiceMode();
-    settings.pttKey = this.pttKey();
-    settings.userCountInChannelName(this.userCountInChannelName());
-    settings.audioBitrate = this.audioBitrate();
-    settings.samplesPerPacket = this.samplesPerPacket();
-  }
-
-  recordPttKey() {
-    let combo = [];
-    const keydown = (e) => {
-      combo = e.pressedKeys;
-      let comboStr = combo.join(" + ");
-      this.pttKeyDisplay("> " + comboStr + " <");
-    };
-    const keyup = () => {
-      keyboardjs.unbind("", keydown, keyup);
-      let comboStr = combo.join(" + ");
-      if (comboStr) {
-        this.pttKey(comboStr).pttKeyDisplay(comboStr);
-      } else {
-        this.pttKeyDisplay(this.pttKey());
-      }
-    };
-    keyboardjs.bind("", keydown, keyup);
-    this.pttKeyDisplay("> ? <");
-  }
-
-  totalBandwidth() {
-    return MumbleClient.calcEnforcableBandwidth(
-      this.audioBitrate(),
-      this.samplesPerPacket(),
-      true
-    );
-  }
-
-  positionBandwidth() {
-    return (
-      this.totalBandwidth() -
-      MumbleClient.calcEnforcableBandwidth(
-        this.audioBitrate(),
-        this.samplesPerPacket(),
-        false
-      )
-    );
-  }
-
-  overheadBandwidth() {
-    return MumbleClient.calcEnforcableBandwidth(
-      0,
-      this.samplesPerPacket(),
-      false
-    );
-  }
-
-  end() {
-    // Cleanup method called when dialog is closed
-    // Currently no cleanup needed, but method must exist for UIState.closeSettings()
-  }
-}
-
-class Settings {
-  constructor(defaults) {
-    const load = (key) => globalThis.localStorage.getItem("mumble." + key);
-    this.voiceMode = load("voiceMode") || defaults.voiceMode;
-    this.pttKey = load("pttKey") || defaults.pttKey;
-    this.userCountInChannelName = ko.observable(
-      load("userCountInChannelName") || defaults.userCountInChannelName
-    );
-    this.audioBitrate = Number(load("audioBitrate")) || defaults.audioBitrate;
-    this.samplesPerPacket =
-      Number(load("samplesPerPacket")) || defaults.samplesPerPacket;
-  }
-
-  save() {
-    const save = (key, val) =>
-      globalThis.localStorage.setItem("mumble." + key, val);
-    save("voiceMode", this.voiceMode);
-    save("pttKey", this.pttKey);
-    save("userCountInChannelName", this.userCountInChannelName());
-    save("audioBitrate", this.audioBitrate);
-    save("samplesPerPacket", this.samplesPerPacket);
-  }
-}
+// Import Vue composables for settings
+import { useSettings } from "./composables/index.js";
 
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
 // [MIGRATION WORKAROUND] Exposing AppState on window global is required for Knockout.js + Vue.js dual runtime.
 // This creates tight coupling and bypasses Vue's dependency injection.
-// TODO: Remove this in Phase 4 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
+// TODO: Remove this in Phase 5 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects
-// Create placeholder objects with Knockout observables for backward compatibility
-ui.connectDialog = {
-  address: ko.observable(""),
-  port: ko.observable(""),
-  username: ko.observable(""),
-  password: ko.observable(""),
-  visible: ko.observable(false),
-  isTestActive: ko.observable(false),
-  show: function() { this.visible(true); },
-  hide: function() { this.visible(false); },
-  connect: function() {
-    // Delegate to AppState's connect method (builds connectionParams internally)
-    if (ui.connect) {
-      this.hide();
-      
-      // If already connected, exit test mode and return to normal
-      if (ui.connected()) {
-        this.isTestActive(false);
-        ui.isLoopbackMode(false); // Use root-level Knockout observable
-        ui._updateVoiceHandler();
-        
-        // Show Guacamole desktop if credentials exist
-        if (ui._guacLogin && ui.guacamoleFrame?.start) {
-          ui.guacamoleFrame.start(ui._guacLogin, ui._guacPassword);
-          if (ui.guacamoleFrame.show) ui.guacamoleFrame.show();
-        }
-      } else {
-        // Normal connection flow
-        this.isTestActive(false);
-        ui.connect(this.address(), this.port(), this.username(), this.password());
-      }
-    } else {
-      console.error('[connectDialog] ui.connect not available');
-    }
-  },
-  toggleLoopback: async function() {
-    // Delegate to AppState's connectLoopback method
-    if (ui.connectLoopback) {
-      if (this.isTestActive()) {
-        console.log('[connectDialog] Test already active, ignoring toggle');
-        return;
-      }
-      
-      // DO NOT hide dialog - keep it visible during loopback test
-      this.isTestActive(true);
-      await ui.connectLoopback(this.address(), this.port(), this.username(), this.password());
-    } else {
-      console.error('[connectDialog] ui.connectLoopback not available');
-    }
-  },
-  exitTestMode: function() {
-    // Delegate back to connect() method which handles exiting test mode
-    this.connect();
-  }
-};
-ui.connectErrorDialog = {
-  type: ko.observable(0),
-  reason: ko.observable(""),
-  visible: ko.observable(false),
-  username: ui.connectDialog.username,
-  password: ui.connectDialog.password,
-  show: function() { this.visible(true); },
-  hide: function() { this.visible(false); }
-};
-ui.sampleRateWarningDialog = {
-  visible: ko.observable(false),
-  mode: ko.observable("confirm"),
-  sampleRate: ko.observable(null),
-  show: function() { this.visible(true); },
-  hide: function() { this.visible(false); }
-};
+// Note: connectDialog, connectErrorDialog, sampleRateWarningDialog, connectionInfo are now Vue composables in AppState
+// Settings is now a Vue composable too
 ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
-ui.connectionInfo = new ConnectionInfo(ui);
-ui.settings = new Settings(globalThis.mumbleWebConfig.settings);
-ui.settingsDialogInstance = new SettingsDialog(ui.settings);
+ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
+// settingsDialogInstance is now deprecated - SettingsDialog.vue uses ui.settings directly
 
 // Initialize auth
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
 ui.netlifyIdentity = ui.auth; // Backward compatibility
 
-// Override openSettings to ensure the local SettingsDialog class is used
-// Knockout click bindings pass the event as first parameter, so we ignore it
-// and always use the local SettingsDialog constructor
+// Delegate UI methods to UIState composable
 ui.openSettings = function() {
-  // Ignore any parameters (e.g., click events from Knockout bindings)
-  // Always use the local SettingsDialog class defined in this file
-  return ui.ui.openSettings(ui.settings, SettingsDialog);
+  return ui.ui.openSettings(); // No more SettingsDialog class needed
 };
 
-// Expose closeSettings at root level for Knockout bindings
 ui.closeSettings = function() {
   return ui.ui.closeSettings();
 };
@@ -352,30 +92,30 @@ function initializeUI() {
   let queryParams = url.parse(document.location.href, true).query;
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
-    ui.connectDialog.address(queryParams.address);
+    ui.connectDialog.address.value = queryParams.address;
   }
   if (queryParams.port) {
-    ui.connectDialog.port(queryParams.port);
+    ui.connectDialog.port.value = queryParams.port;
   }
   if (queryParams.password) {
-    ui.connectDialog.password(queryParams.password);
+    ui.connectDialog.password.value = queryParams.password;
   }
 
   // Register event handlers BEFORE init() so they catch auto-login events
   ui.auth.on("login", (user) => {
     const username = getUsernameFromMetadata(user);
     if (username) {
-      ui.connectDialog.username(username);
+      ui.connectDialog.username.value = username;
     }
     ui.auth.close();
     // Show connect dialog after successful authentication
-    ui.connectDialog.show();
+    ui.connectDialog.visible.value = true;
   });
 
   ui.auth.on("close", () => {
-    if (ui.connectDialog.username()) {
+    if (ui.connectDialog.username.value) {
       // Show connect dialog when auth modal is closed and user is authenticated
-      ui.connectDialog.show();
+      ui.connectDialog.visible.value = true;
     } else {
       ui.auth.open("login"); // open the modal to the login tab
     }
@@ -384,7 +124,7 @@ function initializeUI() {
   ui.auth.on("error", (err) => {
     console.warn("[Auth] Authentication error:", err);
     // Show connect dialog even if auth fails to allow retry
-    ui.connectDialog.show();
+    ui.connectDialog.visible.value = true;
   });
 
   // Initialize auth asynchronously (don't block UI)
@@ -403,15 +143,15 @@ function initializeUI() {
 
     if (user == null) {
       // Hide connect dialog when showing authentication modal
-      ui.connectDialog.hide();
+      ui.connectDialog.visible.value = false;
       ui.auth.open("signup"); // open the modal to the signup tab
     } else {
       const username = getUsernameFromMetadata(user);
       if (username) {
-        ui.connectDialog.username(username);
+        ui.connectDialog.username.value = username;
       }
       // User is already authenticated, show connect dialog
-      ui.connectDialog.show();
+      ui.connectDialog.visible.value = true;
     }
   })();
 }

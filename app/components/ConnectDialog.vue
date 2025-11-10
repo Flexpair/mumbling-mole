@@ -131,13 +131,13 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from 'vue';
 
 /**
- * Vue 3 ConnectDialog Component (DUAL RUNTIME)
+ * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
  * 
- * Integrates with existing Knockout AppState via provide/inject.
- * Uses AppState directly instead of props/emits for compatibility.
+ * Uses AppState.connectDialog composable directly (Vue refs).
+ * No more bidirectional sync with Knockout observables.
  */
 
 // Inject AppState (from main app)
@@ -151,115 +151,68 @@ const microphoneContainer = ref(null);
 // Ref for piano button (to add passive touch listeners)
 const pianoButton = ref(null);
 
-// Local reactive state (synced with appState.connectDialog)
-const visible = ref(false);
-const isTestActive = ref(false);
-const address = ref('');
-const port = ref('');
-const username = ref('');
-const password = ref('');
+// Direct refs to AppState.connectDialog (no local copies, no sync needed)
+const dialog = computed(() => appState?.connectDialog);
+const visible = computed({
+  get: () => dialog.value?.visible.value ?? false,
+  set: (val) => { if (dialog.value) dialog.value.visible.value = val; }
+});
+const isTestActive = computed({
+  get: () => dialog.value?.isTestActive.value ?? false,
+  set: (val) => { if (dialog.value) dialog.value.isTestActive.value = val; }
+});
+const address = computed({
+  get: () => dialog.value?.address.value ?? '',
+  set: (val) => { if (dialog.value) dialog.value.address.value = val; }
+});
+const port = computed({
+  get: () => dialog.value?.port.value ?? '',
+  set: (val) => { if (dialog.value) dialog.value.port.value = val; }
+});
+const username = computed({
+  get: () => dialog.value?.username.value ?? '',
+  set: (val) => { if (dialog.value) dialog.value.username.value = val; }
+});
+const password = computed({
+  get: () => dialog.value?.password.value ?? '',
+  set: (val) => { if (dialog.value) dialog.value.password.value = val; }
+});
 
-// Sync with Knockout observables
-if (appState?.connectDialog) {
-  // Initialize from Knockout state
-  onMounted(() => {
-    // Move the global audioSource select into the Vue component
-    const audioSourceSelect = document.getElementById('audioSource');
-    if (audioSourceSelect && microphoneContainer.value) {
-      audioSourceSelect.style.display = 'block';
-      microphoneContainer.value.appendChild(audioSourceSelect);
-    }
-    
-    visible.value = appState.connectDialog.visible();
-    isTestActive.value = appState.connectDialog.isTestActive();
-    address.value = appState.connectDialog.address();
-    port.value = appState.connectDialog.port();
-    username.value = appState.connectDialog.username();
-    password.value = appState.connectDialog.password();
-    
-    // Subscribe to Knockout observable changes
-    appState.connectDialog.visible.subscribe((val) => {
-      visible.value = val;
-    });
-    appState.connectDialog.isTestActive.subscribe((val) => {
-      isTestActive.value = val;
-    });
-    appState.connectDialog.username.subscribe((val) => {
-      username.value = val;
-    });
-  });
-  
-  // Sync Vue changes back to Knockout
-  watch(visible, (val) => appState.connectDialog.visible(val));
-  watch(isTestActive, (val) => appState.connectDialog.isTestActive(val));
-  watch(address, (val) => appState.connectDialog.address(val));
-  watch(port, (val) => appState.connectDialog.port(val));
-  watch(username, (val) => appState.connectDialog.username(val));
-  watch(password, (val) => appState.connectDialog.password(val));
-  
-  // Watch visible and sync with native dialog open/close
-  watch(visible, (val) => {
-    if (!dialogElement.value) return;
-    if (val && !dialogElement.value.open) {
-      dialogElement.value.showModal();
-    } else if (!val && dialogElement.value.open) {
-      dialogElement.value.close();
-    }
-  });
-}
+// Watch visible and sync with native dialog open/close
+watch(visible, async (val) => {
+  if (!dialogElement.value) return;
+  // Wait for next tick to ensure dialog is in DOM
+  await nextTick();
+  if (val && !dialogElement.value.open) {
+    dialogElement.value.showModal();
+  } else if (!val && dialogElement.value.open) {
+    dialogElement.value.close();
+  }
+});
 
-// Computed state from AppState (use root-level Knockout observables)
+// Computed state from AppState
 const connected = computed(() => appState?.connected() ?? false);
-const isBeeping = computed(() => appState?.isBeeping() ?? false);
+const isBeeping = computed(() => appState?.isBeeping?.value ?? false);
 
-// Reactive refs for Knockout observables (updated via subscriptions)
-const beeperReady = ref(false);
-const voiceHandlerReady = ref(false);
-const isLoopbackMode = ref(false); // Changed from computed to ref with subscription
-const dominantFrequency = ref(0); // Changed from computed to ref with subscription
-
-// Knockout subscriptions (for cleanup)
-let sub1, sub2, sub3, sub4;
+// Computed properties from Vue refs in AppState
+const beeperReady = computed(() => appState?.beeperReady?.value ?? false);
+const voiceHandlerReady = computed(() => appState?.voiceHandlerReady?.value ?? false);
+const isLoopbackMode = computed(() => appState?.isLoopbackMode?.value ?? false);
+const dominantFrequency = computed(() => appState?.loopbackDominantFrequency?.value ?? 0);
 
 // Subscribe to Knockout observables
 onMounted(() => {
+  // Move the global audioSource select into the Vue component
+  const audioSourceSelect = document.getElementById('audioSource');
+  if (audioSourceSelect && microphoneContainer.value) {
+    audioSourceSelect.style.display = 'block';
+    microphoneContainer.value.appendChild(audioSourceSelect);
+  }
+  
   // Add passive touch event listeners to piano button for better mobile performance
   if (pianoButton.value) {
     pianoButton.value.addEventListener('touchstart', startBeep, { passive: true });
     pianoButton.value.addEventListener('touchend', stopBeep, { passive: true });
-  }
-  
-  // Subscribe to beeperReady (use root-level Knockout observable)
-  if (appState?.beeperReady) {
-    beeperReady.value = appState.beeperReady();
-    sub1 = appState.beeperReady.subscribe((val) => {
-      beeperReady.value = val;
-    });
-  }
-  
-  // Subscribe to voiceHandlerReady (use root-level Knockout observable)
-  if (appState?.voiceHandlerReady) {
-    voiceHandlerReady.value = appState.voiceHandlerReady();
-    sub2 = appState.voiceHandlerReady.subscribe((val) => {
-      voiceHandlerReady.value = val;
-    });
-  }
-  
-  // Subscribe to isLoopbackMode (use root-level Knockout observable)
-  if (appState?.isLoopbackMode) {
-    isLoopbackMode.value = appState.isLoopbackMode();
-    sub3 = appState.isLoopbackMode.subscribe((val) => {
-      console.log('[ConnectDialog Vue] isLoopbackMode changed to:', val);
-      isLoopbackMode.value = val;
-    });
-  }
-  
-  // Subscribe to loopbackDominantFrequency (use root-level Knockout observable)
-  if (appState?.loopbackDominantFrequency) {
-    dominantFrequency.value = appState.loopbackDominantFrequency();
-    sub4 = appState.loopbackDominantFrequency.subscribe((freq) => {
-      dominantFrequency.value = freq;
-    });
   }
 });
 
@@ -270,11 +223,6 @@ onUnmounted(() => {
     pianoButton.value.removeEventListener('touchstart', startBeep);
     pianoButton.value.removeEventListener('touchend', stopBeep);
   }
-  
-  if (sub1) sub1.dispose();
-  if (sub2) sub2.dispose();
-  if (sub3) sub3.dispose();
-  if (sub4) sub4.dispose();
 });
 
 /**
@@ -283,18 +231,34 @@ onUnmounted(() => {
 /**
  * Handle form submission (Connect button)
  */
-function handleConnect() {
+async function handleConnect() {
   console.log('[ConnectDialog Vue] handleConnect() called');
-  console.log('[ConnectDialog Vue] appState:', appState);
-  console.log('[ConnectDialog Vue] appState.connectDialog:', appState?.connectDialog);
-  console.log('[ConnectDialog Vue] appState.connectDialog.connect:', appState?.connectDialog?.connect);
   
-  // Delegate to Knockout ConnectDialog.connect()
-  if (appState?.connectDialog?.connect) {
-    console.log('[ConnectDialog Vue] Calling appState.connectDialog.connect()');
-    appState.connectDialog.connect();
+  // Call AppState.connect() or handle exit test mode
+  if (appState?.connect) {
+    console.log('[ConnectDialog Vue] Calling appState.connect()');
+    
+    // Hide dialog
+    visible.value = false;
+    
+    // If already connected, exit test mode
+    if (connected.value) {
+      isTestActive.value = false;
+      appState.isLoopbackMode.value = false;
+      appState._updateVoiceHandler();
+      
+      // Show Guacamole desktop if credentials exist
+      if (appState._guacLogin && appState.guacamoleFrame?.start) {
+        appState.guacamoleFrame.start(appState._guacLogin, appState._guacPassword);
+        if (appState.guacamoleFrame.show) appState.guacamoleFrame.show();
+      }
+    } else {
+      // Normal connection flow
+      isTestActive.value = false;
+      await appState.connect(address.value, port.value, username.value, password.value);
+    }
   } else {
-    console.error('[ConnectDialog Vue] appState.connectDialog.connect not available!');
+    console.error('[ConnectDialog Vue] appState.connect not available!');
   }
 }
 
@@ -311,10 +275,11 @@ async function handleToggleLoopback() {
     return;
   }
   
-  // Delegate to Knockout ConnectDialog.toggleLoopback()
-  if (appState?.connectDialog?.toggleLoopback) {
+  // Call AppState.connectLoopback()
+  if (appState?.connectLoopback) {
     console.log('[ConnectDialog Vue] Activating test mode');
-    await appState.connectDialog.toggleLoopback();
+    isTestActive.value = true;
+    await appState.connectLoopback(address.value, port.value, username.value, password.value);
   }
 }
 
@@ -324,19 +289,8 @@ async function handleToggleLoopback() {
 async function handleExitTest() {
   console.log('[ConnectDialog Vue] handleExitTest() called');
   
-  // Delegate to the same logic as connect() when in test mode
-  // This will exit test mode and show Guacamole
-  if (appState?.connectDialog?.connect) {
-    console.log('[ConnectDialog Vue] Calling connect() to exit test and show Guacamole');
-    
-    // Ensure isTestActive is true so connect() takes the right path
-    if (!appState.connectDialog.isTestActive()) {
-      console.warn('[ConnectDialog Vue] isTestActive is false, setting it to true');
-      appState.connectDialog.isTestActive(true);
-    }
-    
-    await appState.connectDialog.connect();
-  }
+  // Call connect() which will detect we're already connected and exit test mode
+  await handleConnect();
 }
 
 /**
@@ -366,9 +320,7 @@ function stopBeep() {
  * Handle hide
  */
 function handleHide() {
-  if (appState?.connectDialog?.hide) {
-    appState.connectDialog.hide();
-  }
+  visible.value = false;
 }
 </script>
 

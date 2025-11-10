@@ -77,7 +77,7 @@ export function useVoiceState() {
     voiceHandlerReady.value = false;
     debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
     
-    let mode = settings.voiceMode;
+    let mode = settings.voiceMode.value;
     
     // Determine voice routing target
     // target=31 routes to server loopback for echo testing

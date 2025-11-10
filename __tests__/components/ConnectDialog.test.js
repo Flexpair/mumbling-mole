@@ -3,7 +3,6 @@
  */
 
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import ko from 'knockout';
 
 /**
  * Tests for ConnectDialog.vue component
@@ -37,138 +36,108 @@ describe('ConnectDialog Vue Component Integration', () => {
     // Create mock AppState with Knockout observables
     mockAppState = {
       connectDialog: {
-        visible: ko.observable(false),
-        isTestActive: ko.observable(false),
-        address: ko.observable(''),
-        port: ko.observable(''),
-        username: ko.observable('testuser'),
-        password: ko.observable(''),
+        visible: { value: false },
+        isTestActive: { value: false },
+        address: { value: '' },
+        port: { value: '' },
+        username: { value: 'testuser' },
+        password: { value: '' },
         connect: jest.fn(),
         toggleLoopback: jest.fn(),
         hide: jest.fn()
       },
       audio: {
-        beeperReady: ko.observable(false),
+        beeperReady: { value: false },
         audioContext: null
       },
       voice: {
-        voiceHandlerReady: ko.observable(false),
-        isLoopbackMode: ko.observable(false),
-        loopbackDominantFrequency: ko.observable(0)
+        voiceHandlerReady: { value: false },
+        isLoopbackMode: { value: false },
+        loopbackDominantFrequency: { value: 0 }
       },
       startBeep: jest.fn(),
       stopBeep: jest.fn(),
-      connected: ko.observable(false),
+      connected: { value: false },
       ui: {
-        currentOpenModal: ko.observable(null)
+        currentOpenModal: { value: null }
       }
     };
   });
 
   describe('Dual Runtime Integration Pattern', () => {
     test('Vue component should sync with Knockout visible observable', () => {
-      expect(mockAppState.connectDialog.visible()).toBe(false);
+      expect(mockAppState.connectDialog.visible.value).toBe(false);
       
-      mockAppState.connectDialog.visible(true);
+      mockAppState.connectDialog.visible.value = true;
       
-      expect(mockAppState.connectDialog.visible()).toBe(true);
+      expect(mockAppState.connectDialog.visible.value).toBe(true);
     });
 
     test('should sync isTestActive with Knockout', () => {
-      expect(mockAppState.connectDialog.isTestActive()).toBe(false);
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(false);
       
-      mockAppState.connectDialog.isTestActive(true);
+      mockAppState.connectDialog.isTestActive.value = true;
       
-      expect(mockAppState.connectDialog.isTestActive()).toBe(true);
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(true);
     });
 
     test('should sync form fields with Knockout', () => {
-      mockAppState.connectDialog.username('newuser');
-      mockAppState.connectDialog.password('secret');
-      mockAppState.connectDialog.address('server.example.com');
-      mockAppState.connectDialog.port('64738');
+      mockAppState.connectDialog.username.value = 'newuser';
+      mockAppState.connectDialog.password.value = 'secret';
+      mockAppState.connectDialog.address.value = 'server.example.com';
+      mockAppState.connectDialog.port.value = '64738';
       
-      expect(mockAppState.connectDialog.username()).toBe('newuser');
-      expect(mockAppState.connectDialog.password()).toBe('secret');
-      expect(mockAppState.connectDialog.address()).toBe('server.example.com');
-      expect(mockAppState.connectDialog.port()).toBe('64738');
+      expect(mockAppState.connectDialog.username.value).toBe('newuser');
+      expect(mockAppState.connectDialog.password.value).toBe('secret');
+      expect(mockAppState.connectDialog.address.value).toBe('server.example.com');
+      expect(mockAppState.connectDialog.port.value).toBe('64738');
     });
   });
 
   describe('Audio Test Features', () => {
     describe('Beeper Ready State', () => {
       test('beeperReady observable tracks audio initialization', () => {
-        expect(mockAppState.audio.beeperReady()).toBe(false);
+        expect(mockAppState.audio.beeperReady.value).toBe(false);
         
-        mockAppState.audio.beeperReady(true);
+        mockAppState.audio.beeperReady.value = true;
         
-        expect(mockAppState.audio.beeperReady()).toBe(true);
+        expect(mockAppState.audio.beeperReady.value).toBe(true);
       });
 
-      test('should subscribe to beeperReady changes', () => {
-        const callback = jest.fn();
-        const subscription = mockAppState.audio.beeperReady.subscribe(callback);
-        
-        mockAppState.audio.beeperReady(true);
-        
-        expect(callback).toHaveBeenCalledWith(true);
-        subscription.dispose();
-      });
     });
 
     describe('Voice Handler Ready State', () => {
       test('voiceHandlerReady observable tracks voice handler initialization', () => {
-        expect(mockAppState.voice.voiceHandlerReady()).toBe(false);
+        expect(mockAppState.voice.voiceHandlerReady.value).toBe(false);
         
-        mockAppState.voice.voiceHandlerReady(true);
+        mockAppState.voice.voiceHandlerReady.value = true;
         
-        expect(mockAppState.voice.voiceHandlerReady()).toBe(true);
+        expect(mockAppState.voice.voiceHandlerReady.value).toBe(true);
       });
 
-      test('should subscribe to voiceHandlerReady changes', () => {
-        const callback = jest.fn();
-        const subscription = mockAppState.voice.voiceHandlerReady.subscribe(callback);
-        
-        mockAppState.voice.voiceHandlerReady(true);
-        
-        expect(callback).toHaveBeenCalledWith(true);
-        subscription.dispose();
-      });
     });
 
     describe('Loopback Frequency Display', () => {
       test('loopbackDominantFrequency tracks detected frequency', () => {
-        expect(mockAppState.voice.loopbackDominantFrequency()).toBe(0);
+        expect(mockAppState.voice.loopbackDominantFrequency.value).toBe(0);
         
-        mockAppState.voice.loopbackDominantFrequency(440.5);
+        mockAppState.voice.loopbackDominantFrequency.value = 440.5;
         
-        expect(mockAppState.voice.loopbackDominantFrequency()).toBe(440.5);
-      });
-
-      test('should subscribe to frequency changes', () => {
-        const callback = jest.fn();
-        const subscription = mockAppState.voice.loopbackDominantFrequency.subscribe(callback);
-        
-        mockAppState.voice.loopbackDominantFrequency(440);
-        mockAppState.voice.loopbackDominantFrequency(441.2);
-        
-        expect(callback).toHaveBeenCalledTimes(2);
-        expect(callback).toHaveBeenLastCalledWith(441.2);
-        subscription.dispose();
+        expect(mockAppState.voice.loopbackDominantFrequency.value).toBe(440.5);
       });
 
       test('frequency rounds to 1 decimal place in display', () => {
-        mockAppState.voice.loopbackDominantFrequency(440.567);
+        mockAppState.voice.loopbackDominantFrequency.value = 440.567;
         
         // The Vue template rounds to 1 decimal: dominantFrequency.toFixed(1)
-        const displayed = mockAppState.voice.loopbackDominantFrequency().toFixed(1);
+        const displayed = mockAppState.voice.loopbackDominantFrequency.value.toFixed(1);
         expect(displayed).toBe('440.6');
       });
 
       test('displays "--- Hz" when frequency is 0', () => {
-        mockAppState.voice.loopbackDominantFrequency(0);
+        mockAppState.voice.loopbackDominantFrequency.value = 0;
         
-        const freq = mockAppState.voice.loopbackDominantFrequency();
+        const freq = mockAppState.voice.loopbackDominantFrequency.value;
         const display = freq > 0 ? freq + ' Hz' : '--- Hz';
         expect(display).toBe('--- Hz');
       });
@@ -198,8 +167,8 @@ describe('ConnectDialog Vue Component Integration', () => {
     });
 
     test('handles connection when already connected (exits test mode)', () => {
-      mockAppState.connected(true);
-      mockAppState.connectDialog.isTestActive(true);
+      mockAppState.connected.value = true;
+      mockAppState.connectDialog.isTestActive.value = true;
       
       mockAppState.connectDialog.connect();
       
@@ -209,7 +178,7 @@ describe('ConnectDialog Vue Component Integration', () => {
 
   describe('handleToggleLoopback() - Audio Test Toggle', () => {
     test('activates loopback test mode when toggled', async () => {
-      expect(mockAppState.connectDialog.isTestActive()).toBe(false);
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(false);
       
       await mockAppState.connectDialog.toggleLoopback();
       
@@ -217,10 +186,10 @@ describe('ConnectDialog Vue Component Integration', () => {
     });
 
     test('one-way activation - does not deactivate when already active', async () => {
-      mockAppState.connectDialog.isTestActive(true);
+      mockAppState.connectDialog.isTestActive.value = true;
       
       // Simulate Vue component logic: return early if already active
-      if (mockAppState.connectDialog.isTestActive()) {
+      if (mockAppState.connectDialog.isTestActive.value) {
         // Do nothing - one-way activation only
         return;
       }
@@ -232,7 +201,7 @@ describe('ConnectDialog Vue Component Integration', () => {
     });
 
     test('requires "Exit Test Mode" button to deactivate', () => {
-      mockAppState.connectDialog.isTestActive(true);
+      mockAppState.connectDialog.isTestActive.value = true;
       
       // To exit test mode, user must click "Exit Test Mode" button
       // which calls handleExitTest() -> connect()
@@ -244,7 +213,7 @@ describe('ConnectDialog Vue Component Integration', () => {
 
   describe('handleExitTest() - Exit Test Mode', () => {
     test('calls connect() to exit test mode and show Guacamole', () => {
-      mockAppState.connectDialog.isTestActive(true);
+      mockAppState.connectDialog.isTestActive.value = true;
       
       // Exit test mode by calling connect()
       mockAppState.connectDialog.connect();
@@ -254,13 +223,13 @@ describe('ConnectDialog Vue Component Integration', () => {
 
     test('ensures isTestActive is true before exiting', () => {
       // If somehow isTestActive is false, set it to true
-      expect(mockAppState.connectDialog.isTestActive()).toBe(false);
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(false);
       
-      if (!mockAppState.connectDialog.isTestActive()) {
-        mockAppState.connectDialog.isTestActive(true);
+      if (!mockAppState.connectDialog.isTestActive.value) {
+        mockAppState.connectDialog.isTestActive.value = true;
       }
       
-      expect(mockAppState.connectDialog.isTestActive()).toBe(true);
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(true);
     });
   });
 
@@ -325,111 +294,58 @@ describe('ConnectDialog Vue Component Integration', () => {
     });
   });
 
-  describe('Subscription Lifecycle', () => {
-    test('all subscriptions should be disposable', () => {
-      const sub1 = mockAppState.audio.beeperReady.subscribe(() => {});
-      const sub2 = mockAppState.voice.voiceHandlerReady.subscribe(() => {});
-      const sub3 = mockAppState.voice.loopbackDominantFrequency.subscribe(() => {});
-      
-      expect(typeof sub1.dispose).toBe('function');
-      expect(typeof sub2.dispose).toBe('function');
-      expect(typeof sub3.dispose).toBe('function');
-      
-      // Cleanup
-      sub1.dispose();
-      sub2.dispose();
-      sub3.dispose();
-    });
-
-    test('subscriptions stop firing after disposal', () => {
-      const callback = jest.fn();
-      const subscription = mockAppState.audio.beeperReady.subscribe(callback);
-      
-      mockAppState.audio.beeperReady(true);
-      expect(callback).toHaveBeenCalledTimes(1);
-      
-      subscription.dispose();
-      
-      mockAppState.audio.beeperReady(false);
-      // Should still be 1, not 2
-      expect(callback).toHaveBeenCalledTimes(1);
-    });
-
-    test('component should dispose all 3 subscriptions on unmount', () => {
-      const disposeSpy1 = jest.fn();
-      const disposeSpy2 = jest.fn();
-      const disposeSpy3 = jest.fn();
-      
-      const sub1 = mockAppState.audio.beeperReady.subscribe(() => {});
-      const sub2 = mockAppState.voice.voiceHandlerReady.subscribe(() => {});
-      const sub3 = mockAppState.voice.loopbackDominantFrequency.subscribe(() => {});
-      
-      sub1.dispose = disposeSpy1;
-      sub2.dispose = disposeSpy2;
-      sub3.dispose = disposeSpy3;
-      
-      // Simulate onUnmounted
-      sub1.dispose();
-      sub2.dispose();
-      sub3.dispose();
-      
-      expect(disposeSpy1).toHaveBeenCalled();
-      expect(disposeSpy2).toHaveBeenCalled();
-      expect(disposeSpy3).toHaveBeenCalled();
-    });
-  });
 
   describe('Loopback Mode Integration', () => {
     test('isLoopbackMode tracks test state', () => {
-      expect(mockAppState.voice.isLoopbackMode()).toBe(false);
+      expect(mockAppState.voice.isLoopbackMode.value).toBe(false);
       
-      mockAppState.voice.isLoopbackMode(true);
+      mockAppState.voice.isLoopbackMode.value = true;
       
-      expect(mockAppState.voice.isLoopbackMode()).toBe(true);
+      expect(mockAppState.voice.isLoopbackMode.value).toBe(true);
     });
 
     test('frequency display only shown when in loopback mode', () => {
       // Frequency display uses v-if="isLoopbackMode"
-      mockAppState.voice.isLoopbackMode(false);
-      expect(mockAppState.voice.isLoopbackMode()).toBe(false);
+      mockAppState.voice.isLoopbackMode.value = false;
+      expect(mockAppState.voice.isLoopbackMode.value).toBe(false);
       
-      mockAppState.voice.isLoopbackMode(true);
-      expect(mockAppState.voice.isLoopbackMode()).toBe(true);
+      mockAppState.voice.isLoopbackMode.value = true;
+      expect(mockAppState.voice.isLoopbackMode.value).toBe(true);
     });
 
     test('test section hidden when isTestActive is false', () => {
       // Test controls use v-if="isTestActive"
-      expect(mockAppState.connectDialog.isTestActive()).toBe(false);
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(false);
     });
 
     test('test section shown when isTestActive is true', () => {
-      mockAppState.connectDialog.isTestActive(true);
-      expect(mockAppState.connectDialog.isTestActive()).toBe(true);
+      mockAppState.connectDialog.isTestActive.value = true;
+      expect(mockAppState.connectDialog.isTestActive.value).toBe(true);
     });
   });
 
   describe('Piano Button State', () => {
     test('button disabled when beeperReady is false', () => {
-      mockAppState.audio.beeperReady(false);
-      mockAppState.voice.voiceHandlerReady(true);
+      mockAppState.audio.beeperReady.value = false;
+      mockAppState.voice.voiceHandlerReady.value = true;
       
-      const disabled = !mockAppState.audio.beeperReady() || !mockAppState.voice.voiceHandlerReady();
+      const disabled = !mockAppState.audio.beeperReady.value || !mockAppState.voice.voiceHandlerReady.value;
       expect(disabled).toBe(true);
     });
 
     test('button disabled when voiceHandlerReady is false', () => {
-      mockAppState.audio.beeperReady(true);
-      mockAppState.voice.voiceHandlerReady(false);
+      mockAppState.audio.beeperReady.value = true;
+      mockAppState.voice.voiceHandlerReady.value = false;
       
-      const disabled = !mockAppState.audio.beeperReady() || !mockAppState.voice.voiceHandlerReady();
+      const disabled = !mockAppState.audio.beeperReady.value || !mockAppState.voice.voiceHandlerReady.value;
       expect(disabled).toBe(true);
     });
 
     test('button enabled when both beeperReady and voiceHandlerReady are true', () => {
-      mockAppState.audio.beeperReady(true);
-      mockAppState.voice.voiceHandlerReady(true);
+      mockAppState.audio.beeperReady.value = true;
+      mockAppState.voice.voiceHandlerReady.value = true;
       
-      const disabled = !mockAppState.audio.beeperReady() || !mockAppState.voice.voiceHandlerReady();
+      const disabled = !mockAppState.audio.beeperReady.value || !mockAppState.voice.voiceHandlerReady.value;
       expect(disabled).toBe(false);
     });
   });
@@ -475,11 +391,11 @@ describe('ConnectDialog Vue Component Integration', () => {
 
   describe('Connection State Integration', () => {
     test('tracks connected state from Knockout', () => {
-      expect(mockAppState.connected()).toBe(false);
+      expect(mockAppState.connected.value).toBe(false);
       
-      mockAppState.connected(true);
+      mockAppState.connected.value = true;
       
-      expect(mockAppState.connected()).toBe(true);
+      expect(mockAppState.connected.value).toBe(true);
     });
 
     test('button label changes based on connected state', () => {
@@ -487,16 +403,16 @@ describe('ConnectDialog Vue Component Integration', () => {
       // When connected and in test: "Exit Test Mode"
       // When connected and not in test: "Connect"
       
-      mockAppState.connected(false);
-      mockAppState.connectDialog.isTestActive(false);
-      let label = mockAppState.connected() && mockAppState.connectDialog.isTestActive() 
+      mockAppState.connected.value = false;
+      mockAppState.connectDialog.isTestActive.value = false;
+      let label = mockAppState.connected.value && mockAppState.connectDialog.isTestActive.value
         ? 'Exit Test Mode' 
         : 'Connect';
       expect(label).toBe('Connect');
       
-      mockAppState.connected(true);
-      mockAppState.connectDialog.isTestActive(true);
-      label = mockAppState.connected() && mockAppState.connectDialog.isTestActive() 
+      mockAppState.connected.value = true;
+      mockAppState.connectDialog.isTestActive.value = true;
+      label = mockAppState.connected.value && mockAppState.connectDialog.isTestActive.value
         ? 'Exit Test Mode' 
         : 'Connect';
       expect(label).toBe('Exit Test Mode');
@@ -552,7 +468,7 @@ describe('ConnectDialog Vue Component Integration', () => {
      * The Vue component (ConnectDialog.vue) has these key behaviors:
      * 
      * 1. **Visibility Sync**: Bidirectional sync with Knockout observable
-     *    - Vue → Knockout: watch(visible, val => appState.connectDialog.visible(val))
+     *    - Vue → Knockout: watch(visible, val => appState.connectDialog.visible.value = val)
      *    - Knockout → Vue: appState.connectDialog.visible.subscribe(val => visible.value = val)
      * 
      * 2. **Form Field Sync**: Bidirectional sync for address, port, username, password
@@ -595,22 +511,21 @@ describe('ConnectDialog Vue Component Integration', () => {
       expect(mockAppState.stopBeep).toBeDefined();
     });
 
-    test('documentation test - all observables are functions', () => {
-      // Knockout observables are functions
-      expect(typeof mockAppState.connectDialog.visible).toBe('function');
-      expect(typeof mockAppState.connectDialog.isTestActive).toBe('function');
-      expect(typeof mockAppState.audio.beeperReady).toBe('function');
-      expect(typeof mockAppState.voice.voiceHandlerReady).toBe('function');
-      expect(typeof mockAppState.voice.loopbackDominantFrequency).toBe('function');
+    test('documentation test - all observables are plain objects with value property', () => {
+      // After Knockout removal, observables are plain objects with .value property
+      expect(typeof mockAppState.connectDialog.visible).toBe('object');
+      expect(mockAppState.connectDialog.visible).toHaveProperty('value');
+      expect(typeof mockAppState.connectDialog.isTestActive).toBe('object');
+      expect(mockAppState.connectDialog.isTestActive).toHaveProperty('value');
+      expect(typeof mockAppState.audio.beeperReady).toBe('object');
+      expect(mockAppState.audio.beeperReady).toHaveProperty('value');
+      expect(typeof mockAppState.voice.voiceHandlerReady).toBe('object');
+      expect(mockAppState.voice.voiceHandlerReady).toHaveProperty('value');
+      expect(typeof mockAppState.voice.loopbackDominantFrequency).toBe('object');
+      expect(mockAppState.voice.loopbackDominantFrequency).toHaveProperty('value');
     });
 
-    test('documentation test - all observables have subscribe method', () => {
-      // All Knockout observables can be subscribed to
-      expect(typeof mockAppState.connectDialog.visible.subscribe).toBe('function');
-      expect(typeof mockAppState.connectDialog.isTestActive.subscribe).toBe('function');
-      expect(typeof mockAppState.audio.beeperReady.subscribe).toBe('function');
-      expect(typeof mockAppState.voice.voiceHandlerReady.subscribe).toBe('function');
-      expect(typeof mockAppState.voice.loopbackDominantFrequency.subscribe).toBe('function');
-    });
   });
 });
+
+
