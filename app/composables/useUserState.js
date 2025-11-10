@@ -60,7 +60,7 @@ export function useUserState(audioState, voiceState) {
     }));
 
     // Voice stream handler (needed for audio playback)
-    user.on('voice', (stream) => {
+    user.on('voice', async (stream) => {
         debugLog('[VOICE]', 'Voice stream received for user:', user.username);
         
         // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
@@ -75,6 +75,17 @@ export function useUserState(audioState, voiceState) {
         let userNode = new BufferQueueNode({
           audioContext: audioState.getAudioContext(),
         });
+        
+        // CRITICAL FIX: Initialize BufferQueueNode before use
+        // This loads the AudioWorklet module and creates the worklet node
+        try {
+          await userNode.initialize();
+          debugLog('[VOICE]', 'BufferQueueNode initialized successfully');
+        } catch (err) {
+          console.error('[VOICE] Failed to initialize BufferQueueNode:', err);
+          // Clean up and abort - playback cannot work without AudioWorklet
+          return;
+        }
         
         // Create a GainNode to control volume (for deafen functionality)
         let gainNode = audioState.getAudioContext().createGain();
