@@ -147,77 +147,48 @@ export default class AppState {
    * Connect to Mumble server
    */
   async connect(host, port, username, password, tokens = [], channelName = '') {
-    // Auth check
-    const identity = this.auth.currentUser();
-    if (!identity?.app_metadata) {
-      alert('You do not have permission to connect to the server. Please contact the administrator.');
-      return;
-    }
-
-    let user_roles = identity.app_metadata.roles || [];
-    if (!Array.isArray(user_roles)) {
-      user_roles = [];
-    }
-
-    if (!user_roles.includes('watch')) user_roles.push('watch');
-    if (!user_roles.includes('listen')) user_roles.push('listen');
-    identity.app_metadata.roles = user_roles;
-
-    // Prepare AudioContext
-    if (!this._vueState.audio.audioContext) {
-      await this._vueState.audio.initializeAudioContext();
-    }
-    
-    const currentSampleRate = this._vueState.audio.audioContext ? this._vueState.audio.audioContext.sampleRate : null;
-    const audioCompatible = currentSampleRate === 48000;
-    const connectionParams = { host, port, username, password, tokens, channelName };
-
-    if (!audioCompatible) {
-      this.sampleRateWarningDialog.show(currentSampleRate, connectionParams);
-      return;
-    }
-
-    // Request microphone permission
-    // Store connection ID to detect if connection was cancelled during async operations
-    const connectionId = Symbol('connection');
-    this._currentConnectionId = connectionId;
-    
-    if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          // RACE-SAFE: Only update state if this connection is still active
-          if (this._currentConnectionId === connectionId) {
-            this._vueState.audio.micPermissionDenied.value = false;
-          }
-          // Always stop tracks to avoid mic staying active
-          for (const track of stream.getTracks()) {
-            track.stop();
-          }
-        })
-        .catch((err) => {
-          console.warn('Microphone permission denied:', err);
-          // RACE-SAFE: Only update state if this connection is still active
-          if (this._currentConnectionId === connectionId) {
-            this._vueState.audio.micPermissionDenied.value = true;
-          }
-        });
-    }
-
-    this._vueState.audio.clearAudioLock({ resetStates: true });
-    await this._performConnect(connectionParams, { audioEnabled: true });
+    await this._setupConnection({
+      host, 
+      port, 
+      username, 
+      password, 
+      tokens, 
+      channelName,
+      isLoopback: false
+    });
   }
 
   /**
    * Connect in loopback test mode
    */
   async connectLoopback(host, port, username, password, tokens = [], channelName = '') {
+    await this._setupConnection({
+      host, 
+      port, 
+      username, 
+      password, 
+      tokens, 
+      channelName,
+      isLoopback: true
+    });
+  }
+
+  /**
+   * Common connection setup for both normal and loopback modes
+   * REFACTORED: Eliminates 78 lines of code duplication (Nov 10, 2025)
+   * @private
+   */
+  async _setupConnection(params) {
+    const { host, port, username, password, tokens = [], channelName = '', isLoopback = false } = params;
+
+    // Auth check (common for both modes)
     const identity = this.auth.currentUser();
     if (!identity?.app_metadata) {
       alert('You do not have permission to connect to the server. Please contact the administrator.');
       return;
     }
 
+    // Ensure required roles (common for both modes)
     let user_roles = identity.app_metadata.roles || [];
     if (!Array.isArray(user_roles)) {
       user_roles = [];
@@ -227,19 +198,39 @@ export default class AppState {
     if (!user_roles.includes('listen')) user_roles.push('listen');
     identity.app_metadata.roles = user_roles;
 
+    // Initialize AudioContext (common for both modes)
     if (!this._vueState.audio.audioContext) {
       await this._vueState.audio.initializeAudioContext();
     }
 
+    // Sample rate check (ONLY for normal mode, skip in loopback)
+    if (!isLoopback) {
+      const currentSampleRate = this._vueState.audio.audioContext ? this._vueState.audio.audioContext.sampleRate : null;
+      const audioCompatible = currentSampleRate === 48000;
+      
+      if (!audioCompatible) {
+        const connectionParams = { host, port, username, password, tokens, channelName };
+        this.sampleRateWarningDialog.show(currentSampleRate, connectionParams);
+        return;
+      }
+    }
+
+    // Prepare connection parameters
     const connectionParams = {
-      host, port, username, password, tokens, channelName,
-      isLoopback: true,
+      host, 
+      port, 
+      username, 
+      password, 
+      tokens, 
+      channelName,
+      isLoopback
     };
 
+    // Request microphone permission (common for both modes)
     // Store connection ID to detect if connection was cancelled during async operations
-    const connectionId = Symbol('loopback-connection');
+    const connectionId = isLoopback ? Symbol('loopback-connection') : Symbol('connection');
     this._currentConnectionId = connectionId;
-
+    
     if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
@@ -262,12 +253,17 @@ export default class AppState {
         });
     }
 
+    // Clear audio lock (common for both modes)
     this._vueState.audio.clearAudioLock({ resetStates: true });
-    this._vueState.voice.isLoopbackMode.value = true;
+
+    // Loopback-specific setup
+    if (isLoopback) {
+      this._vueState.voice.isLoopbackMode.value = true;
+      // Ensure microphone is NOT muted for loopback test
+      this._vueState.user.selfMute.value = false;
+    }
     
-    // Ensure microphone is NOT muted for loopback test
-    this._vueState.user.selfMute.value = false;
-    
+    // Perform connection (common for both modes)
     await this._performConnect(connectionParams, { audioEnabled: true });
   }
 
