@@ -271,10 +271,18 @@ describe('Regression: BufferQueueNode initialization bug', () => {
     await mockUser.emit('voice', mockStream);
     await new Promise(resolve => setTimeout(resolve, 0));
     
-    // Verify error was logged
+    // Verify error was logged (now with emoji and detailed error object)
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[VOICE] Failed to initialize BufferQueueNode:',
+      '[VOICE] ❌ Failed to initialize BufferQueueNode:',
       expect.any(Error)
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[VOICE] Error details:',
+      expect.objectContaining({
+        name: expect.any(String),
+        message: expect.any(String),
+        stack: expect.any(String)
+      })
     );
     
     // Verify connect() was NOT called (handler aborted)
