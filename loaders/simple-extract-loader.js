@@ -1,5 +1,5 @@
-const path = require('path');
-const vm = require('vm');
+const path = require('node:path');
+const vm = require('node:vm');
 const resolve = require('resolve');
 
 module.exports = function simpleExtractLoader(source) {
@@ -29,7 +29,8 @@ async function evalDependencyGraph({ loaderContext, src, filename, publicPath })
     const newDependencies = [];
     const moduleExports = { exports: {} };
 
-    const sandbox = Object.assign({}, global, {
+    const sandbox = {
+      ...global,
       module: moduleExports,
       exports: moduleExports.exports,
       __esbuild_public_path__: publicPath,
@@ -58,7 +59,7 @@ async function evalDependencyGraph({ loaderContext, src, filename, publicPath })
         });
         return placeholder;
       },
-    });
+    };
 
     const script = new vm.Script(code, {
       filename: requestFilename,
@@ -78,10 +79,11 @@ async function evalDependencyGraph({ loaderContext, src, filename, publicPath })
     );
 
     let content = extractExports(moduleExports.exports);
-    dependencyContents.forEach((dependencyContent, index) => {
+    for (let index = 0; index < dependencyContents.length; index++) {
+      const dependencyContent = dependencyContents[index];
       const pattern = new RegExp(newDependencies[index].placeholder, 'g');
       content = content.replace(pattern, dependencyContent);
-    });
+    }
 
     moduleCache.set(requestFilename, content);
     return content;
@@ -138,14 +140,14 @@ function createPlaceholder() {
 }
 
 function getPublicPath(loaderContext) {
-  if (loaderContext._compilation && loaderContext._compilation.outputOptions) {
+  if (loaderContext._compilation?.outputOptions) {
     const { publicPath } = loaderContext._compilation.outputOptions;
     if (typeof publicPath === 'string') {
       return publicPath;
     }
   }
 
-  if (loaderContext.options && loaderContext.options.output && loaderContext.options.output.publicPath) {
+  if (loaderContext.options?.output?.publicPath) {
     return loaderContext.options.output.publicPath;
   }
 

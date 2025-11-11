@@ -4,7 +4,7 @@
  */
 
 import { jest } from '@jest/globals';
-import { Writable } from 'stream';
+import { Writable } from 'node:stream';
 
 // Setup DOM BEFORE importing voice.js (which queries DOM on load)
 if (typeof document !== 'undefined') {
@@ -526,8 +526,8 @@ describe('PushToTalkVoiceHandler', () => {
 describe('Mixer Management', () => {
   beforeEach(() => {
     // Reset global state
-    if (window._audioMixer) {
-      window._audioMixer = null;
+    if (globalThis._audioMixer) {
+      globalThis._audioMixer = null;
     }
   });
 
@@ -540,7 +540,7 @@ describe('Mixer Management', () => {
   describe('onAudioMixerReady', () => {
     test('calls callback immediately if mixer exists', () => {
       const mockMixer = { gain: { value: 1.0 } };
-      window._audioMixer = mockMixer;
+      globalThis._audioMixer = mockMixer;
       
       const callback = jest.fn();
       onAudioMixerReady(callback);
@@ -549,7 +549,7 @@ describe('Mixer Management', () => {
     });
 
     test('queues callback if mixer not ready', () => {
-      window._audioMixer = null;
+      globalThis._audioMixer = null;
       
       const callback = jest.fn();
       onAudioMixerReady(callback);
@@ -571,7 +571,7 @@ describe('Mixer Management', () => {
 
     test('handles callback errors gracefully', () => {
       const mockMixer = { gain: { value: 1.0 } };
-      window._audioMixer = mockMixer;
+      globalThis._audioMixer = mockMixer;
       
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const errorCallback = jest.fn(() => {
@@ -727,7 +727,7 @@ describe('initVoice Integration Tests', () => {
     };
 
     // Mock global AudioWorkletNode constructor
-    global.AudioWorkletNode = jest.fn(() => mockAudioWorkletNode);
+    globalThis.AudioWorkletNode = jest.fn(() => mockAudioWorkletNode);
 
     // Mock window._audioMixer
     global.window = global.window || {};
@@ -743,12 +743,12 @@ describe('initVoice Integration Tests', () => {
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
     delete global.window._audioMixer;
-    delete global.AudioWorkletNode;
+    delete globalThis.AudioWorkletNode;
     
     // Reset module-level mixer state
-    // Note: Can't directly reset module variables, but window._audioMixer is the public API
-    if (typeof window !== 'undefined') {
-      window._audioMixer = null;
+    // Note: Can't directly reset module variables, but globalThis._audioMixer is the public API
+    if (typeof globalThis !== 'undefined') {
+      globalThis._audioMixer = null;
     }
   });
 
@@ -783,7 +783,7 @@ describe('initVoice Integration Tests', () => {
       // Verify audio nodes created
       expect(mockAudioContext.createMediaStreamSource).toHaveBeenCalledWith(mockMediaStream);
       expect(mockAudioContext.createGain).toHaveBeenCalled();
-      expect(global.AudioWorkletNode).toHaveBeenCalledWith(
+      expect(globalThis.AudioWorkletNode).toHaveBeenCalledWith(
         mockAudioContext,
         'recorder-processor',
         expect.objectContaining({
@@ -801,7 +801,7 @@ describe('initVoice Integration Tests', () => {
       expect(mockGainNode.gain.setValueAtTime).toHaveBeenCalledWith(1.0, 0);
 
       // Verify global mixer reference
-      expect(window._audioMixer).toBe(mockGainNode);
+      expect(globalThis._audioMixer).toBe(mockGainNode);
 
       // Verify no errors
       expect(onError).not.toHaveBeenCalled();
@@ -1001,7 +1001,7 @@ describe('initVoice Integration Tests', () => {
       });
 
       // Mock AudioWorkletNode constructor to throw
-      global.AudioWorkletNode = jest.fn(() => {
+      globalThis.AudioWorkletNode = jest.fn(() => {
         throw nodeError;
       });
 
@@ -1037,7 +1037,7 @@ describe('initVoice Integration Tests', () => {
       
       // After initialization, mixer should be the new mockGainNode
       expect(mixerAfter).toBe(mockGainNode);
-      expect(window._audioMixer).toBe(mockGainNode);
+      expect(globalThis._audioMixer).toBe(mockGainNode);
       
       // Mixer should have changed (new instance created)
       if (mixerBefore !== null) {
@@ -1062,7 +1062,7 @@ describe('initVoice Integration Tests', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // Verify mixer was created
-      expect(window._audioMixer).toBe(mockGainNode);
+      expect(globalThis._audioMixer).toBe(mockGainNode);
 
       // Simulate track ended event
       if (trackEndedHandler) {
@@ -1075,7 +1075,7 @@ describe('initVoice Integration Tests', () => {
       expect(mockMediaStreamSource.disconnect).toHaveBeenCalled();
 
       // Verify global reference cleared
-      expect(window._audioMixer).toBeNull();
+      expect(globalThis._audioMixer).toBeNull();
 
       // Verify AudioContext was suspended (not closed)
       expect(mockAudioContextManager.suspendAudioContext).toHaveBeenCalled();
