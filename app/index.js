@@ -1,7 +1,6 @@
 // Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
 // Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "node:url";
-import MumbleClient from "./mumble-client/index.js";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 

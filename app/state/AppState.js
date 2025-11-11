@@ -94,11 +94,11 @@ export default class AppState {
       }
       // With markRaw, channel is a ref that might be undefined
       const channelRef = this._vueState.user.thisUser.value.channel;
-      if (!channelRef || !channelRef.value) {
+      if (!channelRef?.value) {
         return '';
       }
       const target = channelRef.value;
-      if (!target || !target.name) {
+      if (!target?.name) {
         return '';
       }
       return translate('chat.channel_message_placeholder').replace('%1', target.name.value);
