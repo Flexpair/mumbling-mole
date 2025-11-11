@@ -1,4 +1,11 @@
-// 20 ms @ 48 kHz -> 960 Samples/Kanal, mono
+// ARCHITECTURE CONSTRAINT: 20 ms @ 48 kHz -> 960 Samples/Channel, mono
+// This value is FIXED throughout the audio pipeline:
+// - AudioWorklet processor (this file): 960 samples per frame
+// - Worker resampler (worker.js): expects 960-sample chunks
+// - Opus codec configuration: configured for 20ms frames
+// - Settings UI (SettingsDialog.vue): slider disabled to prevent changes
+// Changing this requires coordinated updates across ALL components.
+// See: app/audio/README.md and .github/copilot-instructions.md
 const FRAME = 960;
 
 class RecorderProcessor extends AudioWorkletProcessor {

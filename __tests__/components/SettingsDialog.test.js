@@ -129,6 +129,22 @@ describe('SettingsDialog.vue - Integration Tests', () => {
         expect(dialog.msPerPacket.value).toBe(size / 48);
       }
     });
+
+    test('samplesPerPacket is fixed to 960 (20ms) due to architecture constraint', () => {
+      // ARCHITECTURE CONSTRAINT: The audio pipeline (AudioWorklet processor,
+      // worker resampler, Opus codec) is hard-coded for 960 samples (20ms @ 48kHz).
+      // Changing this would require coordinated updates across multiple components.
+      // See: app/audio/README.md and .github/copilot-instructions.md
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      
+      // Default should be 960 samples (20ms)
+      expect(dialog.samplesPerPacket.value).toBe(960);
+      expect(dialog.msPerPacket.value).toBe(20);
+      
+      // UI should prevent changing this value (slider disabled/hidden in SettingsDialog.vue)
+      // This test documents the constraint - actual enforcement is in the UI component
+    });
   });
 
   describe('Form Submission', () => {

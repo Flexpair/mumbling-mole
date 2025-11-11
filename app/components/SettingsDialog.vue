@@ -85,18 +85,26 @@
             <td id="settings-dialog_packet">
               {{ t('settingsdialog.packet') }}
             </td>
-            <td><span>{{ msPerPacket }}</span> ms</td>
+            <td><span>{{ msPerPacket }}</span> ms (fixed)</td>
           </tr>
 
-          <!-- Audio per Packet Slider -->
-          <tr>
+          <!-- Audio per Packet Slider - DISABLED: Architecture constraint -->
+          <!-- The audio pipeline is hard-coded for 960 samples (20ms @ 48kHz).
+               Changing this requires coordinated updates across:
+               - AudioWorklet processor (recorder-worker.js)
+               - Worker resampler (worker.js)
+               - Opus codec configuration
+               - Settings serialization
+               See: app/audio/README.md for details -->
+          <tr style="display: none;">
             <td colspan="2">
               <input
                 type="range"
-                min="10"
-                max="60"
+                min="20"
+                max="20"
                 step="10"
                 v-model.number="msPerPacket"
+                disabled
               />
             </td>
           </tr>
