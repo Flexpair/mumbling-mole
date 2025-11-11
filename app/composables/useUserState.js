@@ -61,7 +61,7 @@ export function useUserState(audioState, voiceState) {
 
     // Voice stream handler (needed for audio playback)
     user.on('voice', async (stream) => {
-        debugLog('[VOICE]', 'Voice stream received for user:', user.username);
+        console.log('[VOICE] Voice stream received for user:', user.username, 'session:', user.session);
         
         // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
         // Use timestamp + random to ensure uniqueness even if user.session is undefined
@@ -79,10 +79,16 @@ export function useUserState(audioState, voiceState) {
         // CRITICAL FIX: Initialize BufferQueueNode before use
         // This loads the AudioWorklet module and creates the worklet node
         try {
+          console.log('[VOICE] Initializing BufferQueueNode...');
           await userNode.initialize();
-          debugLog('[VOICE]', 'BufferQueueNode initialized successfully');
+          console.log('[VOICE] ✅ BufferQueueNode initialized successfully');
         } catch (err) {
-          console.error('[VOICE] Failed to initialize BufferQueueNode:', err);
+          console.error('[VOICE] ❌ Failed to initialize BufferQueueNode:', err);
+          console.error('[VOICE] Error details:', {
+            name: err.name,
+            message: err.message,
+            stack: err.stack
+          });
           // Clean up and abort - playback cannot work without AudioWorklet
           return;
         }
