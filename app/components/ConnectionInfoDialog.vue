@@ -49,7 +49,9 @@
       </template>
 
       <h3 id="connection-info_version">Web Client Version</h3>
-      mumbling-mole {{ appVersion }}
+      <button @click="copyCommitHash" class="copy-commit-button" :title="copyButtonTitle">
+        {{ copyButtonText }}
+      </button>
     </div>
     <div class="dialog-footer">
       <input
@@ -63,7 +65,7 @@
 </template>
 
 <script setup>
-import { computed, inject, watch } from 'vue';
+import { computed, inject, watch, ref } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 
@@ -75,7 +77,28 @@ import buildInfo from '../build-info.json';
  */
 
 // Full git commit hash from build-info.json (generated at build time)
-const appVersion = buildInfo.commit;
+const commitHash = buildInfo.commit;
+const copyButtonText = ref(`Copy Commit: ${commitHash.substring(0, 7)}...`);
+const copyButtonTitle = ref(`Click to copy full commit hash: ${commitHash}`);
+
+/**
+ * Copy commit hash to clipboard
+ */
+async function copyCommitHash() {
+  try {
+    await navigator.clipboard.writeText(commitHash);
+    copyButtonText.value = '✓ Copied!';
+    setTimeout(() => {
+      copyButtonText.value = `Copy Commit: ${commitHash.substring(0, 7)}...`;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy commit hash:', err);
+    copyButtonText.value = '✗ Copy failed';
+    setTimeout(() => {
+      copyButtonText.value = `Copy Commit: ${commitHash.substring(0, 7)}...`;
+    }, 2000);
+  }
+}
 
 // Inject AppState (from main app)
 const appState = inject('appState');
@@ -171,6 +194,30 @@ function handleHide() {
   }
 }
 
+</script>
+
+<style scoped>
+.copy-commit-button {
+  padding: 6px 12px;
+  margin-top: 4px;
+  background-color: #157878;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.copy-commit-button:hover {
+  background-color: #1a9191;
+}
+
+.copy-commit-button:active {
+  background-color: #0f5858;
+}
+</style>
 // Expose show method to appState for Toolbar click handler
 appState.connectionInfo.show = () => {
   // Prevent opening if another modal is already open
