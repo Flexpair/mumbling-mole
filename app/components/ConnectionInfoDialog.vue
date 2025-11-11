@@ -49,7 +49,7 @@
       </template>
 
       <h3 id="connection-info_version">Web Client Version</h3>
-      mumbling-mole v{{ appVersion }}
+      mumbling-mole {{ appVersion }}
     </div>
     <div class="dialog-footer">
       <input
@@ -74,8 +74,8 @@ import buildInfo from '../build-info.json';
  * Uses Vue refs directly from AppState connectionInfo composable.
  */
 
-// App version from build-info.json (generated at build time)
-const appVersion = buildInfo.tag || `${buildInfo.version} (${buildInfo.commit})`;
+// Full git commit hash from build-info.json (generated at build time)
+const appVersion = buildInfo.commit;
 
 // Inject AppState (from main app)
 const appState = inject('appState');

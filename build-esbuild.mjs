@@ -33,16 +33,12 @@ if (fs.existsSync('dist')) {
 // Create dist directory
 fs.mkdirSync('dist', { recursive: true });
 
-// Generate build info with git commit hash
+// Generate build info with full git commit hash
 try {
-  const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
-  const gitTag = execSync('git describe --tags --exact-match 2>/dev/null || echo ""', { encoding: 'utf8' }).trim();
-  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const gitHash = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim(); // Full hash, not --short
   
   const buildInfo = {
-    version: packageJson.version,
     commit: gitHash,
-    tag: gitTag || null,
     buildTime: new Date().toISOString(),
     mode: mode
   };
@@ -52,13 +48,13 @@ try {
     JSON.stringify(buildInfo, null, 2)
   );
   
-  console.log(`📦 Build info: v${buildInfo.version} (${gitTag || gitHash})`);
+  console.log(`📦 Build info: ${gitHash.substring(0, 7)}`);
 } catch (err) {
   console.warn('⚠️  Could not generate build info:', err.message);
   // Fallback build info
   fs.writeFileSync(
     'app/build-info.json',
-    JSON.stringify({ version: '0.0.0', commit: 'unknown', tag: null, buildTime: new Date().toISOString(), mode }, null, 2)
+    JSON.stringify({ commit: 'unknown', buildTime: new Date().toISOString(), mode }, null, 2)
   );
 }
 
