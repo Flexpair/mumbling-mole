@@ -48,10 +48,8 @@
         <strong>Network latency (TCP ping):</strong> Unknown
       </template>
 
-      <h3 id="connection-info_native">Desktop client / mobile app</h3>
-      <a href="https://www.mumble.info/downloads/" target="_blank"
-        >Offical download page</a
-      >
+      <h3 id="connection-info_version">Web Client Version</h3>
+      mumbling-mole v{{ appVersion }}
     </div>
     <div class="dialog-footer">
       <input
@@ -67,6 +65,7 @@
 <script setup>
 import { computed, inject, watch } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
+import buildInfo from '../build-info.json';
 
 /**
  * Vue 3 ConnectionInfoDialog Component
@@ -74,6 +73,9 @@ import MumbleClient from '../mumble-client/index.js';
  * Displays connection statistics and server information.
  * Uses Vue refs directly from AppState connectionInfo composable.
  */
+
+// App version from build-info.json (generated at build time)
+const appVersion = buildInfo.tag || `${buildInfo.version} (${buildInfo.commit})`;
 
 // Inject AppState (from main app)
 const appState = inject('appState');

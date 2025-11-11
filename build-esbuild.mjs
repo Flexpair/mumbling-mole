@@ -13,6 +13,7 @@ import vuePlugin from 'esbuild-plugin-vue3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,35 @@ if (fs.existsSync('dist')) {
 
 // Create dist directory
 fs.mkdirSync('dist', { recursive: true });
+
+// Generate build info with git commit hash
+try {
+  const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  const gitTag = execSync('git describe --tags --exact-match 2>/dev/null || echo ""', { encoding: 'utf8' }).trim();
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  
+  const buildInfo = {
+    version: packageJson.version,
+    commit: gitHash,
+    tag: gitTag || null,
+    buildTime: new Date().toISOString(),
+    mode: mode
+  };
+  
+  fs.writeFileSync(
+    'app/build-info.json',
+    JSON.stringify(buildInfo, null, 2)
+  );
+  
+  console.log(`📦 Build info: v${buildInfo.version} (${gitTag || gitHash})`);
+} catch (err) {
+  console.warn('⚠️  Could not generate build info:', err.message);
+  // Fallback build info
+  fs.writeFileSync(
+    'app/build-info.json',
+    JSON.stringify({ version: '0.0.0', commit: 'unknown', tag: null, buildTime: new Date().toISOString(), mode }, null, 2)
+  );
+}
 
 // Copy static files helper
 function copyFile(src, dest) {
