@@ -404,6 +404,14 @@ export default class AppState {
     }
 
     this._setupClientHandlers(client);
+    
+    // CRITICAL: Set audio quality BEFORE creating voice handler
+    // This ensures client knows bitrate/samplesPerPacket for voice stream encoding
+    client.setAudioQuality(
+      this.settings.audioBitrate.value,
+      this.settings.samplesPerPacket.value
+    );
+    
     this._updateVoiceHandler();
 
     if (this._vueState.audio.audioLockActive.value) {
