@@ -106,6 +106,8 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 
 ## 🏗️ Architecture
 
+### High-Level Overview
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Browser Window                         │
@@ -114,10 +116,11 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 │  ┌─────────────────────────────┐  ┌──────────────────────┐ │
 │  │     Main Thread (UI)         │  │    Web Worker        │ │
 │  │                              │  │                      │ │
-│  │  • Knockout.js MVVM          │◄─┤  • mumble-client     │ │
-│  │  • AppState (5 modules)      │  │  • Audio resampling  │ │
-│  │  • Localization              │  │  • Opus encoding     │ │
-│  │  • Theme management          │  │  • Event dispatch    │ │
+│  │  • Vue.js 3 Components       │◄─┤  • mumble-client     │ │
+│  │  • Knockout.js State (legacy)│  │  • Audio resampling  │ │
+│  │  • AppState (5 modules)      │  │  • Opus encoding     │ │
+│  │  • Localization              │  │  • Event dispatch    │ │
+│  │  • Theme management          │  │  • Protocol handling │ │
 │  └──────────┬──────────────────┘  └──────────┬───────────┘ │
 │             │                                 │             │
 │  ┌──────────▼──────────────────────────────────┐           │
@@ -143,6 +146,79 @@ This allows you to verify your microphone and audio encoding/decoding without ne
                     │    (TCP:64738)    │
                     └──────────────────┘
 ```
+
+### Audio Pipeline Architecture
+
+The audio system uses an asymmetric design optimized for real-time capture and jitter-tolerant playback:
+
+#### Capture Path (Send) - Strict Real-Time Constraints
+
+```text
+Microphone
+    ↓
+AudioContext.getUserMedia() → 48kHz mono stream
+    ↓
+AudioWorklet (recorder-worker.js) ← REAL-TIME THREAD! 
+    • Accumulates 128-sample blocks
+    • Posts exactly 960 samples (20ms @ 48kHz)
+    • FIXED frame size (architecture constraint)
+    • Must complete in <3ms (no blocking allowed)
+    ↓ postMessage (960 Float32 samples)
+Main Thread
+    ↓
+Web Worker (encode-worker.js)
+    • Opus encoding via libopus.js WASM
+    • Bitrate control (8-96 kbps)
+    • Can take 1-5ms (non-blocking)
+    ↓
+Network (WebSocket → websockify → Mumble TCP)
+```
+
+**Critical Constraint:** `recorder-worker.js` MUST output 960-sample frames. This is hard-coded throughout:
+
+- AudioWorklet processor (fixed FRAME constant)
+- Worker resampler chunker (expects 960 samples)
+- Opus encoder configuration (20ms frames)
+- Settings UI (slider disabled, see commit e073892)
+
+Changing this requires coordinated updates across ALL components. See [#201](https://github.com/Flexpair/mumbling-mole/issues/201) for future plans.
+
+#### Playback Path (Receive) - Jitter-Tolerant Buffer
+
+```text
+Network (Mumble server → websockify → WebSocket)
+    ↓
+Main Thread (variable packet arrival times ±5-50ms jitter)
+    ↓
+Web Worker (decode-worker.js)
+    • Opus decoding via libopus.js WASM
+    • Handles VARIABLE frame sizes (480-2880 samples)
+    • Takes 0.5-3ms per packet (non-critical)
+    ↓ postMessage (Float32 samples, any length)
+Main Thread
+    ↓
+BufferQueueNode (buffer-queue-node.js)
+    • Queues decoded audio packets
+    • ⚠️ Currently UNBOUNDED (see #201 for fix)
+    ↓
+AudioWorklet (playback-buffer-processor.js)
+    • Dequeues buffers at constant rate
+    • Fills with silence if queue empty (graceful)
+    • Runs in audio thread (128 samples @ 2.67ms)
+    ↓
+AudioContext → Speakers (smooth playback)
+```
+
+**Key Asymmetry:**
+
+- **Sender:** Must maintain strict 960-sample timing (no buffering possible)
+- **Receiver:** Uses queue to absorb jitter (200-500ms typical latency)
+
+**Known Issues:**
+
+- [#201](https://github.com/Flexpair/mumbling-mole/issues/201) - Unbounded queue growth (memory leak)
+- [#202](https://github.com/Flexpair/mumbling-mole/issues/202) - No configurable jitter buffer
+- [#203](https://github.com/Flexpair/mumbling-mole/issues/203) - Missing Opus PLC for packet loss
 
 ### Build System
 

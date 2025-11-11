@@ -18,7 +18,11 @@
 ## Quick context
 Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** - uses WebSocket tunnel (via websockify) to standard Mumble TCP protocol. Knockout.js MVVM UI with observable state. Audio transport delegated to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames = 960 samples). Optional Guacamole iframe (remote desktop) gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
 
-**Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline - changing this requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec, and Settings serialization.
+**Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline for **SENDING ONLY**. Receiver can handle variable frame sizes (480-2880 samples). Settings UI disables packet size slider (commit e073892) because changing sender frame size requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec configuration.
+
+**Audio Architecture - Asymmetric Design:**
+- **Capture (send)**: Strict real-time, MUST be 960 samples. AudioWorklet (`recorder-worker.js`) runs in high-priority audio thread, accumulates 128-sample blocks → posts 960-sample frames. No buffering possible, <3ms execution budget. Web Worker (`encode-worker.js`) handles Opus encoding (libopus.js WASM, 1-5ms, non-blocking).
+- **Playback (receive)**: Jitter-tolerant via unbounded queue. Decoder handles variable frame sizes (Opus flexible). `buffer-queue-node.js` queues decoded packets, `playback-buffer-processor.js` (AudioWorklet) dequeues at constant rate, fills silence if empty. ⚠️ **Known issues**: Queue has no size limit (memory leak #201), no configurable jitter buffer (#202), no Opus PLC for packet loss (#203).
 
 **✅ COMPLETED: Knockout.js → Vue.js 3 Migration** (UI Layer Complete - Nov 2025)
 - **Status**: ALL 9 UI components migrated to Vue.js 3 (migration complete)
@@ -282,6 +286,11 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Localization**: English-only since PR #140 (multilanguage support disabled); UI strings in `localize/en.json`; missing keys log warnings  
 **Themes**: SCSS sources under `themes/MetroMumbleLight`; esbuild (sassPlugin) compiles to CSS; runtime selection via `?theme=` query param; supports Light/Dark variants  
 **Design guidelines (web interface)**: Corporate color palette is `#157878` (teal), pure cyan (`#00FFFF`), black, and white. Use only these colors for UI elements, accents, and branding. Avoid introducing additional colors.
+
+## Known Audio Issues (tracked on GitHub)
+- **Issue #201**: Playback buffer queue has no size limit → memory leak during high jitter/packet loss. Quick fix needed: add MAX_QUEUE_SIZE constant (~25 packets / 500ms)
+- **Issue #202**: No configurable jitter buffer setting. Users can't adjust latency vs. robustness trade-off. Future: add slider in SettingsDialog (20-500ms range)
+- **Issue #203**: Missing Opus Packet Loss Concealment (PLC). Currently fills silence when packets drop → audible clicks. Should request PLC frames from decoder instead
 
 ## Critical "Never Do" rules
 1. **Never** `new AudioContext()` directly - always use `ensureAudioContext()` from `audio-context-manager.js`

@@ -143,7 +143,6 @@
 <script setup>
 import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from 'vue';
 import keyboardjs from 'keyboardjs';
-import MumbleClient from '../mumble-client/client.js';
 
 // Inject AppState from the main app
 const appState = inject('appState');
