@@ -52,9 +52,22 @@ import { useSettings } from "./composables/index.js";
 // Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 
-// [MIGRATION WORKAROUND] Exposing AppState on window global is required for Knockout.js + Vue.js dual runtime.
-// This creates tight coupling and bypasses Vue's dependency injection.
-// TODO: Remove this in Phase 5 cleanup after migration is complete. See docs/VUE_MIGRATION_PLAN.md for details.
+// [MIGRATION STATUS] Vue.js UI migration is COMPLETE (all 9 components migrated Nov 2025).
+// However, core state modules (AppState, AudioState, VoiceState, UIState, UserState, ConnectionState)
+// still use Knockout observables for backward compatibility.
+//
+// This global exposure is currently required for:
+// 1. Browser console debugging (via globalThis.mumbleUi)
+// 2. Worker thread communication (worker-client.js references state)
+// 3. Potential remaining Knockout subscriptions in state modules
+//
+// REMOVAL PLAN: Can be safely removed only after:
+// 1. State modules migrated from Knockout observables to Vue composables (estimated 2-3 weeks)
+// 2. All cross-module subscriptions converted to Vue watch/watchEffect
+// 3. Worker communication updated to use Vue-compatible state references
+// 4. Full regression test suite passes without globalThis.ui
+//
+// See app/state/README.md "Next Phase: State Module Migration to Vue.js" for migration roadmap.
 globalThis.ui = ui;
 
 // Wire up dependencies that AppState expects

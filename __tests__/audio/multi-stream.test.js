@@ -98,7 +98,9 @@ function createMockUser(id, name) {
     }),
     emit: (event, ...args) => {
       const handlers = eventHandlers.get(event) || [];
-      handlers.forEach(handler => handler(...args));
+      for (const handler of handlers) {
+        handler(...args);
+      }
     }
   };
 }
@@ -116,7 +118,9 @@ function createMockVoiceStream() {
     }),
     emit: (event, ...args) => {
       const handlers = eventHandlers.get(event) || [];
-      handlers.forEach(handler => handler(...args));
+      for (const handler of handlers) {
+        handler(...args);
+      }
     },
     once: jest.fn()
   };

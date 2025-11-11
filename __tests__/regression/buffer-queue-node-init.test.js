@@ -18,38 +18,45 @@ import { jest } from '@jest/globals';
 let mockBufferQueueNodeInstance = null;
 let mockInitializeCalled = false;
 
-const MockBufferQueueNode = jest.fn().mockImplementation(function(options) {
-  mockBufferQueueNodeInstance = this;
-  this.options = options;
-  this._isReady = false;
-  this._listeners = {};
-  
-  // Track initialize() calls
-  this.initialize = jest.fn(async () => {
-    mockInitializeCalled = true;
-    this._isReady = true;
-    return Promise.resolve();
-  });
-  
-  this.connect = jest.fn();
-  this.write = jest.fn();
-  
-  this.on = jest.fn((event, callback) => {
-    if (!this._listeners[event]) {
-      this._listeners[event] = [];
-    }
-    this._listeners[event].push(callback);
-    return this;
-  });
-  
-  this.emit = jest.fn((event, ...args) => {
-    if (this._listeners[event]) {
-      for (const callback of this._listeners[event]) {
-        callback(...args);
+const MockBufferQueueNode = jest.fn(function(options) {
+  // Create instance object without using 'this' assignment
+  const instance = {
+    options,
+    _isReady: false,
+    _listeners: {},
+    
+    // Track initialize() calls
+    initialize: jest.fn(async () => {
+      mockInitializeCalled = true;
+      instance._isReady = true;
+      return; // Remove Promise.resolve() - async functions auto-wrap returns
+    }),
+    
+    connect: jest.fn(),
+    write: jest.fn(),
+    
+    on: jest.fn((event, callback) => {
+      if (!instance._listeners[event]) {
+        instance._listeners[event] = [];
       }
-    }
-    return this;
-  });
+      instance._listeners[event].push(callback);
+      return instance;
+    }),
+    
+    emit: jest.fn((event, ...args) => {
+      if (instance._listeners[event]) {
+        for (const callback of instance._listeners[event]) {
+          callback(...args);
+        }
+      }
+      return instance;
+    }),
+  };
+  
+  // Capture the instance for test assertions
+  mockBufferQueueNodeInstance = instance;
+  
+  return instance;
 });
 
 jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
@@ -235,19 +242,23 @@ describe('Regression: BufferQueueNode initialization bug', () => {
   test('Voice stream handler should abort if BufferQueueNode.initialize() fails', async () => {
     // Setup with initialize() that throws error
     MockBufferQueueNode.mockImplementationOnce(function(options) {
-      mockBufferQueueNodeInstance = this;
-      this.options = options;
-      this._isReady = false;
-      this._listeners = {};
+      const instance = {
+        options,
+        _isReady: false,
+        _listeners: {},
+        
+        // Simulate initialization failure
+        initialize: jest.fn(async () => {
+          throw new Error('AudioWorklet module failed to load');
+        }),
+        
+        connect: jest.fn(),
+        write: jest.fn(),
+        on: jest.fn(),
+      };
       
-      // Simulate initialization failure
-      this.initialize = jest.fn(async () => {
-        throw new Error('AudioWorklet module failed to load');
-      });
-      
-      this.connect = jest.fn();
-      this.write = jest.fn();
-      this.on = jest.fn();
+      mockBufferQueueNodeInstance = instance;
+      return instance;
     });
     
     const mockAudioState = {
