@@ -23,16 +23,19 @@ try {
   if (realFs?.readFileSync && realFs?.existsSync(protoPath)) {
     mumbleProtoContent = realFs.readFileSync(protoPath, 'utf8');
   }
-} catch (e) {
+} catch (error) {
   // Intentionally swallow error: Mumble.proto content will be empty string
   // This allows tests to run even if proto file is missing or unreadable
-  console.warn('fs.cjs mock: Could not read Mumble.proto, using empty fallback');
+  // eslint-disable-next-line no-console
+  console.warn('fs.cjs mock: Could not read Mumble.proto, using empty fallback', error.message);
+  // Explicitly set to empty string to indicate graceful degradation
+  mumbleProtoContent = '';
 }
 
 module.exports = {
   readFileSync: (filepath, encoding) => {
     // Return Mumble.proto content if requested
-    if (filepath && filepath.includes('Mumble.proto')) {
+    if (filepath?.includes('Mumble.proto')) {
       return mumbleProtoContent;
     }
     return '';

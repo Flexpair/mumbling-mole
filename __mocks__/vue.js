@@ -87,7 +87,7 @@ export function nextTick(callback) {
 
 // isRef helper
 export function isRef(r) {
-  return !!(r && r.__v_isRef === true);
+  return r?.__v_isRef === true;
 }
 
 // toRef helper
