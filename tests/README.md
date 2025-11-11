@@ -240,18 +240,20 @@ Future plans:
 4. ❌ **Multi-Stream-Szenarien nicht getestet** (N gleichzeitige User)
 5. ❌ **Unterschiedliche Initialisierungsreihenfolgen**
 
-**Kritikalität:** � **MITTEL** - Weitere Bugs möglich, aber Hauptrisiko behoben
+**Kritikalität:** 🟡 **MITTEL** - Weitere Bugs möglich, aber Hauptrisiko behoben
 
 ---
 
 ## 1. Gefundene Code-Divergenzen
 
-### 1.1 Unterschiedliche Connect-Pfade (KRITISCH)
+### 1.1 Unterschiedliche Connect-Pfade ✅ BEHOBEN
 
-**Problem:** `connect()` und `connectLoopback()` haben 78 Zeilen DUPLIZIERTEN Code mit subtilen Unterschieden.
+**Problem (gelöst in diesem PR):** `connect()` und `connectLoopback()` hatten 78 Zeilen DUPLIZIERTEN Code mit subtilen Unterschieden.
+
+**Lösung (commit d196195):** Refactoring zu `_setupConnection()` shared method eliminierte 67 Zeilen Duplikation.
 
 ```javascript
-// app/state/AppState.js
+// app/state/AppState.js (VORHER - 78 Zeilen Duplikation)
 
 async connect() {
   // ... 40 Zeilen Setup ...
@@ -272,11 +274,15 @@ async connectLoopback() {
   // FEHLT: Pre-warming! (aber funktioniert trotzdem wegen connect() davor)
   await this._performConnect(connectionParams, { audioEnabled: true });
 }
+
+// (NACHHER - Gemeinsame Logik extrahiert)
+async _setupConnection(address, port, options = {}) {
+  // Shared setup logic
+}
 ```
 
-**Risiko:** Jede Änderung in einem Pfad muss manuell im anderen dupliziert werden.
-
-**Test-Parität:** 📊 **~60%** - Loopback testet nur 60% des Production-Flows
+**Status:** ✅ **BEHOBEN** - Code-Duplikation eliminiert  
+**Test-Parität:** 📊 60% → **92%** (mit Multi-Stream Tests)
 
 ---
 
@@ -453,7 +459,7 @@ function _cleanupVoiceStream(identifier) {
 - Test 3: Rapid User Join/Leave Cycles (5 Iterationen Stress-Test)
 - Test 4: Separate GainNodes pro Stream (Deaf-ready Architektur)
 - Test-Parität: 85% → **92%**
-- Alle 1034 Unit Tests bestehen
+- Alle 1098 Unit Tests bestehen
 
 **Abdeckung:**
 
@@ -467,7 +473,7 @@ function _cleanupVoiceStream(identifier) {
 
 ---
 
-#### 4.4 AudioContext-Suspended-Szenarien testen
+#### 4.3 AudioContext-Suspended-Szenarien testen
 
 **Ziel:** Teste Autoplay-Policy-Handling.
 
@@ -497,7 +503,7 @@ test('should handle suspended AudioContext on connect', async () => {
 
 ### 🟢 **NICE-TO-HAVE - Backlog (Q1 2026)**
 
-#### 4.5 Chaos-Engineering: Zufällige Netzwerk-Delays
+#### 4.4 Chaos-Engineering: Zufällige Netzwerk-Delays
 
 **Ziel:** Simuliere instabile Verbindungen.
 
@@ -587,7 +593,7 @@ test('should handle suspended AudioContext on connect', async () => {
 
 1. ✅ **Regression-Test deployed** (commit 51e876d)
 2. ✅ **Code-Duplikation eliminiert** (commit d196195)
-3. � **Code-Review Meeting** einberufen (4.2 besprechen)
+3. 📅 **Code-Review Meeting** einberufen (4.2 besprechen)
 
 ### Nächste Woche
 
@@ -647,12 +653,12 @@ jobs:
 **Realistische Quick Wins (6 Stunden):**
 
 - ✅ Code-Duplikation eliminieren (erledigt)
-- 🟡 Multi-Stream Unit-Tests (4 Stunden)
+- ✅ Multi-Stream Unit-Tests (erledigt)
 - 🟡 AudioContext-Suspended-Tests (2 Stunden)
 
 **Ergebnis:**
 
-- 📊 Test-Parität: 60% → **85%** (realistisch erreichbar)
+- 📊 Test-Parität: 60% → **92%** (erreicht mit Multi-Stream Tests)
 - 🐛 Bug-Rate: -50%
 - 💰 ROI: Payback in 2 Monaten
 
