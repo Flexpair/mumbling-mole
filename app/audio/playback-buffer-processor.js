@@ -6,6 +6,10 @@
  * AudioWorklet processors run in their own scope and cannot import modules.
  */
 
+// Define a maximum size for the playback queue to prevent unbounded memory growth and latency.
+// A value of 25 packets (assuming typical ~20ms packets) corresponds to 500ms of audio buffer.
+const MAX_QUEUE_PACKETS = 25;
+
 registerProcessor('playback-buffer-processor', class extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -21,6 +25,12 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
       const { type, data } = event.data;
       
       if (type === 'data') {
+        // Enforce max queue size to prevent memory leaks and unbounded latency.
+        // If the queue is full, drop the oldest packet before adding the new one.
+        if (this._queue.length >= MAX_QUEUE_PACKETS) {
+          this._queue.shift(); // Drop the oldest packet
+          console.warn('[PLAYBACK] Queue overflow: Dropping oldest packet to maintain buffer size.');
+        }
         // Queue incoming audio buffer
         this._queue.push(data);
       } else if (type === 'finish') {
