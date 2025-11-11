@@ -9,22 +9,18 @@ import { jest } from '@jest/globals';
 
 // Mock AudioContext (Web Audio API)
 class MockAudioContext {
-  constructor() {
-    this.state = 'suspended';
-    this.sampleRate = 48000;
-    this.destination = { connect: jest.fn() };
-    this._resumeCount = 0;
-  }
+  state = 'suspended';
+  sampleRate = 48000;
+  destination = { connect: jest.fn() };
+  _resumeCount = 0;
 
   async resume() {
     this._resumeCount++;
     this.state = 'running';
-    return Promise.resolve();
   }
 
   async suspend() {
     this.state = 'suspended';
-    return Promise.resolve();
   }
 
   createAnalyser() {
@@ -54,10 +50,10 @@ class MockAudioContext {
   }
 }
 
-global.AudioContext = MockAudioContext;
+globalThis.AudioContext = MockAudioContext;
 
 // Mock AudioWorkletNode (not fully supported in jsdom)
-global.AudioWorkletNode = class MockAudioWorkletNode {
+globalThis.AudioWorkletNode = class MockAudioWorkletNode {
   constructor() {
     this.port = {
       postMessage: jest.fn(),

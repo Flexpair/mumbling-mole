@@ -3,7 +3,7 @@
  * Reads .proto files as text and exports them as module.exports
  */
 
-const fs = require('fs');
+const fs = require('node:fs');
 
 module.exports = {
   process(sourceText, sourcePath) {

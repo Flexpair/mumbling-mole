@@ -29,7 +29,6 @@ const MockBufferQueueNode = jest.fn(function(options) {
     initialize: jest.fn(async () => {
       mockInitializeCalled = true;
       instance._isReady = true;
-      return; // Remove Promise.resolve() - async functions auto-wrap returns
     }),
     
     connect: jest.fn(),

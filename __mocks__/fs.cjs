@@ -16,15 +16,17 @@ const protoPath = path.join(__dirname, '../app/mumble-streams/Mumble.proto');
 let mumbleProtoContent = '';
 try {
   // Use require.resolve to bypass jest's module system
-  const Module = require('module');
+  const Module = require('node:module');
   const originalRequire = Module.prototype.require;
   const realFs = originalRequire.call(Module, 'node:fs');
   
-  if (realFs && realFs.readFileSync && realFs.existsSync(protoPath)) {
+  if (realFs?.readFileSync && realFs?.existsSync(protoPath)) {
     mumbleProtoContent = realFs.readFileSync(protoPath, 'utf8');
   }
 } catch (e) {
-  // Fallback: content will be empty
+  // Intentionally swallow error: Mumble.proto content will be empty string
+  // This allows tests to run even if proto file is missing or unreadable
+  console.warn('fs.cjs mock: Could not read Mumble.proto, using empty fallback');
 }
 
 module.exports = {

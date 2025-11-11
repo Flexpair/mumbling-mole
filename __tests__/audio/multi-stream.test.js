@@ -178,7 +178,9 @@ describe('Multi-Stream Voice Handling', () => {
     const streams = users.map(() => createMockVoiceStream());
 
     // Register all users
-    users.forEach(user => userState.registerUser(user));
+    for (const user of users) {
+      userState.registerUser(user);
+    }
 
     // Start all voice streams simultaneously (simulates real meeting scenario)
     await Promise.all(
@@ -217,7 +219,9 @@ describe('Multi-Stream Voice Handling', () => {
     const streams = users.map(() => createMockVoiceStream());
 
     // Register and start
-    users.forEach(user => userState.registerUser(user));
+    for (const user of users) {
+      userState.registerUser(user);
+    }
     
     await Promise.all(
       users.map((user, i) => {
@@ -295,7 +299,9 @@ describe('Multi-Stream Voice Handling', () => {
     });
 
     // Register and start
-    users.forEach(user => userState.registerUser(user));
+    for (const user of users) {
+      userState.registerUser(user);
+    }
     
     await Promise.all(
       users.map((user, i) => {
