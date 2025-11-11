@@ -365,7 +365,11 @@ export default class AppState {
    * @private
    */
   _setupClientHandlers(client) {
-    // No dynamic registration needed - single channel mode
+    // Register voice listeners for other users joining
+    client.on('newUser', (user) => {
+      console.log('[AppState] New user joined:', user.username, 'ID:', user.id);
+      this._vueState.user.registerUser(user);
+    });
   }
 
   /**
@@ -401,6 +405,15 @@ export default class AppState {
     if (client.self) {
       this._vueState.user.registerUser(client.self);
       this._vueState.user.thisUser.value = client.self.__ui;
+    }
+
+    // CRITICAL: Register voice listeners for all existing users in the channel
+    // Without this, users who joined before us won't have voice event handlers
+    for (const user of client.users.values()) {
+      if (user !== client.self) {
+        console.log('[AppState] Registering existing user:', user.username, 'ID:', user.id);
+        this._vueState.user.registerUser(user);
+      }
     }
 
     this._setupClientHandlers(client);
