@@ -123,7 +123,7 @@ Encoder.prototype._encodeCeltSpeexFrames = function(chunk, callback) {
 Encoder.prototype._encodeVoiceData = function(chunk, callback) {
   if (chunk.codec == 'Opus') {
     return this._encodeOpusFrames(chunk, callback);
-  } else if (['CELT_Alpha', 'CELT_Beta', 'Speex'].indexOf(chunk.codec) >= 0) {
+  } else if (['CELT_Alpha', 'CELT_Beta', 'Speex'].includes(chunk.codec)) {
     return this._encodeCeltSpeexFrames(chunk, callback);
   } else {
     return callback(new TypeError('Unknown codec: ' + chunk.codec));
