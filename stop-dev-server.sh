@@ -4,7 +4,7 @@ set -euo pipefail
 
 echo "Stopping dev server..."
 
-if [ -f /tmp/entrypoint.pid ]; then
+if [[ -f /tmp/entrypoint.pid ]]; then
     PID=$(cat /tmp/entrypoint.pid)
     if ps -p $PID > /dev/null 2>&1; then
         echo "Killing process $PID..."

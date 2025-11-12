@@ -58,12 +58,12 @@ echo "  Only vendors/mumble-client might need transpilation."
 echo ""
 
 # Prüfe vendors/mumble-client
-if [ -d "vendors/mumble-client/src" ]; then
+if [[ -d "vendors/mumble-client/src" ]]; then
     echo "📦 Checking vendors/mumble-client/src:"
     echo ""
     
     # Ist bereits lib/ transpiliert?
-    if [ -d "vendors/mumble-client/lib" ]; then
+    if [[ -d "vendors/mumble-client/lib" ]]; then
         echo "  ✅ lib/ exists (pre-transpiled)"
         echo "  → Import from lib/ instead of src/"
         echo "  → No babel needed in main build!"

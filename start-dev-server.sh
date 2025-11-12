@@ -14,7 +14,7 @@ else
 fi
 
 # Prüfe ob bereits ein Server läuft
-if [ -f /tmp/entrypoint.pid ]; then
+if [[ -f /tmp/entrypoint.pid ]]; then
     PID=$(cat /tmp/entrypoint.pid)
     if ps -p $PID > /dev/null 2>&1; then
         echo "✅ [$(date)] Dev server already running with PID $PID" | tee -a /tmp/startup-debug.log
