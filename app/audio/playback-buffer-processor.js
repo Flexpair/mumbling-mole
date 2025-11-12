@@ -32,6 +32,50 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
     };
   }
   
+  _getNextBuffer() {
+    if (!this._currentBuffer && this._queue.length > 0) {
+      this._currentBuffer = this._queue.shift();
+      this._currentBufferOffset = 0;
+    }
+    return this._currentBuffer;
+  }
+  
+  _fillSilence(output, outputOffset) {
+    const channels = output.length;
+    for (let channel = 0; channel < channels; channel++) {
+      output[channel].fill(0, outputOffset);
+    }
+  }
+  
+  _shouldShutDown() {
+    if (this._shuttingDown && !this._currentBuffer && this._queue.length === 0) {
+      this._shutDown = true;
+      this.port.postMessage({ type: 'close' });
+      return true;
+    }
+    return false;
+  }
+  
+  _copyAudioData(output, outputOffset, sampleCount) {
+    const channels = output.length;
+    
+    for (let channel = 0; channel < channels; channel++) {
+      const outputChannel = output[channel];
+      const inputChannel = this._currentBuffer.channels[channel] || this._currentBuffer.channels[0];
+      
+      for (let i = 0; i < sampleCount; i++) {
+        outputChannel[outputOffset + i] = inputChannel[this._currentBufferOffset + i];
+      }
+    }
+    
+    this._currentBufferOffset += sampleCount;
+    
+    // Clear current buffer if exhausted
+    if (this._currentBufferOffset >= this._currentBuffer.length) {
+      this._currentBuffer = null;
+    }
+  }
+  
   process(inputs, outputs, parameters) {
     // If shut down, stop processing
     if (this._shutDown) {
@@ -43,52 +87,24 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
       return true;
     }
     
-    const channels = output.length;
     const frameCount = output[0].length;
     let outputOffset = 0;
     
     while (outputOffset < frameCount) {
-      // Get next buffer from queue if needed
-      if (!this._currentBuffer && this._queue.length > 0) {
-        this._currentBuffer = this._queue.shift();
-        this._currentBufferOffset = 0;
-      }
+      this._getNextBuffer();
       
-      // If no buffer available, fill with silence
       if (!this._currentBuffer) {
-        for (let channel = 0; channel < channels; channel++) {
-          output[channel].fill(0, outputOffset);
-        }
-        
-        // If shutting down and queue is empty, signal completion
-        if (this._shuttingDown) {
-          this._shutDown = true;
-          this.port.postMessage({ type: 'close' });
-        }
+        this._fillSilence(output, outputOffset);
+        this._shouldShutDown();
         break;
       }
       
       const remainingOutput = frameCount - outputOffset;
       const remainingInput = this._currentBuffer.length - this._currentBufferOffset;
-      const remaining = Math.min(remainingOutput, remainingInput);
+      const sampleCount = Math.min(remainingOutput, remainingInput);
       
-      // Copy audio data from buffer to output
-      for (let channel = 0; channel < channels; channel++) {
-        const outputChannel = output[channel];
-        const inputChannel = this._currentBuffer.channels[channel] || this._currentBuffer.channels[0];
-        
-        for (let i = 0; i < remaining; i++) {
-          outputChannel[outputOffset + i] = inputChannel[this._currentBufferOffset + i];
-        }
-      }
-      
-      this._currentBufferOffset += remaining;
-      outputOffset += remaining;
-      
-      // Move to next buffer if current is exhausted
-      if (this._currentBufferOffset >= this._currentBuffer.length) {
-        this._currentBuffer = null;
-      }
+      this._copyAudioData(output, outputOffset, sampleCount);
+      outputOffset += sampleCount;
     }
     
     return true;

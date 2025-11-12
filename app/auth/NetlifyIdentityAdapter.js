@@ -17,8 +17,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
     super();
     
     // Check if Netlify Identity widget is available
-    if (globalThis.window !== undefined && 
-        globalThis.window.netlifyIdentity?.init !== undefined) {
+    if (globalThis.window?.netlifyIdentity?.init) {
       this.netlifyIdentity = globalThis.window.netlifyIdentity;
     } else {
       // Fallback mock for testing or when widget fails to load
@@ -47,7 +46,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<Object|null>}
    */
   async getCurrentUser() {
-    return Promise.resolve(this.netlifyIdentity.currentUser());
+    return this.netlifyIdentity.currentUser();
   }
 
   /**
@@ -165,7 +164,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
       throw new Error('No user logged in');
     }
     // Return current user as we can't update via widget
-    return Promise.resolve(user);
+    return user;
   }
 
   /**

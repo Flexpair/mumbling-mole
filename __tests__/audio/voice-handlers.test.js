@@ -73,8 +73,9 @@ beforeAll(async () => {
       once(event, handler) {
         const onceHandler = (...args) => {
           handler(...args);
-          const idx = this._events[event]?.indexOf(onceHandler);
-          if (idx >= 0) this._events[event].splice(idx, 1);
+          if (this._events[event]?.includes(onceHandler)) {
+            this._events[event].splice(this._events[event].indexOf(onceHandler), 1);
+          }
         };
         this.on(event, onceHandler);
       }

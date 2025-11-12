@@ -571,7 +571,7 @@ class MumbleClient extends EventEmitter {
     }
     for (const otherId of (payload.links_remove || [])) {
       const otherChannel = this._channelById[otherId]
-      if (otherChannel && otherChannel.links.indexOf(channel) !== -1) {
+      if (otherChannel?.links.includes(channel)) {
         otherChannel._update({
           links_remove: [payload.channel_id]
         })

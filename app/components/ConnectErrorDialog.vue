@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { computed, inject, nextTick, watch } from 'vue';
+import { computed, inject } from 'vue';
 
 const appState = inject('appState');
 

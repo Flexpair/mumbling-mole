@@ -27,9 +27,8 @@ describe('Vue Composables', () => {
       removeEventListener(event, callback) {
         if (this._listeners.has(event)) {
           const callbacks = this._listeners.get(event);
-          const index = callbacks.indexOf(callback);
-          if (index > -1) {
-            callbacks.splice(index, 1);
+          if (callbacks.includes(callback)) {
+            callbacks.splice(callbacks.indexOf(callback), 1);
           }
         }
       }

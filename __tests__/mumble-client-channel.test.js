@@ -46,9 +46,8 @@ jest.unstable_mockModule('node:events', () => ({
 
 jest.unstable_mockModule('remove-value', () => ({
   default: jest.fn((array, value) => {
-    const index = array.indexOf(value);
-    if (index > -1) {
-      array.splice(index, 1);
+    if (array.includes(value)) {
+      array.splice(array.indexOf(value), 1);
     }
   })
 }));

@@ -9,6 +9,21 @@ import { translate } from '../localize';
 import { debugLog } from './debug-utils';
 
 /**
+ * Initialize voice input capture
+ * @param {Function} onData - Callback for voice data
+ * @param {Function} onError - Callback for errors
+ * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
+ */
+function initVoiceInput(onData, onError, onMixerReady) {
+  initVoice(onData, onError);
+  
+  // Register for mixer ready notification if callback provided
+  if (onMixerReady) {
+    onAudioMixerReady(onMixerReady);
+  }
+}
+
+/**
  * useVoiceState - Vue composable for voice handler and loopback testing
  * 
  * Responsibilities:
@@ -33,21 +48,6 @@ export function useVoiceState() {
   
   // Loopback frequency analysis - tracks dominant frequency in returned audio
   const loopbackDominantFrequency = ref(0);
-
-  /**
-   * Initialize voice input capture
-   * @param {Function} onData - Callback for voice data
-   * @param {Function} onError - Callback for errors
-   * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
-   */
-  function initVoiceInput(onData, onError, onMixerReady) {
-    initVoice(onData, onError);
-    
-    // Register for mixer ready notification if callback provided
-    if (onMixerReady) {
-      onAudioMixerReady(onMixerReady);
-    }
-  }
 
   /**
    * Update/recreate voice handler based on settings

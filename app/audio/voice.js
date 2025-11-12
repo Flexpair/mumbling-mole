@@ -78,18 +78,15 @@ export class ContinuousVoiceHandler extends VoiceHandler {
       callback();
     } else {
       // ERROR-HANDLING: Catch synchronous errors from stream creation
-      // Note: stream.write() uses callback-based error handling (Node.js streams API)
-      // not promise-based, so await is not applicable here
-      let stream;
+      // Write errors are handled via the callback parameter (Node.js streams convention)
       try {
-        stream = this._getOrCreateOutbound();
+        const stream = this._getOrCreateOutbound();
+        // stream.write is async - errors handled by callback, not try-catch
+        stream.write(data, callback);
       } catch (err) {
         console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
         callback(err);
-        return;
       }
-      
-      stream.write(data, callback);
     }
   }
 }
@@ -113,18 +110,15 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
   _write(data, _, callback) {
     if (this._pushed && !this._mute) {
       // ERROR-HANDLING: Catch synchronous errors from stream creation
-      // Note: stream.write() uses callback-based error handling (Node.js streams API)
-      // not promise-based, so await is not applicable here
-      let stream;
+      // Write errors are handled via the callback parameter (Node.js streams convention)
       try {
-        stream = this._getOrCreateOutbound();
+        const stream = this._getOrCreateOutbound();
+        // stream.write is async - errors handled by callback, not try-catch
+        stream.write(data, callback);
       } catch (err) {
         console.error("[VOICE-HANDLER] Error getting outbound stream:", err);
         callback(err);
-        return;
       }
-      
-      stream.write(data, callback);
     } else {
       callback();
     }
