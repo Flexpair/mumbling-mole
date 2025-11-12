@@ -33,6 +33,12 @@ describe('mumble-streams Unit Tests', () => {
       });
     };
 
+    // Helper to create invalid encoder
+    const createInvalidEncoder = () => new Encoder('invalid');
+
+    // Helper to create encoder without args
+    const createEncoderWithoutArgs = () => new Encoder();
+
     describe('Constructor', () => {
       test('creates encoder for server destination', () => {
         const encoder = new Encoder('server');
@@ -47,17 +53,17 @@ describe('mumble-streams Unit Tests', () => {
       });
 
       test('works without new keyword', () => {
-        const encoder = Encoder('server');
+        const encoder = new Encoder('server');
         expect(encoder).toBeInstanceOf(Encoder);
       });
 
       test('throws TypeError for invalid destination', () => {
-        expect(() => new Encoder('invalid')).toThrow(TypeError);
-        expect(() => new Encoder('invalid')).toThrow('dest has to be either "server" or "client"');
+        expect(createInvalidEncoder).toThrow(TypeError);
+        expect(createInvalidEncoder).toThrow('dest has to be either "server" or "client"');
       });
 
       test('throws TypeError for missing destination', () => {
-        expect(() => new Encoder()).toThrow(TypeError);
+        expect(createEncoderWithoutArgs).toThrow(TypeError);
       });
     });
 
@@ -193,21 +199,24 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Position Data', () => {
+      // Helper to write invalid position data
+      const writeInvalidPositionData = (encoder) => {
+        encoder.write({
+          mode: 0,
+          codec: 'Opus',
+          seqNum: 1,
+          end: false,
+          frames: [Buffer.from([1, 2])], // Small frame
+          position: { x: 1, y: 2, z: 3 }
+        });
+      };
+
       test('position data encoding behavior', () => {
         const encoder = new Encoder('server');
 
         // Position encoding requires sufficient buffer space (12 bytes for 3 floats)
         // When buffer too small, _transform throws RangeError synchronously
-        expect(() => {
-          encoder.write({
-            mode: 0,
-            codec: 'Opus',
-            seqNum: 1,
-            end: false,
-            frames: [Buffer.from([1, 2])], // Small frame
-            position: { x: 1.0, y: 2.0, z: 3.0 }
-          });
-        }).toThrow('out of range');
+        expect(() => writeInvalidPositionData(encoder)).toThrow('out of range');
       });
     });
 
@@ -307,6 +316,9 @@ describe('mumble-streams Unit Tests', () => {
       });
     };
 
+    // Helper to create invalid decoder
+    const createInvalidDecoder = () => new Decoder('invalid');
+
     describe('Constructor', () => {
       test('creates decoder for server origin', () => {
         const decoder = new Decoder('server');
@@ -326,8 +338,8 @@ describe('mumble-streams Unit Tests', () => {
       });
 
       test('throws TypeError for invalid origin', () => {
-        expect(() => new Decoder('invalid')).toThrow(TypeError);
-        expect(() => new Decoder('invalid')).toThrow('orig has to be either "server" or "client"');
+        expect(createInvalidDecoder).toThrow(TypeError);
+        expect(createInvalidDecoder).toThrow('orig has to be either "server" or "client"');
       });
     });
 
@@ -389,20 +401,26 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Error Handling', () => {
+      // Helper to check debug event
+      const checkDebugEvent = (decoder) => {
+        return new Promise((resolve) => {
+          decoder.on('debug', (msg) => {
+            if (msg === 'Failed to parse voice packet') {
+              resolve(true);
+            }
+          });
+        });
+      };
+
       test('handles empty buffer gracefully', async () => {
         const decoder = new Decoder('server');
-        let debugEmitted = false;
-
-        decoder.on('debug', (msg) => {
-          if (msg === 'Failed to parse voice packet') {
-            debugEmitted = true;
-          }
-        });
+        const debugPromise = checkDebugEvent(decoder);
 
         decoder.write(Buffer.alloc(0));
         decoder.end();
         await waitForDecoderFinish(decoder);
 
+        const debugEmitted = await debugPromise;
         expect(debugEmitted).toBe(true);
       });
 
@@ -536,6 +554,13 @@ describe('mumble-streams Unit Tests', () => {
         expect(decoder).toBeDefined();
       });
 
+      // Helper to extract timestamp value
+      const extractTimestampValue = (timestamp) => {
+        return typeof timestamp === 'object' && timestamp.low !== undefined
+          ? timestamp.low
+          : timestamp;
+      };
+
       test('decodes encoded message (round-trip)', async () => {
         const encoder = new data.Encoder();
         const decoder = new data.Decoder();
@@ -555,10 +580,7 @@ describe('mumble-streams Unit Tests', () => {
         expect(decoded.name).toBe('Ping');
         expect(decoded.payload).toBeDefined();
         // Protobuf encodes numbers as Long objects for compatibility
-        const timestamp = decoded.payload.timestamp;
-        const timestampValue = typeof timestamp === 'object' && timestamp.low !== undefined
-          ? timestamp.low
-          : timestamp;
+        const timestampValue = extractTimestampValue(decoded.payload.timestamp);
         expect(timestampValue).toBe(12345);
       });
 
@@ -629,58 +651,64 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Key Management', () => {
+      // Helper to set invalid key size
+      const setInvalidKey = (crypt) => () => {
+        crypt.setKey(Buffer.alloc(8));
+      };
+
+      // Helper to set invalid encrypt IV size
+      const setInvalidEncryptIV = (crypt) => () => {
+        crypt.setEncryptIV(Buffer.alloc(8));
+      };
+
+      // Helper to set invalid decrypt IV size
+      const setInvalidDecryptIV = (crypt) => () => {
+        crypt.setDecryptIV(Buffer.alloc(32));
+      };
+
+      // Helper to set valid key
+      const setValidKey = (crypt) => () => {
+        crypt.setKey(Buffer.alloc(16));
+      };
+
+      // Helper to set valid encrypt IV
+      const setValidEncryptIV = (crypt) => () => {
+        crypt.setEncryptIV(Buffer.alloc(16));
+      };
+
+      // Helper to set valid decrypt IV
+      const setValidDecryptIV = (crypt) => () => {
+        crypt.setDecryptIV(Buffer.alloc(16));
+      };
+
       test('setKey accepts 16-byte buffer', () => {
         const crypt = new udpCrypto();
-        const key = Buffer.alloc(16);
-        
-        expect(() => {
-          crypt.setKey(key);
-        }).not.toThrow();
+        expect(setValidKey(crypt)).not.toThrow();
       });
 
       test('setKey rejects wrong size', () => {
         const crypt = new udpCrypto();
-        const key = Buffer.alloc(8);
-        
-        expect(() => {
-          crypt.setKey(key);
-        }).toThrow('key must be exactly 16 bytes');
+        expect(setInvalidKey(crypt)).toThrow('key must be exactly 16 bytes');
       });
 
       test('setEncryptIV accepts 16-byte buffer', () => {
         const crypt = new udpCrypto();
-        const iv = Buffer.alloc(16);
-        
-        expect(() => {
-          crypt.setEncryptIV(iv);
-        }).not.toThrow();
+        expect(setValidEncryptIV(crypt)).not.toThrow();
       });
 
       test('setEncryptIV rejects wrong size', () => {
         const crypt = new udpCrypto();
-        const iv = Buffer.alloc(8);
-        
-        expect(() => {
-          crypt.setEncryptIV(iv);
-        }).toThrow('encryptIV must be exactly 16 bytes');
+        expect(setInvalidEncryptIV(crypt)).toThrow('encryptIV must be exactly 16 bytes');
       });
 
       test('setDecryptIV accepts 16-byte buffer', () => {
         const crypt = new udpCrypto();
-        const iv = Buffer.alloc(16);
-        
-        expect(() => {
-          crypt.setDecryptIV(iv);
-        }).not.toThrow();
+        expect(setValidDecryptIV(crypt)).not.toThrow();
       });
 
       test('setDecryptIV rejects wrong size', () => {
         const crypt = new udpCrypto();
-        const iv = Buffer.alloc(32);
-        
-        expect(() => {
-          crypt.setDecryptIV(iv);
-        }).toThrow('decryptIV must be exactly 16 bytes');
+        expect(setInvalidDecryptIV(crypt)).toThrow('decryptIV must be exactly 16 bytes');
       });
     });
 
