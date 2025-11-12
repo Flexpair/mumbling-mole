@@ -198,7 +198,7 @@ describe('App Vue Component Integration', () => {
     test('should check document.readyState before adding listener', () => {
       const states = ['loading', 'interactive', 'complete'];
       
-      states.forEach(state => {
+      for (const state of states) {
         mockDocument.readyState = state;
         const shouldAddListener = mockDocument.readyState !== 'complete';
         
@@ -207,7 +207,7 @@ describe('App Vue Component Integration', () => {
         } else {
           expect(shouldAddListener).toBe(true);
         }
-      });
+      }
     });
   });
 

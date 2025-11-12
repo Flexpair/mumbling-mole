@@ -642,14 +642,14 @@ describe('enumMicrophones', () => {
         while (select.firstChild) {
           select.removeChild(select.firstChild);
         }
-        devices.forEach(device => {
+        for (const device of devices) {
           if (device.kind === 'audioinput') {
             const option = document.createElement('option');
             option.value = device.deviceId;
             option.text = device.label;
             select.appendChild(option);
           }
-        });
+        }
         expect(select.options.length).toBe(2);
         done();
         return devices;

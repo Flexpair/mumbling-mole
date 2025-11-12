@@ -124,9 +124,9 @@ describe('mumble-streams Integration Tests', () => {
         'CryptSetup'
       ];
 
-      expectedMessages.forEach(msgType => {
+      for (const msgType of expectedMessages) {
         expect(data.messages[msgType]).toBeDefined();
-      });
+      }
     });
 
     test('PermissionDenied should have DenyType enum', () => {

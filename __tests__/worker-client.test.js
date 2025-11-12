@@ -45,7 +45,9 @@ class MockWorker {
   
   // Helper to simulate messages from worker
   _simulateMessage(data) {
-    this.listeners.message.forEach(cb => cb({ data }));
+    for (const cb of this.listeners.message) {
+      cb({ data });
+    }
   }
 }
 

@@ -40,7 +40,7 @@ describe('mumble-client Integration Tests', () => {
     test('calcEnforcableBandwidth should handle different bitrate values', () => {
       const bitrates = [40000, 72000, 96000, 128000];
       
-      bitrates.forEach(bitrate => {
+      for (const bitrate of bitrates) {
         const result = MumbleClient.calcEnforcableBandwidth(
           bitrate,
           60,
@@ -50,7 +50,7 @@ describe('mumble-client Integration Tests', () => {
         expect(result).toBeGreaterThan(0);
         expect(typeof result).toBe('number');
         // Note: Result may be higher than input bitrate due to protocol overhead
-      });
+      }
     });
 
     test('calcEnforcableBandwidth should handle voice activity detection flag', () => {
@@ -68,7 +68,7 @@ describe('mumble-client Integration Tests', () => {
     test('calcEnforcableBandwidth should handle different frame counts', () => {
       const frames = [20, 40, 60];
       
-      frames.forEach(frameCount => {
+      for (const frameCount of frames) {
         const result = MumbleClient.calcEnforcableBandwidth(
           96000,
           frameCount,
@@ -76,7 +76,7 @@ describe('mumble-client Integration Tests', () => {
         );
         
         expect(result).toBeGreaterThan(0);
-      });
+      }
     });
   });
 
@@ -157,11 +157,11 @@ describe('mumble-client Integration Tests', () => {
       const client = new MumbleClient({ username: 'testuser' });
       const eventTypes = ['connected', 'error', 'message', 'voice'];
 
-      eventTypes.forEach(eventType => {
+      for (const eventType of eventTypes) {
         expect(() => {
           client.on(eventType, () => {});
         }).not.toThrow();
-      });
+      }
     });
   });
 

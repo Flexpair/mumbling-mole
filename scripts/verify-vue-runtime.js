@@ -71,7 +71,7 @@ const checks = [
 let passed = 0;
 let failed = 0;
 
-checks.forEach(check => {
+for (const check of checks) {
   if (check.pattern.test(indexJsContent)) {
     console.log(`✅ ${check.name}`);
     console.log(`   Found: ${check.description}`);
@@ -82,7 +82,7 @@ checks.forEach(check => {
     failed++;
   }
   console.log('');
-});
+}
 
 // 2. Check if .vue files exist in source
 const componentPaths = [
@@ -93,7 +93,7 @@ const componentPaths = [
 
 console.log('📁 Checking Vue component source files...\n');
 
-componentPaths.forEach(componentPath => {
+for (const componentPath of componentPaths) {
   const exists = fs.existsSync(componentPath);
   const name = path.basename(componentPath);
   if (exists) {
@@ -117,7 +117,7 @@ componentPaths.forEach(componentPath => {
     failed++;
   }
   console.log('');
-});
+}
 
 // 3. Check bundle size (Vue adds significant size)
 const stats = fs.statSync(indexJsPath);

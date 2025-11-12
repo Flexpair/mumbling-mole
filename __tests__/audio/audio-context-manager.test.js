@@ -30,20 +30,26 @@ describe('AudioContextManager', () => {
         }
         if (this.state === 'suspended') {
           this.state = 'running';
-          this._stateChangeListeners.forEach(listener => listener());
+          for (const listener of this._stateChangeListeners) {
+            listener();
+          }
         }
       }),
       
       suspend: jest.fn(async function() {
         if (this.state === 'running') {
           this.state = 'suspended';
-          this._stateChangeListeners.forEach(listener => listener());
+          for (const listener of this._stateChangeListeners) {
+            listener();
+          }
         }
       }),
       
       close: jest.fn(async function() {
         this.state = 'closed';
-        this._stateChangeListeners.forEach(listener => listener());
+        for (const listener of this._stateChangeListeners) {
+          listener();
+        }
       }),
       
       addEventListener: jest.fn(function(event, handler) {

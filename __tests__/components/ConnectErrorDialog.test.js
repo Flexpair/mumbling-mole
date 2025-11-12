@@ -195,19 +195,19 @@ describe('ConnectErrorDialog Vue Component Integration', () => {
     test('should show username field for types 2, 3, 5', () => {
       const showUsernameTypes = [2, 3, 5];
       
-      showUsernameTypes.forEach(type => {
+      for (const type of showUsernameTypes) {
         mockAppState.connectErrorDialog.type.value = type;
         expect([2, 3, 5].includes(mockAppState.connectErrorDialog.type.value)).toBe(true);
-      });
+      }
     });
 
     test('should show password field for types 3, 4', () => {
       const showPasswordTypes = [3, 4];
       
-      showPasswordTypes.forEach(type => {
+      for (const type of showPasswordTypes) {
         mockAppState.connectErrorDialog.type.value = type;
         expect([3, 4].includes(mockAppState.connectErrorDialog.type.value)).toBe(true);
-      });
+      }
     });
 
     test('should not show username field for type 0', () => {
