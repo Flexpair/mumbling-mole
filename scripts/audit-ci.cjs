@@ -10,9 +10,9 @@
  * This lets you gradually improve while failing the build only on NEW or ESCALATED issues.
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { execSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const BASELINE_FILE = path.join(__dirname, '..', 'audit-baseline.json');
 const args = process.argv.slice(2);
@@ -56,6 +56,25 @@ function summarize(report) {
   return `${meta.total} total (critical:${meta.critical} high:${meta.high} moderate:${meta.moderate} low:${meta.low})`;
 }
 
+function isEscalated(currentSeverity, baselineSeverity) {
+  const sevRank = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
+  return sevRank[currentSeverity] > sevRank[baselineSeverity];
+}
+
+function processVulnerability(id, vuln, baseline) {
+  const base = baseline.vulnerabilities[id];
+  
+  if (!base) {
+    return { id, reason: 'NEW', severity: vuln.severity, title: vuln.title };
+  }
+  
+  if (isEscalated(vuln.severity, base.severity)) {
+    return { id, reason: 'ESCALATED', from: base.severity, to: vuln.severity, title: vuln.title };
+  }
+  
+  return null;
+}
+
 function main() {
   const report = runAudit();
 
@@ -65,30 +84,24 @@ function main() {
   }
 
   const baseline = loadBaseline();
-
   const newFindings = [];
+  
   for (const [id, vuln] of Object.entries(report.vulnerabilities || {})) {
-    const base = baseline.vulnerabilities[id];
-    if (!base) {
-      newFindings.push({ id, reason: 'NEW', severity: vuln.severity, title: vuln.title });
-    } else {
-      // Escalation detection: severity increased
-      const sevRank = { info:0, low:1, moderate:2, high:3, critical:4 };
-      if (sevRank[vuln.severity] > sevRank[base.severity]) {
-        newFindings.push({ id, reason: 'ESCALATED', from: base.severity, to: vuln.severity, title: vuln.title });
-      }
+    const finding = processVulnerability(id, vuln, baseline);
+    if (finding) {
+      newFindings.push(finding);
     }
   }
 
   if (newFindings.length) {
     console.error('\n[audit-ci] ❌ Build failed. New or escalated vulnerabilities detected.');
-    newFindings.forEach(f => {
+    for (const f of newFindings) {
       if (f.reason === 'NEW') {
         console.error(`  NEW        ${f.severity.padEnd(8)} ${f.id} ${f.title}`);
       } else {
         console.error(`  ESCALATED  ${f.from} -> ${f.to} ${f.id} ${f.title}`);
       }
-    });
+    }
     console.error('\nCurrent:', summarize(report));
     console.error('Baseline:', summarize({ metadata: { vulnerabilities: severityTotals(baseline) } }));
     console.error('\nUpdate baseline only after reviewing / fixing: npm run audit:baseline');

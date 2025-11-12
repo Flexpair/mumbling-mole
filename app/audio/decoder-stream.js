@@ -97,14 +97,14 @@ class DecoderStream extends Transform {
   }
 
   _logDebug(...args) {
-    const debugEnabled = typeof globalThis.window !== 'undefined' && globalThis.window.MUMBLE_DEBUG_AUDIO;
+    const debugEnabled = globalThis.window?.MUMBLE_DEBUG_AUDIO;
     if (debugEnabled) {
       console.log('[DEBUG-DECODER]', ...args);
     }
   }
 
   _transform(chunk, encoding, callback) {
-    const debugEnabled = typeof globalThis.window !== 'undefined' && globalThis.window.MUMBLE_DEBUG_AUDIO;
+    const debugEnabled = globalThis.window?.MUMBLE_DEBUG_AUDIO;
     if (debugEnabled) {
       console.log('[DEBUG-DECODER] Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length);
     }

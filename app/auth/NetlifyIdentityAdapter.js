@@ -17,10 +17,9 @@ class NetlifyIdentityAdapter extends AuthProvider {
     super();
     
     // Check if Netlify Identity widget is available
-    if (typeof window !== 'undefined' && 
-        window.netlifyIdentity && 
-        typeof window.netlifyIdentity.init === 'function') {
-      this.netlifyIdentity = window.netlifyIdentity;
+    if (globalThis.window !== undefined && 
+        globalThis.window.netlifyIdentity?.init !== undefined) {
+      this.netlifyIdentity = globalThis.window.netlifyIdentity;
     } else {
       // Fallback mock for testing or when widget fails to load
       console.warn('Netlify Identity widget not found, using fallback mock');
@@ -65,7 +64,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async openAuth(view = 'login') {
-    return Promise.resolve(this.netlifyIdentity.open(view));
+    this.netlifyIdentity.open(view);
   }
 
   /**
@@ -81,7 +80,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async closeAuth() {
-    return Promise.resolve(this.netlifyIdentity.close());
+    this.netlifyIdentity.close();
   }
 
   /**
@@ -148,7 +147,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async logout() {
-    return Promise.resolve(this.netlifyIdentity.logout());
+    this.netlifyIdentity.logout();
   }
 
   /**
@@ -176,8 +175,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async requestPasswordReset(email) {
-    // Netlify Identity handles this via modal
-    return Promise.resolve(this.netlifyIdentity.open('recover'));
+    this.netlifyIdentity.open('recover');
   }
 
   /**

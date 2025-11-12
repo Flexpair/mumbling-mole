@@ -493,11 +493,9 @@ class User extends EventEmitter {
   }
 
   get channel () {
-    if (this._channelId != null) {
-      return this._client._channelById[this._channelId]
-    } else {
-      return null
-    }
+    return this._channelId != null
+      ? this._client._channelById[this._channelId]
+      : null
   }
 
   set channel (to) {

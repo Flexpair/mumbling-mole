@@ -30,7 +30,7 @@ async function evalDependencyGraph({ loaderContext, src, filename, publicPath })
     const moduleExports = { exports: {} };
 
     const sandbox = {
-      ...global,
+      ...globalThis,
       module: moduleExports,
       exports: moduleExports.exports,
       __esbuild_public_path__: publicPath,
