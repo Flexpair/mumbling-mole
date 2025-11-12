@@ -63,7 +63,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 
 # Projekt-Files kopieren und builden
-COPY --chown=node:node ./ /home/node/
+COPY --chown=node:node --chmod=755 ./ /home/node/
 USER node
 WORKDIR /home/node
 
@@ -121,13 +121,11 @@ CMD ["bash", "-lc", "while :; do sleep 3600; done"]
 FROM base-runtime AS prod
 
 # Nur die gebauten Artefakte kopieren, NICHT node_modules oder Build-Tools
-COPY --from=builder --chown=node:node /home/node/dist /home/node/dist
-COPY --chown=node:node ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
+COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dist
+COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 
 USER node
 WORKDIR /home/node
-
-RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 8081 8082
 
