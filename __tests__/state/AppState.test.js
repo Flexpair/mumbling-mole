@@ -13,17 +13,21 @@ jest.unstable_mockModule('../../app/worker-client.js', () => ({
     constructor() {
       this.user = { id: null };
     }
-    on() {}
-    setSelfMute() {}
-    setSelfDeaf() {}
+    on() { /* no-op mock */ }
+    setSelfMute() { /* no-op mock */ }
+    setSelfDeaf() { /* no-op mock */ }
     connect() { return Promise.resolve({}); }
-    disconnect() {}
+    disconnect() { /* no-op mock */ }
   }
 }));
 
 jest.unstable_mockModule('../../app/audio/voice.js', () => ({
-  ContinuousVoiceHandler: class MockContinuousVoiceHandler {},
-  PushToTalkVoiceHandler: class MockPushToTalkVoiceHandler {},
+  ContinuousVoiceHandler: class MockContinuousVoiceHandler {
+    active = false;
+  },
+  PushToTalkVoiceHandler: class MockPushToTalkVoiceHandler {
+    active = false;
+  },
   initVoice: jest.fn(),
   setVoiceHandler: jest.fn(),
   resetVoice: jest.fn(),

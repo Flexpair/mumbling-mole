@@ -35,7 +35,7 @@ fs.mkdirSync('dist', { recursive: true });
 
 // Generate build info with full git commit hash
 try {
-  const gitHash = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim(); // Full hash, not --short
+  const gitHash = execSync('/usr/bin/git rev-parse HEAD', { encoding: 'utf8' }).trim(); // Full hash, not --short
   
   const buildInfo = {
     commit: gitHash,

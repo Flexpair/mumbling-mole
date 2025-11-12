@@ -190,13 +190,16 @@ describe('voice.js - VoiceHandler classes', () => {
       const audioData1 = Buffer.from([1, 2, 3, 4]);
       const audioData2 = Buffer.from([5, 6, 7, 8]);
 
-      handler._write(audioData1, null, () => {
-        handler._write(audioData2, null, () => {
-          // Should only create stream once
-          expect(mockClient.createVoiceStream).toHaveBeenCalledTimes(1);
-          done();
-        });
-      });
+      const verifyStreamReuse = () => {
+        expect(mockClient.createVoiceStream).toHaveBeenCalledTimes(1);
+        done();
+      };
+
+      const writeSecondData = () => {
+        handler._write(audioData2, null, verifyStreamReuse);
+      };
+
+      handler._write(audioData1, null, writeSecondData);
     });
 
     test('should pass target parameter to createVoiceStream', (done) => {
@@ -219,16 +222,17 @@ describe('voice.js - VoiceHandler classes', () => {
         stoppedTalking = true;
       });
 
-      // Start talking
       const audioData = Buffer.from([1, 2, 3, 4]);
-      handler._write(audioData, null, () => {
+      
+      const verifyMuteStopsStream = (err) => {
+        expect(err).toBeUndefined();
         expect(mockClient.createVoiceStream).toHaveBeenCalled();
-        
-        // Mute should stop outbound
         handler.setMute(true);
         expect(stoppedTalking).toBe(true);
         done();
-      });
+      };
+      
+      handler._write(audioData, null, verifyMuteStopsStream);
     });
 
     test('should throw error if trying to create outbound while muted', () => {
@@ -248,12 +252,14 @@ describe('voice.js - VoiceHandler classes', () => {
         done();
       });
 
-      // Start talking
       const audioData = Buffer.from([1, 2, 3, 4]);
-      handler._write(audioData, null, () => {
-        // Call _final to end stream
+      
+      const finalizeStream = (err) => {
+        expect(err).toBeUndefined();
         handler._final(() => {});
-      });
+      };
+      
+      handler._write(audioData, null, finalizeStream);
     });
   });
 
@@ -311,23 +317,23 @@ describe('voice.js - VoiceHandler classes', () => {
         stoppedTalking = true;
       });
 
-      // Get key handlers
       const bindCall = mockKeyboardjs.bind.mock.calls[0];
       const keydownHandler = bindCall[1];
       const keyupHandler = bindCall[2];
 
-      // Press key and write audio
       keydownHandler();
       const audioData = Buffer.from([1, 2, 3, 4]);
-      handler._write(audioData, null, () => {
+      
+      const verifyKeyRelease = (err) => {
+        expect(err).toBeUndefined();
         expect(mockClient.createVoiceStream).toHaveBeenCalled();
-        
-        // Release key
         keyupHandler();
         expect(stoppedTalking).toBe(true);
         expect(handler._pushed).toBe(false);
         done();
-      });
+      };
+      
+      handler._write(audioData, null, verifyKeyRelease);
     });
 
     test('should not write when muted even if key pushed', (done) => {
@@ -386,12 +392,15 @@ describe('voice.js - VoiceHandler classes', () => {
       });
 
       const audioData = Buffer.from([1, 2, 3, 4]);
-      handler._write(audioData, null, () => {
+      
+      const verifyDropStreamUsed = () => {
         expect(startedTalking).toBe(true);
         // Should not call createVoiceStream since no client
         expect(mockClient.createVoiceStream).not.toHaveBeenCalled();
         done();
-      });
+      };
+      
+      handler._write(audioData, null, verifyDropStreamUsed);
     });
   });
 });
