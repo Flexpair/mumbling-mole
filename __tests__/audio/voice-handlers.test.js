@@ -36,26 +36,26 @@ beforeAll(async () => {
   };
 
   // Setup module mocks
-  await jest.unstable_mockModule('keyboardjs', () => ({
+  jest.unstable_mockModule('keyboardjs', () => ({
     default: mockKeyboardjs
   }));
 
-  await jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
+  jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
     default: mockGetUserMedia
   }));
 
-  await jest.unstable_mockModule('../../app/audio/audio-context-manager.js', () => ({
+  jest.unstable_mockModule('../../app/audio/audio-context-manager.js', () => ({
     default: { getStats: jest.fn() },
     ensureAudioContext: mockEnsureAudioContext,
     getAudioContext: jest.fn()
   }));
 
-  await jest.unstable_mockModule('drop-stream', () => ({
+  jest.unstable_mockModule('drop-stream', () => ({
     default: mockDropStream
   }));
 
   // Mock stream module
-  await jest.unstable_mockModule('stream', () => ({
+  jest.unstable_mockModule('stream', () => ({
     Writable: class MockWritable {
       constructor(options) {
         this.objectMode = options?.objectMode;
@@ -63,7 +63,9 @@ beforeAll(async () => {
       }
       emit(event, ...args) {
         if (this._events[event]) {
-          this._events[event].forEach(handler => handler(...args));
+          for (const handler of this._events[event]) {
+            handler(...args);
+          }
         }
       }
       on(event, handler) {
@@ -84,7 +86,7 @@ beforeAll(async () => {
 });
 
 describe('voice.js - VoiceHandler classes', () => {
-  let VoiceHandler, ContinuousVoiceHandler, PushToTalkVoiceHandler;
+  let ContinuousVoiceHandler, PushToTalkVoiceHandler;
   let mockClient;
   let mockSettings;
 
@@ -99,7 +101,7 @@ describe('voice.js - VoiceHandler classes', () => {
     // Create mock client with voice stream
     mockClient = {
       createVoiceStream: jest.fn((samplesPerPacket, target) => ({
-        write: jest.fn((data, cb) => cb && cb()),
+        write: jest.fn((data, cb) => cb?.()),
         end: jest.fn(),
         target,
         samplesPerPacket
@@ -405,8 +407,8 @@ describe('voice.js - Mixer Management', () => {
 
   beforeEach(() => {
     // Clear global mixer
-    if (typeof window !== 'undefined') {
-      window._audioMixer = null;
+    if (typeof globalThis !== 'undefined') {
+      globalThis._audioMixer = null;
     }
   });
 
@@ -441,8 +443,8 @@ describe('voice.js - Mixer Management', () => {
     });
 
     test('should call callback immediately if mixer already exists', () => {
-      const mockMixer = { gain: { value: 1.0 } };
-      window._audioMixer = mockMixer;
+      const mockMixer = { gain: { value: 1 } };
+      globalThis._audioMixer = mockMixer;
       
       const callback = jest.fn();
       onAudioMixerReady(callback);
@@ -451,7 +453,7 @@ describe('voice.js - Mixer Management', () => {
     });
 
     test('should queue callback if mixer not yet ready', () => {
-      window._audioMixer = null;
+      globalThis._audioMixer = null;
       
       const callback = jest.fn();
       onAudioMixerReady(callback);
@@ -461,8 +463,8 @@ describe('voice.js - Mixer Management', () => {
     });
 
     test('should handle errors in immediate callback execution', () => {
-      const mockMixer = { gain: { value: 1.0 } };
-      window._audioMixer = mockMixer;
+      const mockMixer = { gain: { value: 1 } };
+      globalThis._audioMixer = mockMixer;
       
       const consoleError = jest.spyOn(console, 'error').mockImplementation();
       const errorCallback = jest.fn(() => {
@@ -492,7 +494,7 @@ describe('voice.js - Device Enumeration', () => {
 
   test('should call enumerateDevices when enumMicrophones is called', () => {
     const mockEnumerate = jest.fn().mockResolvedValue([]);
-    global.navigator.mediaDevices = {
+    globalThis.navigator.mediaDevices = {
       enumerateDevices: mockEnumerate
     };
 
@@ -507,7 +509,7 @@ describe('voice.js - Device Enumeration', () => {
     testError.name = 'NotFoundError';
 
     const mockEnumerate = jest.fn().mockRejectedValue(testError);
-    global.navigator.mediaDevices = {
+    globalThis.navigator.mediaDevices = {
       enumerateDevices: mockEnumerate
     };
 

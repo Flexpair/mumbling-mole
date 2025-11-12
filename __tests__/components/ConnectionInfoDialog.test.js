@@ -44,11 +44,11 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
       connectionInfo: {
         visible: { value: false },
         serverVersion: { value: null },
-        latencyMs: { value: NaN },
-        latencyDeviation: { value: NaN },
-        maxBandwidth: { value: NaN },
-        currentBandwidth: { value: NaN },
-        currentBitrate: { value: NaN },
+        latencyMs: { value: Number.NaN },
+        latencyDeviation: { value: Number.NaN },
+        maxBandwidth: { value: Number.NaN },
+        currentBandwidth: { value: Number.NaN },
+        currentBitrate: { value: Number.NaN },
         update: function() {
           if (mockAppState.client) {
             this.serverVersion.value = mockAppState.client.serverVersion;
@@ -152,8 +152,8 @@ describe('ConnectionInfoDialog Vue Component Integration', () => {
         serverVersion: null,
         dataStats: null,
         maxBandwidth: null,
-        getMaxBitrate: jest.fn(() => NaN),
-        getActualBitrate: jest.fn(() => NaN)
+        getMaxBitrate: jest.fn(() => Number.NaN),
+        getActualBitrate: jest.fn(() => Number.NaN)
       };
       
       mockAppState.connectionInfo.update();

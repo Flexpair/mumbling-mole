@@ -140,13 +140,13 @@ describe('mumble-client User', () => {
       ['certHash', '123']
     ];
 
-    properties.forEach(([prop, value]) => {
+    for (const [prop, value] of properties) {
       test(`should prevent setting ${prop}`, () => {
         expect(() => {
           user[prop] = value;
         }).toThrow(/Cannot set/);
       });
-    });
+    }
 
     test('should prevent setting channel directly', () => {
       expect(() => {

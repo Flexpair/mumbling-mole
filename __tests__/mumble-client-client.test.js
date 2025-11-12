@@ -14,7 +14,7 @@
  */
 
 import { jest } from '@jest/globals';
-import { PassThrough } from 'stream';
+import { PassThrough } from 'node:stream';
 
 // Mock DropStream
 const mockDropStream = {
@@ -219,10 +219,10 @@ describe('mumble-client Client', () => {
       test('should handle different bitrates', () => {
         const bitrates = [40000, 72000, 96000, 128000];
         
-        bitrates.forEach(bitrate => {
+        for (const bitrate of bitrates) {
           const result = MumbleClient.calcEnforcableBandwidth(bitrate, 60, false);
           expect(result).toBeGreaterThan(0);
-        });
+        }
       });
 
       test('should handle voice activity detection flag', () => {

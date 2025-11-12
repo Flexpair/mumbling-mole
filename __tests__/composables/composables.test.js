@@ -16,7 +16,9 @@ describe('Vue Composables', () => {
         this.onerror = null;
         this._listeners = new Map();
       }
-      postMessage() {}
+      postMessage() {
+        // Mock implementation - no-op for tests
+      }
       terminate() {}
       addEventListener(event, callback) {
         if (!this._listeners.has(event)) {

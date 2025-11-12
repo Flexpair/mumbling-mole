@@ -38,7 +38,9 @@ jest.unstable_mockModule('node:events', () => ({
     }
     emit(event, ...args) {
       if (!this._events[event]) return false;
-      this._events[event].forEach(listener => listener(...args));
+      for (const listener of this._events[event]) {
+        listener(...args);
+      }
       return true;
     }
   }
@@ -118,13 +120,13 @@ describe('mumble-client Channel', () => {
       ['maxUsers', 123]
     ];
 
-    properties.forEach(([prop, value]) => {
+    for (const [prop, value] of properties) {
       test(`should prevent setting ${prop}`, () => {
         expect(() => {
           channel[prop] = value;
         }).toThrow();
       });
-    });
+    }
 
     test('should prevent setting parent directly', () => {
       expect(() => {
