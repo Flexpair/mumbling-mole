@@ -80,7 +80,6 @@
               :class="{ active: isBeeping }"
               :disabled="!beeperReady || !voiceHandlerReady"
               :aria-pressed="isBeeping ? 'true' : 'false'"
-              aria-label="Test microphone with 440 Hz tone"
               style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
             >
               <span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)
@@ -103,14 +102,6 @@
 
       <!-- Dialog Buttons - completely separate section -->
       <div class="dialog-buttons" style="display: block; width: 100%; clear: both; margin-top: 1em;">
-        <input
-          type="button"
-          class="dialog-close"
-          value="Cancel"
-          @click="handleHide"
-          disabled
-          style="float: left;"
-        />
         <input
           v-if="!isTestActive"
           type="submit"
