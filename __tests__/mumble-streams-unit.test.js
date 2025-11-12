@@ -19,6 +19,20 @@ describe('mumble-streams Unit Tests', () => {
       Encoder = voice.Encoder;
     });
 
+    // Helper to wait for encoder data event
+    const waitForEncoderData = (encoder) => {
+      return new Promise((resolve) => {
+        encoder.once('data', resolve);
+      });
+    };
+
+    // Helper to wait for encoder error event
+    const waitForEncoderError = (encoder) => {
+      return new Promise((resolve) => {
+        encoder.once('error', resolve);
+      });
+    };
+
     describe('Constructor', () => {
       test('creates encoder for server destination', () => {
         const encoder = new Encoder('server');
@@ -48,43 +62,36 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Ping Packet Encoding', () => {
-      test('encodes ping packet with timestamp', (done) => {
+      test('encodes ping packet with timestamp', async () => {
         const encoder = new Encoder('server');
         const timestamp = 12345;
 
-        encoder.on('data', (buffer) => {
-          expect(Buffer.isBuffer(buffer)).toBe(true);
-          expect(buffer[0]).toBe(0x20); // Ping packet header
-          expect(buffer.length).toBeGreaterThan(1);
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({ timestamp });
+        const buffer = await dataPromise;
+
+        expect(Buffer.isBuffer(buffer)).toBe(true);
+        expect(buffer[0]).toBe(0x20); // Ping packet header
+        expect(buffer.length).toBeGreaterThan(1);
       });
 
-      test('encodes ping packet with zero timestamp', (done) => {
+      test('encodes ping packet with zero timestamp', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('data', (buffer) => {
-          expect(buffer[0]).toBe(0x20);
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({ timestamp: 0 });
+        const buffer = await dataPromise;
+
+        expect(buffer[0]).toBe(0x20);
       });
     });
 
     describe('Opus Voice Packet Encoding', () => {
-      test('encodes Opus packet with single frame', (done) => {
+      test('encodes Opus packet with single frame', async () => {
         const encoder = new Encoder('server');
         const frame = Buffer.from([1, 2, 3, 4]);
 
-        encoder.on('data', (buffer) => {
-          expect(Buffer.isBuffer(buffer)).toBe(true);
-          expect(buffer.length).toBeGreaterThan(frame.length);
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           mode: 0,
           codec: 'Opus',
@@ -92,16 +99,16 @@ describe('mumble-streams Unit Tests', () => {
           end: false,
           frames: [frame]
         });
+        const buffer = await dataPromise;
+
+        expect(Buffer.isBuffer(buffer)).toBe(true);
+        expect(buffer.length).toBeGreaterThan(frame.length);
       });
 
-      test('encodes Opus packet with end bit set', (done) => {
+      test('encodes Opus packet with end bit set', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('data', (buffer) => {
-          expect(buffer).toBeDefined();
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           mode: 0,
           codec: 'Opus',
@@ -109,17 +116,15 @@ describe('mumble-streams Unit Tests', () => {
           end: true,
           frames: [Buffer.from([1, 2, 3])]
         });
+        const buffer = await dataPromise;
+
+        expect(buffer).toBeDefined();
       });
 
-      test('encodes empty Opus frame (end of transmission)', (done) => {
+      test('encodes empty Opus frame (end of transmission)', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('data', (buffer) => {
-          expect(buffer).toBeDefined();
-          expect(buffer.length).toBeGreaterThan(0);
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           mode: 0,
           codec: 'Opus',
@@ -127,16 +132,16 @@ describe('mumble-streams Unit Tests', () => {
           end: true,
           frames: []
         });
+        const buffer = await dataPromise;
+
+        expect(buffer).toBeDefined();
+        expect(buffer.length).toBeGreaterThan(0);
       });
 
-      test('rejects Opus packet with multiple frames', (done) => {
+      test('rejects Opus packet with multiple frames', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('error', (err) => {
-          expect(err.message).toContain('Opus only supports a single frame');
-          done();
-        });
-
+        const errorPromise = waitForEncoderError(encoder);
         encoder.write({
           mode: 0,
           codec: 'Opus',
@@ -144,17 +149,15 @@ describe('mumble-streams Unit Tests', () => {
           end: false,
           frames: [Buffer.from([1]), Buffer.from([2])]
         });
+        const err = await errorPromise;
+
+        expect(err.message).toContain('Opus only supports a single frame');
       });
 
-      test('includes source for client destination', (done) => {
+      test('includes source for client destination', async () => {
         const encoder = new Encoder('client');
 
-        encoder.on('data', (buffer) => {
-          // Client encoder includes source session id
-          expect(buffer.length).toBeGreaterThan(5);
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           source: 42,
           mode: 0,
@@ -163,19 +166,18 @@ describe('mumble-streams Unit Tests', () => {
           end: false,
           frames: [Buffer.from([1, 2, 3])]
         });
+        const buffer = await dataPromise;
+
+        // Client encoder includes source session id
+        expect(buffer.length).toBeGreaterThan(5);
       });
     });
 
     describe('Loopback Mode', () => {
-      test('encodes loopback packet (mode 31)', (done) => {
+      test('encodes loopback packet (mode 31)', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('data', (buffer) => {
-          const mode = buffer[0] & 0x1f;
-          expect(mode).toBe(31);
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           mode: 31, // Loopback
           codec: 'Opus',
@@ -183,6 +185,10 @@ describe('mumble-streams Unit Tests', () => {
           end: false,
           frames: [Buffer.from([1, 2, 3])]
         });
+        const buffer = await dataPromise;
+
+        const mode = buffer[0] & 0x1f;
+        expect(mode).toBe(31);
       });
     });
 
@@ -206,15 +212,10 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Legacy Codecs', () => {
-      test('encodes CELT_Alpha packet', (done) => {
+      test('encodes CELT_Alpha packet', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('data', (buffer) => {
-          const codecId = buffer[0] >> 5;
-          expect(codecId).toBe(0); // CELT_Alpha
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           mode: 0,
           codec: 'CELT_Alpha',
@@ -222,17 +223,16 @@ describe('mumble-streams Unit Tests', () => {
           end: true,
           frames: [Buffer.from([1, 2, 3])]
         });
+        const buffer = await dataPromise;
+
+        const codecId = buffer[0] >> 5;
+        expect(codecId).toBe(0); // CELT_Alpha
       });
 
-      test('encodes Speex packet', (done) => {
+      test('encodes Speex packet', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('data', (buffer) => {
-          const codecId = buffer[0] >> 5;
-          expect(codecId).toBe(2); // Speex
-          done();
-        });
-
+        const dataPromise = waitForEncoderData(encoder);
         encoder.write({
           mode: 0,
           codec: 'Speex',
@@ -240,16 +240,16 @@ describe('mumble-streams Unit Tests', () => {
           end: true,
           frames: [Buffer.from([1, 2, 3])]
         });
+        const buffer = await dataPromise;
+
+        const codecId = buffer[0] >> 5;
+        expect(codecId).toBe(2); // Speex
       });
 
-      test('rejects CELT/Speex frame larger than 127 bytes', (done) => {
+      test('rejects CELT/Speex frame larger than 127 bytes', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('error', (err) => {
-          expect(err.message).toContain('Frame size is greater than 127 bytes');
-          done();
-        });
-
+        const errorPromise = waitForEncoderError(encoder);
         const largeFrame = Buffer.alloc(128);
         encoder.write({
           mode: 0,
@@ -258,18 +258,17 @@ describe('mumble-streams Unit Tests', () => {
           end: false,
           frames: [largeFrame]
         });
+        const err = await errorPromise;
+
+        expect(err.message).toContain('Frame size is greater than 127 bytes');
       });
     });
 
     describe('Error Handling', () => {
-      test('rejects unknown codec', (done) => {
+      test('rejects unknown codec', async () => {
         const encoder = new Encoder('server');
 
-        encoder.on('error', (err) => {
-          expect(err.message).toContain('Unknown codec');
-          done();
-        });
-
+        const errorPromise = waitForEncoderError(encoder);
         encoder.write({
           mode: 0,
           codec: 'InvalidCodec',
@@ -277,6 +276,9 @@ describe('mumble-streams Unit Tests', () => {
           end: false,
           frames: [Buffer.from([1])]
         });
+        const err = await errorPromise;
+
+        expect(err.message).toContain('Unknown codec');
       });
     });
   });
@@ -290,6 +292,20 @@ describe('mumble-streams Unit Tests', () => {
       voice = mumbleStreams.voice;
       Decoder = voice.Decoder;
     });
+
+    // Helper to wait for decoder data event
+    const waitForDecoderData = (decoder) => {
+      return new Promise((resolve) => {
+        decoder.once('data', resolve);
+      });
+    };
+
+    // Helper to wait for decoder finish event
+    const waitForDecoderFinish = (decoder) => {
+      return new Promise((resolve) => {
+        decoder.once('finish', resolve);
+      });
+    };
 
     describe('Constructor', () => {
       test('creates decoder for server origin', () => {
@@ -316,33 +332,25 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Ping Packet Decoding', () => {
-      test('decodes ping packet', (done) => {
+      test('decodes ping packet', async () => {
         const decoder = new Decoder('server');
 
-        decoder.on('data', (packet) => {
-          expect(packet.timestamp).toBeDefined();
-          expect(typeof packet.timestamp).toBe('number');
-          done();
-        });
-
+        const dataPromise = waitForDecoderData(decoder);
         // Ping packet: header byte 0x20 + varint timestamp
         const buffer = Buffer.from([0x20, 0x01]);
         decoder.write(buffer);
+        const packet = await dataPromise;
+
+        expect(packet.timestamp).toBeDefined();
+        expect(typeof packet.timestamp).toBe('number');
       });
     });
 
     describe('Voice Packet Decoding', () => {
-      test('decodes basic Opus packet from server', (done) => {
+      test('decodes basic Opus packet from server', async () => {
         const decoder = new Decoder('server');
 
-        decoder.on('data', (packet) => {
-          expect(packet.target).toBeDefined();
-          expect(packet.source).toBeDefined();
-          expect(packet.seqNum).toBeDefined();
-          expect(packet.frames).toBeInstanceOf(Array);
-          done();
-        });
-
+        const dataPromise = waitForDecoderData(decoder);
         // Simplified Opus packet structure
         // codecId=4 (Opus), mode=0 → header: (4<<5|0) = 0x80
         const buffer = Buffer.from([
@@ -353,16 +361,18 @@ describe('mumble-streams Unit Tests', () => {
           0x01, 0x02, 0x03  // Frame data
         ]);
         decoder.write(buffer);
+        const packet = await dataPromise;
+
+        expect(packet.target).toBeDefined();
+        expect(packet.source).toBeDefined();
+        expect(packet.seqNum).toBeDefined();
+        expect(packet.frames).toBeInstanceOf(Array);
       });
 
-      test('identifies loopback target correctly', (done) => {
+      test('identifies loopback target correctly', async () => {
         const decoder = new Decoder('server');
 
-        decoder.on('data', (packet) => {
-          expect(packet.target).toBe('loopback');
-          done();
-        });
-
+        const dataPromise = waitForDecoderData(decoder);
         // Mode 31 = loopback
         const buffer = Buffer.from([
           0x9F,        // Header: Opus codec (4<<5), loopback mode (31)
@@ -372,11 +382,14 @@ describe('mumble-streams Unit Tests', () => {
           0x01, 0x02, 0x03
         ]);
         decoder.write(buffer);
+        const packet = await dataPromise;
+
+        expect(packet.target).toBe('loopback');
       });
     });
 
     describe('Error Handling', () => {
-      test('handles empty buffer gracefully', (done) => {
+      test('handles empty buffer gracefully', async () => {
         const decoder = new Decoder('server');
         let debugEmitted = false;
 
@@ -386,26 +399,28 @@ describe('mumble-streams Unit Tests', () => {
           }
         });
 
-        decoder.on('finish', () => {
-          expect(debugEmitted).toBe(true);
-          done();
-        });
-
         decoder.write(Buffer.alloc(0));
         decoder.end();
+        await waitForDecoderFinish(decoder);
+
+        expect(debugEmitted).toBe(true);
       });
 
-      test('emits debug event for invalid packets', (done) => {
+      test('emits debug event for invalid packets', async () => {
         const decoder = new Decoder('server');
 
-        decoder.on('debug', (msg, reason, chunk) => {
-          expect(msg).toBe('Failed to parse voice packet');
-          expect(reason).toBeDefined();
-          done();
+        const debugPromise = new Promise((resolve) => {
+          decoder.once('debug', (msg, reason, chunk) => {
+            resolve({ msg, reason, chunk });
+          });
         });
 
         // Invalid packet (too short)
         decoder.write(Buffer.from([0x80]));
+        const { msg, reason } = await debugPromise;
+
+        expect(msg).toBe('Failed to parse voice packet');
+        expect(reason).toBeDefined();
       });
     });
   });
@@ -418,21 +433,45 @@ describe('mumble-streams Unit Tests', () => {
       data = mumbleStreams.data;
     });
 
+    // Helper to wait for data encoder output
+    const waitForDataEncoderOutput = (encoder) => {
+      return new Promise((resolve) => {
+        encoder.once('data', resolve);
+      });
+    };
+
+    // Helper to wait for data decoder output
+    const waitForDataDecoderOutput = (decoder) => {
+      return new Promise((resolve) => {
+        decoder.once('data', resolve);
+      });
+    };
+
+    // Helper to collect multiple decoder outputs
+    const collectDecoderOutputs = (decoder, count) => {
+      return new Promise((resolve) => {
+        const messages = [];
+        const handler = (msg) => {
+          messages.push(msg);
+          if (messages.length === count) {
+            decoder.off('data', handler);
+            resolve(messages);
+          }
+        };
+        decoder.on('data', handler);
+      });
+    };
+
     describe('Encoder', () => {
       test('creates encoder instance', () => {
         const encoder = new data.Encoder();
         expect(encoder).toBeDefined();
       });
 
-      test('encodes Version message', (done) => {
+      test('encodes Version message', async () => {
         const encoder = new data.Encoder();
 
-        encoder.on('data', (buffer) => {
-          expect(Buffer.isBuffer(buffer)).toBe(true);
-          expect(buffer.length).toBeGreaterThan(0);
-          done();
-        });
-
+        const dataPromise = waitForDataEncoderOutput(encoder);
         encoder.write({
           name: 'Version',
           payload: {
@@ -442,51 +481,52 @@ describe('mumble-streams Unit Tests', () => {
             os_version: 'v16'
           }
         });
+        const buffer = await dataPromise;
+
+        expect(Buffer.isBuffer(buffer)).toBe(true);
+        expect(buffer.length).toBeGreaterThan(0);
       });
 
-      test('encodes Ping message', (done) => {
+      test('encodes Ping message', async () => {
         const encoder = new data.Encoder();
 
-        encoder.on('data', (buffer) => {
-          expect(buffer.length).toBeGreaterThan(0);
-          done();
-        });
-
+        const dataPromise = waitForDataEncoderOutput(encoder);
         encoder.write({
           name: 'Ping',
           payload: {
             timestamp: Date.now()
           }
         });
+        const buffer = await dataPromise;
+
+        expect(buffer.length).toBeGreaterThan(0);
       });
 
-      test('handles UDPTunnel specially', (done) => {
+      test('handles UDPTunnel specially', async () => {
         const encoder = new data.Encoder();
 
-        encoder.on('data', (buffer) => {
-          expect(buffer).toBeDefined();
-          done();
-        });
-
+        const dataPromise = waitForDataEncoderOutput(encoder);
         const voiceData = Buffer.from([1, 2, 3, 4]);
         encoder.write({
           name: 'UDPTunnel',
           payload: voiceData
         });
+        const buffer = await dataPromise;
+
+        expect(buffer).toBeDefined();
       });
 
-      test('handles empty payload', (done) => {
+      test('handles empty payload', async () => {
         const encoder = new data.Encoder();
 
-        encoder.on('data', (buffer) => {
-          expect(buffer).toBeDefined();
-          done();
-        });
-
+        const dataPromise = waitForDataEncoderOutput(encoder);
         encoder.write({
           name: 'Ping',
           payload: {}
         });
+        const buffer = await dataPromise;
+
+        expect(buffer).toBeDefined();
       });
     });
 
@@ -496,7 +536,7 @@ describe('mumble-streams Unit Tests', () => {
         expect(decoder).toBeDefined();
       });
 
-      test('decodes encoded message (round-trip)', (done) => {
+      test('decodes encoded message (round-trip)', async () => {
         const encoder = new data.Encoder();
         const decoder = new data.Decoder();
 
@@ -507,41 +547,35 @@ describe('mumble-streams Unit Tests', () => {
           }
         };
 
-        decoder.on('data', (decoded) => {
-          expect(decoded.name).toBe('Ping');
-          expect(decoded.payload).toBeDefined();
-          // Protobuf encodes numbers as Long objects for compatibility
-          const timestamp = decoded.payload.timestamp;
-          const timestampValue = typeof timestamp === 'object' && timestamp.low !== undefined
-            ? timestamp.low
-            : timestamp;
-          expect(timestampValue).toBe(12345);
-          done();
-        });
-
+        const decoderPromise = waitForDataDecoderOutput(decoder);
         encoder.pipe(decoder);
         encoder.write(originalMessage);
+        const decoded = await decoderPromise;
+
+        expect(decoded.name).toBe('Ping');
+        expect(decoded.payload).toBeDefined();
+        // Protobuf encodes numbers as Long objects for compatibility
+        const timestamp = decoded.payload.timestamp;
+        const timestampValue = typeof timestamp === 'object' && timestamp.low !== undefined
+          ? timestamp.low
+          : timestamp;
+        expect(timestampValue).toBe(12345);
       });
 
-      test('handles multiple messages in sequence', (done) => {
+      test('handles multiple messages in sequence', async () => {
         const encoder = new data.Encoder();
         const decoder = new data.Decoder();
 
-        const messages = [];
-        decoder.on('data', (msg) => {
-          messages.push(msg);
-          if (messages.length === 3) {
-            expect(messages[0].name).toBe('Ping');
-            expect(messages[1].name).toBe('Ping');
-            expect(messages[2].name).toBe('Ping');
-            done();
-          }
-        });
-
+        const messagesPromise = collectDecoderOutputs(decoder, 3);
         encoder.pipe(decoder);
         encoder.write({ name: 'Ping', payload: { timestamp: 1 } });
         encoder.write({ name: 'Ping', payload: { timestamp: 2 } });
         encoder.write({ name: 'Ping', payload: { timestamp: 3 } });
+        const messages = await messagesPromise;
+
+        expect(messages[0].name).toBe('Ping');
+        expect(messages[1].name).toBe('Ping');
+        expect(messages[2].name).toBe('Ping');
       });
     });
 
@@ -792,29 +826,35 @@ describe('mumble-streams Unit Tests', () => {
     });
 
     describe('Key Generation', () => {
-      test('generateKey creates random keys', (done) => {
+      // Helper to promisify generateKey
+      const generateKeyAsync = (crypt) => {
+        return new Promise((resolve, reject) => {
+          crypt.generateKey((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      };
+
+      test('generateKey creates random keys', async () => {
         const crypt = new udpCrypto();
 
-        crypt.generateKey((err) => {
-          expect(err).toBeUndefined();
-          expect(crypt.ready()).toBeTruthy();
-          expect(crypt.getKey().length).toBe(16);
-          expect(crypt.getEncryptIV().length).toBe(16);
-          expect(crypt.getDecryptIV().length).toBe(16);
-          done();
-        });
+        await generateKeyAsync(crypt);
+        
+        expect(crypt.ready()).toBeTruthy();
+        expect(crypt.getKey().length).toBe(16);
+        expect(crypt.getEncryptIV().length).toBe(16);
+        expect(crypt.getDecryptIV().length).toBe(16);
       });
 
-      test('generates different keys on each call', (done) => {
+      test('generates different keys on each call', async () => {
         const crypt1 = new udpCrypto();
         const crypt2 = new udpCrypto();
 
-        crypt1.generateKey(() => {
-          crypt2.generateKey(() => {
-            expect(crypt1.getKey()).not.toEqual(crypt2.getKey());
-            done();
-          });
-        });
+        await generateKeyAsync(crypt1);
+        await generateKeyAsync(crypt2);
+        
+        expect(crypt1.getKey()).not.toEqual(crypt2.getKey());
       });
     });
   });

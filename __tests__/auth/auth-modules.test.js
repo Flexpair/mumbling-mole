@@ -24,17 +24,17 @@ describe('AuthProvider', () => {
 
     test('can be extended by subclasses', () => {
       class TestProvider extends AuthProvider {
-        async init() { return Promise.resolve(); }
-        async getCurrentUser() { return Promise.resolve(null); }
-        async openAuth() { return Promise.resolve(); }
-        async closeAuth() { return Promise.resolve(); }
-        async signup() { return Promise.resolve({}); }
-        async login() { return Promise.resolve({}); }
-        async logout() { return Promise.resolve(); }
-        async updateUser() { return Promise.resolve({}); }
-        async resetPassword() { return Promise.resolve(); }
-        async confirmEmail() { return Promise.resolve(); }
-        async refreshToken() { return Promise.resolve(); }
+        async init() { return; }
+        async getCurrentUser() { return null; }
+        async openAuth() { return; }
+        async closeAuth() { return; }
+        async signup() { return {}; }
+        async login() { return {}; }
+        async logout() { return; }
+        async updateUser() { return {}; }
+        async resetPassword() { return; }
+        async confirmEmail() { return; }
+        async refreshToken() { return; }
         on() { return () => {}; }
         off() {}
       }
@@ -114,22 +114,22 @@ describe('AuthProvider', () => {
         super();
         this._currentUser = null;
       }
-      async init() { return Promise.resolve(); }
-      async getCurrentUser() { return Promise.resolve(this._currentUser); }
-      async openAuth() { return Promise.resolve(); }
-      async closeAuth() { return Promise.resolve(); }
-      async signup() { return Promise.resolve({}); }
+      async init() { return; }
+      async getCurrentUser() { return this._currentUser; }
+      async openAuth() { return; }
+      async closeAuth() { return; }
+      async signup() { return {}; }
       async login(email) { 
         this._currentUser = { email, id: '123' };
-        return Promise.resolve(this._currentUser); 
+        return this._currentUser; 
       }
       async logout() { 
         this._currentUser = null;
-        return Promise.resolve(); 
+        return; 
       }
-      async updateUser() { return Promise.resolve({}); }
-      async requestPasswordReset() { return Promise.resolve(); }
-      async refreshToken() { return Promise.resolve(); }
+      async updateUser() { return {}; }
+      async requestPasswordReset() { return; }
+      async refreshToken() { return; }
       on() { return () => {}; }
       off() {}
     }
@@ -151,7 +151,7 @@ describe('AuthProvider', () => {
 
     test('isAuthenticated returns false when user is undefined', async () => {
       class UndefinedUserProvider extends TestProvider {
-        async getCurrentUser() { return Promise.resolve(undefined); }
+        async getCurrentUser() { return undefined; }
       }
       
       const provider = new UndefinedUserProvider();
