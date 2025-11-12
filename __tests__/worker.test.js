@@ -327,3 +327,113 @@ describe("worker.js", () => {
     });
   });
 });
+
+
+/**
+ * @jest-environment jsdom
+ */
+import { jest } from "@jest/globals";
+import PlaybackBufferProcessor from "../app/audio/playback-buffer-processor.js";
+
+describe("PlaybackBufferProcessor queue management", () => {
+  // Assuming MAX_QUEUE_PACKETS is 25 as per the plan's example.
+  // This constant should align with the actual value defined in playback-buffer-processor.js
+  const MAX_TEST_QUEUE_PACKETS = 25;
+
+  let processor;
+  let consoleWarnSpy;
+
+  beforeEach(() => {
+    // Spy on console.warn to capture messages and suppress actual output during tests
+    consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Instantiate PlaybackBufferProcessor with typical values
+    // (bufferSize, sampleRate, numberOfChannels)
+    // bufferSize = samplesPerPacket * bytesPerSample (e.g., 960 samples * 4 bytes/float32)
+    processor = new PlaybackBufferProcessor(960 * 4, 48000, 1);
+  });
+
+  afterEach(() => {
+    // Restore the original console.warn implementation after each test
+    consoleWarnSpy.mockRestore();
+  });
+
+  test("should not drop packets if the queue is below MAX_QUEUE_PACKETS", () => {
+    const packetsToSend = MAX_TEST_QUEUE_PACKETS - 5; // Send fewer than the maximum
+
+    for (let i = 0; i < packetsToSend; i++) {
+      // Simulate an incoming audio packet
+      processor.processAudioFrame({ type: "audio", data: `packet-${i}` });
+    }
+
+    // The queue length should be exactly the number of packets sent
+    expect(processor._queue.length).toBe(packetsToSend);
+    // No warnings should be logged as no packets were dropped
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    // Verify the content of the queue
+    for (let i = 0; i < packetsToSend; i++) {
+      expect(processor._queue[i]).toEqual({ type: "audio", data: `packet-${i}` });
+    }
+  });
+
+  test("should enforce MAX_QUEUE_PACKETS limit by dropping oldest packets when overflowing", () => {
+    const overflowAmount = 10; // Number of packets to send beyond the max limit
+    const totalPacketsToSend = MAX_TEST_QUEUE_PACKETS + overflowAmount;
+
+    // Simulate sending packets, exceeding the maximum queue size
+    for (let i = 0; i < totalPacketsToSend; i++) {
+      processor.processAudioFrame({ type: "audio", data: `packet-${i}` });
+    }
+
+    // After sending more than MAX_QUEUE_PACKETS, the queue length should stabilize at MAX_QUEUE_PACKETS
+    expect(processor._queue.length).toBe(MAX_TEST_QUEUE_PACKETS);
+
+    // console.warn should have been called for each packet that was dropped
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(overflowAmount);
+    // Verify the warning message content
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[PLAYBACK] Queue overflow: Dropping oldest packet to maintain buffer size."
+    );
+
+    // Verify the content of the queue: the oldest `overflowAmount` packets should be gone
+    // The packets remaining should be from `packet-overflowAmount` up to `packet-(totalPacketsToSend - 1)`
+    for (let i = 0; i < MAX_TEST_QUEUE_PACKETS; i++) {
+      expect(processor._queue[i]).toEqual({
+        type: "audio",
+        data: `packet-${overflowAmount + i}`,
+      });
+    }
+  });
+
+  test("should drop the oldest packet and maintain size when exactly at limit and new packet arrives", () => {
+    // Fill the queue to its maximum capacity
+    for (let i = 0; i < MAX_TEST_QUEUE_PACKETS; i++) {
+      processor.processAudioFrame({ type: "audio", data: `packet-${i}` });
+    }
+    expect(processor._queue.length).toBe(MAX_TEST_QUEUE_PACKETS);
+    expect(consoleWarnSpy).not.toHaveBeenCalled(); // No drops yet
+
+    // Send one more packet; this should trigger dropping the oldest (packet-0)
+    processor.processAudioFrame({
+      type: "audio",
+      data: `packet-${MAX_TEST_QUEUE_PACKETS}`,
+    });
+
+    // The queue length should still be MAX_QUEUE_PACKETS
+    expect(processor._queue.length).toBe(MAX_TEST_QUEUE_PACKETS);
+    // console.warn should have been called exactly once
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[PLAYBACK] Queue overflow: Dropping oldest packet to maintain buffer size."
+    );
+
+    // Verify the contents: packet-0 should be gone, packet-1 is now the first element,
+    // and the new packet is at the end.
+    expect(processor._queue[0]).toEqual({ type: "audio", data: "packet-1" });
+    expect(processor._queue[MAX_TEST_QUEUE_PACKETS - 1]).toEqual({
+      type: "audio",
+      data: `packet-${MAX_TEST_QUEUE_PACKETS}`,
+    });
+  });
+});
