@@ -5,7 +5,7 @@
     aria-labelledby="settings-dialog_title"
   >
     <div id="settings-dialog_title" class="dialog-header">
-      Audio Quality Settings
+      {{ t('settingsdialog.title') }}
     </div>
     <form @submit.prevent="handleSubmit">
       <table>

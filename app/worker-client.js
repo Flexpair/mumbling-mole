@@ -258,6 +258,7 @@ class WorkerBasedMumbleClient extends EventEmitter {
         const undefinedUser = this._users[undefined];
         undefinedUser._id = value;
         this._users[value] = undefinedUser;
+        // Delete undefined key (intentional - user created before ID assigned from server)
         delete this._users[undefined];
       }
     }

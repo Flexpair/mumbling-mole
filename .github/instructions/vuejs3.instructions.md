@@ -8,12 +8,20 @@ applyTo: '**/*.vue, **/*.ts, **/*.js, **/*.scss'
 Instructions for building high-quality VueJS 3 applications with the Composition API, TypeScript, and modern best practices.
 
 ## Project Context
+
+**Generic Vue.js 3 guidelines - adapt to project needs:**
 - Vue 3.x with Composition API as default
-- TypeScript for type safety
+- TypeScript for type safety (optional)
 - Single File Components (`.vue`) with `<script setup>` syntax
-- Modern build tooling (Vite recommended)
-- Pinia for application state management
+- Modern build tooling (Vite/esbuild)
+- State management (Pinia/Vuex/composables)
 - Official Vue style guide and best practices
+
+**This project's actual stack (see `.github/copilot-instructions.md`):**
+- JavaScript (not TypeScript)
+- esbuild (not Vite) 
+- Knockout observables transitioning to Vue composables (not Pinia)
+- Vue 3 Composition API with `provide/inject` for backward compatibility
 
 ## Development Standards
 
