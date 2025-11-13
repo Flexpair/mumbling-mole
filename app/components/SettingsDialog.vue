@@ -64,6 +64,9 @@
             </td>
             <td>
               <span>{{ (audioBitrate / 1000).toFixed(1) }}</span> kbit/s
+              <span v-if="isServerLimited && actualBitrate < audioBitrate" style="color: #888; font-size: 0.9em;">
+                (actual: {{ (actualBitrate / 1000).toFixed(1) }} kbit/s)
+              </span>
             </td>
           </tr>
 
@@ -73,10 +76,13 @@
               <input
                 type="range"
                 min="8000"
-                max="96000"
+                :max="maxAllowedBitrate"
                 step="8"
                 v-model.number="audioBitrate"
               />
+              <small v-if="isServerLimited" style="color: #666; font-style: italic;">
+                Limited by server maximum ({{ (maxAllowedBitrate / 1000).toFixed(0) }} kbit/s)
+              </small>
             </td>
           </tr>
 
@@ -109,13 +115,18 @@
             </td>
           </tr>
 
-          <!-- Bandwidth Info -->
+          <!-- Bandwidth Info with tooltips -->
           <tr>
             <td colspan="2" class="bandwidth-info">
-              <span>{{ (totalBandwidth / 1000).toFixed(1) }}</span> kbit/s
-              (Audio <span>{{ (audioBitrate / 1000).toFixed(1) }}</span>,
-              Position <span>{{ (positionBandwidth / 1000).toFixed(1) }}</span>,
-              Overhead <span>{{ (overheadBandwidth / 1000).toFixed(1) }}</span>)
+              <span style="font-weight: bold;">{{ (totalBandwidth / 1000).toFixed(1) }}</span> kbit/s total
+              <br>
+              <small style="color: #666;">
+                (<span title="Opus audio codec bitrate">Audio {{ (audioBitrate / 1000).toFixed(1) }}</span> + 
+                <span 
+                  title="Protocol overhead: packet headers, encryption, framing, and reliability mechanisms"
+                  style="cursor: help; border-bottom: 1px dotted #999;"
+                >Overhead {{ (overheadBandwidth / 1000).toFixed(1) }}</span> kbit/s)
+              </small>
             </td>
           </tr>
         </tbody>
@@ -192,6 +203,47 @@ const msPerPacket = computed({
 const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
 const positionBandwidth = computed(() => appState.settings.positionBandwidth.value);
 const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
+
+// Calculate maximum allowed bitrate based on server configuration
+const maxAllowedBitrate = computed(() => {
+  // Force reactivity by checking if connected (thisUser is reactive)
+  const isConnected = appState.user?.thisUser.value != null;
+  const client = isConnected ? appState.client : null;
+  
+  if (!client || client.maxBandwidth === undefined || client.maxBandwidth === null) {
+    // Not connected or server doesn't limit bandwidth - use client default
+    return 96000;
+  }
+  
+  // Server has a bandwidth limit - calculate max bitrate with current packet size
+  const spp = appState.settings.samplesPerPacket.value;
+  const maxBitrate = client.getMaxBitrate(spp, false);
+  
+  // Round down to nearest 100 for finer control while keeping UI clean
+  return Math.floor(maxBitrate / 100) * 100;
+});
+
+// Check if server is limiting the bitrate
+const isServerLimited = computed(() => {
+  const client = appState?.client;
+  return client && client.maxBandwidth !== undefined && client.maxBandwidth !== null && maxAllowedBitrate.value < 96000;
+});
+
+// Calculate actual bitrate that will be used (considering server limits)
+const actualBitrate = computed(() => {
+  const client = appState?.client;
+  if (!client) return audioBitrate.value;
+  
+  const spp = appState.settings.samplesPerPacket.value;
+  return client.getActualBitrate(spp, false);
+});
+
+// Watch for changes in maxAllowedBitrate and adjust audioBitrate if it exceeds the limit
+watch(maxAllowedBitrate, (newMax) => {
+  if (audioBitrate.value > newMax) {
+    audioBitrate.value = newMax;
+  }
+});
 
 // PTT Key Recording - delegate to AppState.settings
 const recordPttKey = () => {

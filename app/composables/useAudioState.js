@@ -188,7 +188,6 @@ export function useAudioState() {
     () => _persistentBeeper,
     async () => {
       // Check if mixer is available NOW (no waiting, no timeout)
-      // RACE-SAFE: Use getCurrentMixer() instead of window._audioMixer to avoid race conditions
       const mixer = getCurrentMixer();
       if (!mixer) {
         debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');

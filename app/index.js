@@ -45,37 +45,13 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-// DEPRECATED Knockout classes - kept for backward compatibility during migration
-// Import Vue composables for settings
 import { useSettings } from "./composables/index.js";
 
-// Initialize UI with modular AppState architecture
 const ui = new AppState(globalThis.mumbleWebConfig, log);
-
-// [MIGRATION STATUS] Vue.js UI migration is COMPLETE (all 9 components migrated Nov 2025).
-// However, core state modules (AppState, AudioState, VoiceState, UIState, UserState, ConnectionState)
-// still use Knockout observables for backward compatibility.
-//
-// This global exposure is currently required for:
-// 1. Browser console debugging (via globalThis.mumbleUi)
-// 2. Worker thread communication (worker-client.js references state)
-// 3. Potential remaining Knockout subscriptions in state modules
-//
-// REMOVAL PLAN: Can be safely removed only after:
-// 1. State modules migrated from Knockout observables to Vue composables (estimated 2-3 weeks)
-// 2. All cross-module subscriptions converted to Vue watch/watchEffect
-// 3. Worker communication updated to use Vue-compatible state references
-// 4. Full regression test suite passes without globalThis.ui
-//
-// See app/state/README.md "Next Phase: State Module Migration to Vue.js" for migration roadmap.
 globalThis.ui = ui;
 
-// Wire up dependencies that AppState expects
-// Note: connectDialog, connectErrorDialog, sampleRateWarningDialog, connectionInfo are now Vue composables in AppState
-// Settings is now a Vue composable too
-ui.guacamoleFrame = {}; // Placeholder - Vue component will populate this in main()
+ui.guacamoleFrame = {};
 ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
-// settingsDialogInstance is now deprecated - SettingsDialog.vue uses ui.settings directly
 
 // Initialize auth
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };

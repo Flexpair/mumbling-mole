@@ -307,17 +307,13 @@ export function initVoice(onData, onUserMediaError) {
       src.connect(mixer);
       mixer.connect(node);
 
-      // BEEP-INJECTION: Track mixer instance with timestamp to prevent race conditions
-      // RACE-SAFE: Only latest mixer instance is valid; previous instances are invalidated
       const mixerTimestamp = Date.now();
       currentMixerInstance = mixer;
       currentMixerTimestamp = mixerTimestamp;
       
-      // BACKWARD-COMPAT: Also set global for existing code (will be deprecated)
       globalThis._audioMixer = mixer;
       console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
 
-      // CALLBACK-NOTIFICATION: Notify all registered callbacks that mixer is ready
       for (const callback of audioMixerReadyCallbacks) {
         try {
           callback(mixer);
@@ -325,16 +321,12 @@ export function initVoice(onData, onUserMediaError) {
           console.error('[VOICE] Error in mixer ready callback:', err);
         }
       }
-      // Clear callbacks after notification (one-time use)
       audioMixerReadyCallbacks.length = 0;
 
       // optional: aufräumen, wenn das mediastream endet
       for (const t of userMedia.getTracks()) {
         t.addEventListener("ended", () => {
-          // RACE-SAFE: Only clean up if this is still the current mixer instance
-          // Prevents newer mixer from being invalidated by older instance cleanup
           if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
-            // Wrap disconnects in individual try-catch to continue cleanup on errors
             try {
               node.disconnect();
             } catch (error_) {

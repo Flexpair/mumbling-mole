@@ -1,0 +1,132 @@
+# ============================================================
+# Docker Build Exclusions
+# ============================================================
+# This file prevents sensitive data and unnecessary files
+# from being copied into Docker images during build.
+# See: docker:S6470 (Sonar security rule)
+
+# ============================================================
+# Security-Critical Files (MUST EXCLUDE)
+# ============================================================
+# SSH keys and credentials
+.ssh/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+
+# Environment files with secrets
+.env
+.env.*
+*.env
+**/.env
+
+# Shell history (may contain passwords/tokens)
+.bash_history
+.zsh_history
+.history
+
+# Cloud provider credentials
+.aws/
+.azure/
+.gcloud/
+credentials.json
+
+# ============================================================
+# Development & Version Control
+# ============================================================
+.git/
+.gitignore
+.gitattributes
+.github/
+.devcontainer/
+
+# ============================================================
+# Build Artifacts & Dependencies
+# ============================================================
+# Node modules are reinstalled in container
+node_modules/
+vendors/*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+
+# Build outputs (rebuilt in container)
+dist/
+build/
+lib-cov/
+*.tgz
+
+# ============================================================
+# Testing & Coverage
+# ============================================================
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+__tests__/
+tests/
+
+# ============================================================
+# IDE & Editor Files
+# ============================================================
+.vscode/
+.vscode-server/
+.vscode-remote/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# Analysis & Security Tools
+# ============================================================
+.sonarlint/
+.sonar/
+.scannerwork/
+.sonarignore
+sonar-project.properties
+analyze-stats.json
+audit-baseline.json
+
+# Snyk CLI binaries
+.local/
+
+# Tree-sitter binaries
+.tree-sitter/
+
+# ============================================================
+# System & Cache
+# ============================================================
+.cache/
+.config/
+.pki/
+.dotnet/
+.docker/
+
+# ============================================================
+# Documentation & Miscellaneous
+# ============================================================
+README.md
+*.md
+LICENSE
+CHANGELOG
+
+# Backup files
+*.bak
+*.backup
+*~
+backups/
+
+# ============================================================
+# Keep These Files (explicit inclusion)
+# ============================================================
+# None needed - default is to include everything not listed above

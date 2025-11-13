@@ -47,6 +47,19 @@
     "channel_message_placeholder": "Type message to everyone here...",
     "user_message_placeholder": "Type message to user '%1' here..."
   },
+  "settingsdialog": {
+    "title": "Audio Quality Settings",
+    "setting": "Setting",
+    "control": "Control",
+    "transmission": "Transmission",
+    "cont": "Continuous",
+    "ptt": "Push-to-Talk",
+    "ptt_key": "Key",
+    "audio_quality": "Audio Quality",
+    "packet": "Audio per Packet",
+    "close": "Close",
+    "submit": "Apply"
+  },
   "logentry": {
     "mic_init_error": "Microphone initialization error",
     "connecting": "Connecting to audio server",
