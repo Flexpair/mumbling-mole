@@ -279,17 +279,18 @@ function setupClient(id, client) {
   initializeClientState();
   
   if (!initialized) {
+    // Three-strategy root channel initialization to handle various server behaviors:
+    // 1. newChannel event (primary) - most servers send this first
+    // 2. connected event (backup) - fires when root arrives after connection
+    // 3. Periodic check (fallback) - handles servers with unusual timing/event delivery
     client.on("newChannel", () => {
       initializeClientState();
     });
     
-    // STRATEGY-2: Listen for connected event (backup path)
     client.on("connected", () => {
       initializeClientState();
     });
     
-    // STRATEGY-3: Periodic check as last-resort fallback for edge cases where events don't fire
-    // This handles unusual server behaviors or timing issues where normal event-based init fails
     let checkCount = 0;
     rootCheckInterval = setInterval(() => {
       checkCount++;
