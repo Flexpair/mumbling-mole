@@ -67,6 +67,10 @@ is_allowed_special_file() {
     if [[ "$file" =~ ^\./\.github/instructions/.*\.instructions\.md$ ]]; then
         return 0
     fi
+    # Allow *.agent.md files in .github/agents/
+    if [[ "$file" =~ ^\./\.github/agents/.*\.agent\.md$ ]]; then
+        return 0
+    fi
     return 1
 }
 
