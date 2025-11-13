@@ -87,7 +87,7 @@ export function useSettings(defaults = {}) {
   };
 
   /**
-   * Calculate total bandwidth (with position data)
+   * Calculate total bandwidth (without position data for consistency with actual usage)
    */
   const totalBandwidth = computed(() => {
     // Import MumbleClient here to avoid circular dependency
@@ -95,21 +95,26 @@ export function useSettings(defaults = {}) {
     return MumbleClient.calcEnforcableBandwidth(
       audioBitrate.value,
       samplesPerPacket.value,
-      true
+      false  // Changed from true - position data not sent in current implementation
     );
   });
 
   /**
    * Calculate position bandwidth (overhead for position data)
+   * Note: Currently always 0 since position data is not sent (sendPosition=false)
    */
   const positionBandwidth = computed(() => {
     const MumbleClient = require('../mumble-client/index.js').default;
     return (
-      totalBandwidth.value -
       MumbleClient.calcEnforcableBandwidth(
         audioBitrate.value,
         samplesPerPacket.value,
-        false
+        true  // with position
+      ) -
+      MumbleClient.calcEnforcableBandwidth(
+        audioBitrate.value,
+        samplesPerPacket.value,
+        false  // without position
       )
     );
   });

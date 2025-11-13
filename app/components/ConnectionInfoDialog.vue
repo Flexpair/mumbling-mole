@@ -1,7 +1,7 @@
 <template>
   <div class="connection-info-dialog dialog" v-show="visible">
     <div id="connection-info_title" class="dialog-header">
-      Audio transmission info
+      Network Connection Info
     </div>
     <div class="dialog-content">
       <h3 id="connection-info_server">Audio server details</h3>
@@ -22,18 +22,7 @@
       </template>
       <br />
 
-      <h3 id="connection-info_webapp">Statistics for this web app</h3>
-      <template v-if="currentBandwidth && currentBitrate && !Number.isNaN(currentBandwidth) && !Number.isNaN(currentBitrate)">
-        Sending
-        {{ (currentBandwidth / 1000).toFixed(1) }}
-        kbits/s (<span>{{ (currentBitrate / 1000).toFixed(1) }}</span>
-        kbits/s payload)
-        <br />
-      </template>
-      <template v-else>
-        Sending: Unknown
-        <br />
-      </template>
+      <h3 id="connection-info_webapp">Network statistics</h3>
       <template v-if="latencyMs && !Number.isNaN(latencyMs)">
         <strong>Network latency (TCP ping):</strong>
         {{ latencyMs.toFixed(2) }} ms average
@@ -41,7 +30,6 @@
         <br />
         <small style="color: #666; font-style: italic;">
           Note: Voice latency is typically 35-80ms higher due to audio encoding/decoding and buffering.
-          Use the Piano test button to measure end-to-end audio latency.
         </small>
       </template>
       <template v-else>
@@ -147,7 +135,7 @@ function updateStats() {
   appState.connectionInfo.remoteHost.value = appState?.connection.remoteHost.value || '';
   appState.connectionInfo.remotePort.value = appState?.connection.remotePort.value || '';
   
-  const spp = appState?.settings?.samplesPerPacket;
+  const spp = appState?.settings?.samplesPerPacket?.value;
   if (client && spp) {
     const maxBandwidthValue = client.maxBandwidth;
     const maxBitrateValue = maxBandwidthValue === null || maxBandwidthValue === undefined 
