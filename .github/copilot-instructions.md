@@ -27,9 +27,10 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 **✅ COMPLETED: Full Vue.js 3 Migration** (November 2025)
 - **Status**: COMPLETE - All UI components AND state modules migrated to Vue.js 3
 - **UI Components** (9 total): `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue`
-- **State Management**: All 5 state modules now use Vue composables (`useConnectionState`, `useAudioState`, `useVoiceState`, `useUIState`, `useUserState`)
+- **State Management**: All 5 state modules (`app/state/`) use Vue composables; additional UI composables in `app/composables/` (clipboard, tooltip, dialogs, settings, localStorage)
+- **Composable Organization**: Core state (`useConnectionState`, `useAudioState`, `useVoiceState`, `useUIState`, `useUserState`) in `app/state/`; UI helpers in `app/composables/`
 - **HTML cleanup**: Removed ~230 lines of Knockout templates; single Vue mount point `<div id="app"></div>`
-- **Architecture**: Components use `provide/inject` pattern; AppState composes Vue composables
+- **Architecture**: Components use `provide/inject` pattern; AppState composes Vue composables from both directories
 - **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`
 - **Test coverage**: 1477 tests passing; VoiceState (97.82%), AudioState (93.6%), UserState (94.47%), AppState (78.46%)
 - **Knockout.js removed**: No Knockout dependencies remain - app is 100% Vue.js 3
@@ -38,10 +39,14 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 ## Getting started reading code
 **Entry points by use case:**
 - **UI/UX flow**: `app/index.html` (single Vue mount point) → `app/index.js` (AppState init, Vue mount, auth, connection) → `app/components/App.vue` (root component) → individual Vue components
-- **State management**: `app/state/AppState.js` (5-module composition) → individual modules in `app/state/`
+- **State management**: `app/state/AppState.js` (5-module composition) → individual modules in `app/state/` + UI composables in `app/composables/`
 - **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
 - **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
 - **Build system**: `build-esbuild.mjs` (esbuild config with Vue plugin, clean builds)
+
+**Composable organization**:
+- **Core state** (`app/state/`): 5 state modules using Vue composables - connection, audio, voice, UI, user
+- **UI helpers** (`app/composables/`): Utility composables - clipboard, tooltip, dialogs, settings, localStorage, debug utils
 
 **Read these READMEs first**: `app/state/README.md` (architecture diagrams), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
 
@@ -118,7 +123,7 @@ watch(connected, (isConnected) => {
 <div v-for="(user, index) in users" :key="index">...</div>
 ```
 
-**UI state**: Reactive state lives in modular composables under `app/composables/` (5 modules: Connection, Audio, Voice, UI, User). Persist via `localStorage` (`mumble.*` keys); wire to Vue directives in `.vue` components. Access via `appState.connection.connected.value`, `appState.audio.audioContext`, etc. Example pattern:
+**UI state**: Reactive state lives in modular composables under `app/state/` (5 core modules: Connection, Audio, Voice, UI, User) and `app/composables/` (UI helpers: clipboard, tooltip, dialogs, settings, localStorage). Persist via `localStorage` (`mumble.*` keys); wire to Vue directives in `.vue` components. Access via `appState.connection.connected.value`, `appState.audio.audioContext`, etc. Example pattern:
 ```javascript
 // Modular state (app/state/AppState.js)
 class AppState {
@@ -228,10 +233,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 7. **Never** update worker events without updating BOTH `_dispatchEvent` (worker-client.js) AND `registerEventProxy` (worker.js)
 8. **Never** call `controller.enqueue()` after `controller.terminate()` in decoder streams
 9. **Never** use timeouts/polling for initialization - use event-based callbacks (e.g., `onAudioMixerReady`)
-10. **Never** forget to dispose Knockout subscriptions in cleanup methods
-11. **Never** create Vue components without using `provide/inject` for AppState access during dual runtime phase
-12. **Never** break bidirectional sync between Vue and Knockout state during migration
-13. **Never** commit changes without explicit user approval - WAIT for user to give commit command
+10. **Never** commit changes without explicit user approval - WAIT for user to give commit command
 
 ## Debugging patterns
 **Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  
