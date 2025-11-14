@@ -135,11 +135,13 @@ import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from '
 const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 
-// Ref for dialog element
+/** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = ref(null);
-// Ref for microphone container (to inject the global select element)
+
+/** @type {import('vue').Ref<HTMLDivElement | null>} */
 const microphoneContainer = ref(null);
-// Ref for piano button (to add passive touch listeners)
+
+/** @type {import('vue').Ref<HTMLButtonElement | null>} */
 const pianoButton = ref(null);
 
 // Direct refs to AppState.connectDialog (no local copies, no sync needed)

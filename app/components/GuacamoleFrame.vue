@@ -38,10 +38,23 @@
 <script setup>
 import { ref } from 'vue';
 
-// Reactive state (no Knockout sync needed - pure Vue component)
+/**
+ * GuacamoleFrame Component
+ * 
+ * Manages Guacamole remote desktop iframe with lazy loading and error handling.
+ * Exposes public API via defineExpose() for AppState integration.
+ */
+
+/** @type {import('vue').Ref<string | null>} */
 const guacSource = ref(null);
+
+/** @type {import('vue').Ref<boolean>} */
 const visible = ref(false);
+
+/** @type {import('vue').Ref<boolean>} */
 const loading = ref(false);
+
+/** @type {import('vue').Ref<string | null>} */
 const error = ref(null);
 
 /**
@@ -104,7 +117,22 @@ function handleLoad() {
   loading.value = false;
 }
 
-// Expose methods to parent (called from AppState)
+/**
+ * Exposed Public API
+ * 
+ * These methods and properties are accessible from parent components
+ * via template ref (e.g., guacamoleFrameRef.value.show())
+ * 
+ * @typedef {Object} GuacamoleFrameAPI
+ * @property {(guacUser: string, password: string) => void} start - Start Guacamole session
+ * @property {() => void} show - Show the frame
+ * @property {() => void} hide - Hide the frame
+ * @property {() => void} handleLoad - Handle iframe load
+ * @property {import('vue').Ref<string | null>} guacSource - Current iframe src
+ * @property {import('vue').Ref<boolean>} visible - Visibility state
+ * @property {import('vue').Ref<boolean>} loading - Loading state
+ * @property {import('vue').Ref<string | null>} error - Error message
+ */
 defineExpose({
   start,
   show,

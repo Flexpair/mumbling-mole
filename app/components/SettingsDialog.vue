@@ -157,14 +157,23 @@
 import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from 'vue';
 import keyboardjs from 'keyboardjs';
 
+/**
+ * SettingsDialog Component
+ * 
+ * Audio settings configuration with reactive bitrate limits from server.
+ * Integrates with AppState.settings composable for persistent configuration.
+ */
+
 // Inject AppState from the main app
 const appState = inject('appState');
 
 // Translation helper
 const t = inject('translate');
 
-// Component visibility state
+/** @type {import('vue').Ref<boolean>} */
 const visible = ref(false);
+
+/** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = ref(null);
 
 // Form state - writable computed that point to AppState.settings Vue refs
