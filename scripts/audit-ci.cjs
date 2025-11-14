@@ -19,8 +19,16 @@ const args = process.argv.slice(2);
 const WRITE = args.includes('--write-baseline');
 
 function runAudit() {
-  const json = execSync('npm audit --json', { encoding: 'utf8' });
-  return JSON.parse(json);
+  try {
+    const json = execSync('npm audit --json', { encoding: 'utf8' });
+    return JSON.parse(json);
+  } catch (err) {
+    // npm audit exits non-zero when vulnerabilities found, but still outputs JSON
+    if (err.stdout) {
+      return JSON.parse(err.stdout);
+    }
+    throw err;
+  }
 }
 
 function loadBaseline() {
