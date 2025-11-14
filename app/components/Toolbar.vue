@@ -2,6 +2,7 @@
   <form class="toolbar-horizontal" @submit.prevent="handleSubmitMessageBox">
     <img
       v-show="!selfMute"
+      v-tooltip="'Mute microphone (Ctrl+M)'"
       class="tb-mute"
       alt="Mute my microphone"
       rel="mute"
@@ -10,6 +11,7 @@
     />
     <img
       v-show="selfMute"
+      v-tooltip="audioLockActive ? 'Cannot unmute - audio disabled' : 'Unmute microphone (Ctrl+M)'"
       class="tb-unmute tb-active"
       :class="{ 'tb-disabled': audioLockActive }"
       alt="Unmute my microphone"
@@ -19,6 +21,7 @@
     />
     <img
       v-show="!selfDeaf"
+      v-tooltip="'Deafen (disable all audio)'"
       class="tb-deaf"
       alt="Turn off sound"
       rel="deaf"
@@ -27,6 +30,7 @@
     />
     <img
       v-show="selfDeaf"
+      v-tooltip="audioLockActive ? 'Cannot undeafen - audio disabled' : 'Undeafen (enable audio)'"
       class="tb-undeaf tb-active"
       :class="{ 'tb-disabled': audioLockActive }"
       alt="Turn sound back on"
@@ -42,6 +46,7 @@
     />
     <a
       :href="mailToDesktop"
+      v-tooltip="'Send file to remote desktop'"
       style="text-decoration: none"
     >
       <img
@@ -50,6 +55,7 @@
       />
     </a>
     <img
+      v-tooltip="'View connection statistics'"
       class="tb-information"
       alt="Show information about connection quality"
       rel="information"
@@ -57,6 +63,7 @@
       @click="handleConnectionInfoClick"
     />
     <img
+      v-tooltip="'Open audio settings'"
       class="tb-settings"
       alt="Open audio settings dialog"
       rel="settings"
@@ -64,6 +71,7 @@
       @click="handleSettingsClick"
     />
     <img
+      v-tooltip="'View source code on GitHub'"
       class="tb-sourcecode"
       alt="Navigate to source code on Github"
       rel="Source Code"
@@ -72,11 +80,13 @@
     />
     <a
       href="mailto:mail@flexpair.com?subject=Open%20support%20request"
+      v-tooltip="'Contact support'"
       style="text-decoration: none"
     >
       <img alt="Open a support request" src="svg/system-help.svg" />
     </a>
     <img
+      v-tooltip="'Logout'"
       class="tb-logout"
       alt="Log user out"
       src="svg/logout.svg"
