@@ -30,19 +30,6 @@
     "webapp": "Statistics for this web app",
     "native": "Desktop client / mobile app"
   },
-  "settingsdialog": {
-    "title": "Audio settings",
-    "transmission": "Transmission",
-    "cont": "Continuous",
-    "ptt": "Push To Talk",
-    "ptt_key": "PTT Key",
-    "audio_quality": "Audio Quality",
-    "packet": "Audio per packet",
-    "close": "Cancel",
-    "submit": "Apply",
-    "setting": "Setting",
-    "control": "Control"
-  },
   "chat": {
     "channel_message_placeholder": "Type message to everyone here...",
     "user_message_placeholder": "Type message to user '%1' here..."

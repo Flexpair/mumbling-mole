@@ -19,8 +19,22 @@ const args = process.argv.slice(2);
 const WRITE = args.includes('--write-baseline');
 
 function runAudit() {
-  const json = execSync('npm audit --json', { encoding: 'utf8' });
-  return JSON.parse(json);
+  try {
+    const json = execSync('npm audit --json', { encoding: 'utf8' });
+    return JSON.parse(json);
+  } catch (err) {
+    // npm audit exits non-zero when vulnerabilities found, but still outputs JSON
+    if (err.stdout) {
+      try {
+        return JSON.parse(err.stdout);
+      } catch (parseErr) {
+        console.error('[audit-ci] Failed to parse npm audit output:', parseErr.message);
+        console.error('[audit-ci] Raw output:', err.stdout);
+        throw new Error('npm audit returned malformed JSON');
+      }
+    }
+    throw err;
+  }
 }
 
 function loadBaseline() {
