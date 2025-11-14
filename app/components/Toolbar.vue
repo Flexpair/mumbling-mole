@@ -47,7 +47,7 @@
     <a
       :href="mailToDesktop"
       v-tooltip="'Send file to remote desktop'"
-      style="text-decoration: none"
+      class="mail-link"
     >
       <img
         alt="Send mail (attachment) to shared desktop"
@@ -166,6 +166,11 @@ const handleLogoutClick = () => {
 </script>
 
 <style scoped>
+/* Mail link - clean styling without inline styles */
+.mail-link {
+  text-decoration: none;
+}
+
 .toolbar-horizontal {
   position: absolute;
   bottom: 0;

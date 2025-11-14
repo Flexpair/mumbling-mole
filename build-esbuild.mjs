@@ -107,6 +107,11 @@ const buildConfig = {
     'worker': 'app/worker.js',
     'audio/encode-worker': 'app/audio/encode-worker.js',
     'audio/decode-worker': 'app/audio/decode-worker.js',
+    
+    // Async components (manual code-splitting for IIFE format)
+    // Note: With format:'iife', defineAsyncComponent won't auto-split
+    // These bundles can be pre-built but aren't used yet until we switch to ESM
+    // Keeping for future ESM migration
   },
   
   bundle: true,

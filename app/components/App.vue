@@ -35,6 +35,9 @@
 
 <script setup>
 import { Transition, ref, onMounted, inject, provide } from 'vue';
+
+// All components loaded synchronously (IIFE format doesn't support code-splitting)
+// defineAsyncComponent requires format:'esm' which is a larger architectural change
 import ConnectDialog from './ConnectDialog.vue';
 import ConnectErrorDialog from './ConnectErrorDialog.vue';
 import SampleRateWarningDialog from './SampleRateWarningDialog.vue';

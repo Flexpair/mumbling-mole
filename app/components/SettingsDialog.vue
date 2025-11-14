@@ -65,7 +65,7 @@
             </td>
             <td>
               <span>{{ (audioBitrate / 1000).toFixed(1) }}</span> kbit/s
-              <span v-if="isServerLimited && actualBitrate < audioBitrate" style="color: #888; font-size: 0.9em;">
+              <span v-if="isServerLimited && actualBitrate < audioBitrate" class="actual-bitrate-note">
                 (actual: {{ (actualBitrate / 1000).toFixed(1) }} kbit/s)
               </span>
             </td>
@@ -81,7 +81,7 @@
                 step="8"
                 v-model.number="audioBitrate"
               />
-              <small v-if="isServerLimited" style="color: #666; font-style: italic;">
+              <small v-if="isServerLimited" class="server-limit-note">
                 Limited by server maximum ({{ (maxAllowedBitrate / 1000).toFixed(0) }} kbit/s)
               </small>
             </td>
@@ -119,13 +119,13 @@
           <!-- Bandwidth Info with tooltips -->
           <tr>
             <td colspan="2" class="bandwidth-info">
-              <span style="font-weight: bold;">{{ (totalBandwidth / 1000).toFixed(1) }}</span> kbit/s total
+              <span class="bandwidth-total">{{ (totalBandwidth / 1000).toFixed(1) }}</span> kbit/s total
               <br>
-              <small style="color: #666;">
+              <small class="bandwidth-detail">
                 (<span title="Opus audio codec bitrate">Audio {{ (audioBitrate / 1000).toFixed(1) }}</span> + 
                 <span 
                   title="Protocol overhead: packet headers, encryption, framing, and reliability mechanisms"
-                  style="cursor: help; border-bottom: 1px dotted #999;"
+                  class="bandwidth-overhead"
                 >Overhead {{ (overheadBandwidth / 1000).toFixed(1) }}</span> kbit/s)
               </small>
             </td>
@@ -319,5 +319,30 @@ onBeforeUnmount(() => {
 /* Ensure dialog backdrop works correctly */
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* Bandwidth info styling - using CSS v-bind() pattern */
+.bandwidth-total {
+  font-weight: bold;
+}
+
+.bandwidth-detail {
+  color: #666;
+}
+
+.bandwidth-overhead {
+  cursor: help;
+  border-bottom: 1px dotted #999;
+}
+
+/* Server limit notes */
+.server-limit-note {
+  color: #666;
+  font-style: italic;
+}
+
+.actual-bitrate-note {
+  color: #888;
+  font-size: 0.9em;
 }
 </style>

@@ -102,20 +102,18 @@
       </div>
 
       <!-- Dialog Buttons - completely separate section -->
-      <div class="dialog-buttons" style="display: block; width: 100%; clear: both; margin-top: 1em;">
+      <div class="dialog-buttons">
         <input
           v-if="!isTestActive"
           type="submit"
           class="connect-dialog-submit"
           :value="connected ? 'Reconnect' : 'Connect'"
-          style="float: right;"
         />
         <input
           v-else
           type="button"
           value="Connect"
           @click="handleExitTest"
-          style="float: right;"
         />
       </div>
     </form>
