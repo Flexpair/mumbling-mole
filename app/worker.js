@@ -406,6 +406,12 @@ function handleClientMessage(data) {
     return;
   }
 
+  // Validate target exists before invoking method
+  if (!target) {
+    console.error(`[WORKER] Target not found for method: ${method} (userId: ${userId}, channelId: ${channelId})`);
+    return;
+  }
+
   target[method](...args);
 }
 

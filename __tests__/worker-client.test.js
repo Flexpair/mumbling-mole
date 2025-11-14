@@ -758,6 +758,10 @@ describe('WorkerBasedMumbleChannel', () => {
   });
 
   describe('Getters', () => {
+    test('id returns channel ID', () => {
+      expect(channel.id).toBe('test-channel');
+    });
+
     test('parent returns parent channel', () => {
       channel._parentId = 'parent-channel-id';
       const parent = channel.parent;
@@ -908,6 +912,10 @@ describe('WorkerBasedMumbleUser', () => {
   });
 
   describe('Getters', () => {
+    test('id returns user ID', () => {
+      expect(user.id).toBe('test-user');
+    });
+
     test('channel returns user channel', () => {
       user._channelId = 'channel-id';
       client._channel('channel-id'); // Ensure channel exists
@@ -957,6 +965,70 @@ describe('WorkerBasedMumbleUser', () => {
 
       expect(removeSpy).toHaveBeenCalled();
       expect(client._users['test-user']).toBeUndefined();
+    });
+  });
+
+  describe('Regression Tests - ID Getter Bug', () => {
+    test('user.id returns numeric ID correctly', () => {
+      const user = client._user(123);
+      expect(user.id).toBe(123);
+      expect(user._id).toBe(123);
+    });
+
+    test('channel.id returns numeric ID correctly', () => {
+      const channel = client._channel(456);
+      expect(channel.id).toBe(456);
+      expect(channel._id).toBe(456);
+    });
+
+    test('sendMessage on user with ID does not fail', () => {
+      const user = client._user(789);
+      
+      // Should not throw - id getter provides valid userId for RPC call
+      expect(() => user.sendMessage('test')).not.toThrow();
+      
+      expect(connector._worker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 789,
+          method: 'sendMessage'
+        }),
+        undefined
+      );
+    });
+
+    test('sendMessage on channel with ID does not fail', () => {
+      const channel = client._channel(999);
+      
+      // Should not throw - id getter provides valid channelId for RPC call
+      expect(() => channel.sendMessage('test')).not.toThrow();
+      
+      expect(connector._worker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channelId: 999,
+          method: 'sendMessage'
+        }),
+        undefined
+      );
+    });
+
+    test('undefined user ID still accessible via id getter', () => {
+      const undefinedUser = client._user(undefined);
+      expect(undefinedUser.id).toBeUndefined();
+      expect(undefinedUser._id).toBeUndefined();
+    });
+
+    test('user ID migration preserves id getter functionality', () => {
+      // Create user with undefined ID
+      const user = client._user(undefined);
+      expect(user.id).toBeUndefined();
+      
+      // Simulate server assigning real ID
+      client._setProp('self', 555);
+      
+      // ID should be updated
+      expect(user.id).toBe(555);
+      expect(user._id).toBe(555);
+      expect(client._users[555]).toBe(user);
     });
   });
 });

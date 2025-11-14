@@ -325,6 +325,10 @@ class WorkerBasedMumbleChannel extends EventEmitter {
     this[name] = value;
   }
 
+  get id() {
+    return this._id;
+  }
+
   get parent() {
     if (this._parentId !== null && this._parentId !== undefined) {
       return this._client._channel(this._parentId);
@@ -383,6 +387,10 @@ class WorkerBasedMumbleUser extends EventEmitter {
       name = "_channelId";
     }
     this[name] = value;
+  }
+
+  get id() {
+    return this._id;
   }
 
   get channel() {
