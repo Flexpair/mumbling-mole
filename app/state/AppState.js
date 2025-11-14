@@ -14,10 +14,10 @@ import { translate } from '../localize';
 import packageJson from '../../package.json';
 
 /**
- * AppState - main state coordinator (Vue composables + Knockout backward compatibility)
+ * AppState - main state coordinator
  * 
- * Composes all state modules using Vue composables while maintaining Knockout API.
- * Provides bidirectional sync between Vue refs and Knockout observables for gradual migration.
+ * Composes all state modules using Vue 3 composables.
+ * Provides a centralized API for application-wide state management.
  * 
  * Architecture:
  * - ConnectionState: client connection, root user/channel setup
@@ -26,10 +26,10 @@ import packageJson from '../../package.json';
  * - UIState: modals, message box, settings dialog
  * - UserState: current user, self mute/deaf, user registration, voice streams
  * 
- * Migration strategy:
- * 1. Vue composables are the source of truth (ref/reactive)
- * 2. Knockout observables are synchronized for backward compatibility
- * 3. Watchers maintain bidirectional sync during transition
+ * State management:
+ * - All state uses Vue 3 reactive primitives (ref, computed, watch)
+ * - Composables provide modular, reusable state logic
+ * - Cross-module dependencies handled via watchers and subscriptions
  */
 export default class AppState {
   constructor(config, log) {
@@ -63,10 +63,10 @@ export default class AppState {
       connectionInfoDialog: connectionInfo,
     };
     
-    // Store references for backward compatibility
-    this.settings = null; // Set externally
-    this.guacamoleFrame = null; // Set externally
-    this.auth = null; // Set externally
+    // External dependencies (set during initialization)
+    this.settings = null; // Set externally from index.js
+    this.guacamoleFrame = null; // Set externally from index.js
+    this.auth = null; // Set externally from index.js
     
     // Guacamole credentials storage
     this._guacLogin = null;
@@ -124,7 +124,7 @@ export default class AppState {
   }
 
   // ============================================================
-  // PUBLIC API - Expose module functionality via Knockout observables
+  // PUBLIC API - Expose module functionality
   // ============================================================
 
   /**

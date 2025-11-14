@@ -8,8 +8,8 @@ import { ref } from 'vue';
  * - Modal management (prevent multiple modals)
  * - Settings dialog state
  * 
- * Migration from Knockout:
- * - ko.observable() → ref()
+ * State management:
+ * - ref() for all reactive UI state
  * 
  * NOTE: Selection state removed - no UI for selecting channels/users.
  * All messages go to current channel (thisUser().channel()).

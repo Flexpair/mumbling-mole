@@ -13,9 +13,10 @@ import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
  * - Minimal user registration (protocol support)
  * - Voice stream playback for users
  * 
- * Migration from Knockout:
- * - ko.observable() → ref()
- * - observable.subscribe() → watch()
+ * State management:
+ * - ref() for reactive state
+ * - watch() for reactive subscriptions
+ * - markRaw() for protocol objects (prevents deep reactivity)
  * 
  * NOTE: No UI rendering of user lists - app displays minimal UI (MessageBox + audio controls).
  * User protocol objects (mumble-client/user.js) maintain channel.users array.

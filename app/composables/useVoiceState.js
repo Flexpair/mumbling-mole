@@ -32,9 +32,9 @@ function initVoiceInput(onData, onError, onMixerReady) {
  * - Voice handler ready state tracking
  * - Voice data routing (normal vs loopback target)
  * 
- * Migration from Knockout:
- * - ko.observable() → ref()
- * - Internal handler remains non-reactive
+ * State management:
+ * - ref() for reactive UI state and test mode flags
+ * - Internal non-reactive voice handler instance
  */
 export function useVoiceState() {
   // Voice handler instance (internal, not reactive)

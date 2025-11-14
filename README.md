@@ -10,6 +10,7 @@ Mumbling Mole brings Mumble voice communication to any modern web browser withou
 
 - 🎙️ **Browser-native audio capture** – Uses Web Audio API with Opus encoding via AudioWorklet
 - 🔌 **WebSocket tunneling** – TCP voice streams over WebSocket connections (no WebRTC required)
+- ⚡ **Vue.js 3 architecture** – Modern reactive UI framework with composable state management
 - 🎨 **Themeable interface** – MetroMumble-inspired Light/Dark themes
 - 👷 **Web Worker architecture** – Offloads Mumble protocol & audio encoding from main thread
 - 🌐 **English interface** – Localization system (multilanguage support disabled since v0.5.0)
@@ -117,7 +118,7 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 │  │     Main Thread (UI)         │  │    Web Worker        │ │
 │  │                              │  │                      │ │
 │  │  • Vue.js 3 Components       │◄─┤  • mumble-client     │ │
-│  │  • Knockout.js State (legacy)│  │  • Audio resampling  │ │
+│  │  • Vue Composables (State)   │  │  • Audio resampling  │ │
 │  │  • AppState (5 modules)      │  │  • Opus encoding     │ │
 │  │  • Localization              │  │  • Event dispatch    │ │
 │  │  • Theme management          │  │  • Protocol handling │ │
@@ -431,7 +432,7 @@ We welcome contributions! Please follow these guidelines:
 - **Worker protocol**: Update both `_setProp` (worker-client.js) AND `pushProp` (worker.js) when adding properties
 - **Never serialize objects** across worker boundary—only pass numeric IDs
 - **AudioContext**: Always use `ensureAudioContext()` from `audio-context-manager.js`, never `new AudioContext()` directly
-- **UI state**: All observables must live in `GlobalBindings` class (centralized pattern)
+- **UI state**: All reactive state uses Vue 3 composables (`ref()`, `computed()`, `watch()`)
 - **Localization**: Add strings to `localize/en.json` (multilanguage support is disabled)
 - **Console logging**: Prefix debug logs with context tags: `[LOOPBACK]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[DEBUG-VOICE]`, `[AudioContext]`
 - **Documentation**: Update `.github/copilot-instructions.md` for architectural changes
@@ -442,7 +443,7 @@ We welcome contributions! Please follow these guidelines:
 ```
 mumbling-mole/
 ├── app/                           # Application source
-│   ├── index.js                   # UI entry point (GlobalBindings + Knockout)
+│   ├── index.js                   # UI entry point (AppState + Vue mount)
 │   ├── worker.js                  # Web Worker (registerEventProxy + pushProp)
 │   ├── worker-client.js           # Worker bridge (_dispatchEvent + _setProp)
 │   ├── voice.js                   # Voice handlers (PTT/continuous + loopback)

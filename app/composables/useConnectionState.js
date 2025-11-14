@@ -12,9 +12,9 @@ import { buildWebSocketUrl } from '../utils/websocket-url';
  * - Client instance lifecycle
  * - Connection state reactivity
  * 
- * Migration from Knockout:
- * - ko.observable() → ref()
- * - Direct method calls (same API)
+ * State management:
+ * - ref() for reactive state
+ * - Internal non-reactive client instance
  */
 export function useConnectionState(log) {
   const logger = log || console.log.bind(console);

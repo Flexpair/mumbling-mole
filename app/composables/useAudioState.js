@@ -14,9 +14,9 @@ import { createMicrophonePermissionManager } from '../utils/microphone-permissio
  * - Microphone permission handling
  * - Beeper/tone generator for latency testing
  * 
- * Migration from Knockout:
- * - ko.observable() → ref()
- * - Internal state remains non-reactive (audioContext, _persistentBeeper)
+ * State management:
+ * - ref() for reactive UI state
+ * - Internal non-reactive state for audio resources
  */
 export function useAudioState() {
   // Audio context (internal state, not reactive)

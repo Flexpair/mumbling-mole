@@ -16,7 +16,7 @@
 - **postStartCommand**: Empty - start dev server manually via `./start-dev-server.sh` to avoid system overload
 
 ## Quick context
-Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** - uses WebSocket tunnel (via websockify) to standard Mumble TCP protocol. Knockout.js MVVM UI with observable state. Audio transport delegated to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames = 960 samples). Optional Guacamole iframe (remote desktop) gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
+Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** - uses WebSocket tunnel (via websockify) to standard Mumble TCP protocol. **Vue.js 3** MVVM architecture with reactive state management. Audio transport delegated to Web Worker (`mumble-client`). Audio capture uses Web Audio AudioWorklet (48 kHz, 20ms frames = 960 samples). Optional Guacamole iframe (remote desktop) gated by provider-agnostic auth (currently Netlify Identity, migrating to Supabase Q1 2026).
 
 **Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline for **SENDING ONLY**. Receiver can handle variable frame sizes (480-2880 samples). Settings UI disables packet size slider (commit e073892) because changing sender frame size requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec configuration.
 
@@ -24,16 +24,16 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 - **Capture (send)**: Strict real-time, MUST be 960 samples. AudioWorklet (`recorder-worker.js`) runs in high-priority audio thread, accumulates 128-sample blocks → posts 960-sample frames. No buffering possible, <3ms execution budget. Web Worker (`encode-worker.js`) handles Opus encoding (libopus.js WASM, 1-5ms, non-blocking).
 - **Playback (receive)**: Jitter-tolerant via unbounded queue. Decoder handles variable frame sizes (Opus flexible). `buffer-queue-node.js` queues decoded packets, `playback-buffer-processor.js` (AudioWorklet) dequeues at constant rate, fills silence if empty. ⚠️ **Known issues**: Queue has no size limit (memory leak #201), no configurable jitter buffer (#202), no Opus PLC for packet loss (#203).
 
-**✅ COMPLETED: Knockout.js → Vue.js 3 Migration** (UI Layer Complete - Nov 2025)
-- **Status**: ALL 9 UI components migrated to Vue.js 3 (migration complete)
-- **Migrated components**: `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue` (all with integration tests)
+**✅ COMPLETED: Full Vue.js 3 Migration** (November 2025)
+- **Status**: COMPLETE - All UI components AND state modules migrated to Vue.js 3
+- **UI Components** (9 total): `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue`
+- **State Management**: All 5 state modules now use Vue composables (`useConnectionState`, `useAudioState`, `useVoiceState`, `useUIState`, `useUserState`)
 - **HTML cleanup**: Removed ~230 lines of Knockout templates; single Vue mount point `<div id="app"></div>`
-- **Architecture**: Vue components use `provide/inject` to access Knockout `AppState` for backward compatibility
-- **State synchronization**: Bidirectional sync via `watch()` (Vue → Knockout) and `observable.subscribe()` (Knockout → Vue)
+- **Architecture**: Components use `provide/inject` pattern; AppState composes Vue composables
 - **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`
 - **Test coverage**: 1477 tests passing; VoiceState (97.82%), AudioState (93.6%), UserState (94.47%), AppState (78.46%)
+- **Knockout.js removed**: No Knockout dependencies remain - app is 100% Vue.js 3
 - **Critical constraint**: Audio pipeline, worker threads, and Mumble protocol remain UNCHANGED
-- **Next phase**: Core state modules (AppState, AudioState, etc.) still use Knockout observables for backward compatibility - future migration target
 
 ## Getting started reading code
 **Entry points by use case:**
@@ -46,8 +46,8 @@ Browser-first Mumble voice client replacing native desktop apps. **NOT WebRTC** 
 **Read these READMEs first**: `app/state/README.md` (architecture diagrams), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
 
 ## Architecture & threading
-**Main thread** (`app/index.js`): Bootstraps state via `AppState` (modular architecture, completed in v3.13.0), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
-**State architecture**: Uses modular `AppState` composed of 5 domain modules: `ConnectionState`, `AudioState`, `VoiceState`, `UIState`, `UserState`. Channel registration handled directly in AppState (single-channel mode). See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
+**Main thread** (`app/index.js`): Bootstraps state via `AppState` (Vue composable-based architecture), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
+**State architecture**: Uses modular `AppState` composed of 5 Vue composable modules: `useConnectionState`, `useAudioState`, `useVoiceState`, `useUIState`, `useUserState`. All state uses Vue 3 reactive primitives (ref, computed, watch). Channel registration handled directly in AppState (single-channel mode). See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **WebSocket tunneling**: `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**. This is how browser clients connect to standard Mumble servers without native TCP sockets - websockify proxies the Mumble TCP protocol over WebSocket connections that browsers can handle  
@@ -100,59 +100,44 @@ Requires `--experimental-vm-modules` flag in test commands. Classic `jest.mock()
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
 
 ## Implementation conventions
-**Knockout.js observables**: All reactive state uses `ko.observable()` or `ko.observableArray()`. Read via function call `value()`, write via `value(newVal)`. Subscribe with `value.subscribe(callback)` and **always** dispose subscriptions in cleanup. Wire to HTML via `data-bind` attributes. Example:
+**Vue.js 3 reactivity**: All reactive state uses `ref()` or `reactive()` from Vue 3. Read via `.value` property, write via `.value = newVal`. Subscribe with `watch()` or `watchEffect()`. Wire to HTML via Vue directives (`v-if`, `v-model`, `@click`, etc.). Example:
 ```javascript
 // State module pattern
-this.connected = ko.observable(false);
-this.users = ko.observableArray([]);
+import { ref, watch } from 'vue';
 
-// Subscribe (don't forget to track for disposal)
-this._subscription = this.connected.subscribe((isConnected) => {
-  if (isConnected) this.initializeAudio();
+const connected = ref(false);
+const users = ref([]);
+
+// Subscribe (auto-cleanup on component unmount)
+watch(connected, (isConnected) => {
+  if (isConnected) initializeAudio();
 });
 
-// Cleanup
-dispose() {
-  if (this._subscription) this._subscription.dispose();
-}
-
-// HTML binding
-<div data-bind="visible: connected">Connected!</div>
-<div data-bind="foreach: users">...</div>
+// Template binding (in .vue file)
+<div v-if="connected">Connected!</div>
+<div v-for="(user, index) in users" :key="index">...</div>
 ```
 
-**🎯 Vue.js Migration Readiness** - Knockout patterns mapped to Vue equivalents:
-- `ko.observable(val)` → `ref(val)` (access via `.value`, not function call)
-- `ko.computed(fn)` → `computed(fn)` (same reactive dependency tracking)
-- `ko.observableArray([])` → `ref([])` or `reactive([])`
-- `value.subscribe(cb)` → `watch(() => value, cb)` or `watchEffect()`
-- `data-bind="visible: x()"` → `v-if="x"` or `v-show="x"`
-- `data-bind="text: x()"` → `{{ x }}` or `v-text="x"`
-- `data-bind="value: x"` → `v-model="x"`
-- `data-bind="click: fn"` → `@click="fn"`
-- `data-bind="foreach: items"` → `v-for="(item, index) in items" :key="index"`
-- `data-bind="css: {active: isActive()}"` → `:class="{active: isActive}"`
-- `<!-- ko if: condition -->...<!-- /ko -->` → `<template v-if="condition">...</template>`
-- Disposal automatic in Vue (no manual cleanup needed with `watchEffect`)
-
-**UI state**: Observables live in modular state classes under `app/state/` (5 modules: Connection, Audio, Voice, UI, User). Persist via `localStorage` (`mumble.*` keys); wire to Knockout bindings in `app/index.html`. Access via `ui.connection.connected()`, `ui.audio.audioContext`, etc. Example pattern:
+**UI state**: Reactive state lives in modular composables under `app/composables/` (5 modules: Connection, Audio, Voice, UI, User). Persist via `localStorage` (`mumble.*` keys); wire to Vue directives in `.vue` components. Access via `appState.connection.connected.value`, `appState.audio.audioContext`, etc. Example pattern:
 ```javascript
 // Modular state (app/state/AppState.js)
 class AppState {
   constructor() {
-    this.connection = new ConnectionState();
-    this.audio = new AudioState();
-    this.voice = new VoiceState();
-    this.ui = new UIState();
-    this.user = new UserState();
+    this._vueState = {
+      connection: useConnectionState(this.log),
+      audio: useAudioState(),
+      voice: useVoiceState(),
+      ui: useUIState(),
+      user: useUserState(audioState, voiceState)
+    };
     // Channel registration handled directly via _registerChannel()
   }
 }
-// Backward compatibility via delegation
-get connected() { return this.user.thisUser() != null; }
-get audioContext() { return this.audio.audioContext; }
+// Public API via getters/methods
+get connected() { return this._vueState.user.thisUser.value != null; }
+get audioContext() { return this._vueState.audio.audioContext; }
 ```
-**State module dependencies**: `UserState` receives `AudioState` and `VoiceState` in constructor for cross-module subscriptions (e.g., selfMute → VoiceState.setMute). Channel registration handled directly in `AppState._registerChannel()` for single-channel mode. See `app/state/README.md` diagrams for data flow  
+**State module dependencies**: `UserState` receives `AudioState` and `VoiceState` in constructor for cross-module subscriptions (e.g., selfMute → VoiceState.setMute). Channel registration handled directly in `AppState._registerChannel()` for single-channel mode. See `app/state/README.md` diagrams for data flow
 **Worker events**: Must update both `_dispatchEvent` in `worker-client.js` AND `registerEventProxy` in `worker.js`; only pass numeric IDs across thread boundary (never serialize full objects)  
 **Audio invariants**: 48 kHz mono, 960-sample frames (20ms @ 48 kHz), `samplesPerPacket` in settings—changing requires coordinated updates to `voice.js`, worker resampler, `Settings` serialization  
 **AudioContext**: **Always** `ensureAudioContext()` from `audio-context-manager.js`; never `new AudioContext()` directly (breaks singleton pattern). Manager handles autoplay policies, state changes, resume retries with exponential backoff (MAX_RESUME_ATTEMPTS=5)  
@@ -162,65 +147,6 @@ get audioContext() { return this.audio.audioContext; }
 **User object migration**: When server assigns self ID, migrate `_users[undefined]` → `_users[actualID]` in `worker-client.js` `_setProp()` to preserve event listeners (critical for loopback voice events)  
 **Authentication**: Uses provider-agnostic abstraction layer (`app/auth/`); `AuthFactory` instantiates providers based on config. Current production: `NetlifyIdentityAdapter` (deprecated upstream, migrating to Supabase Auth in Q1 2026). See `app/auth/README.md` for migration roadmap. All UI code references `this.auth` (not `this.netlifyIdentity`)  
 **Event-based initialization**: Beeper and audio mixer use callback-based initialization via `onAudioMixerReady()` in `voice.js`—**never use timeouts or polling**. Resources initialize automatically when dependencies become available, regardless of timing. Example: `initializePersistentBeeper()` called from mixer ready callback, not after fixed delay.
-
-**Vue.js 3 Architecture** (COMPLETED - Nov 2025):
-- **Component structure**: All UI components migrated to Single File Components (`.vue`) in `app/components/`
-- **State access**: Components use `provide/inject` to access Knockout `AppState` (backward compatibility during dual-runtime transition)
-- **Bidirectional sync**: `watch()` for Vue → Knockout, `observable.subscribe()` for Knockout → Vue
-- **Mounting**: Root `App.vue` mounted in `app/index.js` via `createApp().provide().mount('#app')`
-- **Integration pattern** (from `ConnectDialog.vue` lines 130-200):
-```javascript
-// In Vue component <script setup>
-import { ref, inject, watch, onMounted } from 'vue';
-const appState = inject('appState');
-const visible = ref(false);
-
-// Knockout → Vue sync
-onMounted(() => {
-  visible.value = appState.connectDialog.visible();
-  appState.connectDialog.visible.subscribe((val) => {
-    visible.value = val;
-  });
-});
-
-// Vue → Knockout sync
-watch(visible, (val) => appState.connectDialog.visible(val));
-```
-- **Build integration**: `esbuild-plugin-vue3` handles `.vue` compilation; no separate toolchain needed
-- **Testing**: 1477 integration tests validate Vue ↔ Knockout dual-runtime contract
-
-**🎯 Next Phase: State Module Migration to Vue.js** (Future Work):
-- **Scope**: Migrate 5 core state modules (`AppState`, `AudioState`, `VoiceState`, `UIState`, `UserState`, `ConnectionState`) from Knockout observables to Vue `ref()`/`reactive()`
-- **Current state**: ~100+ Knockout observables across state modules (e.g., `thisUser = ko.observable()`, `selfMute = ko.observable()`, `beeperReady = ko.observable()`)
-- **Migration strategy**:
-  1. **Phase 1 prep**: Increase unit test coverage for state modules (currently: AppState 78.46%, AudioState 93.6%, VoiceState 97.82%, UserState 94.47%)
-  2. **Phase 2**: Create Vue composables for each state module (e.g., `useConnectionState()`, `useAudioState()`)
-  3. **Phase 3**: Migrate one module at a time, maintaining dual observables temporarily (Knockout + Vue refs in parallel)
-  4. **Phase 4**: Update Vue components to use composables instead of `inject('appState')`
-  5. **Phase 5**: Remove Knockout observables once all components updated
-- **Complexity factors**:
-  - Cross-module subscriptions (e.g., `UserState` subscribes to `AudioState.selfMute`)
-  - Worker thread communication (state updates from `worker-client.js`)
-  - Computed properties (some observables are `ko.computed()`)
-  - localStorage persistence (`mumble.*` keys)
-- **Blockers**: None technical - this is a refinement, not a requirement. UI migration demonstrates the dual-runtime pattern works.
-- **Estimated effort**: 2-3 weeks (based on UI migration: 9 components in ~5 days)
-- **References**: See `app/state/README.md` for module architecture diagrams; `app/state/REFACTORING_SUMMARY.md` for historical context
-
-**Vue.js Migration Testing Requirements** (Reference for Future Migrations):
-- **Pattern established**: Created integration tests for all Vue components during UI migration
-- **Test approach**: Integration tests validate Knockout ↔ Vue dual-runtime contract, NOT isolated Vue unit tests
-- **Coverage achieved**: 10-15 tests per component minimum, scaled by complexity (ConnectDialog: 48 tests, ConnectionInfoDialog: 14 tests, App: 48 tests)
-- **Test scenarios covered**:
-  1. Visibility/state sync (bidirectional: Vue → Knockout, Knockout → Vue)
-  2. Event handlers and user interactions (buttons, forms, keyboard)
-  3. Subscription lifecycle and disposal (prevent memory leaks)
-  4. Edge cases (null/undefined states, rapid toggling, concurrent operations)
-  5. Modal state management
-  6. AppState integration via provide/inject
-- **Test file location**: `__tests__/components/ComponentName.test.js` (mirrors `app/components/ComponentName.vue`)
-- **Mock pattern**: Use `ko.observable()` to mock Knockout state, verify bidirectional sync with `watch()` and `subscribe()`
-- **Reference examples**: `__tests__/components/ConnectDialog.test.js`, `__tests__/components/App.test.js` (comprehensive patterns)
 
 ## Race condition patterns (critical for correctness)
 **Promise caching**: Prevent duplicate async operations via cached promises. Pattern:
@@ -361,5 +287,5 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Security scanning**: See `.github/instructions/snyk_rules.instructions.md` for Snyk security scanning rules (applies to all code generation)
 
 ## Known technical debt
-- **Missing unit tests**: worker.js (19.81%), mumble-client (47.79%) need higher coverage before full Vue migration
+- **Missing unit tests**: worker.js (19.81%), mumble-client (47.79%) need higher coverage
 - **AudioWorklet constraints**: Processors can't use imports/requires, must be ES5-compatible, copied verbatim during build
