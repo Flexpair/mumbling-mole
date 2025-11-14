@@ -16,6 +16,7 @@
     class="guacamole"
     style="float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
     aria-label="Guacamole Remote Desktop Container"
+    @mouseenter="focusIframe"
   >
       <!-- Loading state -->
       <div v-if="loading" class="guac-loading">Loading remote desktop…</div>
@@ -25,6 +26,7 @@
 
       <!-- iframe with lazy loading and clipboard permissions -->
       <iframe
+        ref="iframeRef"
         id="guacframe"
         :src="guacSource || 'about:blank'"
         @load="handleLoad"
@@ -36,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 
 /**
  * GuacamoleFrame Component
@@ -44,6 +46,9 @@ import { ref } from 'vue';
  * Manages Guacamole remote desktop iframe with lazy loading and error handling.
  * Exposes public API via defineExpose() for AppState integration.
  */
+
+/** @type {import('vue').Ref<HTMLIFrameElement | null>} */
+const iframeRef = ref(null);
 
 /** @type {import('vue').Ref<string | null>} */
 const guacSource = ref(null);
@@ -56,6 +61,36 @@ const loading = ref(false);
 
 /** @type {import('vue').Ref<string | null>} */
 const error = ref(null);
+
+/**
+ * Focus the iframe when it becomes visible
+ */
+function focusIframe() {
+  if (iframeRef.value && visible.value) {
+    try {
+      iframeRef.value.focus();
+      console.log('[GuacamoleFrame] Focus set to iframe');
+    } catch (e) {
+      console.warn('[GuacamoleFrame] Failed to focus iframe:', e);
+    }
+  }
+}
+
+// Watch visibility changes and focus iframe when shown
+watch(visible, (isVisible) => {
+  if (isVisible) {
+    // Delay focus slightly to ensure iframe is rendered
+    setTimeout(() => focusIframe(), 100);
+  }
+});
+
+// Setup focus management on mount
+onMounted(() => {
+  // If already visible on mount, focus it
+  if (visible.value) {
+    focusIframe();
+  }
+});
 
 /**
  * Start the Guacamole session with credentials
@@ -101,6 +136,7 @@ function start(guacUser, password) {
  */
 function show() {
   visible.value = true;
+  // Focus will be handled by the watch() on visible
 }
 
 /**
@@ -115,6 +151,8 @@ function hide() {
  */
 function handleLoad() {
   loading.value = false;
+  // Focus iframe after content loads
+  focusIframe();
 }
 
 /**
