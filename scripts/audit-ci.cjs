@@ -25,7 +25,13 @@ function runAudit() {
   } catch (err) {
     // npm audit exits non-zero when vulnerabilities found, but still outputs JSON
     if (err.stdout) {
-      return JSON.parse(err.stdout);
+      try {
+        return JSON.parse(err.stdout);
+      } catch (parseErr) {
+        console.error('[audit-ci] Failed to parse npm audit output:', parseErr.message);
+        console.error('[audit-ci] Raw output:', err.stdout);
+        throw new Error('npm audit returned malformed JSON');
+      }
     }
     throw err;
   }
