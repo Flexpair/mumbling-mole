@@ -5,7 +5,7 @@
  * Can be used with v-tooltip custom directive.
  */
 
-import { ref, reactive } from 'vue';
+import { reactive } from 'vue';
 
 export function useTooltip() {
   const tooltipState = reactive({
@@ -65,11 +65,31 @@ export const vTooltip = {
     document.body.appendChild(tooltip);
     el._tooltip = tooltip;
 
-    // Show handler
+    // Show handler with viewport boundary detection
     const showTooltip = (e) => {
       const rect = el.getBoundingClientRect();
-      tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
-      tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+      const tooltipWidth = tooltip.offsetWidth;
+      const tooltipHeight = tooltip.offsetHeight;
+      const spacing = 8;
+      
+      // Calculate horizontal position (centered, clamped to viewport)
+      let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+      left = Math.max(4, Math.min(left, window.innerWidth - tooltipWidth - 4));
+      
+      // Try to position above; if not enough space, position below
+      let top = rect.top - tooltipHeight - spacing;
+      if (top < 4) {
+        // Not enough space above, position below
+        top = rect.bottom + spacing;
+        
+        // If still offscreen at bottom, clamp to bottom edge
+        if (top + tooltipHeight > window.innerHeight - 4) {
+          top = window.innerHeight - tooltipHeight - 4;
+        }
+      }
+      
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
       tooltip.style.opacity = '1';
     };
 

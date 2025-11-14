@@ -29,16 +29,12 @@
     <ConnectErrorDialog />
     <SampleRateWarningDialog />
     <ConnectionInfoDialog />
-    
-    <!-- KeepAlive for SettingsDialog - keeps component state when hidden -->
-    <KeepAlive>
-      <SettingsDialog />
-    </KeepAlive>
+    <SettingsDialog />
   </div>
 </template>
 
 <script setup>
-import { Transition, KeepAlive, ref, onMounted, inject, provide } from 'vue';
+import { Transition, ref, onMounted, inject, provide } from 'vue';
 import ConnectDialog from './ConnectDialog.vue';
 import ConnectErrorDialog from './ConnectErrorDialog.vue';
 import SampleRateWarningDialog from './SampleRateWarningDialog.vue';

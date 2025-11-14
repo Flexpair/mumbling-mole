@@ -17,6 +17,7 @@ export { useConnectionInfo } from './useConnectionInfo.js';
 export { useSettings } from './useSettings.js';
 export { useLocalStorage, removeLocalStorage } from './useLocalStorage.js';
 export { useTooltip, vTooltip } from './useTooltip.js';
-export { useDebounce, useThrottle } from './useDebounce.js';
 export { useClipboard } from './useClipboard.js';
-export { useKeyboard } from './useKeyboard.js';
+// Temporarily disabled - not used yet:
+// export { useDebounce, useThrottle } from './useDebounce.js';
+// export { useKeyboard } from './useKeyboard.js';

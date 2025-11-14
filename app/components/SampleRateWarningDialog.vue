@@ -4,9 +4,13 @@
       <div
         v-if="visible"
         class="connect-dialog sample-rate-dialog dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="sample-rate-dialog-title"
+        aria-describedby="sample-rate-dialog-description"
       >
-    <div class="dialog-header">{{ title }}</div>
-    <div class="dialog-body">
+    <div id="sample-rate-dialog-title" class="dialog-header">{{ title }}</div>
+    <div id="sample-rate-dialog-description" class="dialog-body">
       <p>{{ description }}</p>
       <div v-if="hints.length > 0" class="sample-rate-hints">
         <div class="sample-rate-hints__title">{{ hintsTitle }}</div>
