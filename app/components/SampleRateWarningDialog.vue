@@ -1,8 +1,10 @@
 <template>
-  <div
-    v-if="visible"
-    class="connect-dialog sample-rate-dialog dialog"
-  >
+  <Teleport to="body">
+    <Transition name="dialog-fade">
+      <div
+        v-if="visible"
+        class="connect-dialog sample-rate-dialog dialog"
+      >
     <div class="dialog-header">{{ title }}</div>
     <div class="dialog-body">
       <p>{{ description }}</p>
@@ -28,11 +30,13 @@
         @click="joinWithoutAudio"
       />
     </div>
-  </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, inject } from 'vue';
+import { Teleport, Transition, computed, inject } from 'vue';
 
 const appState = inject('appState');
 const translate = inject('translate');
@@ -156,5 +160,16 @@ appState.sampleRateWarningDialog.cancel = cancel;
 /* Ensure warning dialog floats above everything */
 .dialog {
   position: fixed !important;
+}
+
+/* Transition animations for dialog */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,16 +1,19 @@
 <template>
   <!-- Root wrapper with full height to maintain height: 100% chain -->
   <div style="height: 100%;">
-    <!-- Preloader (shown during initial load) -->
-    <div v-if="showPreloader" class="preloader" :class="{ loaded: preloaderLoaded }">
-      <div class="lds-ripple" :class="{ loaded: preloaderLoaded }">
-        <div></div>
-        <div></div>
+    <!-- Preloader (shown during initial load) with fade transition -->
+    <Transition name="preloader-fade">
+      <div v-if="showPreloader" class="preloader" :class="{ loaded: preloaderLoaded }">
+        <div class="lds-ripple" :class="{ loaded: preloaderLoaded }">
+          <div></div>
+          <div></div>
+        </div>
       </div>
-    </div>
+    </Transition>
 
-    <!-- Main container (shown after preloader) -->
-    <div v-if="containerVisible" id="container">
+    <!-- Main container (shown after preloader) with fade-in transition -->
+    <Transition name="container-fade">
+      <div v-if="containerVisible" id="container">
       <!-- Microphone select (shared between components) -->
       <select id="audioSource" style="display: none; width: 100%; box-sizing: border-box;"></select>
       
@@ -18,7 +21,8 @@
       <GuacamoleFrame ref="guacamoleFrameRef" />
       <Toolbar />
       <MicPermissionRetryOverlay />
-    </div>
+      </div>
+    </Transition>
 
     <!-- Dialogs (outside container - absolute positioned overlays that float above everything) -->
     <ConnectDialog />
@@ -30,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject, provide } from 'vue';
+import { Transition, ref, onMounted, inject, provide } from 'vue';
 import ConnectDialog from './ConnectDialog.vue';
 import ConnectErrorDialog from './ConnectErrorDialog.vue';
 import SampleRateWarningDialog from './SampleRateWarningDialog.vue';
@@ -82,5 +86,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Component-specific styles can go here if needed */
+/* Preloader fade transition */
+.preloader-fade-enter-active,
+.preloader-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.preloader-fade-enter-from,
+.preloader-fade-leave-to {
+  opacity: 0;
+}
+
+/* Container fade-in transition */
+.container-fade-enter-active {
+  transition: opacity 0.3s ease 0.2s; /* Delay slightly for smoother handoff */
+}
+
+.container-fade-enter-from {
+  opacity: 0;
+}
 </style>

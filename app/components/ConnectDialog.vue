@@ -1,9 +1,10 @@
 <template>
-  <dialog
-    ref="dialogElement"
-    class="connect-dialog dialog"
-    aria-labelledby="connect-dialog_title"
-  >
+  <Teleport to="body">
+    <dialog
+      ref="dialogElement"
+      class="connect-dialog dialog"
+      aria-labelledby="connect-dialog_title"
+    >
     <div id="connect-dialog_title" class="dialog-header">Join audio conference</div>
     <form @submit.prevent="handleConnect">
       <table>
@@ -118,7 +119,8 @@
         />
       </div>
     </form>
-  </dialog>
+    </dialog>
+  </Teleport>
 </template>
 
 <script setup>

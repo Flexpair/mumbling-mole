@@ -1,9 +1,10 @@
 <template>
-  <dialog
-    ref="dialogElement"
-    class="settings-dialog dialog"
-    aria-labelledby="settings-dialog_title"
-  >
+  <Teleport to="body">
+    <dialog
+      ref="dialogElement"
+      class="settings-dialog dialog"
+      aria-labelledby="settings-dialog_title"
+    >
     <div id="settings-dialog_title" class="dialog-header">
       {{ t('settingsdialog.title') }}
     </div>
@@ -148,7 +149,8 @@
         />
       </div>
     </form>
-  </dialog>
+    </dialog>
+  </Teleport>
 </template>
 
 <script setup>

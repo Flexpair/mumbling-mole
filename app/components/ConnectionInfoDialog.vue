@@ -1,5 +1,7 @@
 <template>
-  <div class="connection-info-dialog dialog" v-show="visible">
+  <Teleport to="body">
+    <Transition name="dialog-fade">
+      <div v-if="visible" class="connection-info-dialog dialog">
     <div id="connection-info_title" class="dialog-header">
       Network Connection Info
     </div>
@@ -49,11 +51,13 @@
         value="OK"
       />
     </div>
-  </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, inject, watch, ref } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 
@@ -224,5 +228,16 @@ appState.connectionInfo.hide = handleHide;
 /* Ensure connection info dialog floats above everything */
 .dialog {
   position: fixed !important;
+}
+
+/* Transition animations for dialog */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
 }
 </style>
