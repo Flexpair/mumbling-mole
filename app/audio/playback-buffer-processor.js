@@ -4,23 +4,50 @@
  * 
  * NOTE: This file must NOT use ES6 class syntax or any imports!
  * AudioWorklet processors run in their own scope and cannot import modules.
+ * 
+ * FIX for Issue #201: Queue size limiting to prevent memory leaks
+ * - MAX_QUEUE_SIZE = 25 packets (~500ms @ 50 packets/sec = 20ms frames)
+ * - Drops oldest packets (FIFO) when queue is full
+ * - Prevents unbounded growth during high jitter/packet loss
  */
 
 registerProcessor('playback-buffer-processor', class extends AudioWorkletProcessor {
   constructor() {
     super();
     
+    // FIX #201: Maximum queue size to prevent memory leak
+    // 25 packets = 500ms jitter buffer (25 * 20ms frames @ 48kHz)
+    // Provides balance between latency and robustness
+    this._MAX_QUEUE_SIZE = 25;
+    
     this._queue = [];
     this._currentBuffer = null;
     this._currentBufferOffset = 0;
     this._shuttingDown = false;
     this._shutDown = false;
+    this._droppedPackets = 0; // Counter for monitoring
     
     // Listen for incoming audio data from main thread
     this.port.onmessage = (event) => {
       const { type, data } = event.data;
       
       if (type === 'data') {
+        // FIX #201: Drop oldest packet if queue is full (FIFO strategy)
+        // This prevents unbounded memory growth during network issues
+        if (this._queue.length >= this._MAX_QUEUE_SIZE) {
+          this._queue.shift(); // Drop oldest packet
+          this._droppedPackets++;
+          
+          // Log warning every 100 drops (avoid console spam)
+          if (this._droppedPackets % 100 === 0) {
+            console.warn(
+              '[PlaybackBuffer] Queue full - dropped',
+              this._droppedPackets,
+              'packets. Consider network quality or increasing MAX_QUEUE_SIZE.'
+            );
+          }
+        }
+        
         // Queue incoming audio buffer
         this._queue.push(data);
       } else if (type === 'finish') {
