@@ -7,6 +7,7 @@ import AppState from "./state/AppState";
 // Vue.js imports
 import { createApp } from 'vue';
 import AppVue from "./components/App.vue";
+import { vTooltip } from "./composables";
 
 import {
   enumMicrophones,
@@ -164,6 +165,9 @@ async function main() {
   // Mount Vue.js App component (single root that contains all UI)
   try {
     const vueApp = createApp(AppVue);
+    
+    // Register global custom directives
+    vueApp.directive('tooltip', vTooltip);
     
     // Provide AppState, config, and translate function to all Vue components
     vueApp.provide('appState', ui);

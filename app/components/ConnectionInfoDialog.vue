@@ -1,5 +1,7 @@
 <template>
-  <div class="connection-info-dialog dialog" v-show="visible">
+  <Teleport to="body">
+    <Transition name="dialog-fade">
+      <div v-if="visible" class="connection-info-dialog dialog">
     <div id="connection-info_title" class="dialog-header">
       Network Connection Info
     </div>
@@ -49,13 +51,16 @@
         value="OK"
       />
     </div>
-  </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, inject, watch, ref } from 'vue';
+import { Teleport, Transition, computed, inject, watch } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
+import { useClipboard } from '../composables';
 
 /**
  * Vue 3 ConnectionInfoDialog Component
@@ -64,29 +69,27 @@ import buildInfo from '../build-info.json';
  * Uses Vue refs directly from AppState connectionInfo composable.
  */
 
+// Clipboard composable for commit hash copy
+const { copy: copyToClipboard, copied } = useClipboard({ timeout: 2000 });
+
 // Full git commit hash from build-info.json (generated at build time)
 const commitHash = buildInfo.commit;
-const copyButtonText = ref(`Copy Commit: ${commitHash.substring(0, 7)}...`);
-const copyButtonTitle = ref(`Click to copy full commit hash: ${commitHash}`);
+
+// Reactive button text based on copied state
+const copyButtonText = computed(() => 
+  copied.value ? '✓ Copied!' : `Copy Commit: ${commitHash.substring(0, 7)}...`
+);
+
+const copyButtonTitle = computed(() =>
+  copied.value ? 'Commit hash copied to clipboard!' : `Click to copy full commit hash: ${commitHash}`
+);
 
 /**
- * Copy commit hash to clipboard
+ * Copy commit hash to clipboard using useClipboard composable
  */
-async function copyCommitHash() {
-  try {
-    await navigator.clipboard.writeText(commitHash);
-    copyButtonText.value = '✓ Copied!';
-    setTimeout(() => {
-      copyButtonText.value = `Copy Commit: ${commitHash.substring(0, 7)}...`;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy commit hash:', err);
-    copyButtonText.value = '✗ Copy failed';
-    setTimeout(() => {
-      copyButtonText.value = `Copy Commit: ${commitHash.substring(0, 7)}...`;
-    }, 2000);
-  }
-}
+const copyCommitHash = () => {
+  copyToClipboard(commitHash);
+};
 
 // Inject AppState (from main app)
 const appState = inject('appState');
@@ -224,5 +227,16 @@ appState.connectionInfo.hide = handleHide;
 /* Ensure connection info dialog floats above everything */
 .dialog {
   position: fixed !important;
+}
+
+/* Transition animations for dialog */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
 }
 </style>

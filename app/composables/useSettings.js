@@ -5,25 +5,20 @@
  * Combines functionality of Settings and SettingsDialog classes.
  * 
  * Replaced Knockout Settings + SettingsDialog classes (index.js) in Phase 5 Step 5.
+ * 
+ * Now uses useLocalStorage composable for automatic persistence (eliminates manual save() boilerplate).
  */
 
 import { ref, computed } from 'vue';
+import { useLocalStorage } from './useLocalStorage.js';
 
 export function useSettings(defaults = {}) {
-  const load = (key) => globalThis.localStorage.getItem("mumble." + key);
-  
-  // Core settings (persisted to localStorage)
-  const voiceMode = ref(load("voiceMode") || defaults.voiceMode || 'cont');
-  const pttKey = ref(load("pttKey") || defaults.pttKey || 'ctrl + shift');
-  const userCountInChannelName = ref(
-    load("userCountInChannelName") || defaults.userCountInChannelName || false
-  );
-  const audioBitrate = ref(
-    Number(load("audioBitrate")) || defaults.audioBitrate || 40000
-  );
-  const samplesPerPacket = ref(
-    Number(load("samplesPerPacket")) || defaults.samplesPerPacket || 960
-  );
+  // Core settings (auto-persisted to localStorage via useLocalStorage)
+  const voiceMode = useLocalStorage('voiceMode', defaults.voiceMode || 'cont', { prefix: 'mumble.' });
+  const pttKey = useLocalStorage('pttKey', defaults.pttKey || 'ctrl + shift', { prefix: 'mumble.' });
+  const userCountInChannelName = useLocalStorage('userCountInChannelName', defaults.userCountInChannelName || false, { prefix: 'mumble.' });
+  const audioBitrate = useLocalStorage('audioBitrate', defaults.audioBitrate || 40000, { prefix: 'mumble.' });
+  const samplesPerPacket = useLocalStorage('samplesPerPacket', defaults.samplesPerPacket || 960, { prefix: 'mumble.' });
 
   // Dialog-specific state (not persisted)
   const pttKeyDisplay = ref(pttKey.value);
@@ -36,21 +31,18 @@ export function useSettings(defaults = {}) {
 
   /**
    * Save settings to localStorage
+   * Note: With useLocalStorage, this is now automatic via watchers.
+   * This method is kept for backward compatibility but is a no-op.
    */
   const save = () => {
-    const saveItem = (key, val) => 
-      globalThis.localStorage.setItem("mumble." + key, val);
-    
-    saveItem("voiceMode", voiceMode.value);
-    saveItem("pttKey", pttKey.value);
-    saveItem("userCountInChannelName", userCountInChannelName.value);
-    saveItem("audioBitrate", audioBitrate.value);
-    saveItem("samplesPerPacket", samplesPerPacket.value);
+    // No-op: useLocalStorage auto-saves on change
+    // Kept for backward compatibility with existing code
   };
 
   /**
    * Apply settings from dialog to main settings
-   * (Used when dialog is submitted)
+   * Note: With useLocalStorage, changes are auto-saved.
+   * This method just copies values (no explicit save() needed).
    */
   const applyFrom = (dialogSettings) => {
     voiceMode.value = dialogSettings.voiceMode.value;
@@ -58,7 +50,7 @@ export function useSettings(defaults = {}) {
     userCountInChannelName.value = dialogSettings.userCountInChannelName.value;
     audioBitrate.value = dialogSettings.audioBitrate.value;
     samplesPerPacket.value = dialogSettings.samplesPerPacket.value;
-    save();
+    // No explicit save() needed - useLocalStorage auto-saves
   };
 
   /**
