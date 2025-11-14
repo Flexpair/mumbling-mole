@@ -18,6 +18,3 @@ export { useSettings } from './useSettings.js';
 export { useLocalStorage, removeLocalStorage } from './useLocalStorage.js';
 export { useTooltip, vTooltip } from './useTooltip.js';
 export { useClipboard } from './useClipboard.js';
-// Temporarily disabled - not used yet:
-// export { useDebounce, useThrottle } from './useDebounce.js';
-// export { useKeyboard } from './useKeyboard.js';
