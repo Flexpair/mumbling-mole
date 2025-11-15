@@ -38,6 +38,10 @@ test.describe('Protobuf camelCase Regression - E2E', () => {
     // Wait for connection
     await page.waitForSelector('.toolbar', { timeout: 15000 });
 
+    // Set up console listener BEFORE actions to avoid race condition
+    const logs = [];
+    page.on('console', msg => logs.push(msg.text()));
+
     // Click mute button
     const muteButton = page.locator('button[aria-label*="mute" i]').first();
     await muteButton.click();
@@ -49,10 +53,6 @@ test.describe('Protobuf camelCase Regression - E2E', () => {
     // (The bug was: button changed but server never got the message)
     const isMuted = await muteButton.getAttribute('aria-pressed');
     expect(isMuted).toBe('true');
-
-    // Look for console logs confirming server response
-    const logs = [];
-    page.on('console', msg => logs.push(msg.text()));
     
     // Wait for potential UserState message from server echoing our mute
     await page.waitForTimeout(2000);
@@ -98,6 +98,10 @@ test.describe('Protobuf camelCase Regression - E2E', () => {
     await page.click('button:has-text("Connect")');
     await page.waitForSelector('.toolbar', { timeout: 15000 });
 
+    // Set up console listener BEFORE actions to avoid race condition
+    const logs = [];
+    page.on('console', msg => logs.push(msg.text()));
+
     // Type and send a message
     const messageInput = page.locator('input[type="text"], textarea').first();
     const testMessage = `E2E Test ${Date.now()}`;
@@ -105,12 +109,7 @@ test.describe('Protobuf camelCase Regression - E2E', () => {
     await messageInput.press('Enter');
 
     // Wait for message to be processed
-    await page.waitForTimeout(1000);
-
-    // Look for console logs
-    const logs = [];
-    page.on('console', msg => logs.push(msg.text()));
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     // The bug was: "Target not found for method: sendMessage"
     // If fixed, we should see the TextMessage being sent
@@ -133,6 +132,12 @@ test.describe('Protobuf camelCase Regression - E2E', () => {
     await page.fill('input[name="username"]', TEST_USERNAME);
     await page.click('button:has-text("Connect")');
     await page.waitForSelector('.toolbar', { timeout: 15000 });
+
+    // Set up console listener at start to capture all errors
+    const logs = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') logs.push(msg.text());
+    });
 
     // Mute
     const muteButton = page.locator('button[aria-label*="mute" i]').first();
@@ -164,15 +169,9 @@ test.describe('Protobuf camelCase Regression - E2E', () => {
     // Send final message
     await messageInput.fill('Testing normal state');
     await messageInput.press('Enter');
-    await page.waitForTimeout(500);
-
-    // If all three features work, no errors should be logged
-    const logs = [];
-    page.on('console', msg => {
-      if (msg.type() === 'error') logs.push(msg.text());
-    });
     await page.waitForTimeout(1000);
 
+    // If all three features work, no errors should be logged
     expect(logs.length).toBe(0);
   });
 });

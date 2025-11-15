@@ -186,13 +186,7 @@ class MumbleClient extends EventEmitter {
   }
 
   _send (msg) {
-    console.log('[CLIENT._send] Writing message to data stream:', JSON.stringify(msg));
-    try {
-      this._data.write(msg);
-      console.log('[CLIENT._send] Message written successfully');
-    } catch (e) {
-      console.error('[CLIENT._send] Error writing message:', e);
-    }
+    this._data.write(msg);
   }
 
   /**

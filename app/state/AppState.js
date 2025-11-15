@@ -592,8 +592,6 @@ export default class AppState {
   openSettings = () => { return this._vueState.ui.openSettings(); }
   closeSettings = () => { return this._vueState.ui.closeSettings(); }
   submitMessageBox = () => {
-    const thisUser = this._vueState.user.thisUser.value;
-    
     // WORKAROUND: user.channel is not set due to async worker property sync
     // Use root channel directly (all users start in root channel ID 0)
     const target = this._rootChannel;

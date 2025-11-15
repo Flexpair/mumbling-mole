@@ -70,7 +70,6 @@ class WorkerBasedMumbleConnector {
 
   _addCall(proxy, name, id) {
     proxy[name] = (...args) => {
-      console.log(`[_addCall] ${name} called on proxy, id:`, JSON.stringify(id), 'args:', args);
       this._call(id, name, args);
     };
   }

@@ -378,14 +378,7 @@ function handleClientMessage(data) {
   const { clientId, userId, channelId, method, payload } = data;
   let client = clients[clientId];
 
-  // Debug: Log the entire RPC message for sendMessage
-  if (method === 'sendMessage') {
-  }
 
-  // Debug log for mute/deaf commands
-  if (method === 'setSelfMute' || method === 'setSelfDeaf') {
-    console.log(`[WORKER] ${method} called with payload:`, payload);
-  }
 
   let target;
   let allowedMethods;
@@ -417,8 +410,8 @@ function handleClientMessage(data) {
 
   // Validate method against whitelist
   if (!allowedMethods.has(method)) {
-    console.error(`[WORKER] Attempted to call disallowed method: ${method}`);
-    console.error(`[WORKER] userId: ${userId}, channelId: ${channelId}, allowedMethods:`, Array.from(allowedMethods));
+    console.error('[WORKER] Attempted to call disallowed method:', method);
+    console.error('[WORKER] userId: %s, channelId: %s, allowedMethods:', userId, channelId, Array.from(allowedMethods));
     return;
   }
 
