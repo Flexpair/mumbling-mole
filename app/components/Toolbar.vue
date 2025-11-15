@@ -38,12 +38,16 @@
       src="svg/audio-output-deafened.svg"
       @click="handleUndeafClick"
     />
-    <input
-      id="message-box"
-      type="text"
-      :placeholder="messageBoxHint"
-      v-model="messageBox"
-    />
+    <div class="message-box-container">
+      <input
+        id="message-box"
+        type="text"
+        :placeholder="messageBoxHint"
+        v-model="messageBox"
+      />
+      <!-- Message confirmation (green checkmark) appears inside message box -->
+      <MessageConfirmation :appState="appState" />
+    </div>
     <a
       :href="mailToDesktop"
       v-tooltip="'Send file to remote desktop'"
@@ -97,6 +101,7 @@
 
 <script setup>
 import { computed, inject } from 'vue';
+import MessageConfirmation from './MessageConfirmation.vue';
 
 const appState = inject('appState');
 
@@ -176,5 +181,16 @@ const handleLogoutClick = () => {
   bottom: 0;
   left: 0;
   right: 0;
+}
+
+.message-box-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+#message-box {
+  flex: 1;
 }
 </style>

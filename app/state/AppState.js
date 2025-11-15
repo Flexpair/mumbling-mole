@@ -369,6 +369,17 @@ export default class AppState {
     client.on('newUser', (user) => {
       this._vueState.user.registerUser(user);
     });
+    
+    // Listen for messageSent event (fired when message written to network)
+    client.on('messageSent', (messageText) => {
+      // Trigger UI confirmation
+      this._vueState.ui.messageConfirmed.value = true;
+      
+      // Reset after 2 seconds
+      setTimeout(() => {
+        this._vueState.ui.messageConfirmed.value = false;
+      }, 2000);
+    });
   }
 
   /**
@@ -587,6 +598,7 @@ export default class AppState {
   // UI module
   get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
   get messageBox() { return this._vueState.ui.messageBox; }
+  get messageConfirmed() { return this._vueState.ui.messageConfirmed; }
   get settingsDialog() { return this._vueState.ui.settingsDialog; }
   
   openSettings = () => { return this._vueState.ui.openSettings(); }
