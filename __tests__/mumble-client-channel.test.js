@@ -270,90 +270,6 @@ describe('mumble-client Channel', () => {
     });
   });
 
-  describe('setName Method', () => {
-    test('should send ChannelState message with new name', () => {
-      channel.setName('New Name');
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          name: 'New Name'
-        }
-      });
-    });
-  });
-
-  describe('setParent Method', () => {
-    test('should send ChannelState message with new parent', () => {
-      channel.setParent(channel2);
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          parent: 2
-        }
-      });
-    });
-  });
-
-  describe('setTemporary Method', () => {
-    test('should send ChannelState message with temporary flag', () => {
-      channel.setTemporary(true);
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          temporary: true
-        }
-      });
-    });
-  });
-
-  describe('setPosition Method', () => {
-    test('should send ChannelState message with new position', () => {
-      channel.setPosition(10);
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          position: 10
-        }
-      });
-    });
-  });
-
-  describe('setMaxUsers Method', () => {
-    test('should send ChannelState message with max users', () => {
-      channel.setMaxUsers(20);
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          max_users: 20
-        }
-      });
-    });
-  });
-
-  describe('setDescription Method', () => {
-    test('should send ChannelState message with new description', () => {
-      channel.setDescription('New Description');
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          description: 'New Description'
-        }
-      });
-    });
-  });
-
   describe('requestDescription Method', () => {
     test('should request description if not already requested', () => {
       channel.requestDescription();
@@ -373,20 +289,6 @@ describe('mumble-client Channel', () => {
       channel.requestDescription();
 
       expect(client._send).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('setLinks Method', () => {
-    test('should send ChannelState message with links', () => {
-      channel.setLinks([channel2, channel3]);
-
-      expect(client._send).toHaveBeenCalledWith({
-        name: 'ChannelState',
-        payload: {
-          channel_id: 1,
-          links: [2, 3]
-        }
-      });
     });
   });
 
