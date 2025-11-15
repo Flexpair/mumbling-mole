@@ -66,6 +66,16 @@ class User extends EventEmitter {
         () => { this._haveRequestedComment = false })
     )
 
+    // SERVER-STATE-SYNC: Synchronize UI with server's authoritative state
+    // When server sends UserState update, it's the SINGLE SOURCE OF TRUTH
+    if (this === this._client.self && (changes.selfMute !== undefined || changes.selfDeaf !== undefined)) {
+      // Emit server state change for UI sync
+      this.emit('server-state-sync', {
+        selfMute: this._selfMute,
+        selfDeaf: this._selfDeaf
+      });
+    }
+
     // Channel update (special case with side effects)
     const newChannelId = msg.channelId ?? msg.channel_id;
     if (newChannelId != null) {

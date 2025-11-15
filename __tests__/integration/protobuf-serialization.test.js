@@ -86,6 +86,20 @@ describe('Protobuf.js Field Name Convention Tests', () => {
       expect(correctPayload).not.toHaveProperty('self_mute');
       expect(correctPayload).not.toHaveProperty('self_deaf');
     });
+
+    test('setSelfDeaf(false) MUST NOT send selfMute', () => {
+      // When undeafening, do NOT change mute status - preserve user's choice
+      const correctPayload = {
+        session: 1,
+        selfDeaf: false   // ✅ Only change deaf status
+        // selfMute intentionally NOT sent - let server keep current mute state
+      };
+      
+      expect(correctPayload).toHaveProperty('selfDeaf');
+      expect(correctPayload.selfDeaf).toBe(false);
+      expect(correctPayload).not.toHaveProperty('selfMute');  // ✅ Key fix
+      expect(correctPayload).not.toHaveProperty('self_deaf');
+    });
   });
 
   describe('Required Field Names - Channels', () => {

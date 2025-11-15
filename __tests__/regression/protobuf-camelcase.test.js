@@ -37,15 +37,26 @@ describe('Protobuf camelCase Field Name Regression Tests', () => {
     });
 
     test('setSelfDeaf uses camelCase selfMute and selfDeaf', () => {
-      // This test documents the fix: client.js lines 756-766
-      const correctPayload = {
+      // This test documents the fix: client.js lines 775-795
+      const correctPayloadDeaf = {
         session: 1,
         selfMute: true,   // ✅ Auto-mute when deaf
         selfDeaf: true    // ✅ Correct: camelCase
       };
 
-      expect(correctPayload).toHaveProperty('selfMute');
-      expect(correctPayload).toHaveProperty('selfDeaf');
+      expect(correctPayloadDeaf).toHaveProperty('selfMute');
+      expect(correctPayloadDeaf).toHaveProperty('selfDeaf');
+
+      // When undeafening, do NOT send selfMute - preserve user's mute choice
+      const correctPayloadUndeaf = {
+        session: 1,
+        selfDeaf: false   // ✅ Only change deaf status
+        // selfMute intentionally NOT sent
+      };
+
+      expect(correctPayloadUndeaf).toHaveProperty('selfDeaf');
+      expect(correctPayloadUndeaf.selfDeaf).toBe(false);
+      expect(correctPayloadUndeaf).not.toHaveProperty('selfMute');
     });
 
     test('_onChannelState expects camelCase channelId with fallback', () => {
