@@ -105,6 +105,78 @@ This allows you to verify your microphone and audio encoding/decoding without ne
 
 > **⚠️ Important:** Loopback mode tests same-client playback, NOT cross-client network/audio initialization. For production debugging, see [app/audio/README.md](./app/audio/README.md).
 
+## 🐳 Docker Deployment
+
+### Building Docker Images
+
+The Dockerfile supports multi-stage builds with `dev` and `prod` targets.
+
+#### Production Build with Version Information
+
+To include the git commit hash in the production build (displayed in Connection Info dialog):
+
+```bash
+# Build with current git commit
+docker build \
+  --build-arg GIT_COMMIT=$(git rev-parse HEAD) \
+  --target prod \
+  -t mumbling-mole:prod \
+  .
+
+# Or using docker-compose
+GIT_COMMIT=$(git rev-parse HEAD) docker-compose build
+```
+
+> **Important:** The `.git` directory is excluded from Docker builds (see `.dockerignore`) for security reasons. Without the `GIT_COMMIT` build argument, the version will show as "unknown" in production.
+
+#### CI/CD Integration
+
+In GitHub Actions or other CI/CD pipelines, pass the commit hash:
+
+```yaml
+# Example GitHub Actions workflow
+- name: Build Docker image
+  uses: docker/build-push-action@v6
+  with:
+    build-args: |
+      GIT_COMMIT=${{ github.sha }}
+    target: prod
+```
+
+#### Development Build
+
+For local development with full tooling:
+
+```bash
+docker build --target dev -t mumbling-mole:dev .
+```
+
+### Environment Variables
+
+The build script (`build-esbuild.mjs`) checks for version information in this order:
+
+1. **`GIT_COMMIT` environment variable** (set by Docker build or CI/CD)
+2. **Git command** (`git rev-parse HEAD`) - requires `.git` directory
+3. **Fallback to "unknown"** if neither is available
+
+### Verifying the Build
+
+After building, you can verify the embedded version:
+
+```bash
+# Check build-info.json in the built image
+docker run --rm mumbling-mole:prod cat /home/node/dist/build-info.json
+```
+
+Expected output:
+```json
+{
+  "commit": "d13f880facc6cf83d6e9dac06b0cfcb3115378d4",
+  "buildTime": "2025-11-15T20:09:51.350Z",
+  "mode": "production"
+}
+```
+
 ## 🏗️ Architecture
 
 ### High-Level Overview
