@@ -36,11 +36,9 @@ function handleClick() {
 watch(
   () => props.appState.messageConfirmed?.value,
   (confirmed) => {
-    console.log('[MESSAGE-CONFIRM] messageConfirmed changed:', confirmed);
     if (confirmed) {
-      // Show green confirmation
+      // Show confirmation
       isConfirmed.value = true;
-      console.log('[MESSAGE-CONFIRM] Set isConfirmed to true');
       
       // Clear existing timer
       if (resetTimer) {
@@ -50,7 +48,6 @@ watch(
       // Reset to gray after 2 seconds
       resetTimer = setTimeout(() => {
         isConfirmed.value = false;
-        console.log('[MESSAGE-CONFIRM] Reset isConfirmed to false');
       }, 2000);
       
       // Reset the flag
