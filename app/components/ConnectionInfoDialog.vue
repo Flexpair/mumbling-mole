@@ -3,10 +3,10 @@
     <Transition name="dialog-fade">
       <div v-if="visible" class="connection-info-dialog dialog">
     <div id="connection-info_title" class="dialog-header">
-      Network Connection Info
+      {{ translate('connectinfo.title') }}
     </div>
     <div class="dialog-content">
-      <h3 id="connection-info_server">Audio server details</h3>
+      <h3 id="connection-info_server">{{ translate('connectinfo.server') }}</h3>
       <template v-if="serverVersion">
         Murmur version {{ serverVersion.release }} <br />
         {{ serverVersion.os }}
@@ -24,7 +24,7 @@
       </template>
       <br />
 
-      <h3 id="connection-info_webapp">Network statistics</h3>
+      <h3 id="connection-info_webapp">{{ translate('connectinfo.webapp') }}</h3>
       <template v-if="latencyMs && !Number.isNaN(latencyMs)">
         <strong>Network latency (TCP ping):</strong>
         {{ latencyMs.toFixed(2) }} ms average
@@ -61,6 +61,8 @@ import { Teleport, Transition, computed, inject, watch } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 import { useClipboard } from '../composables';
+
+const translate = inject('translate');
 
 /**
  * Vue 3 ConnectionInfoDialog Component

@@ -31,8 +31,8 @@
     "native": "Desktop client / mobile app"
   },
   "chat": {
-    "channel_message_placeholder": "Type message to everyone here...",
-    "user_message_placeholder": "Type message to user '%1' here..."
+    "channel_message_placeholder": "Type a message to everyone here...",
+    "send_message": "Send message"
   },
   "settingsdialog": {
     "title": "Audio Quality Settings",

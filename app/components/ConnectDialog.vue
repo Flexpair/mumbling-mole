@@ -5,13 +5,13 @@
       class="connect-dialog dialog"
       aria-labelledby="connect-dialog_title"
     >
-    <div id="connect-dialog_title" class="dialog-header">Join audio conference</div>
+    <div id="connect-dialog_title" class="dialog-header">{{ translate('connectdialog.title') }}</div>
     <form @submit.prevent="handleConnect">
       <table>
         <tbody>
           <tr v-if="config.connectDialog?.username">
             <th scope="row">
-              <label for="username">Username</label>
+              <label for="username">{{ translate('connectdialog.username') }}</label>
             </th>
             <td>
               <input
@@ -25,7 +25,7 @@
           </tr>
           <tr v-if="config.connectDialog?.password">
             <th scope="row">
-              <label for="password">Password</label>
+              <label for="password">{{ translate('connectdialog.password') }}</label>
             </th>
             <td>
               <input
@@ -38,7 +38,7 @@
           </tr>
           <tr>
             <th scope="row">
-              <label for="audioSource">Microphone</label>
+              <label for="audioSource">{{ translate('connectdialog.microphone') }}</label>
             </th>
             <td>
               <!-- Placeholder for audioSource select (moved here via script) -->
@@ -134,6 +134,7 @@ import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from '
 // Inject AppState (from main app)
 const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
+const translate = inject('translate');
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = ref(null);
