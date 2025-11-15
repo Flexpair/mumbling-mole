@@ -397,7 +397,7 @@ describe('mumble-client Channel', () => {
       expect(client._send).toHaveBeenCalledWith({
         name: 'TextMessage',
         payload: {
-          channel_id: [31],
+          channelId: [31],
           message: 'Hello Channel'
         }
       });
@@ -411,7 +411,7 @@ describe('mumble-client Channel', () => {
       expect(client._send).toHaveBeenCalledWith({
         name: 'TextMessage',
         payload: {
-          tree_id: [31],
+          treeId: [31],
           message: 'Hello Tree'
         }
       });

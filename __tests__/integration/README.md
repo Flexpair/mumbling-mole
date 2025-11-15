@@ -4,6 +4,24 @@ This folder contains integration tests for vendored dependencies. Unlike unit te
 
 ## Test Files
 
+### protobuf-serialization.test.js (19 tests) 🔥 **CRITICAL**
+
+**Purpose**: Prevent silent Protobuf.js field dropping bugs that cause features to fail without errors.
+
+Tests the critical camelCase vs snake_case field naming convention:
+
+- **Silent Field Dropping**: Documents that Protobuf.js silently drops incorrectly-named fields
+- **Mute/Deaf Messages**: Validates `selfMute`/`selfDeaf` (camelCase) NOT `self_mute`/`self_deaf`
+- **Text Messages**: Validates `channelId`/`treeId` (camelCase) NOT `channel_id`/`tree_id`
+- **Regression Detection**: Will fail if code reverts to snake_case field names
+- **Documentation**: Serves as reference for all future Protobuf message handling
+
+**Why This Matters**:
+- Protobuf.js converts `.proto` snake_case → JavaScript camelCase automatically
+- Using snake_case in outgoing messages causes **silent field drops** (no errors!)
+- Features appear to work in UI but fail to communicate with server
+- This was the root cause of the message sending bug (Nov 2025)
+
 ### mumble-client-integration.test.js (24 tests)
 
 Tests integration of the `mumble-client` vendored library with our codebase. Validates:
@@ -28,7 +46,7 @@ Tests integration of the `mumble-streams` vendored library. Validates:
 
 ## Test Summary
 
-**Total Integration Tests: 85**
+**Total Integration Tests: 104** (19 protobuf + 24 mumble-client + 61 mumble-streams)
 
 ## Unit Tests
 
@@ -43,7 +61,7 @@ Comprehensive unit tests for mumble-streams internal functions:
 - UDP Crypto: Key management, encryption/decryption, IV handling, ready state, key generation
 - Version Object: Version encoding and consistency
 
-**Total Vendor Tests: 157 (85 integration + 72 unit)**
+**Total Vendor Tests: 176 (104 integration + 72 unit)**
 
 ## Why Integration Tests?
 

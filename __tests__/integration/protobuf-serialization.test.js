@@ -112,15 +112,25 @@ describe('Protobuf.js Field Name Convention Tests', () => {
       expect(resolveId(legacyPayload)).toBe(5);
     });
 
-    test('TextMessage MUST use channel_id array (protocol field)', () => {
-      // TextMessage is special: uses snake_case for protocol
+    test('TextMessage MUST use channelId array (camelCase from Protobuf.js)', () => {
+      // TextMessage follows the same camelCase convention as all other messages
       const textMessagePayload = {
-        channel_id: [0],  // ✅ Protocol uses snake_case
+        channelId: [0],  // ✅ Protobuf.js expects camelCase
         message: 'Hello'
       };
       
-      expect(textMessagePayload).toHaveProperty('channel_id');
-      expect(Array.isArray(textMessagePayload.channel_id)).toBe(true);
+      expect(textMessagePayload).toHaveProperty('channelId');
+      expect(Array.isArray(textMessagePayload.channelId)).toBe(true);
+    });
+
+    test('TextMessage MUST use treeId array for tree messages', () => {
+      const treeMessagePayload = {
+        treeId: [0],  // ✅ Protobuf.js expects camelCase
+        message: 'Hello Tree'
+      };
+      
+      expect(treeMessagePayload).toHaveProperty('treeId');
+      expect(Array.isArray(treeMessagePayload.treeId)).toBe(true);
     });
   });
 
@@ -188,21 +198,59 @@ describe('Protobuf.js Field Name Convention Tests', () => {
       expect(payload).not.toHaveProperty('self_deaf');
     });
 
-    test('documents special case: TextMessage uses snake_case', () => {
-      // TextMessage is SPECIAL: protocol uses snake_case arrays
+    test('documents special case: ALL messages use camelCase consistently', () => {
+      // ALL messages follow the same pattern: Protobuf.js expects camelCase
       const createTextMessage = (channelIds, message) => ({
-        channel_id: channelIds,  // ✅ Protocol field
+        channelId: channelIds,  // ✅ camelCase like all other fields
         message
       });
       
       const payload = createTextMessage([0], 'Hello');
       
-      expect(payload).toHaveProperty('channel_id');
-      expect(payload.channel_id).toEqual([0]);
+      expect(payload).toHaveProperty('channelId');
+      expect(payload.channelId).toEqual([0]);
     });
   });
 
   describe('Regression Detection', () => {
+    test('Channel.sendMessage MUST use channelId (not channel_id)', () => {
+      // Regression test for the bug fixed in channel.js sendMessage()
+      const correctPayload = {
+        channelId: [31],  // ✅ CORRECT - camelCase
+        message: 'Test message'
+      };
+      
+      const wrongPayload = {
+        channel_id: [31],  // ❌ WRONG - Would be dropped by Protobuf.js
+        message: 'Test message'
+      };
+      
+      expect(correctPayload).toHaveProperty('channelId');
+      expect(correctPayload).not.toHaveProperty('channel_id');
+      
+      // If this test fails, channel.js sendMessage() regressed to snake_case
+      expect(wrongPayload).not.toHaveProperty('channelId');
+    });
+
+    test('Channel.sendTreeMessage MUST use treeId (not tree_id)', () => {
+      // Regression test for the bug fixed in channel.js sendTreeMessage()
+      const correctPayload = {
+        treeId: [31],  // ✅ CORRECT - camelCase
+        message: 'Tree message'
+      };
+      
+      const wrongPayload = {
+        tree_id: [31],  // ❌ WRONG - Would be dropped by Protobuf.js
+        message: 'Tree message'
+      };
+      
+      expect(correctPayload).toHaveProperty('treeId');
+      expect(correctPayload).not.toHaveProperty('tree_id');
+      
+      // If this test fails, channel.js sendTreeMessage() regressed to snake_case
+      expect(wrongPayload).not.toHaveProperty('treeId');
+    });
+
     test('will fail if setSelfMute code changes to snake_case', () => {
       // If someone changes the code back to:
       // { session: X, self_mute: true }

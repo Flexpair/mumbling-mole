@@ -146,7 +146,7 @@ class Channel extends EventEmitter {
     this._client._send({
       name: 'TextMessage',
       payload: {
-        channel_id: [this._id],
+        channelId: [this._id],
         message: message
       }
     })
@@ -156,7 +156,7 @@ class Channel extends EventEmitter {
     this._client._send({
       name: 'TextMessage',
       payload: {
-        tree_id: [this._id],
+        treeId: [this._id],
         message: message
       }
     })
