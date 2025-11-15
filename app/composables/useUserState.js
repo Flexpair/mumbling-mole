@@ -42,6 +42,7 @@ export function useUserState(audioState, voiceState) {
    * @param {object} user - User model from mumble-client
    */
   function registerUser(user) {
+    
     // FORCE RECREATION: Always delete old __ui and create fresh Vue-based one
     // This ensures we never have stale Knockout or plain objects
     if (user.__ui) {
@@ -51,6 +52,10 @@ export function useUserState(audioState, voiceState) {
     // Create new minimal wrapper with Vue refs
     // Protocol user.channel exists on model; channel.users managed by mumble-client
     // Use markRaw to prevent Vue from making this reactive and unwrapping nested refs
+    // 
+    // NOTE: user.channel will be undefined initially because WorkerBasedMumbleUser
+    // properties are populated async via pushProp messages. We don't wait for it
+    // because sendMessage now uses root channel directly.
     let ui = (user.__ui = markRaw({
       model: user,
       name: ref(user.username),
@@ -59,6 +64,20 @@ export function useUserState(audioState, voiceState) {
       selfDeaf: ref(user.selfDeaf),
       talking: ref('off'), // Needed for voice stream UI
     }));
+    
+    // Subscribe to user updates for voice/mute/deaf state changes
+    user.on('update', (actor, properties) => {
+      if ('channel' in properties) {
+        const newChannel = user.channel?.__ui;
+        ui.channel.value = newChannel;
+      }
+      if ('selfMute' in properties) {
+        ui.selfMute.value = properties.selfMute;
+      }
+      if ('selfDeaf' in properties) {
+        ui.selfDeaf.value = properties.selfDeaf;
+      }
+    });
 
     // Voice stream handler (needed for audio playback)
     user.on('voice', async (stream) => {

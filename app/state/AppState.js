@@ -367,7 +367,6 @@ export default class AppState {
   _setupClientHandlers(client) {
     // Register voice listeners for other users joining
     client.on('newUser', (user) => {
-      console.log('[AppState] New user joined:', user.username, 'ID:', user.id);
       this._vueState.user.registerUser(user);
     });
   }
@@ -411,7 +410,6 @@ export default class AppState {
     // Without this, users who joined before us won't have voice event handlers
     for (const user of client.users.values()) {
       if (user !== client.self) {
-        console.log('[AppState] Registering existing user:', user.username, 'ID:', user.id);
         this._vueState.user.registerUser(user);
       }
     }
@@ -451,6 +449,11 @@ export default class AppState {
       model: channel,
       name: ref(channel.name),
     };
+    
+    // Store root channel reference for sendMessage workaround
+    if (channel._id === 0) {
+      this._rootChannel = channel.__ui;
+    }
   }
 
   /**
@@ -589,7 +592,12 @@ export default class AppState {
   openSettings = () => { return this._vueState.ui.openSettings(); }
   closeSettings = () => { return this._vueState.ui.closeSettings(); }
   submitMessageBox = () => {
-    const target = this._vueState.user.thisUser.value?.channel.value;
+    const thisUser = this._vueState.user.thisUser.value;
+    
+    // WORKAROUND: user.channel is not set due to async worker property sync
+    // Use root channel directly (all users start in root channel ID 0)
+    const target = this._rootChannel;
+    
     return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
   }
 

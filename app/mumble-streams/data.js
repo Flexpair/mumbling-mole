@@ -97,6 +97,7 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
     try {
       data = encode(chunk.name, chunk.payload);
     } catch (e) {
+      console.error('[ENCODER] Error encoding message:', e, 'chunk:', chunk);
       callback(e);
       return;
     }

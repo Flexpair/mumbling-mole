@@ -88,7 +88,13 @@ function setupOutboundVoice(voiceId, samplesPerPacket, stream) {
   voiceStreams[voiceId] = resampler;
 }
 
-function setupChannel(id, channel) {
+function setupChannel(id, channel, visited = new Set()) {
+  // Prevent infinite recursion from circular references
+  if (visited.has(channel.id)) {
+    return channel.id;
+  }
+  visited.add(channel.id);
+  
   id = { ...id, channel: channel.id };
 
   registerEventProxy(id, channel, "update", (props) => {
@@ -110,7 +116,7 @@ function setupChannel(id, channel) {
   }
 
   for (let child of channel.children) {
-    setupChannel(id, child);
+    setupChannel(id, child, visited);
   }
 
   return channel.id;
@@ -372,6 +378,15 @@ function handleClientMessage(data) {
   const { clientId, userId, channelId, method, payload } = data;
   let client = clients[clientId];
 
+  // Debug: Log the entire RPC message for sendMessage
+  if (method === 'sendMessage') {
+  }
+
+  // Debug log for mute/deaf commands
+  if (method === 'setSelfMute' || method === 'setSelfDeaf') {
+    console.log(`[WORKER] ${method} called with payload:`, payload);
+  }
+
   let target;
   let allowedMethods;
   let args = payload; // Local variable for potentially modified arguments
@@ -403,6 +418,7 @@ function handleClientMessage(data) {
   // Validate method against whitelist
   if (!allowedMethods.has(method)) {
     console.error(`[WORKER] Attempted to call disallowed method: ${method}`);
+    console.error(`[WORKER] userId: ${userId}, channelId: ${channelId}, allowedMethods:`, Array.from(allowedMethods));
     return;
   }
 
@@ -412,7 +428,17 @@ function handleClientMessage(data) {
     return;
   }
 
+  // Debug log before calling method
+  if (method === 'setSelfMute' || method === 'setSelfDeaf') {
+    console.log(`[WORKER] Calling ${method} on target with args:`, args);
+  }
+
   target[method](...args);
+  
+  // Debug log after calling method
+  if (method === 'setSelfMute' || method === 'setSelfDeaf') {
+    console.log(`[WORKER] ${method} completed`);
+  }
 }
 
 function handleVoiceStream(data) {

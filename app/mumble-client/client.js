@@ -186,7 +186,13 @@ class MumbleClient extends EventEmitter {
   }
 
   _send (msg) {
-    this._data.write(msg)
+    console.log('[CLIENT._send] Writing message to data stream:', JSON.stringify(msg));
+    try {
+      this._data.write(msg);
+      console.log('[CLIENT._send] Message written successfully');
+    } catch (e) {
+      console.error('[CLIENT._send] Error writing message:', e);
+    }
   }
 
   /**
@@ -525,8 +531,9 @@ class MumbleClient extends EventEmitter {
     if (payload.type === DenyType.Text) {
       this.emit('denied', 'Text', null, null, payload.reason)
     } else if (payload.type === DenyType.Permission) {
+      const channelId = payload.channelId ?? payload.channel_id;
       const user = this._userById[payload.session]
-      const channel = this._channelById[payload.channel_id]
+      const channel = this._channelById[channelId]
       this.emit('denied', 'Permission', user, channel, payload.permission)
     } else if (payload.type === DenyType.SuperUser) {
       this.emit('denied', 'SuperUser', null, null, null)
@@ -551,20 +558,23 @@ class MumbleClient extends EventEmitter {
   }
 
   _onTextMessage (payload) {
+    const channelIds = payload.channelId ?? payload.channel_id ?? [];
+    const treeIds = payload.treeId ?? payload.tree_id ?? [];
     this.emit(
       'message',
       this._userById[payload.actor],
       payload.message,
       payload.session.map(id => this._userById[id]),
-      payload.channel_id.map(id => this._channelById[id]),
-      payload.tree_id.map(id => this._channelById[id])
+      channelIds.map(id => this._channelById[id]),
+      treeIds.map(id => this._channelById[id])
     )
   }
 
   _onChannelState (payload) {
-    let channel = this._channelById[payload.channel_id]
+    const channelId = payload.channelId ?? payload.channel_id;
+    let channel = this._channelById[channelId]
     if (!channel) {
-      channel = new Channel(this, payload.channel_id)
+      channel = new Channel(this, channelId)
       this._channelById[channel._id] = channel
       this.channels.push(channel)
       this.emit('newChannel', channel)
@@ -573,7 +583,7 @@ class MumbleClient extends EventEmitter {
       const otherChannel = this._channelById[otherId]
       if (otherChannel?.links.includes(channel)) {
         otherChannel._update({
-          links_remove: [payload.channel_id]
+          links_remove: [channelId]
         })
       }
     }
@@ -581,7 +591,8 @@ class MumbleClient extends EventEmitter {
   }
 
   _onChannelRemove (payload) {
-    const channel = this._channelById[payload.channel_id]
+    const channelId = payload.channelId ?? payload.channel_id;
+    const channel = this._channelById[channelId]
     if (channel) {
       channel._remove()
       delete this._channelById[channel._id]
@@ -599,7 +610,7 @@ class MumbleClient extends EventEmitter {
 
       // For some reason, the mumble protocol does not send the initial
       // channel of a client if it is the root channel
-      payload.channel_id = payload.channel_id || 0
+      payload.channelId = payload.channelId ?? payload.channel_id ?? 0
     }
     user._update(payload)
   }
@@ -736,11 +747,16 @@ class MumbleClient extends EventEmitter {
     const message = {
       name: 'UserState',
       payload: {
-        session: this.self._id,
-        self_mute: mute
+        session: this.self._id
       }
     }
-    if (!mute) message.payload.self_deaf = false
+    // Protobuf.js converts snake_case proto fields to camelCase in JavaScript
+    // So we must use selfMute (not self_mute) even though the .proto file has self_mute
+    if (mute) {
+      message.payload.selfMute = true
+    } else {
+      message.payload.selfMute = false
+    }
     this._send(message)
   }
 
@@ -748,11 +764,18 @@ class MumbleClient extends EventEmitter {
     const message = {
       name: 'UserState',
       payload: {
-        session: this.self._id,
-        self_deaf: deaf
+        session: this.self._id
       }
     }
-    if (deaf) message.payload.self_mute = true
+    // Protobuf.js converts snake_case proto fields to camelCase in JavaScript
+    if (deaf) {
+      message.payload.selfDeaf = true
+      // When deafening, also mute (standard Mumble behavior)
+      message.payload.selfMute = true
+    } else {
+      message.payload.selfDeaf = false
+      message.payload.selfMute = false
+    }
     this._send(message)
   }
 

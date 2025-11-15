@@ -356,7 +356,7 @@ describe('mumble-client Client', () => {
         name: 'UserState',
         payload: {
           session: 42,
-          self_mute: true
+          selfMute: true
         }
       });
     });
@@ -371,8 +371,8 @@ describe('mumble-client Client', () => {
         name: 'UserState',
         payload: {
           session: 42,
-          self_deaf: true,
-          self_mute: true  // Deaf implies mute
+          selfDeaf: true,
+          selfMute: true  // Deaf implies mute
         }
       });
     });
