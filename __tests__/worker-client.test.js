@@ -136,7 +136,7 @@ describe('WorkerBasedMumbleConnector', () => {
     });
 
     test('posts message with correct structure', () => {
-      const id = { client: 1, channel: 2, user: 3 };
+      const id = { client: 1, channelId: 2, userId: 3 };
       connector._call(id, 'testMethod', { arg: 'value' });
 
       expect(mockWorker.postMessage).toHaveBeenCalledWith(

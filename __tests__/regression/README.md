@@ -166,3 +166,158 @@ git show 3.16.5:app/index.js
 # See the diff
 git diff 3.16.1 3.16.5 -- app/index.js app/state/AppState.js
 ```
+
+## Protobuf.js camelCase Field Naming (3.17.0)
+
+### Problem Summary
+Two critical bugs caused by Protobuf.js **silently dropping** incorrectly-named fields:
+1. Mute/deaf buttons appeared to work locally but server never received state changes
+2. SendMessage completely broken with "Target not found" error
+
+### Root Cause (PROVEN)
+
+**What broke:** Protobuf.js automatically converts snake_case → camelCase, and **silently drops** fields with wrong names (no errors, no warnings).
+
+**Field name mismatches:**
+- Code used: `self_mute`, `self_deaf`, `channel_id`
+- Protobuf.js expected: `selfMute`, `selfDeaf`, `channelId`
+- Result: Fields silently dropped, features broke
+
+### Why This Was Hard to Find
+
+1. **No runtime errors** - Protobuf.js just drops the fields
+2. **No console warnings** - Silent failure
+3. **Local testing worked** - UI state updated even though server ignored messages
+4. **Loopback tests passed** - Mute/deaf only tested client-side UI
+
+### The Blocking Chain
+
+```text
+User clicks "Mute" button
+  ↓
+UI toggles mute state (Vue reactive)
+  ↓
+Code sends { session: 1, self_mute: true }  ← Wrong field name!
+  ↓
+Protobuf.js serialization
+  ↓
+DROPS self_mute field (unrecognized)
+  ↓
+Actually sends { session: 1 }  ← Field missing!
+  ↓
+Server receives message without mute state
+  ↓
+Server ignores message (no state change)
+  ↓
+User sees muted icon (client-side only) but server still hears them
+```
+
+### The Fixes (3.17.0)
+
+**Files modified:** 11 total
+**Tests added:** 27 total (11 regression + 16 integration)
+
+#### Code Changes
+
+1. **app/mumble-client/client.js** - Fixed all Protobuf handlers:
+   ```javascript
+   // Before (WRONG)
+   setSelfMute(mute) {
+     this._send('UserState', { session: this._session, self_mute: mute });
+   }
+   
+   // After (CORRECT)
+   setSelfMute(mute) {
+     this._send('UserState', { session: this._session, selfMute: mute });
+   }
+   ```
+
+2. **Added fallback handling** for backward compatibility:
+   ```javascript
+   _onChannelState(payload) {
+     const channelId = payload.channelId ?? payload.channel_id ?? 0;
+     // ... rest of handler
+   }
+   ```
+
+3. **Fixed circular reference bug** found during testing:
+   ```javascript
+   // app/worker.js
+   const setupChannel = (id, channel, visited = new Set()) => {
+     if (visited.has(channel.id)) return { id: channel.id };
+     visited.add(channel.id);
+     // ... rest of setup
+   };
+   ```
+
+#### Test Coverage
+
+**Regression Tests** (`__tests__/regression/protobuf-camelcase.test.js` - 11 tests):
+- Documents correct field name patterns
+- Tests mute/deaf field names
+- Tests channel/user ID handling
+- Tests TextMessage protocol (uses snake_case)
+- Tests circular reference protection
+- Tests edge cases (100 channels, 10 toggles)
+
+**Integration Tests** (`__tests__/integration/protobuf-serialization.test.js` - 16 tests):
+- **Silent Field Dropping Behavior** (2 tests):
+  * Documents that Protobuf.js silently drops snake_case fields
+  * Documents automatic conversion on incoming messages
+  
+- **Required Field Names** (7 tests):
+  * setSelfMute MUST use `selfMute` not `self_mute`
+  * setSelfDeaf MUST use both `selfMute` and `selfDeaf`
+  * ChannelState handler MUST accept `channelId`
+  * Handler MUST fallback to `channel_id`
+  * TextMessage MUST use `channel_id` array (protocol field)
+  * UserState MUST accept `channelId` and default to 0
+  * User._update MUST accept camelCase `channelId`
+  
+- **Field Name Patterns** (3 tests):
+  * Documents correct pattern for incoming messages
+  * Documents correct pattern for outgoing messages
+  * Documents TextMessage special case
+  
+- **Regression Detection** (2 tests):
+  * Will FAIL if code changes back to snake_case
+  * Will FAIL if handlers remove camelCase support
+  
+- **Future Development** (2 tests):
+  * Example: how to handle new Protobuf fields
+  * Example: how to send new Protobuf fields
+
+**E2E Tests** (`tests/playwright/mute-deaf-sendmessage.spec.js`):
+- Automated UI tests for mute/deaf toggles
+- Tests text message sending
+- Verifies server state sync
+
+### Why These Tests Matter
+
+**Silent failures need explicit detection.** Standard unit tests would still pass even if someone changed field names back to snake_case, because:
+
+1. Code would compile successfully
+2. UI would still update (Vue reactivity)
+3. No runtime errors would occur
+4. Only the server would silently ignore messages
+
+**Our integration tests explicitly check:**
+- Field names are camelCase (not snake_case)
+- Tests FAIL with descriptive errors if names change
+- Documents what happens with wrong names
+- Covers ALL Protobuf message types
+
+### Lessons Learned
+
+1. **Silent failures need defensive tests** - Can't rely on runtime errors
+2. **Document the "why"** - Future developers need to understand the constraint
+3. **Test the constraint, not just the feature** - Verify field names explicitly
+4. **Regression tests must fail loudly** - Descriptive error messages
+5. **Protobuf.js behavior is not obvious** - Needs explicit documentation
+
+### References
+
+**Pull Request:** #209  
+**Branch:** `fix/protobuf-camelcase-mute-deaf-sendmessage`  
+**Commits:** Multiple commits documenting the investigation and fix  
+**Test Results:** 1145 tests passing (added 27 new tests)

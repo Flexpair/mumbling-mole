@@ -67,11 +67,12 @@ class User extends EventEmitter {
     )
 
     // Channel update (special case with side effects)
-    if (msg.channel_id != null) {
+    const newChannelId = msg.channelId ?? msg.channel_id;
+    if (newChannelId != null) {
       if (this.channel) {
         removeValue(this.channel.users, this)
       }
-      this._channelId = msg.channel_id
+      this._channelId = newChannelId
       if (this.channel) {
         this.channel.users.push(this)
       }

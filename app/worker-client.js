@@ -50,8 +50,8 @@ class WorkerBasedMumbleConnector {
     this._postMessage(
       {
         clientId: id.client,
-        channelId: id.channel,
-        userId: id.user,
+        channelId: id.channelId,
+        userId: id.userId,
         method: method,
         reqId: reqId,
         payload: payload,
@@ -220,6 +220,12 @@ class WorkerBasedMumbleClient extends EventEmitter {
   }
 
   _channel(id) {
+    // If id is explicitly undefined, return undefined (user has no channel yet)
+    // Note: 0 is a valid channel ID (root channel), so we only check for undefined
+    if (id === undefined) {
+      return undefined;
+    }
+    
     let channel = this._channels[id];
     if (!channel) {
       channel = new WorkerBasedMumbleChannel(this._connector, this, id);
@@ -269,7 +275,9 @@ class WorkerBasedMumbleClient extends EventEmitter {
   }
 
   get root() {
-    return this._channel(this._rootId);
+    // Root channel ID is always 0, use as default if _rootId not yet set
+    const rootId = this._rootId !== undefined ? this._rootId : 0;
+    return this._channel(rootId);
   }
 
   get channels() {
@@ -292,7 +300,7 @@ class WorkerBasedMumbleChannel extends EventEmitter {
     this._client = client;
     this._id = channelId;
 
-    let id = { client: client._id, channel: channelId };
+    let id = { client: client._id, channelId: channelId };
     connector._addCall(this, "sendMessage", id);
   }
 
@@ -350,7 +358,7 @@ class WorkerBasedMumbleUser extends EventEmitter {
     this._client = client;
     this._id = userId;
 
-    let id = { client: client._id, user: userId };
+    let id = { client: client._id, userId: userId };
     connector._addCall(this, "setMute", id);
     connector._addCall(this, "setDeaf", id);
     connector._addCall(this, "sendMessage", id);
