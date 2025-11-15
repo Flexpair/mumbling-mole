@@ -206,6 +206,7 @@ function setupClient(id, client) {
   registerEventProxy(id, client, "denied", (it) => [it]);
   registerEventProxy(id, client, "newChannel", (it) => [setupChannel(id, it)]);
   registerEventProxy(id, client, "newUser", (it) => [setupUser(id, it)]);
+  registerEventProxy(id, client, "messageSent", (messageText) => [messageText]);
   registerEventProxy(
     id,
     client,
@@ -426,7 +427,12 @@ function handleClientMessage(data) {
     console.log(`[WORKER] Calling ${method} on target with args:`, args);
   }
 
-  target[method](...args);
+  // Call the method
+  const result = target[method](...args);
+  
+  // Only send response for query-type methods (those that need return values)
+  // Regular calls (like sendMessage) don't need responses
+  // The worker will only respond if the main thread is waiting for a promise
   
   // Debug log after calling method
   if (method === 'setSelfMute' || method === 'setSelfDeaf') {

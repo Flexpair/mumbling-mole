@@ -75,6 +75,9 @@ export default class AppState {
     // Connection tracking for race safety
     this._currentConnectionId = null;
     
+    // Timer tracking for message confirmation
+    this._messageConfirmationTimer = null;
+    
     // Set up cross-module subscriptions
     this._setupSubscriptions();
     
@@ -369,6 +372,23 @@ export default class AppState {
     client.on('newUser', (user) => {
       this._vueState.user.registerUser(user);
     });
+    
+    // Listen for messageSent event (fired when message written to network)
+    client.on('messageSent', (messageText) => {
+      // Clear any existing timer
+      if (this._messageConfirmationTimer) {
+        clearTimeout(this._messageConfirmationTimer);
+      }
+      
+      // Trigger UI confirmation
+      this._vueState.ui.messageConfirmed.value = true;
+      
+      // Reset after 2 seconds
+      this._messageConfirmationTimer = setTimeout(() => {
+        this._vueState.ui.messageConfirmed.value = false;
+        this._messageConfirmationTimer = null;
+      }, 2000);
+    });
   }
 
   /**
@@ -526,6 +546,12 @@ export default class AppState {
    * Reset client and all state
    */
   resetClient = () => {
+    // Clear message confirmation timer
+    if (this._messageConfirmationTimer) {
+      clearTimeout(this._messageConfirmationTimer);
+      this._messageConfirmationTimer = null;
+    }
+    
     this._currentConnectionId = null;
     this._vueState.audio.stopBeep();
     this._vueState.connection.disconnect();
@@ -587,6 +613,7 @@ export default class AppState {
   // UI module
   get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
   get messageBox() { return this._vueState.ui.messageBox; }
+  get messageConfirmed() { return this._vueState.ui.messageConfirmed; }
   get settingsDialog() { return this._vueState.ui.settingsDialog; }
   
   openSettings = () => { return this._vueState.ui.openSettings(); }

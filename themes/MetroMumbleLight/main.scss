@@ -114,13 +114,23 @@ iframe {
   background-color: $toolbar-active-border-color;
 }
 #message-box {
-  border: none;
-  background: none;
+  border: 1px solid $toolbar-hover-border-color;
+  background: rgba(255, 255, 255, 0.1);
   color: $chat-input-color;
   margin: 5px 0 5px 0;
-  padding: 2px;
+  padding: 2px 5px;
   height: 20px;
   width: 100%;
+  border-radius: 2px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+#message-box:focus {
+  outline: none;
+  border-color: $toolbar-active-bg-color;
+  background: rgba(255, 255, 255, 0.15);
+}
+#message-box::placeholder {
+  color: rgba(0, 0, 0, 0.5);
 }
 form {
   margin: 0;
@@ -143,7 +153,7 @@ form {
   width: calc(100% - 20px);
   margin: 10px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 10px;
 }

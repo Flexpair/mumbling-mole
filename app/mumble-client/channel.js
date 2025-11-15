@@ -72,81 +72,11 @@ class Channel extends EventEmitter {
     this.emit('update', changes)
   }
 
-  setName (name) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        name: name
-      }
-    })
-  }
-
-  setParent (parent) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        parent: parent._id
-      }
-    })
-  }
-
-  setTemporary (temporary) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        temporary: temporary
-      }
-    })
-  }
-
-  setDescription (description) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        description: description
-      }
-    })
-  }
-
-  setPosition (position) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        position: position
-      }
-    })
-  }
-
-  setLinks (links) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        links: links.map(c => c._id)
-      }
-    })
-  }
-
-  setMaxUsers (maxUsers) {
-    this._client._send({
-      name: 'ChannelState',
-      payload: {
-        channel_id: this._id,
-        max_users: maxUsers
-      }
-    })
-  }
-
   sendMessage (message) {
     this._client._send({
       name: 'TextMessage',
       payload: {
-        channel_id: [this._id],
+        channelId: [this._id],
         message: message
       }
     })
@@ -156,7 +86,7 @@ class Channel extends EventEmitter {
     this._client._send({
       name: 'TextMessage',
       payload: {
-        tree_id: [this._id],
+        treeId: [this._id],
         message: message
       }
     })

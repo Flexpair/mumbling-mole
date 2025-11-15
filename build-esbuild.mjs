@@ -34,29 +34,33 @@ if (fs.existsSync('dist')) {
 fs.mkdirSync('dist', { recursive: true });
 
 // Generate build info with full git commit hash
+// Priority: 1. GIT_COMMIT env var (CI/CD), 2. git command (local dev)
+let gitHash = 'unknown';
 try {
-  const gitHash = execSync('/usr/bin/git rev-parse HEAD', { encoding: 'utf8' }).trim(); // Full hash, not --short
-  
-  const buildInfo = {
-    commit: gitHash,
-    buildTime: new Date().toISOString(),
-    mode: mode
-  };
-  
-  fs.writeFileSync(
-    'app/build-info.json',
-    JSON.stringify(buildInfo, null, 2)
-  );
-  
-  console.log(`📦 Build info: ${gitHash.substring(0, 7)}`);
+  // Try environment variable first (set by CI/CD or Docker build)
+  if (process.env.GIT_COMMIT) {
+    gitHash = process.env.GIT_COMMIT;
+    console.log(`📦 Build info from GIT_COMMIT env: ${gitHash.substring(0, 7)}`);
+  } else {
+    // Fallback to git command (local development with .git directory)
+    gitHash = execSync('/usr/bin/git rev-parse HEAD', { encoding: 'utf8' }).trim();
+    console.log(`📦 Build info from git: ${gitHash.substring(0, 7)}`);
+  }
 } catch (err) {
-  console.warn('⚠️  Could not generate build info:', err.message);
-  // Fallback build info
-  fs.writeFileSync(
-    'app/build-info.json',
-    JSON.stringify({ commit: 'unknown', buildTime: new Date().toISOString(), mode }, null, 2)
-  );
+  console.warn('⚠️  Could not determine git commit:', err.message);
+  console.warn('    Set GIT_COMMIT environment variable or ensure .git directory exists');
 }
+
+const buildInfo = {
+  commit: gitHash,
+  buildTime: new Date().toISOString(),
+  mode: mode
+};
+
+fs.writeFileSync(
+  'app/build-info.json',
+  JSON.stringify(buildInfo, null, 2)
+);
 
 // Copy static files helper
 function copyFile(src, dest) {
@@ -228,6 +232,9 @@ try {
   // These run in AudioWorklet context and cannot use imports
   copyFile('app/audio/recorder-worker.js', 'recorder-worker.js');
   copyFile('app/audio/playback-buffer-processor.js', 'playback-buffer-processor.js');
+  
+  // Build info (generated at build time, needed at runtime)
+  copyFile('app/build-info.json', 'build-info.json');
   
   console.log('✅ Static files copied');
   

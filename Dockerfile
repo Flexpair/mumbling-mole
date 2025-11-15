@@ -34,6 +34,9 @@ WORKDIR /home/node
 # =====================================================================
 FROM base-runtime AS builder
 
+# Build argument for git commit hash (passed from CI/CD or docker build command)
+ARG GIT_COMMIT=unknown
+
 USER root
 
 # Build-Tools + Node.js Installation in einem Layer
@@ -68,6 +71,9 @@ USER node
 WORKDIR /home/node
 
 RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
+
+# Pass GIT_COMMIT to build process
+ENV GIT_COMMIT=${GIT_COMMIT}
 RUN npm run build
 
 

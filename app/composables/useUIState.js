@@ -21,6 +21,9 @@ export function useUIState() {
   // Message box
   const messageBox = ref('');
   
+  // Message confirmation (for visual feedback when message is sent)
+  const messageConfirmed = ref(false);
+  
   // Settings dialog
   const settingsDialog = ref(null);
 
@@ -56,8 +59,12 @@ export function useUIState() {
    * @param {object} target - Target channel/user for the message
    */
   function submitMessageBox(sendMessageFn, target) {
-    sendMessageFn(target, messageBox.value);
-    messageBox.value = '';
+    const messageText = messageBox.value;
+    if (messageText.trim()) {
+      // Send message - confirmation will come from 'messageSent' event
+      sendMessageFn(target, messageText);
+      messageBox.value = '';
+    }
   }
 
   /**
@@ -65,6 +72,7 @@ export function useUIState() {
    */
   function reset() {
     messageBox.value = '';
+    messageConfirmed.value = false;
     settingsDialog.value = null;
     currentOpenModal.value = null;
   }
@@ -74,6 +82,7 @@ export function useUIState() {
     // State (reactive)
     currentOpenModal,
     messageBox,
+    messageConfirmed,
     settingsDialog,
     
     // Methods

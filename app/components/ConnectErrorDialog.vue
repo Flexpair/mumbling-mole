@@ -5,7 +5,7 @@
         v-if="visible"
         class="connect-dialog error-dialog dialog"
       >
-    <div class="dialog-header">Failed to connect</div>
+    <div class="dialog-header">{{ translate('connectdialog.error.title') }}</div>
     <form @submit.prevent="handleConnect">
       <table>
         <thead>
@@ -18,39 +18,37 @@
           <tr class="reason">
             <td colspan="2">
               <span v-if="type === 0 || type === 8" class="refused">
-                The connection has been refused.
+                {{ translate('connectdialog.error.reason.refused') }}
               </span>
               <span v-if="type === 1" class="version">
-                The server uses an incompatible version.
+                {{ translate('connectdialog.error.reason.version') }}
               </span>
               <span v-if="type === 2" class="username">
-                Your user name was rejected. Maybe try a different one?
+                {{ translate('connectdialog.error.reason.username') }}
               </span>
               <span v-if="type === 3" class="userpassword">
-                The given password is incorrect. The user name you have chosen
-                requires a special one.
+                {{ translate('connectdialog.error.reason.userpassword') }}
               </span>
               <span v-if="type === 4" class="serverpassword">
-                The given password is incorrect.
+                {{ translate('connectdialog.error.reason.serverpassword') }}
               </span>
               <span v-if="type === 5" class="username-in-use">
-                The user name you have chosen is already in use.
+                {{ translate('connectdialog.error.reason.username_in_use') }}
               </span>
               <span v-if="type === 6" class="full">
-                The server is full.
+                {{ translate('connectdialog.error.reason.full') }}
               </span>
               <span v-if="type === 7" class="clientcert">
-                The server requires you to provide a client certificate which
-                is not supported by this web application.
+                {{ translate('connectdialog.error.reason.clientcert') }}
               </span>
               <br />
-              <span class="server"> The server reports: </span>
+              <span class="server"> {{ translate('connectdialog.error.reason.server') }} </span>
               <br />
               "<span class="connect-error-reason">{{ reason }}</span>"
             </td>
           </tr>
           <tr v-if="type === 2 || type === 3 || type === 5">
-            <td class="alternate-username">Username</td>
+            <td class="alternate-username">{{ translate('connectdialog.username') }}</td>
             <td>
               <input
                 id="alternate-username"
@@ -62,7 +60,7 @@
             </td>
           </tr>
           <tr v-if="type === 3 || type === 4">
-            <td class="alternate-password">Password</td>
+            <td class="alternate-password">{{ translate('connectdialog.password') }}</td>
             <td>
               <input
                 id="alternate-password"
@@ -76,8 +74,8 @@
         </tbody>
       </table>
       <div class="dialog-footer">
-        <input class="dialog-submit" type="submit" value="Retry" />
-        <input class="dialog-close" type="button" value="Cancel" @click="hide" />
+        <input class="dialog-submit" type="submit" :value="translate('connectdialog.error.retry')" />
+        <input class="dialog-close" type="button" :value="translate('connectdialog.error.cancel')" @click="hide" />
       </div>
     </form>
       </div>
@@ -89,6 +87,7 @@
 import { Teleport, Transition, computed, inject } from 'vue';
 
 const appState = inject('appState');
+const translate = inject('translate');
 
 // Direct computed getters/setters pointing to AppState connectErrorDialog Vue refs
 const visible = computed({

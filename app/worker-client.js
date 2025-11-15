@@ -68,6 +68,11 @@ class WorkerBasedMumbleConnector {
     });
   }
 
+  _callPromise(id, method, payload, transfer) {
+    // Alias for _query for semantic clarity when we expect a response
+    return this._query(id, method, payload, transfer);
+  }
+
   _addCall(proxy, name, id) {
     proxy[name] = (...args) => {
       this._call(id, name, args);
@@ -102,12 +107,19 @@ class WorkerBasedMumbleConnector {
 
   _handleRpcResponse(data) {
     let { reqId, result, error } = data;
-    let [resolve, reject] = this._requests[reqId];
+    let request = this._requests[reqId];
+    
+    // Request might not exist if _call was used instead of _query/_callPromise
+    if (!request) {
+      return; // Silently ignore responses for non-promise calls
+    }
+    
+    let [resolve, reject] = request;
     delete this._requests[reqId];
-    if (result) {
-      resolve(result);
-    } else {
+    if (error) {
       reject(error);
+    } else {
+      resolve(result);
     }
   }
 
