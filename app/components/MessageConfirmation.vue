@@ -1,16 +1,19 @@
 <template>
-  <div 
+  <button 
     class="message-confirmation" 
     :class="{ confirmed: isConfirmed }"
     @click="handleClick"
-    title="Nachricht senden"
+    :aria-label="translate('chat.send_message')"
+    :title="translate('chat.send_message')"
+    type="button"
   >
-    <span class="checkmark">✓</span>
-  </div>
+    <span class="checkmark" aria-hidden="true">✓</span>
+  </button>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
+import { translate } from '../localize';
 
 const props = defineProps({
   appState: {
@@ -45,22 +48,26 @@ watch(
         clearTimeout(resetTimer);
       }
       
-      // Reset to gray after 2 seconds
+      // Reset visual state after 2 seconds
+      // Note: AppState handles resetting messageConfirmed.value
       resetTimer = setTimeout(() => {
         isConfirmed.value = false;
       }, 2000);
-      
-      // Reset the flag
-      if (props.appState.messageConfirmed) {
-        props.appState.messageConfirmed.value = false;
-      }
     }
   }
 );
+
+// Cleanup timer on component unmount
+onUnmounted(() => {
+  if (resetTimer) {
+    clearTimeout(resetTimer);
+    resetTimer = null;
+  }
+});
 </script>
 
 <style scoped>
-.message-confirmation {
+button.message-confirmation {
   position: absolute;
   right: 5px;
   top: 50%;
@@ -78,6 +85,8 @@ watch(
   pointer-events: auto;
   cursor: pointer;
   transition: all 0.3s ease;
+  border: none;
+  padding: 0;
 }
 
 .message-confirmation:hover {

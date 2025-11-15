@@ -75,6 +75,9 @@ export default class AppState {
     // Connection tracking for race safety
     this._currentConnectionId = null;
     
+    // Timer tracking for message confirmation
+    this._messageConfirmationTimer = null;
+    
     // Set up cross-module subscriptions
     this._setupSubscriptions();
     
@@ -372,12 +375,18 @@ export default class AppState {
     
     // Listen for messageSent event (fired when message written to network)
     client.on('messageSent', (messageText) => {
+      // Clear any existing timer
+      if (this._messageConfirmationTimer) {
+        clearTimeout(this._messageConfirmationTimer);
+      }
+      
       // Trigger UI confirmation
       this._vueState.ui.messageConfirmed.value = true;
       
       // Reset after 2 seconds
-      setTimeout(() => {
+      this._messageConfirmationTimer = setTimeout(() => {
         this._vueState.ui.messageConfirmed.value = false;
+        this._messageConfirmationTimer = null;
       }, 2000);
     });
   }
@@ -537,6 +546,12 @@ export default class AppState {
    * Reset client and all state
    */
   resetClient = () => {
+    // Clear message confirmation timer
+    if (this._messageConfirmationTimer) {
+      clearTimeout(this._messageConfirmationTimer);
+      this._messageConfirmationTimer = null;
+    }
+    
     this._currentConnectionId = null;
     this._vueState.audio.stopBeep();
     this._vueState.connection.disconnect();

@@ -194,12 +194,15 @@ class MumbleClient extends EventEmitter {
       if (!needsDrainHandling) {
         this.emit('messageSent', msg.payload.message);
       } else {
-        // Wait for drain event if stream is buffering
-        const onDrain = () => {
-          this._data.removeListener('drain', onDrain);
-          this.emit('messageSent', msg.payload.message);
-        };
-        this._data.once('drain', onDrain);
+        // Only register drain listener if not already waiting
+        // This prevents memory leak from accumulating listeners during rapid sends
+        if (!this._waitingForDrain) {
+          this._waitingForDrain = true;
+          this._data.once('drain', () => {
+            this._waitingForDrain = false;
+            this.emit('messageSent', msg.payload.message);
+          });
+        }
       }
     }
   }
