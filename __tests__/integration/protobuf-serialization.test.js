@@ -216,12 +216,12 @@ describe('Protobuf.js Field Name Convention Tests', () => {
     test('Channel.sendMessage MUST use channelId (not channel_id)', () => {
       // Regression test for the bug fixed in channel.js sendMessage()
       const correctPayload = {
-        channelId: [31],  // ✅ CORRECT - camelCase
+        channelId: [1],  // ✅ CORRECT - camelCase (arbitrary test ID)
         message: 'Test message'
       };
       
       const wrongPayload = {
-        channel_id: [31],  // ❌ WRONG - Would be dropped by Protobuf.js
+        channel_id: [1],  // ❌ WRONG - Would be dropped by Protobuf.js
         message: 'Test message'
       };
       
@@ -235,12 +235,12 @@ describe('Protobuf.js Field Name Convention Tests', () => {
     test('Channel.sendTreeMessage MUST use treeId (not tree_id)', () => {
       // Regression test for the bug fixed in channel.js sendTreeMessage()
       const correctPayload = {
-        treeId: [31],  // ✅ CORRECT - camelCase
+        treeId: [1],  // ✅ CORRECT - camelCase (arbitrary test ID)
         message: 'Tree message'
       };
       
       const wrongPayload = {
-        tree_id: [31],  // ❌ WRONG - Would be dropped by Protobuf.js
+        tree_id: [1],  // ❌ WRONG - Would be dropped by Protobuf.js
         message: 'Tree message'
       };
       
