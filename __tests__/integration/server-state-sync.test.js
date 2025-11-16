@@ -23,6 +23,22 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
   let audioStateMock;
   let voiceStateMock;
 
+  // Helper to create a mock client with self user
+  function createMockClient(sessionId = 42) {
+    const mockClient = new EventEmitter();
+    mockClient.self = new User(mockClient, sessionId);
+    mockClient._userById = { [sessionId]: mockClient.self };
+    return mockClient;
+  }
+
+  // Helper to setup user state with initial values
+  function setupUserState(initialMute = false, initialDeaf = false) {
+    const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
+    selfMute.value = initialMute;
+    selfDeaf.value = initialDeaf;
+    return { selfMute, selfDeaf, registerUser };
+  }
+
   beforeEach(async () => {
     // Mock dependencies - inline mocks for ES modules
     jest.unstable_mockModule('../../app/audio/buffer-queue-node.js', () => ({
@@ -78,33 +94,15 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
   describe('GUARANTEE: UI always matches server state', () => {
     test('Server sends selfMute=true → UI MUST be muted', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const mockClient = createMockClient();
+      const { selfMute, registerUser } = setupUserState(false, false);
       
-      // Create mock client with self user
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      // Initialize user state composable
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      // Initial state: unmuted
-      selfMute.value = false;
-      selfDeaf.value = false;
-      
-      // Register user (sets up server-state-sync listener)
       registerUser(mockClient.self);
-
-      // SIMULATE: Server sends UserState with selfMute=true
       mockClient.self._update({ self_mute: true });
 
-      // VERIFY: UI state MUST match server
       expect(selfMute.value).toBe(true);
       expect(consoleSpy).toHaveBeenCalledWith(
         '[SERVER-STATE-SYNC] Received server state:',
-        expect.objectContaining({ selfMute: true })
-      );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[SERVER-STATE-SYNC] UI synchronized to:',
         expect.objectContaining({ selfMute: true })
       );
       
@@ -113,99 +111,56 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
     test('Server sends selfMute=false → UI MUST be unmuted', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      // Initial state: muted
-      selfMute.value = true;
+      const mockClient = createMockClient();
+      const { selfMute, registerUser } = setupUserState(true, false);
       
       registerUser(mockClient.self);
-
-      // SIMULATE: Server sends UserState with selfMute=false
       mockClient.self._update({ self_mute: false });
 
-      // VERIFY: UI MUST be unmuted
       expect(selfMute.value).toBe(false);
-      
       consoleSpy.mockRestore();
     });
 
     test('Server sends selfDeaf=true → UI MUST be deafened', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      selfDeaf.value = false;
+      const mockClient = createMockClient();
+      const { selfDeaf, registerUser } = setupUserState(false, false);
       
       registerUser(mockClient.self);
-
-      // SIMULATE: Server sends UserState with selfDeaf=true
       mockClient.self._update({ self_deaf: true });
 
-      // VERIFY: UI MUST be deafened
       expect(selfDeaf.value).toBe(true);
-      
       consoleSpy.mockRestore();
     });
 
     test('Server sends selfDeaf=false → UI MUST be undeafened', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      selfDeaf.value = true;
+      const mockClient = createMockClient();
+      const { selfDeaf, registerUser } = setupUserState(false, true);
       
       registerUser(mockClient.self);
-
-      // SIMULATE: Server sends UserState with selfDeaf=false
       mockClient.self._update({ self_deaf: false });
 
-      // VERIFY: UI MUST be undeafened
       expect(selfDeaf.value).toBe(false);
-      
       consoleSpy.mockRestore();
     });
 
     test('CRITICAL: Undeafen scenario - UI preserves mute, server confirms', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      // Initial: User is muted AND deafened
-      selfMute.value = true;
-      selfDeaf.value = true;
+      const mockClient = createMockClient();
+      const { selfMute, selfDeaf, registerUser } = setupUserState(true, true);
       
       registerUser(mockClient.self);
 
       // SIMULATE: User undeafens (client sends only selfDeaf=false to server)
-      // Server responds with ONLY selfDeaf=false (does NOT send selfMute)
       mockClient.self._update({ self_deaf: false });
 
-      // VERIFY: deaf state changed, mute preserved
       expect(selfDeaf.value).toBe(false);
       expect(selfMute.value).toBe(true); // MUST stay muted
       
-      // SIMULATE: Server confirms current state (echo back what it has)
-      // If server had wrong state, this would force correction
+      // SIMULATE: Server confirms current state
       mockClient.self._update({ self_mute: true, self_deaf: false });
 
-      // VERIFY: UI still matches
       expect(selfMute.value).toBe(true);
       expect(selfDeaf.value).toBe(false);
       
@@ -214,23 +169,14 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
     test('CRITICAL: Server correction scenario - UI had wrong state', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      // SIMULATE: UI thinks it's unmuted (e.g., due to bug or race condition)
-      selfMute.value = false;
-      selfDeaf.value = false;
+      const mockClient = createMockClient();
+      const { selfMute, registerUser } = setupUserState(false, false);
       
       registerUser(mockClient.self);
 
       // SIMULATE: Server sends correction - you ARE muted!
       mockClient.self._update({ self_mute: true });
 
-      // VERIFY: UI MUST accept server's authority
       expect(selfMute.value).toBe(true);
       expect(consoleSpy).toHaveBeenCalledWith(
         '[SERVER-STATE-SYNC] UI synchronized to:',
@@ -241,48 +187,33 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
     });
 
     test('VERIFY: server-state-sync event only fires for self user', () => {
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
+      const mockClient = createMockClient(42);
       const otherUser = new User(mockClient, 99);
-      mockClient._userById = { 42: mockClient.self, 99: otherUser };
+      mockClient._userById[99] = otherUser;
 
-      const { registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
+      const { registerUser } = setupUserState();
       registerUser(mockClient.self);
 
-      // Track events
       const selfSyncSpy = jest.fn();
       const otherSyncSpy = jest.fn();
       mockClient.self.on('server-state-sync', selfSyncSpy);
       otherUser.on('server-state-sync', otherSyncSpy);
 
-      // Update self user
       mockClient.self._update({ self_mute: true });
       expect(selfSyncSpy).toHaveBeenCalled();
 
-      // Update other user - should NOT emit server-state-sync
       otherUser._update({ self_mute: true });
       expect(otherSyncSpy).not.toHaveBeenCalled();
     });
 
     test('VERIFY: Both mute and deaf can be synced in single message', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockClient = new EventEmitter();
-      mockClient.self = new User(mockClient, 42);
-      mockClient._userById = { 42: mockClient.self };
-
-      const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
-      
-      selfMute.value = false;
-      selfDeaf.value = false;
+      const mockClient = createMockClient();
+      const { selfMute, selfDeaf, registerUser } = setupUserState(false, false);
       
       registerUser(mockClient.self);
-
-      // SIMULATE: Server sends both in one update (e.g., deafen operation)
       mockClient.self._update({ self_mute: true, self_deaf: true });
 
-      // VERIFY: Both synced
       expect(selfMute.value).toBe(true);
       expect(selfDeaf.value).toBe(true);
       expect(consoleSpy).toHaveBeenCalledWith(
