@@ -48,6 +48,32 @@ export function useUserState(audioState, voiceState) {
     if (user.__ui) {
       delete user.__ui;
     }
+
+    // SERVER-STATE-SYNC: Listen for server's authoritative state updates
+    // This ensures UI ALWAYS matches server state (100% guarantee)
+    const syncServerState = (serverState) => {
+      debugLog('[SERVER-STATE-SYNC] Received server state:', serverState);
+      debugLog('[SERVER-STATE-SYNC] Current UI state:', { selfMute: selfMute.value, selfDeaf: selfDeaf.value });
+      
+      // Force UI to match server's state
+      if (serverState.selfMute !== undefined) {
+        selfMute.value = serverState.selfMute;
+      }
+      if (serverState.selfDeaf !== undefined) {
+        selfDeaf.value = serverState.selfDeaf;
+      }
+      
+      debugLog('[SERVER-STATE-SYNC] UI synchronized to:', { selfMute: selfMute.value, selfDeaf: selfDeaf.value });
+    };
+    
+    // Remove old listener if it exists to prevent memory leak
+    if (user.__syncServerState) {
+      user.off('server-state-sync', user.__syncServerState);
+    }
+    
+    // Store reference for cleanup and add listener
+    user.__syncServerState = syncServerState;
+    user.on('server-state-sync', syncServerState);
     
     // Create new minimal wrapper with Vue refs
     // Protocol user.channel exists on model; channel.users managed by mumble-client

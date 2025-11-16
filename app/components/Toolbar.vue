@@ -171,7 +171,6 @@ const handleLogoutClick = () => {
 </script>
 
 <style scoped>
-/* Mail link - clean styling without inline styles */
 .mail-link {
   text-decoration: none;
 }
@@ -181,6 +180,10 @@ const handleLogoutClick = () => {
   bottom: 0;
   left: 0;
   right: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
 }
 
 .message-box-container {

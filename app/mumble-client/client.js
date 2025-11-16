@@ -756,6 +756,9 @@ class MumbleClient extends EventEmitter {
   }
 
   setSelfMute (mute) {
+    if ((typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || (typeof window !== 'undefined' && window.MUMBLE_DEBUG)) {
+      console.log('[CLIENT-STATE-SEND] Sending selfMute to server:', mute);
+    }
     const message = {
       name: 'UserState',
       payload: {
@@ -773,6 +776,9 @@ class MumbleClient extends EventEmitter {
   }
 
   setSelfDeaf (deaf) {
+    if ((typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || (typeof window !== 'undefined' && window.MUMBLE_DEBUG)) {
+      console.log('[CLIENT-STATE-SEND] Sending selfDeaf to server:', deaf, deaf ? '(auto-mute)' : '(preserve mute)');
+    }
     const message = {
       name: 'UserState',
       payload: {
@@ -786,7 +792,8 @@ class MumbleClient extends EventEmitter {
       message.payload.selfMute = true
     } else {
       message.payload.selfDeaf = false
-      message.payload.selfMute = false
+      // When undeafening, do NOT change mute status - preserve user's choice
+      // Only send selfDeaf=false to server, let mute state remain as-is
     }
     this._send(message)
   }

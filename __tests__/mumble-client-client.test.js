@@ -376,5 +376,21 @@ describe('mumble-client Client', () => {
         }
       });
     });
+
+    test('should send undeaf without changing mute state', () => {
+      client._send = jest.fn();
+      client.self = new User(client, 42);
+
+      client.setSelfDeaf(false);
+
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 42,
+          selfDeaf: false
+          // selfMute intentionally NOT sent - preserve user's mute choice
+        }
+      });
+    });
   });
 });
