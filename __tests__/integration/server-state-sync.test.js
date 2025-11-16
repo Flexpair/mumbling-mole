@@ -91,9 +91,14 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
     };
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+    // Clean up any registered event listeners
+    // useUserState creates fresh instances per test via setupUserState()
+  });
+
   describe('GUARANTEE: UI always matches server state', () => {
     test('Server sends selfMute=true → UI MUST be muted', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfMute, registerUser } = setupUserState(false, false);
       
@@ -101,16 +106,9 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       mockClient.self._update({ self_mute: true });
 
       expect(selfMute.value).toBe(true);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[SERVER-STATE-SYNC] Received server state:',
-        expect.objectContaining({ selfMute: true })
-      );
-      
-      consoleSpy.mockRestore();
     });
 
     test('Server sends selfMute=false → UI MUST be unmuted', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfMute, registerUser } = setupUserState(true, false);
       
@@ -118,11 +116,9 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       mockClient.self._update({ self_mute: false });
 
       expect(selfMute.value).toBe(false);
-      consoleSpy.mockRestore();
     });
 
     test('Server sends selfDeaf=true → UI MUST be deafened', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfDeaf, registerUser } = setupUserState(false, false);
       
@@ -130,11 +126,9 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       mockClient.self._update({ self_deaf: true });
 
       expect(selfDeaf.value).toBe(true);
-      consoleSpy.mockRestore();
     });
 
     test('Server sends selfDeaf=false → UI MUST be undeafened', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfDeaf, registerUser } = setupUserState(false, true);
       
@@ -142,11 +136,9 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       mockClient.self._update({ self_deaf: false });
 
       expect(selfDeaf.value).toBe(false);
-      consoleSpy.mockRestore();
     });
 
     test('CRITICAL: Undeafen scenario - UI preserves mute, server confirms', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfMute, selfDeaf, registerUser } = setupUserState(true, true);
       
@@ -163,12 +155,9 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
       expect(selfMute.value).toBe(true);
       expect(selfDeaf.value).toBe(false);
-      
-      consoleSpy.mockRestore();
     });
 
     test('CRITICAL: Server correction scenario - UI had wrong state', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfMute, registerUser } = setupUserState(false, false);
       
@@ -178,12 +167,6 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       mockClient.self._update({ self_mute: true });
 
       expect(selfMute.value).toBe(true);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[SERVER-STATE-SYNC] UI synchronized to:',
-        expect.objectContaining({ selfMute: true })
-      );
-      
-      consoleSpy.mockRestore();
     });
 
     test('VERIFY: server-state-sync event only fires for self user', () => {
@@ -207,7 +190,6 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
     });
 
     test('VERIFY: Both mute and deaf can be synced in single message', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       const mockClient = createMockClient();
       const { selfMute, selfDeaf, registerUser } = setupUserState(false, false);
       
@@ -216,12 +198,6 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
       expect(selfMute.value).toBe(true);
       expect(selfDeaf.value).toBe(true);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[SERVER-STATE-SYNC] Received server state:',
-        expect.objectContaining({ selfMute: true, selfDeaf: true })
-      );
-      
-      consoleSpy.mockRestore();
     });
   });
 

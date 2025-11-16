@@ -756,7 +756,9 @@ class MumbleClient extends EventEmitter {
   }
 
   setSelfMute (mute) {
-    console.log('[CLIENT-STATE-SEND] Sending selfMute to server:', mute);
+    if ((typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || (typeof window !== 'undefined' && window.MUMBLE_DEBUG)) {
+      console.log('[CLIENT-STATE-SEND] Sending selfMute to server:', mute);
+    }
     const message = {
       name: 'UserState',
       payload: {
@@ -774,7 +776,9 @@ class MumbleClient extends EventEmitter {
   }
 
   setSelfDeaf (deaf) {
-    console.log('[CLIENT-STATE-SEND] Sending selfDeaf to server:', deaf, deaf ? '(auto-mute)' : '(preserve mute)');
+    if ((typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || (typeof window !== 'undefined' && window.MUMBLE_DEBUG)) {
+      console.log('[CLIENT-STATE-SEND] Sending selfDeaf to server:', deaf, deaf ? '(auto-mute)' : '(preserve mute)');
+    }
     const message = {
       name: 'UserState',
       payload: {
