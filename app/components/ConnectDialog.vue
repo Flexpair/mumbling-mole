@@ -104,16 +104,9 @@
       <!-- Dialog Buttons - completely separate section -->
       <div class="dialog-buttons">
         <input
-          v-if="!isTestActive"
           type="submit"
           class="connect-dialog-submit"
-          :value="connected ? 'Reconnect' : 'Connect'"
-        />
-        <input
-          v-else
-          type="button"
           value="Connect"
-          @click="handleExitTest"
         />
       </div>
     </form>
@@ -247,9 +240,16 @@ async function handleConnect() {
         if (appState.guacamoleFrame.show) appState.guacamoleFrame.show();
       }
     } else {
-      // Normal connection flow
-      isTestActive.value = false;
-      await appState.connect(address.value, port.value, username.value, password.value);
+      // Connection flow - check if we're in test mode
+      if (isTestActive.value) {
+        // Loopback test mode - keep test active
+        console.log('[ConnectDialog Vue] Connecting in loopback test mode');
+        await appState.connectLoopback(address.value, port.value, username.value, password.value);
+      } else {
+        // Normal connection flow
+        console.log('[ConnectDialog Vue] Connecting in normal mode');
+        await appState.connect(address.value, port.value, username.value, password.value);
+      }
     }
   } else {
     console.error('[ConnectDialog Vue] appState.connect not available!');
