@@ -4,7 +4,7 @@ import { Transform } from 'node:stream';
 
 
 /**
- * @typedef {('Opus'|'Speex'|'CELT_Alpha'|'CELT_Beta')} Codec
+ * @typedef {('Opus')} Codec
  */
 
 /**
@@ -94,37 +94,9 @@ Encoder.prototype._encodeOpusFrames = function(chunk, callback) {
   return { codecId: 4, voiceData };
 };
 
-Encoder.prototype._encodeCeltSpeexFrames = function(chunk, callback) {
-  const codecId = {'CELT_Alpha': 0, 'Speex': 2, 'CELT_Beta': 3}[chunk.codec];
-  const voiceData = [];
-  
-  if (chunk.frames.length == 0 && !chunk.end) {
-    return callback(new Error('No frames given but end bit is not set'));
-  }
-  
-  for (const frame of chunk.frames) {
-    if (frame.length > 127) {
-      return callback(new Error('Frame size is greater than 127 bytes'));
-    }
-    voiceData.push(Buffer.from([frame.length | 0x80]), frame);
-  }
-  
-  // Append empty frame if end bit is set
-  if (chunk.end) {
-    voiceData.push(Buffer.from([0]), Buffer.from([]));
-  }
-  
-  // Unset continuation bit of last frame
-  voiceData.at(-2)[0] &= 0x7F;
-  
-  return { codecId, voiceData: Buffer.concat(voiceData) };
-};
-
 Encoder.prototype._encodeVoiceData = function(chunk, callback) {
   if (chunk.codec == 'Opus') {
     return this._encodeOpusFrames(chunk, callback);
-  } else if (['CELT_Alpha', 'CELT_Beta', 'Speex'].includes(chunk.codec)) {
-    return this._encodeCeltSpeexFrames(chunk, callback);
   } else {
     return callback(new TypeError('Unknown codec: ' + chunk.codec));
   }
@@ -221,43 +193,6 @@ Decoder.prototype._parseOpusFrames = function(chunk, offset) {
   };
 };
 
-Decoder.prototype._parseCeltSpeexFrames = function(chunk, offset, codecId) {
-  const codecMap = ['CELT_Alpha', '', 'Speex', 'CELT_Beta'];
-  const frames = [];
-  let end = false;
-  
-  while (true) {
-    if (chunk.length < offset + 1) return { error: 'missing frame header' };
-    const header = chunk[offset++];
-    
-    if (header === 0) {
-      end = true;
-      break;
-    }
-    
-    const more = (header & 0x80) > 0;
-    const frameLength = header & 0x7F;
-    
-    if (chunk.length < offset + frameLength) {
-      return { error: 'not enough voice data' };
-    }
-    
-    frames.push(chunk.slice(offset, offset + frameLength));
-    offset += frameLength;
-    
-    if (!more) {
-      break;
-    }
-  }
-  
-  return {
-    frames: frames,
-    end: end,
-    codec: codecMap[codecId],
-    offset: offset
-  };
-};
-
 Decoder.prototype._parsePositionalData = function(chunk, offset) {
   if (chunk.length > offset + 12) {
     return {
@@ -295,8 +230,6 @@ Decoder.prototype._parseVoicePacket = function(chunk) {
   let voiceResult;
   if (codecId === 4) {
     voiceResult = this._parseOpusFrames(chunk, offset);
-  } else if (codecId === 0 || codecId === 2 || codecId === 3) {
-    voiceResult = this._parseCeltSpeexFrames(chunk, offset, codecId);
   } else {
     this.emit('unknown_codec', codecId);
     return { error: 'unknown codec ' + codecId };

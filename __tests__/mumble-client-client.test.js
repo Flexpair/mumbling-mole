@@ -188,7 +188,6 @@ describe('mumble-client Client', () => {
 
     test('should initialize with codecs if provided', () => {
       const codecs = {
-        celt: [1, 2, 3],
         opus: true,
         createDecoderStream: jest.fn(),
         createEncoderStream: jest.fn()

@@ -145,7 +145,7 @@ describe('EncoderStream - Transform', () => {
   });
 
   test('uses correct codec in action string', (done) => {
-    const stream = new EncoderStream('CELT');
+    const stream = new EncoderStream('Opus');
     const mockWorker2 = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker2);
     stream._worker = mockWorker2;
@@ -160,7 +160,7 @@ describe('EncoderStream - Transform', () => {
 
     stream._transform(chunk, 'utf8', () => {
       expect(mockWorker2.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'encodeCELT' }),
+        expect.objectContaining({ action: 'encodeOpus' }),
         expect.any(Array)
       );
       done();

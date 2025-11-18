@@ -56,7 +56,7 @@ For deeper internal testing, see the unit test suite:
 
 Comprehensive unit tests for mumble-streams internal functions:
 
-- Voice Encoder/Decoder: Constructor validation, codec handling (Opus/CELT/Speex), ping packets, loopback mode, position data, error handling
+- Voice Encoder/Decoder: Constructor validation, codec handling (Opus only), ping packets, loopback mode, position data, error handling
 - Data Module: Protobuf message encoding/decoding, round-trip testing, message type coverage
 - UDP Crypto: Key management, encryption/decryption, IV handling, ready state, key generation
 - Version Object: Version encoding and consistency

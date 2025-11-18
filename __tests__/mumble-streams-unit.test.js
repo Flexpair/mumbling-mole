@@ -220,58 +220,7 @@ describe('mumble-streams Unit Tests', () => {
       });
     });
 
-    describe('Legacy Codecs', () => {
-      test('encodes CELT_Alpha packet', async () => {
-        const encoder = new Encoder('server');
 
-        const dataPromise = waitForEncoderData(encoder);
-        encoder.write({
-          mode: 0,
-          codec: 'CELT_Alpha',
-          seqNum: 1,
-          end: true,
-          frames: [Buffer.from([1, 2, 3])]
-        });
-        const buffer = await dataPromise;
-
-        const codecId = buffer[0] >> 5;
-        expect(codecId).toBe(0); // CELT_Alpha
-      });
-
-      test('encodes Speex packet', async () => {
-        const encoder = new Encoder('server');
-
-        const dataPromise = waitForEncoderData(encoder);
-        encoder.write({
-          mode: 0,
-          codec: 'Speex',
-          seqNum: 1,
-          end: true,
-          frames: [Buffer.from([1, 2, 3])]
-        });
-        const buffer = await dataPromise;
-
-        const codecId = buffer[0] >> 5;
-        expect(codecId).toBe(2); // Speex
-      });
-
-      test('rejects CELT/Speex frame larger than 127 bytes', async () => {
-        const encoder = new Encoder('server');
-
-        const errorPromise = waitForEncoderError(encoder);
-        const largeFrame = Buffer.alloc(128);
-        encoder.write({
-          mode: 0,
-          codec: 'Speex',
-          seqNum: 1,
-          end: false,
-          frames: [largeFrame]
-        });
-        const err = await errorPromise;
-
-        expect(err.message).toContain('Frame size is greater than 127 bytes');
-      });
-    });
 
     describe('Error Handling', () => {
       test('rejects unknown codec', async () => {
