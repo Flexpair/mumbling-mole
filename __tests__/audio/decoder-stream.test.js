@@ -165,7 +165,7 @@ describe('DecoderStream - Transform', () => {
 
   test('uses correct codec in action string', (done) => {
     const chunk = {
-      codec: 'CELT',
+      codec: 'Opus',
       frame: Buffer.from([0x01]),
       target: 0,
       position: 0
@@ -173,7 +173,7 @@ describe('DecoderStream - Transform', () => {
 
     stream._transform(chunk, 'utf8', () => {
       expect(mockWorker.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'decodeCELT' }),
+        expect.objectContaining({ action: 'decodeOpus' }),
         expect.any(Array)
       );
       done();

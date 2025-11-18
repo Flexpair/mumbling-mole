@@ -312,9 +312,6 @@ export default class AppState {
         },
         () => {
           this._vueState.audio.initializePersistentBeeper();
-          if (this._vueState.voice.isLoopbackMode.value) {
-            this._vueState.voice.voiceHandlerReady.value = true;
-          }
         }
       );
     } else {

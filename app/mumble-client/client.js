@@ -58,7 +58,6 @@ const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
 
 /**
  * @interface Codecs
- * @property {number[]} celt - List of celt versions supported by this implementation
  * @property {boolean} opus - Whether this implementation supports the Opus codec
  */
 
@@ -239,7 +238,7 @@ class MumbleClient extends EventEmitter {
         username: this._username,
         password: this._password,
         tokens: this._tokens,
-        celt_versions: (this._codecs || { celt: [] }).celt,
+        celt_versions: [],
         opus: (this._codecs || { opus: false }).opus
       }
     })
@@ -517,7 +516,6 @@ class MumbleClient extends EventEmitter {
       onlineSeconds: payload.onlinesecs || payload.onlineSeconds,
       idleSeconds: payload.idlesecs || payload.idleSeconds,
       bandwidth: payload.bandwidth,
-      celtVersions: payload.celt_versions || payload.celtVersions,
       opus: payload.opus,
       strongCertificate: payload.strong_certificate || payload.strongCertificate
     })

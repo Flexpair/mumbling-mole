@@ -104,16 +104,9 @@
       <!-- Dialog Buttons - completely separate section -->
       <div class="dialog-buttons">
         <input
-          v-if="!isTestActive"
           type="submit"
           class="connect-dialog-submit"
-          :value="connected ? 'Reconnect' : 'Connect'"
-        />
-        <input
-          v-else
-          type="button"
           value="Connect"
-          @click="handleExitTest"
         />
       </div>
     </form>
@@ -232,11 +225,9 @@ async function handleConnect() {
   if (appState?.connect) {
     console.log('[ConnectDialog Vue] Calling appState.connect()');
     
-    // Hide dialog
-    visible.value = false;
-    
-    // If already connected, exit test mode
-    if (connected.value) {
+    // If in test mode and connected: exit test mode and switch to normal mode
+    if (isTestActive.value && connected.value) {
+      console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
       isTestActive.value = false;
       appState.isLoopbackMode.value = false;
       appState._updateVoiceHandler();
@@ -246,9 +237,18 @@ async function handleConnect() {
         appState.guacamoleFrame.start(appState._guacLogin, appState._guacPassword);
         if (appState.guacamoleFrame.show) appState.guacamoleFrame.show();
       }
-    } else {
-      // Normal connection flow
-      isTestActive.value = false;
+      
+      // Close dialog when switching from test to normal mode
+      visible.value = false;
+      return;
+    }
+    
+    // Normal connection flow (not in test mode)
+    if (!isTestActive.value) {
+      // Hide dialog before connecting
+      visible.value = false;
+      
+      console.log('[ConnectDialog Vue] Connecting in normal mode');
       await appState.connect(address.value, port.value, username.value, password.value);
     }
   } else {
