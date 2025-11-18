@@ -119,21 +119,19 @@ test.describe('Loopback Frequency Test', () => {
     console.log('✅ Test mode activated');
     
     // Note: Dialog stays open in loopback mode so Piano button remains accessible
+    // Note: handleToggleLoopback() already calls connectLoopback() - no need to click Connect button
     
-    // STEP 3: Click Connect button if still visible (not auto-connected)
-    console.log('🔄 Step 3: Checking if Connect button needs to be clicked...');
-    const connectButton = page.locator('input.connect-dialog-submit[type="submit"]');
+    // STEP 3: Wait for connection (toggle already started it)
+    console.log('🔄 Step 3: Waiting for connection to complete (started by toggle)...');
     
-    // Check if button is still visible (not auto-connected via MockAuth)
-    const isConnectButtonVisible = await connectButton.isVisible().catch(() => false);
+    // Wait for connection to be established (max 10 seconds)
+    // connected() returns true when thisUser is set
+    await page.waitForFunction(() => {
+      const ui = window.mumbleUi;
+      return ui?.connected?.() === true;
+    }, { timeout: 10000 });
     
-    if (isConnectButtonVisible) {
-      console.log('   Connect button found, clicking...');
-      await connectButton.click();
-      console.log('✅ Connect button clicked');
-    } else {
-      console.log('✅ Already connected (auto-connect active)');
-    }
+    console.log('✅ Connection established (via toggle)');
     
     // STEP 4: Wait for audio components to initialize
     console.log('⏳ Step 4: Waiting for audio components to initialize...');
