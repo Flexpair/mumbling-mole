@@ -19,6 +19,7 @@ export function useSettings(defaults = {}) {
   const userCountInChannelName = useLocalStorage('userCountInChannelName', defaults.userCountInChannelName || false, { prefix: 'mumble.' });
   const audioBitrate = useLocalStorage('audioBitrate', defaults.audioBitrate || 40000, { prefix: 'mumble.' });
   const samplesPerPacket = useLocalStorage('samplesPerPacket', defaults.samplesPerPacket || 960, { prefix: 'mumble.' });
+  const jitterBufferSize = useLocalStorage('jitterBufferSize', defaults.jitterBufferSize || 25, { prefix: 'mumble.' });
 
   // Dialog-specific state (not persisted)
   const pttKeyDisplay = ref(pttKey.value);
@@ -50,6 +51,7 @@ export function useSettings(defaults = {}) {
     userCountInChannelName.value = dialogSettings.userCountInChannelName.value;
     audioBitrate.value = dialogSettings.audioBitrate.value;
     samplesPerPacket.value = dialogSettings.samplesPerPacket.value;
+    jitterBufferSize.value = dialogSettings.jitterBufferSize.value;
     // No explicit save() needed - useLocalStorage auto-saves
   };
 
@@ -130,6 +132,7 @@ export function useSettings(defaults = {}) {
     userCountInChannelName,
     audioBitrate,
     samplesPerPacket,
+    jitterBufferSize,
     
     // Dialog state
     pttKeyDisplay,

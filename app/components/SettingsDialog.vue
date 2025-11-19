@@ -116,6 +116,28 @@
             </td>
           </tr>
 
+          <!-- Jitter Buffer -->
+          <tr>
+            <td id="settings-dialog_jitter_buffer">
+              {{ t('settingsdialog.jitter_buffer') }}
+            </td>
+            <td>
+              <span>{{ jitterBufferMs }}</span> ms
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <input
+                type="range"
+                min="20"
+                max="1000"
+                step="20"
+                v-model.number="jitterBufferMs"
+                title="Adjust buffer size to handle network jitter (higher = more stable, lower = less latency)"
+              />
+            </td>
+          </tr>
+
           <!-- Bandwidth Info with tooltips -->
           <tr>
             <td colspan="2" class="bandwidth-info">
@@ -202,12 +224,14 @@ const samplesPerPacket = computed({
   set: (val) => { appState.settings.samplesPerPacket.value = val; }
 });
 
-// Computed: msPerPacket (bidirectional conversion)
-const msPerPacket = computed({
-  get: () => appState.settings.msPerPacket.value,
-  set: (value) => {
-    appState.settings.samplesPerPacket.value = value * 48;
-  }
+const jitterBufferSize = computed({
+  get: () => appState.settings.jitterBufferSize.value,
+  set: (val) => { appState.settings.jitterBufferSize.value = val; }
+});
+
+const jitterBufferMs = computed({
+  get: () => jitterBufferSize.value * 20,
+  set: (val) => { jitterBufferSize.value = Math.round(val / 20); }
 });
 
 // Computed: Bandwidth calculations (from AppState.settings)

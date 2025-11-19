@@ -34,6 +34,23 @@ export function useUserState(audioState, voiceState) {
   // Prevents memory leaks from intervals and subscriptions
   const _streamManager = createVoiceStreamManager();
 
+  // Settings injection
+  let settings = null;
+  
+  function setSettings(s) {
+    settings = s;
+    if (settings && settings.jitterBufferSize) {
+      watch(settings.jitterBufferSize, (newSize) => {
+        debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
+        _streamManager.forEach((resources) => {
+          if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
+            resources.userNode.setJitterBufferSize(newSize);
+          }
+        });
+      });
+    }
+  }
+
   /**
    * Register a user with minimal UI wrapper
    * Keeps essential properties: model, name, channel, selfMute/selfDeaf, talking (for voice UI).
@@ -128,6 +145,11 @@ export function useUserState(audioState, voiceState) {
           console.log('[VOICE] Initializing BufferQueueNode...');
           await userNode.initialize();
           console.log('[VOICE] ✅ BufferQueueNode initialized successfully');
+          
+          // Set initial jitter buffer size if settings available
+          if (settings && settings.jitterBufferSize) {
+             userNode.setJitterBufferSize(settings.jitterBufferSize.value);
+          }
         } catch (err) {
           console.error('[VOICE] ❌ Failed to initialize BufferQueueNode:', err);
           console.error('[VOICE] Error details:', {
@@ -321,5 +343,6 @@ export function useUserState(audioState, voiceState) {
     requestUnmute,
     requestUndeaf,
     reset,
+    setSettings,
   };
 }

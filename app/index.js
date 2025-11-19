@@ -52,6 +52,7 @@ globalThis.ui = ui;
 
 ui.guacamoleFrame = {};
 ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
+ui.user.setSettings(ui.settings);
 
 // Initialize auth
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };

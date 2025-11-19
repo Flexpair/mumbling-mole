@@ -44,6 +44,7 @@
     "ptt_key": "Key",
     "audio_quality": "Audio Quality",
     "packet": "Audio per Packet",
+    "jitter_buffer": "Jitter Buffer",
     "close": "Close",
     "submit": "Apply"
   },
