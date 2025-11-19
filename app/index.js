@@ -7,7 +7,6 @@ import AppState from "./state/AppState";
 // Vue.js imports
 import { createApp } from 'vue';
 import AppVue from "./components/App.vue";
-import { vTooltip } from "./composables";
 
 import {
   enumMicrophones,

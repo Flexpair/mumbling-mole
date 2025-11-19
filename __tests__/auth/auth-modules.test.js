@@ -14,6 +14,53 @@ const AuthFactory = (await import('../../app/auth/AuthFactory.js')).default;
 // Import MockAuthAdapter
 const MockAuthAdapter = (await import('../../app/auth/MockAuthAdapter.js')).default;
 
+// Test provider classes extracted to reduce nesting
+class TestProvider extends AuthProvider {
+  async init() { return; }
+  async getCurrentUser() { return null; }
+  async openAuth() { return; }
+  async closeAuth() { return; }
+  async signup() { return {}; }
+  async login() { return {}; }
+  async logout() { return; }
+  async updateUser() { return {}; }
+  async resetPassword() { return; }
+  async confirmEmail() { return; }
+  async refreshToken() { return; }
+  on() { return () => {}; }
+  off() {}
+}
+
+class IncompleteProvider extends AuthProvider {}
+
+class AuthenticatedTestProvider extends AuthProvider {
+  constructor() {
+    super();
+    this._currentUser = null;
+  }
+  async init() { return; }
+  async getCurrentUser() { return this._currentUser; }
+  async openAuth() { return; }
+  async closeAuth() { return; }
+  async signup() { return {}; }
+  async login(email) { 
+    this._currentUser = { email, id: '123' };
+    return this._currentUser; 
+  }
+  async logout() { 
+    this._currentUser = null;
+  }
+  async updateUser() { return {}; }
+  async requestPasswordReset() {}
+  async refreshToken() { return; }
+  on() { return () => {}; }
+  off() {}
+}
+
+class UndefinedUserProvider extends AuthenticatedTestProvider {
+  async getCurrentUser() { return undefined; }
+}
+
 describe('AuthProvider', () => {
   describe('Abstract Class Behavior', () => {
     test('cannot be instantiated directly', () => {
@@ -23,30 +70,12 @@ describe('AuthProvider', () => {
     });
 
     test('can be extended by subclasses', () => {
-      class TestProvider extends AuthProvider {
-        async init() { return; }
-        async getCurrentUser() { return null; }
-        async openAuth() { return; }
-        async closeAuth() { return; }
-        async signup() { return {}; }
-        async login() { return {}; }
-        async logout() { return; }
-        async updateUser() { return {}; }
-        async resetPassword() { return; }
-        async confirmEmail() { return; }
-        async refreshToken() { return; }
-        on() { return () => {}; }
-        off() {}
-      }
-      
       const provider = new TestProvider();
       expect(provider).toBeInstanceOf(AuthProvider);
     });
   });
 
   describe('Interface Contract', () => {
-    class IncompleteProvider extends AuthProvider {}
-    
     test('requires init() implementation', async () => {
       const provider = new IncompleteProvider();
       await expect(provider.init()).rejects.toThrow('must be implemented');
@@ -109,33 +138,8 @@ describe('AuthProvider', () => {
   });
 
   describe('Utility Methods', () => {
-    class TestProvider extends AuthProvider {
-      constructor() {
-        super();
-        this._currentUser = null;
-      }
-      async init() { return; }
-      async getCurrentUser() { return this._currentUser; }
-      async openAuth() { return; }
-      async closeAuth() { return; }
-      async signup() { return {}; }
-      async login(email) { 
-        this._currentUser = { email, id: '123' };
-        return this._currentUser; 
-      }
-      async logout() { 
-        this._currentUser = null;
-        return; 
-      }
-      async updateUser() { return {}; }
-      async requestPasswordReset() { return; }
-      async refreshToken() { return; }
-      on() { return () => {}; }
-      off() {}
-    }
-
     test('isAuthenticated returns true when user is logged in', async () => {
-      const provider = new TestProvider();
+      const provider = new AuthenticatedTestProvider();
       await provider.login('test@example.com');
       
       const authenticated = await provider.isAuthenticated();
@@ -143,25 +147,21 @@ describe('AuthProvider', () => {
     });
 
     test('isAuthenticated returns false when user is logged out', async () => {
-      const provider = new TestProvider();
+      const provider = new AuthenticatedTestProvider();
       
       const authenticated = await provider.isAuthenticated();
       expect(authenticated).toBe(false);
     });
 
     test('isAuthenticated returns false when user is undefined', async () => {
-      class UndefinedUserProvider extends TestProvider {
-        async getCurrentUser() { return undefined; }
-      }
-      
       const provider = new UndefinedUserProvider();
       const authenticated = await provider.isAuthenticated();
       expect(authenticated).toBe(false);
     });
 
     test('getProviderName returns class name', () => {
-      const provider = new TestProvider();
-      expect(provider.getProviderName()).toBe('TestProvider');
+      const provider = new AuthenticatedTestProvider();
+      expect(provider.getProviderName()).toBe('AuthenticatedTestProvider');
     });
   });
 });
@@ -198,15 +198,15 @@ describe('AuthFactory', () => {
     });
 
     test('reads from window.mumbleWebConfig if available', () => {
-      global.window = global.window || {};
-      global.window.mumbleWebConfig = {
+      globalThis.window = globalThis.window || {};
+      globalThis.window.mumbleWebConfig = {
         auth: { provider: 'mock' }
       };
       
       const auth = AuthFactory.create();
       expect(auth).toBeInstanceOf(MockAuthAdapter);
       
-      delete global.window.mumbleWebConfig;
+      delete globalThis.window.mumbleWebConfig;
     });
   });
 
