@@ -224,6 +224,11 @@ const samplesPerPacket = computed({
   set: (val) => { appState.settings.samplesPerPacket.value = val; }
 });
 
+const msPerPacket = computed({
+  get: () => samplesPerPacket.value / 48,
+  set: (val) => { samplesPerPacket.value = val * 48; }
+});
+
 const jitterBufferSize = computed({
   get: () => appState.settings.jitterBufferSize.value,
   set: (val) => { appState.settings.jitterBufferSize.value = val; }
