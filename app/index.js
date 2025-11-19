@@ -7,7 +7,6 @@ import AppState from "./state/AppState";
 // Vue.js imports
 import { createApp } from 'vue';
 import AppVue from "./components/App.vue";
-import { vTooltip } from "./composables";
 
 import {
   enumMicrophones,
@@ -46,7 +45,7 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-import { useSettings } from "./composables/index.js";
+import { useSettings, vTooltip } from "./composables/index.js";
 
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
