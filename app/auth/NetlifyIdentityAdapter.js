@@ -17,8 +17,8 @@ class NetlifyIdentityAdapter extends AuthProvider {
     super();
     
     // Check if Netlify Identity widget is available
-    if (globalThis.window?.netlifyIdentity?.init) {
-      this.netlifyIdentity = globalThis.window.netlifyIdentity;
+    if (globalThis.netlifyIdentity?.init) {
+      this.netlifyIdentity = globalThis.netlifyIdentity;
     } else {
       // Fallback mock for testing or when widget fails to load
       console.warn('Netlify Identity widget not found, using fallback mock');

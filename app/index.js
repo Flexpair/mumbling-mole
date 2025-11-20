@@ -195,4 +195,4 @@ async function main() {
   enumMicrophones();
 }
 
-window.onload = main;
+globalThis.onload = main;

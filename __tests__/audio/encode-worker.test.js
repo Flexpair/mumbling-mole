@@ -55,20 +55,26 @@ describe('encode-worker', () => {
       })
     }));
 
-    // Mock Web Worker self
+    // Mock Web Worker environment on globalThis
+    jest.spyOn(globalThis, 'addEventListener').mockImplementation((event, handler) => {
+      if (event === 'message') {
+        messageHandlers.push(handler);
+      }
+    });
+    jest.spyOn(globalThis, 'postMessage').mockImplementation(jest.fn());
+
+    // For backward compatibility with tests using mockSelf
     mockSelf = {
-      addEventListener: jest.fn((event, handler) => {
-        if (event === 'message') {
-          messageHandlers.push(handler);
-        }
-      }),
-      postMessage: jest.fn()
+      addEventListener: globalThis.addEventListener,
+      postMessage: globalThis.postMessage
     };
 
-    global.self = mockSelf;
-
-    // Import worker (triggers self.addEventListener)
+    // Import the worker code
     await import('../../app/audio/encode-worker.js');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   afterEach(() => {

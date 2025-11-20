@@ -10,7 +10,7 @@ let clients = [];
 
 function postMessage(msg, transfer) {
   try {
-    self.postMessage(msg, transfer);
+    globalThis.postMessage(msg, transfer);
   } catch (err) {
     console.error("Failed to postMessage", msg);
     throw err;
@@ -463,7 +463,7 @@ function onMessage(data) {
   }
 }
 
-self.addEventListener("message", (ev) => {
+globalThis.addEventListener("message", (ev) => {
   // SECURITY-NOTE: Origin verification in worker context
   // ------------------------------------------------
   // Workers can ONLY receive messages from their creating parent context.

@@ -705,7 +705,7 @@ export default class AppState {
   }
 
   openSourceCode = () => {
-    window.open(packageJson.homepage, '_blank').focus();
+    globalThis.open(packageJson.homepage, '_blank').focus();
   }
 
   // Expose Vue state for direct access from Vue components

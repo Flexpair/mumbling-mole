@@ -36,17 +36,20 @@ describe('decode-worker', () => {
       Decoder: jest.fn(() => mockOpusDecoder)
     }));
 
-    // Mock Web Worker self
+    // Mock Web Worker environment on globalThis
+    jest.spyOn(globalThis, 'addEventListener').mockImplementation((event, handler) => {
+      if (event === 'message') {
+        messageHandlers.push(handler);
+      }
+    });
+    jest.spyOn(globalThis, 'postMessage').mockImplementation(jest.fn());
+
+    // For backward compatibility with tests using mockSelf
     mockSelf = {
-      addEventListener: jest.fn((event, handler) => {
-        if (event === 'message') {
-          messageHandlers.push(handler);
-        }
-      }),
-      postMessage: jest.fn()
+      addEventListener: globalThis.addEventListener,
+      postMessage: globalThis.postMessage
     };
 
-    globalThis.self = mockSelf;
     globalThis.Buffer = {
       from: jest.fn((data) => data)
     };
@@ -56,8 +59,7 @@ describe('decode-worker', () => {
   });
 
   afterEach(() => {
-    delete globalThis.self;
-    delete globalThis.Buffer;
+    jest.restoreAllMocks();
   });
 
   describe('Initialization', () => {

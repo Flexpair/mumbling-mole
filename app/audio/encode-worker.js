@@ -5,7 +5,7 @@ const MUMBLE_SAMPLE_RATE = 48000;
 
 let opusEncoder;
 let bitrate;
-self.addEventListener("message", (e) => {
+globalThis.addEventListener("message", (e) => {
   const data = e.data;
   if (data.action === "reset") {
     if (opusEncoder) {
@@ -13,7 +13,7 @@ self.addEventListener("message", (e) => {
       opusEncoder = null;
     }
     bitrate = null;
-    self.postMessage({ reset: true });
+    globalThis.postMessage({ reset: true });
   } else if (data.action === "encodeOpus") {
     if (!opusEncoder) {
       opusEncoder = new OpusEncoder({
@@ -43,7 +43,7 @@ self.addEventListener("message", (e) => {
     }
     const encoded = opusEncoder.encode(new Float32Array(data.buffer));
     const buffer = toArrayBuffer(encoded);
-    self.postMessage(
+    globalThis.postMessage(
       {
         target: data.target,
         buffer: buffer,

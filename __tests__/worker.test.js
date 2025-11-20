@@ -109,9 +109,15 @@ jest.unstable_mockModule("../app/mumble-websocket.js", () => ({
 
 // Mock global self
 const postMessageCalls = [];
+
+// Spy on globalThis
+jest.spyOn(globalThis, 'addEventListener');
+jest.spyOn(globalThis, 'postMessage').mockImplementation((msg) => postMessageCalls.push(msg));
+
+// For backward compatibility if needed
 global.self = {
-  postMessage: jest.fn((msg) => postMessageCalls.push(msg)),
-  addEventListener: jest.fn(),
+  postMessage: globalThis.postMessage,
+  addEventListener: globalThis.addEventListener,
 };
 
 // Mock require for worker.js (needed for codecs)
@@ -124,7 +130,7 @@ global.require = jest.fn((path) => {
 await import("../app/worker.js");
 
 // Extract the message handler
-const messageListenerCall = global.self.addEventListener.mock.calls.find(
+const messageListenerCall = globalThis.addEventListener.mock.calls.find(
   (call) => call[0] === "message"
 );
 const messageHandler = messageListenerCall?.[1];
@@ -137,6 +143,10 @@ describe("worker.js", () => {
     mockClients.length = 0;
   });
 
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   describe("Module initialization", () => {
     test("should register message event listener", () => {
       expect(messageHandler).toBeDefined();
@@ -144,8 +154,8 @@ describe("worker.js", () => {
     });
 
     test("should have postMessage function", () => {
-      expect(global.self.postMessage).toBeDefined();
-      expect(typeof global.self.postMessage).toBe("function");
+      expect(globalThis.postMessage).toBeDefined();
+      expect(typeof globalThis.postMessage).toBe("function");
     });
   });
 

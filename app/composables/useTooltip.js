@@ -74,7 +74,7 @@ export const vTooltip = {
       
       // Calculate horizontal position (centered, clamped to viewport)
       let left = rect.left + rect.width / 2 - tooltipWidth / 2;
-      left = Math.max(4, Math.min(left, window.innerWidth - tooltipWidth - 4));
+      left = Math.max(4, Math.min(left, globalThis.innerWidth - tooltipWidth - 4));
       
       // Try to position above; if not enough space, position below
       let top = rect.top - tooltipHeight - spacing;
@@ -83,8 +83,8 @@ export const vTooltip = {
         top = rect.bottom + spacing;
         
         // If still offscreen at bottom, clamp to bottom edge
-        if (top + tooltipHeight > window.innerHeight - 4) {
-          top = window.innerHeight - tooltipHeight - 4;
+        if (top + tooltipHeight > globalThis.innerHeight - 4) {
+          top = globalThis.innerHeight - tooltipHeight - 4;
         }
       }
       
