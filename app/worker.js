@@ -122,6 +122,47 @@ function setupChannel(id, channel, visited = new Set()) {
   return channel.id;
 }
 
+function setupUserVoiceStream(id, stream) {
+  let voiceId = nextVoiceId++;
+
+  let target;
+
+  // We want to do as little on the UI thread as possible, so do resampling here as well
+  let resampler = new PassThrough();
+
+  // Pipe stream into resampler
+  stream
+    .on("data", (data) => {
+      // store target so we can pass it on after resampling
+      target = data.target;
+      resampler.write(Buffer.from(data.pcm.buffer));
+    })
+    .on("end", () => {
+      resampler.end();
+    });
+
+  // Pipe resampler into output stream on UI thread
+  resampler
+    .on("data", (data) => {
+      data = toArrayBuffer(data); // postMessage can't transfer node's Buffer
+      postMessage(
+        {
+          voiceId: voiceId,
+          target: target,
+          buffer: data,
+        },
+        [data]
+      );
+    })
+    .on("end", () => {
+      postMessage({
+        voiceId: voiceId,
+      });
+    });
+
+  return [voiceId];
+}
+
 function setupUser(id, user) {
   id = { ...id, user: user.id };
 
@@ -134,46 +175,7 @@ function setupUser(id, user) {
     }
     return [actor, props];
   });
-  registerEventProxy(id, user, "voice", (stream) => {
-    let voiceId = nextVoiceId++;
-
-    let target;
-
-    // We want to do as little on the UI thread as possible, so do resampling here as well
-    let resampler = new PassThrough();
-
-    // Pipe stream into resampler
-    stream
-      .on("data", (data) => {
-        // store target so we can pass it on after resampling
-        target = data.target;
-        resampler.write(Buffer.from(data.pcm.buffer));
-      })
-      .on("end", () => {
-        resampler.end();
-      });
-
-    // Pipe resampler into output stream on UI thread
-    resampler
-      .on("data", (data) => {
-        data = toArrayBuffer(data); // postMessage can't transfer node's Buffer
-        postMessage(
-          {
-            voiceId: voiceId,
-            target: target,
-            buffer: data,
-          },
-          [data]
-        );
-      })
-      .on("end", () => {
-        postMessage({
-          voiceId: voiceId,
-        });
-      });
-
-    return [voiceId];
-  });
+  registerEventProxy(id, user, "voice", (stream) => setupUserVoiceStream(id, stream));
   registerEventProxy(id, user, "remove");
 
   pushProp(id, user, "channel", (it) => (it ? it.id : it));

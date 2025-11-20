@@ -231,6 +231,116 @@ export function onAudioMixerReady(callback) {
   }
 }
 
+function handleTrackEnded(track, mixer, node, src, mixerTimestamp) {
+  if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
+    try {
+      node.disconnect();
+    } catch (error_) {
+      console.warn('[VOICE] Error disconnecting AudioWorkletNode:', error_);
+    }
+    try {
+      mixer.disconnect();
+    } catch (error_) {
+      console.warn('[VOICE] Error disconnecting mixer:', error_);
+    }
+    try {
+      src.disconnect();
+    } catch (error_) {
+      console.warn('[VOICE] Error disconnecting source:', error_);
+    }
+
+    // Clear global references only if this is still the active instance
+    currentMixerInstance = null;
+    globalThis._audioMixer = null;
+
+    // Don't close the shared/global AudioContext here. Suspending saves power without
+    // invalidating the shared instance held by the AudioContextManager.
+    try {
+      audioContextManager.suspendAudioContext();
+    } catch (error_) {
+      console.warn('[VOICE] Error suspending AudioContext:', error_);
+    }
+  }
+}
+
+async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
+  const initStartTime = Date.now();
+  console.log('[VOICE-INIT] Starting audio pipeline initialization');
+
+  try {
+    // AUDIO-CONTEXT: Use managed AudioContext with autoplay policy handling
+    // Sample rate must be 48kHz to match Mumble protocol requirements
+    const acStartTime = Date.now();
+    const ac = await ensureAudioContext({
+      sampleRate: 48000,
+      latencyHint: 'interactive'
+    });
+    console.log(`[VOICE-INIT] AudioContext ready after ${Date.now() - acStartTime}ms (state: ${ac.state}, sampleRate: ${ac.sampleRate}Hz)`);
+
+    // AUDIOWORKLET: Load AudioWorklet processor for real-time audio capture
+    // recorder-worker.js runs in audio thread for low-latency processing
+    const workletStartTime = Date.now();
+    await ac.audioWorklet.addModule("recorder-worker.js");
+    console.log(`[VOICE-INIT] AudioWorklet module loaded after ${Date.now() - workletStartTime}ms`);
+
+    // AUDIO-SOURCE: Create audio source from microphone stream
+    const src = ac.createMediaStreamSource(userMedia);
+
+    // BEEP-MIXER: Create a mixer node to combine microphone + beep signals
+    const mixer = ac.createGain();
+    mixer.gain.setValueAtTime(1, ac.currentTime);
+
+    // WORKLET-NODE: Create AudioWorklet node for mono audio processing
+    // Processes audio in audio thread, not main thread
+    const node = new AudioWorkletNode(ac, "recorder-processor", {
+      numberOfInputs: 1,
+      numberOfOutputs: 0, // No audio output needed - we only capture, not play back
+      channelCount: 1, // Mono channel (Mumble protocol requirement)
+    });
+
+    // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
+    // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
+    let pcmFrameCount = 0;
+    node.port.onmessage = (ev) => {
+      if (ev.data?.type === "pcm" && ev.data.data) {
+        const f32 = new Float32Array(ev.data.data);
+        pcmFrameCount++;
+        // NOTE: Debug logging removed - was using undefined 'this._isLoopbackMode'
+        // initVoice is not a class method and has no 'this' context
+        onData(Buffer.from(f32.buffer));
+      }
+    };
+
+    // Connect microphone through mixer to AudioWorklet
+    src.connect(mixer);
+    mixer.connect(node);
+
+    const mixerTimestamp = Date.now();
+    currentMixerInstance = mixer;
+    currentMixerTimestamp = mixerTimestamp;
+
+    globalThis._audioMixer = mixer;
+    console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
+
+    for (const callback of audioMixerReadyCallbacks) {
+      try {
+        callback(mixer);
+      } catch (err) {
+        console.error('[VOICE] Error in mixer ready callback:', err);
+      }
+    }
+    audioMixerReadyCallbacks.length = 0;
+
+    // optional: aufräumen, wenn das mediastream endet
+    for (const t of userMedia.getTracks()) {
+      t.addEventListener("ended", () => handleTrackEnded(t, mixer, node, src, mixerTimestamp));
+    }
+  } catch (e) {
+    console.error("AudioWorklet init failed:", e);
+    onUserMediaError(e);
+  }
+}
+
 /**
  * Init microphone capture.
  * Liefert per onData PCM-Frames (Float32) weiter – wie bisher, nur stabil via AudioWorklet.
@@ -250,116 +360,11 @@ export function initVoice(onData, onUserMediaError) {
     },
   };
 
-  getUserMedia(constraints, async (err, userMedia) => {
+  getUserMedia(constraints, (err, userMedia) => {
     if (err) {
       onUserMediaError(err);
       return;
     }
-
-    const initStartTime = Date.now();
-    console.log('[VOICE-INIT] Starting audio pipeline initialization');
-
-    try {
-      // AUDIO-CONTEXT: Use managed AudioContext with autoplay policy handling
-      // Sample rate must be 48kHz to match Mumble protocol requirements
-      const acStartTime = Date.now();
-      const ac = await ensureAudioContext({
-        sampleRate: 48000,
-        latencyHint: 'interactive'
-      });
-      console.log(`[VOICE-INIT] AudioContext ready after ${Date.now() - acStartTime}ms (state: ${ac.state}, sampleRate: ${ac.sampleRate}Hz)`);
-
-      // AUDIOWORKLET: Load AudioWorklet processor for real-time audio capture
-      // recorder-worker.js runs in audio thread for low-latency processing
-      const workletStartTime = Date.now();
-      await ac.audioWorklet.addModule("recorder-worker.js");
-      console.log(`[VOICE-INIT] AudioWorklet module loaded after ${Date.now() - workletStartTime}ms`);
-
-      // AUDIO-SOURCE: Create audio source from microphone stream
-      const src = ac.createMediaStreamSource(userMedia);
-
-      // BEEP-MIXER: Create a mixer node to combine microphone + beep signals
-      const mixer = ac.createGain();
-      mixer.gain.setValueAtTime(1, ac.currentTime);
-
-      // WORKLET-NODE: Create AudioWorklet node for mono audio processing
-      // Processes audio in audio thread, not main thread
-      const node = new AudioWorkletNode(ac, "recorder-processor", {
-        numberOfInputs: 1,
-        numberOfOutputs: 0, // No audio output needed - we only capture, not play back
-        channelCount: 1, // Mono channel (Mumble protocol requirement)
-      });
-
-      // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
-      // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
-      let pcmFrameCount = 0;
-      node.port.onmessage = (ev) => {
-        if (ev.data?.type === "pcm" && ev.data.data) {
-          const f32 = new Float32Array(ev.data.data);
-          pcmFrameCount++;
-          // NOTE: Debug logging removed - was using undefined 'this._isLoopbackMode'
-          // initVoice is not a class method and has no 'this' context
-          onData(Buffer.from(f32.buffer));
-        }
-      };
-
-      // Connect microphone through mixer to AudioWorklet
-      src.connect(mixer);
-      mixer.connect(node);
-
-      const mixerTimestamp = Date.now();
-      currentMixerInstance = mixer;
-      currentMixerTimestamp = mixerTimestamp;
-      
-      globalThis._audioMixer = mixer;
-      console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
-
-      for (const callback of audioMixerReadyCallbacks) {
-        try {
-          callback(mixer);
-        } catch (err) {
-          console.error('[VOICE] Error in mixer ready callback:', err);
-        }
-      }
-      audioMixerReadyCallbacks.length = 0;
-
-      // optional: aufräumen, wenn das mediastream endet
-      for (const t of userMedia.getTracks()) {
-        t.addEventListener("ended", () => {
-          if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
-            try {
-              node.disconnect();
-            } catch (error_) {
-              console.warn('[VOICE] Error disconnecting AudioWorkletNode:', error_);
-            }
-            try {
-              mixer.disconnect();
-            } catch (error_) {
-              console.warn('[VOICE] Error disconnecting mixer:', error_);
-            }
-            try {
-              src.disconnect();
-            } catch (error_) {
-              console.warn('[VOICE] Error disconnecting source:', error_);
-            }
-            
-            // Clear global references only if this is still the active instance
-            currentMixerInstance = null;
-            globalThis._audioMixer = null;
-            
-            // Don't close the shared/global AudioContext here. Suspending saves power without
-            // invalidating the shared instance held by the AudioContextManager.
-            try {
-              audioContextManager.suspendAudioContext();
-            } catch (error_) {
-              console.warn('[VOICE] Error suspending AudioContext:', error_);
-            }
-          }
-        });
-      }
-    } catch (e) {
-      console.error("AudioWorklet init failed:", e);
-      onUserMediaError(e);
-    }
+    handleUserMediaSuccess(userMedia, onData, onUserMediaError);
   });
 }

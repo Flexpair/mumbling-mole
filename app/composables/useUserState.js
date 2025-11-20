@@ -142,6 +142,149 @@ export function useUserState(audioState, voiceState) {
   }
 
   /**
+   * Handle user update events
+   * @param {object} user - User model
+   * @param {object} ui - User UI object
+   * @param {object} actor - Actor who triggered update
+   * @param {object} properties - Updated properties
+   */
+  const handleUserUpdate = (user, ui, actor, properties) => {
+    if ('channel' in properties) {
+      const newChannel = user.channel?.__ui;
+      ui.channel.value = newChannel;
+    }
+    if ('selfMute' in properties) {
+      ui.selfMute.value = properties.selfMute;
+    }
+    if ('selfDeaf' in properties) {
+      ui.selfDeaf.value = properties.selfDeaf;
+    }
+  };
+
+  /**
+   * Handle incoming voice stream for a user
+   * @param {object} user - User model
+   * @param {object} ui - User UI object
+   * @param {object} stream - Voice stream
+   */
+  const handleVoiceStream = async (user, ui, stream) => {
+    debugLog('[VOICE]', 'Voice stream received for user:', user.username, 'session:', user.session);
+    
+    // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
+    // Use timestamp + random to ensure uniqueness even if user.session is undefined
+    const streamId = `${user.session || 'unknown'}_${Date.now()}_${Math.random()}`;
+    
+    // Clear any previous voice stream resources for this user (using session ID)
+    // This stops old intervals before starting new ones
+    _cleanupVoiceStream(user.session);
+    
+    // Create audio node for playing back received voice
+    let userNode = new BufferQueueNode({
+      audioContext: audioState.getAudioContext(),
+    });
+    
+    // CRITICAL FIX: Initialize BufferQueueNode before use
+    // This loads the AudioWorklet module and creates the worklet node
+    try {
+      debugLog('[VOICE]', 'Initializing BufferQueueNode...');
+      await userNode.initialize();
+      debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
+      
+      // Set initial jitter buffer size if settings available
+      if (settings?.jitterBufferSize) {
+         userNode.setJitterBufferSize(settings.jitterBufferSize.value);
+      }
+    } catch (err) {
+      console.error('[VOICE] ❌ Failed to initialize BufferQueueNode:', err);
+      console.error('[VOICE] Error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
+      // Clean up and abort - playback cannot work without AudioWorklet
+      return;
+    }
+    
+    // Create a GainNode to control volume (for deafen functionality)
+    let gainNode = audioState.getAudioContext().createGain();
+    
+    // Set initial gain based on current deafen state
+    gainNode.gain.value = selfDeaf.value ? 0 : 1;
+    debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value);
+    
+    // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
+    let analyserNode = null;
+    let frequencyAnalyzer = null;
+    
+    if (voiceState.isLoopbackMode.value) {
+      analyserNode = audioState.getAudioContext().createAnalyser();
+      analyserNode.fftSize = 32768; // FFT size for frequency resolution (~1.46 Hz resolution @ 48kHz)
+      analyserNode.smoothingTimeConstant = 0.8; // Smooth frequency data
+      
+      // Connect: userNode -> gainNode -> analyserNode -> destination
+      // Frequency analysis AFTER gain node, so it only measures audible audio
+      userNode.connect(gainNode);
+      gainNode.connect(analyserNode);
+      analyserNode.connect(audioState.getAudioContext().destination);
+      
+      // Create and start frequency analyzer
+      frequencyAnalyzer = createFrequencyAnalyzer({
+        analyserNode,
+        onFrequencyUpdate: (freq) => voiceState.updateLoopbackFrequency(freq),
+        isMuted: () => selfMute.value,
+        isDeafened: () => selfDeaf.value
+      });
+      frequencyAnalyzer.start();
+      
+      debugLog('[LOOPBACK-FREQ]', 'Frequency analysis started for loopback mode');
+    } else {
+      // Normal mode: Connect: userNode -> gainNode -> destination
+      userNode.connect(gainNode);
+      gainNode.connect(audioState.getAudioContext().destination);
+    }
+    
+    // Subscribe to selfDeaf changes to update gain (Vue watcher)
+    const stopDeafWatch = watch(selfDeaf, (isDeaf) => {
+      gainNode.gain.value = isDeaf ? 0 : 1;
+      debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
+    });
+    
+    // CLEANUP-TRACKING: Store resources for proper cleanup
+    // Use streamId as key for this specific stream, store sessionId for fallback cleanup
+    _streamManager.set(streamId, {
+      sessionId: user.session,
+      analyzer: frequencyAnalyzer, // Store analyzer instead of interval
+      stopWatch: stopDeafWatch, // Vue watch cleanup function
+      userNode: userNode
+    });
+
+    stream
+      .on('data', (data) => {
+        debugLog('[VOICE]', 'Audio data received, target:', data.target);
+        
+        if (data.target === 'normal') {
+          ui.talking.value = 'on';
+        } else if (data.target === 'shout') {
+          ui.talking.value = 'shout';
+        } else if (data.target === 'whisper') {
+          ui.talking.value = 'whisper';
+        } else if (data.target === 'loopback') {
+          ui.talking.value = 'on';
+          debugLog('[VOICE]', 'Loopback audio received!');
+        }
+        
+        userNode.write(data.buffer);
+      })
+      .on('end', () => {
+        debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
+        ui.talking.value = 'off';
+        
+        // CLEANUP: Use streamId to clean up this specific stream
+        _cleanupVoiceStream(streamId);
+      });
+  };
+
+  /**
    * Register a user with minimal UI wrapper
    * Keeps essential properties: model, name, channel, selfMute/selfDeaf, talking (for voice UI).
    * No tree observables or complex event handlers.
@@ -199,136 +342,10 @@ export function useUserState(audioState, voiceState) {
     }));
     
     // Subscribe to user updates for voice/mute/deaf state changes
-    user.on('update', (actor, properties) => {
-      if ('channel' in properties) {
-        const newChannel = user.channel?.__ui;
-        ui.channel.value = newChannel;
-      }
-      if ('selfMute' in properties) {
-        ui.selfMute.value = properties.selfMute;
-      }
-      if ('selfDeaf' in properties) {
-        ui.selfDeaf.value = properties.selfDeaf;
-      }
-    });
+    user.on('update', (actor, properties) => handleUserUpdate(user, ui, actor, properties));
 
     // Voice stream handler (needed for audio playback)
-    user.on('voice', async (stream) => {
-        debugLog('[VOICE]', 'Voice stream received for user:', user.username, 'session:', user.session);
-        
-        // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
-        // Use timestamp + random to ensure uniqueness even if user.session is undefined
-        const streamId = `${user.session || 'unknown'}_${Date.now()}_${Math.random()}`;
-        
-        // Clear any previous voice stream resources for this user (using session ID)
-        // This stops old intervals before starting new ones
-        _cleanupVoiceStream(user.session);
-        
-        // Create audio node for playing back received voice
-        let userNode = new BufferQueueNode({
-          audioContext: audioState.getAudioContext(),
-        });
-        
-        // CRITICAL FIX: Initialize BufferQueueNode before use
-        // This loads the AudioWorklet module and creates the worklet node
-        try {
-          debugLog('[VOICE]', 'Initializing BufferQueueNode...');
-          await userNode.initialize();
-          debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
-          
-          // Set initial jitter buffer size if settings available
-          if (settings?.jitterBufferSize) {
-             userNode.setJitterBufferSize(settings.jitterBufferSize.value);
-          }
-        } catch (err) {
-          console.error('[VOICE] ❌ Failed to initialize BufferQueueNode:', err);
-          console.error('[VOICE] Error details:', {
-            name: err.name,
-            message: err.message,
-            stack: err.stack
-          });
-          // Clean up and abort - playback cannot work without AudioWorklet
-          return;
-        }
-        
-        // Create a GainNode to control volume (for deafen functionality)
-        let gainNode = audioState.getAudioContext().createGain();
-        
-        // Set initial gain based on current deafen state
-        gainNode.gain.value = selfDeaf.value ? 0 : 1;
-        debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value);
-        
-        // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
-        let analyserNode = null;
-        let frequencyAnalyzer = null;
-        
-        if (voiceState.isLoopbackMode.value) {
-          analyserNode = audioState.getAudioContext().createAnalyser();
-          analyserNode.fftSize = 32768; // FFT size for frequency resolution (~1.46 Hz resolution @ 48kHz)
-          analyserNode.smoothingTimeConstant = 0.8; // Smooth frequency data
-          
-          // Connect: userNode -> gainNode -> analyserNode -> destination
-          // Frequency analysis AFTER gain node, so it only measures audible audio
-          userNode.connect(gainNode);
-          gainNode.connect(analyserNode);
-          analyserNode.connect(audioState.getAudioContext().destination);
-          
-          // Create and start frequency analyzer
-          frequencyAnalyzer = createFrequencyAnalyzer({
-            analyserNode,
-            onFrequencyUpdate: (freq) => voiceState.updateLoopbackFrequency(freq),
-            isMuted: () => selfMute.value,
-            isDeafened: () => selfDeaf.value
-          });
-          frequencyAnalyzer.start();
-          
-          debugLog('[LOOPBACK-FREQ]', 'Frequency analysis started for loopback mode');
-        } else {
-          // Normal mode: Connect: userNode -> gainNode -> destination
-          userNode.connect(gainNode);
-          gainNode.connect(audioState.getAudioContext().destination);
-        }
-        
-        // Subscribe to selfDeaf changes to update gain (Vue watcher)
-        const stopDeafWatch = watch(selfDeaf, (isDeaf) => {
-          gainNode.gain.value = isDeaf ? 0 : 1;
-          debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
-        });
-        
-        // CLEANUP-TRACKING: Store resources for proper cleanup
-        // Use streamId as key for this specific stream, store sessionId for fallback cleanup
-        _streamManager.set(streamId, {
-          sessionId: user.session,
-          analyzer: frequencyAnalyzer, // Store analyzer instead of interval
-          stopWatch: stopDeafWatch, // Vue watch cleanup function
-          userNode: userNode
-        });
-
-        stream
-          .on('data', (data) => {
-            debugLog('[VOICE]', 'Audio data received, target:', data.target);
-            
-            if (data.target === 'normal') {
-              ui.talking.value = 'on';
-            } else if (data.target === 'shout') {
-              ui.talking.value = 'shout';
-            } else if (data.target === 'whisper') {
-              ui.talking.value = 'whisper';
-            } else if (data.target === 'loopback') {
-              ui.talking.value = 'on';
-              debugLog('[VOICE]', 'Loopback audio received!');
-            }
-            
-            userNode.write(data.buffer);
-          })
-          .on('end', () => {
-            debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
-            ui.talking.value = 'off';
-            
-            // CLEANUP: Use streamId to clean up this specific stream
-            _cleanupVoiceStream(streamId);
-          });
-      });
+    user.on('voice', (stream) => handleVoiceStream(user, ui, stream));
   }
   
   /**
