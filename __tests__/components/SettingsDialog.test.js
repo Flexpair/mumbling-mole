@@ -10,7 +10,9 @@ describe('SettingsDialog.vue - Integration Tests', () => {
       pttKey: { value: 'ctrl + shift' },
       pttKeyDisplay: { value: 'ctrl + shift' },
       audioBitrate: { value: 40000 },
-      samplesPerPacket: { value: 960 }
+      samplesPerPacket: { value: 960 },
+      jitterBufferSize: { value: 3 },
+      jitterBufferMode: { value: 'balanced' }
     };
     
     // Create msPerPacket computed - simple getter/setter wrapper
@@ -22,6 +24,16 @@ describe('SettingsDialog.vue - Integration Tests', () => {
         mockSettingsDialog.samplesPerPacket.value = ms * 48;
       }
     };
+
+    // Create jitterBufferMs computed
+    mockSettingsDialog.jitterBufferMs = {
+      get value() {
+        return mockSettingsDialog.jitterBufferSize.value * 20;
+      },
+      set value(ms) {
+        mockSettingsDialog.jitterBufferSize.value = Math.round(ms / 20);
+      }
+    };
     
     // Add methods
     mockSettingsDialog.applyTo = jest.fn((settings) => {
@@ -29,6 +41,8 @@ describe('SettingsDialog.vue - Integration Tests', () => {
       settings.pttKey = mockSettingsDialog.pttKey.value;
       settings.audioBitrate = mockSettingsDialog.audioBitrate.value;
       settings.samplesPerPacket = mockSettingsDialog.samplesPerPacket.value;
+      settings.jitterBufferSize = mockSettingsDialog.jitterBufferSize.value;
+      settings.jitterBufferMode = mockSettingsDialog.jitterBufferMode.value;
     });
     mockSettingsDialog.recordPttKey = jest.fn();
     mockSettingsDialog.totalBandwidth = { value: 41500 };
@@ -144,6 +158,29 @@ describe('SettingsDialog.vue - Integration Tests', () => {
       
       // UI should prevent changing this value (slider disabled/hidden in SettingsDialog.vue)
       // This test documents the constraint - actual enforcement is in the UI component
+    });
+  });
+
+  describe('Jitter Buffer Settings', () => {
+    test('jitterBufferMode defaults to balanced', () => {
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.jitterBufferMode.value).toBe('balanced');
+    });
+
+    test('jitterBufferMode can be updated', () => {
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      dialog.jitterBufferMode.value = 'low-latency';
+      expect(dialog.jitterBufferMode.value).toBe('low-latency');
+    });
+
+    test('jitterBufferMs computed reflects buffer size', () => {
+      mockAppState.settingsDialog.value = mockSettingsDialog;
+      const dialog = mockAppState.settingsDialog.value;
+      expect(dialog.jitterBufferMs.value).toBe(60); // 3 * 20
+      dialog.jitterBufferSize.value = 5;
+      expect(dialog.jitterBufferMs.value).toBe(100);
     });
   });
 

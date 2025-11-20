@@ -21,6 +21,8 @@ export function useSettings(defaults = {}) {
   const samplesPerPacket = useLocalStorage('samplesPerPacket', defaults.samplesPerPacket || 960, { prefix: 'mumble.' });
   // Default jitter buffer: 3 packets (60ms) - safe for typical 30-50ms latency
   const jitterBufferSize = useLocalStorage('jitterBufferSize', defaults.jitterBufferSize || 3, { prefix: 'mumble.' });
+  // Jitter buffer mode: 'low-latency', 'balanced', 'high-quality'
+  const jitterBufferMode = useLocalStorage('jitterBufferMode', defaults.jitterBufferMode || 'balanced', { prefix: 'mumble.' });
 
   // Dialog-specific state (not persisted)
   const pttKeyDisplay = ref(pttKey.value);
@@ -53,6 +55,7 @@ export function useSettings(defaults = {}) {
     audioBitrate.value = dialogSettings.audioBitrate.value;
     samplesPerPacket.value = dialogSettings.samplesPerPacket.value;
     jitterBufferSize.value = dialogSettings.jitterBufferSize.value;
+    jitterBufferMode.value = dialogSettings.jitterBufferMode.value;
     // No explicit save() needed - useLocalStorage auto-saves
   };
 
@@ -134,6 +137,7 @@ export function useSettings(defaults = {}) {
     audioBitrate,
     samplesPerPacket,
     jitterBufferSize,
+    jitterBufferMode,
     
     // Dialog state
     pttKeyDisplay,

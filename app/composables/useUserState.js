@@ -22,7 +22,7 @@ import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
  * User protocol objects (mumble-client/user.js) maintain channel.users array.
  * UI only needs user.channel() reference for sendMessage and messageBoxHint.
  */
-export function useUserState(audioState, voiceState) {
+export function useUserState(audioState, voiceState, connectionState) {
   // Current user
   const thisUser = ref(null);
   
@@ -37,25 +37,113 @@ export function useUserState(audioState, voiceState) {
   // Settings injection
   let settings = null;
   let jitterBufferWatchStop = null;
+  let jitterBufferModeWatchStop = null;
   
+  // Helper: Recalculate jitter buffer based on current mode and stats
+  const recalculateJitterBuffer = () => {
+    if (!settings || !settings.jitterBufferSize) {
+        return;
+    }
+
+    // Determine parameters based on mode
+    let factor = 4;
+    let minPackets = 3;
+    const mode = settings.jitterBufferMode ? settings.jitterBufferMode.value : 'balanced';
+    
+    switch (mode) {
+      case 'low-latency':
+        factor = 3;
+        minPackets = 2;
+        break;
+      case 'high-quality':
+        factor = 5;
+        minPackets = 4;
+        break;
+      case 'balanced':
+      default:
+        factor = 4;
+        minPackets = 3;
+        break;
+    }
+
+    // Check for active connection and stats
+    if (thisUser.value && thisUser.value._client && thisUser.value._client.dataStats) {
+        const client = thisUser.value._client;
+        const stats = client.dataStats;
+        
+        // Only use stats if we have enough samples (variance > 0 usually implies some samples)
+        if (stats && stats.mean > 0) {
+            const latency = stats.mean;
+            const deviation = Math.sqrt(stats.variance);
+            
+            // Formula: Latency + factor * Deviation
+            const targetMs = latency + (factor * deviation);
+            
+            // Convert to packets (20ms per packet)
+            const targetPackets = Math.max(minPackets, Math.ceil(targetMs / 20));
+            
+            if (settings.jitterBufferSize.value !== targetPackets) {
+               debugLog('[VOICE]', `Auto-adjusting jitter buffer (${mode}): ${latency.toFixed(1)}ms + ${factor}*${deviation.toFixed(1)}ms = ${targetMs.toFixed(1)}ms -> ${targetPackets} packets`);
+               settings.jitterBufferSize.value = targetPackets;
+            }
+            return;
+        }
+    }
+    
+    // Fallback: Not connected or no stats -> set to default (minPackets) for this mode
+    // This ensures immediate UI feedback when changing modes in disconnected state
+    if (settings.jitterBufferSize.value !== minPackets) {
+        debugLog('[VOICE]', `Setting default jitter buffer for ${mode}: ${minPackets} packets`);
+        settings.jitterBufferSize.value = minPackets;
+    }
+  };
+  
+  // Auto-adjust jitter buffer based on latency
+  watch(thisUser, (newUser, oldUser, onCleanup) => {
+    if (newUser && newUser._client) {
+      const client = newUser._client;
+      
+      // Listen for dataPing to update stats-based calculation
+      client.on('dataPing', recalculateJitterBuffer);
+      
+      onCleanup(() => {
+        client.off('dataPing', recalculateJitterBuffer);
+      });
+    }
+  });
+
   function setSettings(s) {
     settings = s;
     
-    // Clean up existing watcher if present
+    // Clean up existing watchers
     if (jitterBufferWatchStop) {
       jitterBufferWatchStop();
       jitterBufferWatchStop = null;
     }
+    if (jitterBufferModeWatchStop) {
+      jitterBufferModeWatchStop();
+      jitterBufferModeWatchStop = null;
+    }
 
-    if (settings && settings.jitterBufferSize) {
-      jitterBufferWatchStop = watch(settings.jitterBufferSize, (newSize) => {
-        debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
-        _streamManager.forEach((resources) => {
-          if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
-            resources.userNode.setJitterBufferSize(newSize);
-          }
+    if (settings) {
+      // Watch buffer size changes to update AudioWorklets
+      if (settings.jitterBufferSize) {
+        jitterBufferWatchStop = watch(settings.jitterBufferSize, (newSize) => {
+          debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
+          _streamManager.forEach((resources) => {
+            if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
+              resources.userNode.setJitterBufferSize(newSize);
+            }
+          });
         });
-      });
+      }
+
+      // Watch mode changes to trigger recalculation immediately
+      if (settings.jitterBufferMode) {
+        jitterBufferModeWatchStop = watch(settings.jitterBufferMode, () => {
+          recalculateJitterBuffer();
+        });
+      }
     }
   }
 
@@ -132,7 +220,7 @@ export function useUserState(audioState, voiceState) {
 
     // Voice stream handler (needed for audio playback)
     user.on('voice', async (stream) => {
-        console.log('[VOICE] Voice stream received for user:', user.username, 'session:', user.session);
+        debugLog('[VOICE]', 'Voice stream received for user:', user.username, 'session:', user.session);
         
         // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
         // Use timestamp + random to ensure uniqueness even if user.session is undefined
@@ -150,9 +238,9 @@ export function useUserState(audioState, voiceState) {
         // CRITICAL FIX: Initialize BufferQueueNode before use
         // This loads the AudioWorklet module and creates the worklet node
         try {
-          console.log('[VOICE] Initializing BufferQueueNode...');
+          debugLog('[VOICE]', 'Initializing BufferQueueNode...');
           await userNode.initialize();
-          console.log('[VOICE] ✅ BufferQueueNode initialized successfully');
+          debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
           
           // Set initial jitter buffer size if settings available
           if (settings && settings.jitterBufferSize) {

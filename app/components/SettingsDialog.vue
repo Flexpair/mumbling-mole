@@ -122,20 +122,18 @@
               {{ t('settingsdialog.jitter_buffer') }}
             </td>
             <td>
-              <span>{{ jitterBufferMs }}</span> ms
+              <select v-model="jitterBufferMode" aria-labelledby="settings-dialog_jitter_buffer">
+                <option value="low-latency">Low Latency</option>
+                <option value="balanced">Balanced</option>
+                <option value="high-quality">High Quality</option>
+              </select>
             </td>
           </tr>
           <tr>
             <td colspan="2">
-              <input
-                type="range"
-                min="40"
-                max="1000"
-                step="20"
-                v-model.number="jitterBufferMs"
-                aria-labelledby="settings-dialog_jitter_buffer"
-                title="Adjust buffer size to handle network jitter (higher = more stable, lower = less latency)"
-              />
+              <div style="font-size: 0.8em; color: #666; margin-top: 4px;">
+                Current buffer: {{ jitterBufferMs }} ms (Dynamic)
+              </div>
             </td>
           </tr>
 
@@ -233,6 +231,11 @@ const msPerPacket = computed({
 const jitterBufferSize = computed({
   get: () => appState.settings.jitterBufferSize.value,
   set: (val) => { appState.settings.jitterBufferSize.value = val; }
+});
+
+const jitterBufferMode = computed({
+  get: () => appState.settings.jitterBufferMode.value,
+  set: (val) => { appState.settings.jitterBufferMode.value = val; }
 });
 
 const jitterBufferMs = computed({

@@ -20,6 +20,7 @@ globalThis.mumbleWebConfig = {
     userCountInChannelName: false,
     audioBitrate: 40000, // bits per second
     samplesPerPacket: 960,
+    jitterBufferMode: "balanced", // one of 'low-latency', 'balanced', 'high-quality'
   },
   // Default values (can be changed by passing a query parameter of the same name)
   defaults: {
