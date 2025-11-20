@@ -248,6 +248,24 @@ class BufferQueueNode extends EventEmitter {
     }
   }
 
+  /**
+   * Set the jitter buffer size (in packets)
+   * @param {number} size - Number of packets to buffer (e.g., 25)
+   */
+  setJitterBufferSize(size) {
+    if (this._workletNode) {
+      this._workletNode.port.postMessage({
+        type: 'setJitterBufferSize',
+        size: size
+      });
+    } else if (this._isInitializing) {
+      // Queue the operation until worklet is ready
+      this.once('ready', () => this.setJitterBufferSize(size));
+    }
+    // If not initializing and not ready, the node might be dead or not started yet.
+    // We ignore the update to prevent infinite recursion or memory leaks.
+  }
+
   connect(...args) {
     if (!this._workletNode) {
       // If worklet not ready yet, wait for it

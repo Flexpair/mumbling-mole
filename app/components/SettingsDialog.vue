@@ -116,6 +116,27 @@
             </td>
           </tr>
 
+          <!-- Jitter Buffer -->
+          <tr>
+            <td id="settings-dialog_jitter_buffer">
+              {{ t('settingsdialog.jitter_buffer') }}
+            </td>
+            <td>
+              <select v-model="jitterBufferMode" aria-labelledby="settings-dialog_jitter_buffer">
+                <option value="low-latency">Low Latency</option>
+                <option value="balanced">Balanced</option>
+                <option value="high-quality">High Quality</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <div class="settings-help-text">
+                Current buffer: {{ jitterBufferMs }} ms (Dynamic)
+              </div>
+            </td>
+          </tr>
+
           <!-- Bandwidth Info with tooltips -->
           <tr>
             <td colspan="2" class="bandwidth-info">
@@ -202,13 +223,24 @@ const samplesPerPacket = computed({
   set: (val) => { appState.settings.samplesPerPacket.value = val; }
 });
 
-// Computed: msPerPacket (bidirectional conversion)
 const msPerPacket = computed({
-  get: () => appState.settings.msPerPacket.value,
-  set: (value) => {
-    appState.settings.samplesPerPacket.value = value * 48;
-  }
+  get: () => samplesPerPacket.value / 48,
+  set: (val) => { samplesPerPacket.value = val * 48; }
 });
+
+const jitterBufferSize = computed({
+  get: () => appState.settings.jitterBufferSize.value,
+  set: (val) => { appState.settings.jitterBufferSize.value = val; }
+});
+
+const jitterBufferMode = computed({
+  get: () => appState.settings.jitterBufferMode.value,
+  set: (val) => { appState.settings.jitterBufferMode.value = val; }
+});
+
+const MS_PER_PACKET = 20; // 20ms per packet at 48kHz (960 samples)
+
+const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
 // Computed: Bandwidth calculations (from AppState.settings)
 const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
@@ -237,7 +269,7 @@ const maxAllowedBitrate = computed(() => {
 // Check if server is limiting the bitrate
 const isServerLimited = computed(() => {
   const client = appState?.client;
-  return client && client.maxBandwidth !== undefined && client.maxBandwidth !== null && maxAllowedBitrate.value < 96000;
+  return client?.maxBandwidth != null && maxAllowedBitrate.value < 96000;
 });
 
 // Calculate actual bitrate that will be used (considering server limits)
@@ -348,6 +380,12 @@ dialog::backdrop {
 .server-limit-note {
   color: #666;
   font-style: italic;
+}
+
+.settings-help-text {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 4px;
 }
 
 .actual-bitrate-note {

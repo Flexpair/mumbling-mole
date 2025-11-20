@@ -44,7 +44,7 @@ export default class AppState {
     const audioState = useAudioState();
     const voiceState = useVoiceState();
     const uiState = useUIState();
-    const userState = useUserState(audioState, voiceState);
+    const userState = useUserState(audioState, voiceState, connectionState);
     const connectionDialog = useConnectionDialog();
     const connectErrorDialog = useConnectErrorDialog();
     const sampleRateWarningDialog = useSampleRateWarningDialog();
@@ -705,7 +705,7 @@ export default class AppState {
   }
 
   openSourceCode = () => {
-    window.open(packageJson.homepage, '_blank').focus();
+    globalThis.open(packageJson.homepage, '_blank').focus();
   }
 
   // Expose Vue state for direct access from Vue components

@@ -50,6 +50,17 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
         
         // Queue incoming audio buffer
         this._queue.push(data);
+      } else if (type === 'setJitterBufferSize') {
+        // FIX #202: Configurable jitter buffer
+        const newSize = parseInt(event.data.size, 10);
+        if (!isNaN(newSize) && newSize > 0) {
+          this._MAX_QUEUE_SIZE = newSize;
+          // Trim queue if new size is smaller than current length
+          while (this._queue.length > this._MAX_QUEUE_SIZE) {
+            this._queue.shift();
+            this._droppedPackets++;
+          }
+        }
       } else if (type === 'finish') {
         this._shuttingDown = true;
       } else if (type === 'close') {

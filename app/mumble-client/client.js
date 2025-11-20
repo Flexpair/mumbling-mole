@@ -277,7 +277,8 @@ class MumbleClient extends EventEmitter {
     if (!this._codecs) {
       return DropStream.obj()
     }
-    const voiceStream = through2.obj((chunk, encoding, callback) => {
+
+    const transformVoiceChunk = (chunk, encoding, callback) => {
       if (chunk instanceof Buffer) {
         chunk = new Float32Array(
           chunk.buffer,
@@ -303,32 +304,39 @@ class MumbleClient extends EventEmitter {
         this._samplesPerPacket || chunk.pcm.length / numberOfChannels
       chunk.bitrate = this.getActualBitrate(samples, chunk.position != null)
       callback(null, chunk)
-    })
+    }
+
+    const voiceStream = through2.obj(transformVoiceChunk)
     const codec = 'Opus'
     let seqNum = 0
+
+    const onEncoderData = data => {
+      const duration = this._codecs.getDuration(codec, data.frame) / 10
+      this._voice.write({
+        seqNum: seqNum,
+        codec: codec,
+        mode: target,
+        frames: [data.frame],
+        position: data.position,
+        end: false
+      })
+      seqNum += duration
+    }
+
+    const onEncoderEnd = () => {
+      this._voice.write({
+        seqNum: seqNum,
+        codec: codec,
+        mode: target,
+        frames: [],
+        end: true
+      })
+    }
+
     voiceStream
       .pipe(this._codecs.createEncoderStream(codec))
-      .on('data', data => {
-        const duration = this._codecs.getDuration(codec, data.frame) / 10
-        this._voice.write({
-          seqNum: seqNum,
-          codec: codec,
-          mode: target,
-          frames: [data.frame],
-          position: data.position,
-          end: false
-        })
-        seqNum += duration
-      })
-      .on('end', () => {
-        this._voice.write({
-          seqNum: seqNum,
-          codec: codec,
-          mode: target,
-          frames: [],
-          end: true
-        })
-      })
+      .on('data', onEncoderData)
+      .on('end', onEncoderEnd)
     return voiceStream
   }
 
@@ -754,7 +762,7 @@ class MumbleClient extends EventEmitter {
   }
 
   setSelfMute (mute) {
-    if ((typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || (typeof window !== 'undefined' && window.MUMBLE_DEBUG)) {
+    if ((typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') || globalThis.MUMBLE_DEBUG) {
       console.log('[CLIENT-STATE-SEND] Sending selfMute to server:', mute);
     }
     const message = {
@@ -774,7 +782,7 @@ class MumbleClient extends EventEmitter {
   }
 
   setSelfDeaf (deaf) {
-    if ((typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || (typeof window !== 'undefined' && window.MUMBLE_DEBUG)) {
+    if ((typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') || globalThis.MUMBLE_DEBUG) {
       console.log('[CLIENT-STATE-SEND] Sending selfDeaf to server:', deaf, deaf ? '(auto-mute)' : '(preserve mute)');
     }
     const message = {

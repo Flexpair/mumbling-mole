@@ -269,7 +269,7 @@ describe('MockAuthAdapter', () => {
   let auth;
 
   afterEach(async () => {
-    if (auth && auth._currentUser) {
+    if (auth?._currentUser) {
       await auth.logout();
     }
     auth = null;

@@ -102,9 +102,17 @@ export function createVoiceStreamManager() {
     activeStreams.delete(identifier);
   }
 
+  /**
+   * Iterate over all active streams
+   */
+  function forEach(callback) {
+    activeStreams.forEach(callback);
+  }
+
   return {
     set,
     get,
     cleanup,
+    forEach
   };
 }

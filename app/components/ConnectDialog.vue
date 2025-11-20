@@ -53,17 +53,19 @@
       <!-- Loopback Test Section (clear both floats) -->
       <div class="loopback-test-section" style="clear: both;">
         <div class="test-toggle-container">
-          <div 
+          <button 
+            type="button"
             class="test-toggle-label"
             @click="handleToggleLoopback"
-            style="height: 32px; display: inline-flex; align-items: center; cursor: pointer;"
+            :aria-pressed="isTestActive || isLoopbackMode"
+            style="height: 32px; display: inline-flex; align-items: center; cursor: pointer; background: none; border: none; padding: 0; color: inherit; font: inherit;"
           >
             <span
               class="test-toggle-slider"
               :class="{ active: isTestActive || isLoopbackMode }"
             ></span>
             <span class="test-toggle-text" style="font-size: 1em; margin-left: 8px;">Audio Test</span>
-          </div>
+          </button>
         </div>
 
         <!-- Piano Button and Frequency Display Row -->
