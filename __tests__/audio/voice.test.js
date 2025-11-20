@@ -76,7 +76,7 @@ describe('ContinuousVoiceHandler', () => {
   });
 
   afterEach((done) => {
-    if (handler && handler._outbound && typeof handler._outbound.end === 'function') {
+    if (typeof handler?._outbound?.end === 'function') {
       handler.end(done);
     } else {
       handler = null;
@@ -344,7 +344,7 @@ describe('PushToTalkVoiceHandler', () => {
   });
 
   afterEach((done) => {
-    if (handler && handler._outbound && typeof handler._outbound.end === 'function') {
+    if (typeof handler?._outbound?.end === 'function') {
       handler.end(done);
     } else {
       handler = null;

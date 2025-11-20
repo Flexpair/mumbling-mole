@@ -269,7 +269,7 @@ const maxAllowedBitrate = computed(() => {
 // Check if server is limiting the bitrate
 const isServerLimited = computed(() => {
   const client = appState?.client;
-  return client && client.maxBandwidth !== undefined && client.maxBandwidth !== null && maxAllowedBitrate.value < 96000;
+  return client?.maxBandwidth != null && maxAllowedBitrate.value < 96000;
 });
 
 // Calculate actual bitrate that will be used (considering server limits)

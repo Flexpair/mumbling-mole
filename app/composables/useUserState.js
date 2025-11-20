@@ -48,7 +48,7 @@ export function useUserState(audioState, voiceState) {
   
   // Helper: Recalculate jitter buffer based on current mode and stats
   const recalculateJitterBuffer = () => {
-    if (!settings || !settings.jitterBufferSize) {
+    if (!settings?.jitterBufferSize) {
         return;
     }
 
@@ -58,12 +58,12 @@ export function useUserState(audioState, voiceState) {
     const { factor, minPackets } = config;
 
     // Check for active connection and stats
-    if (thisUser.value && thisUser.value._client && thisUser.value._client.dataStats) {
+    if (thisUser.value?._client?.dataStats) {
         const client = thisUser.value._client;
         const stats = client.dataStats;
         
         // Only use stats if we have enough samples (variance > 0 usually implies some samples)
-        if (stats && stats.mean > 0) {
+        if (stats?.mean > 0) {
             const latency = stats.mean;
             const deviation = Math.sqrt(stats.variance);
             
@@ -91,7 +91,7 @@ export function useUserState(audioState, voiceState) {
   
   // Auto-adjust jitter buffer based on latency
   watch(thisUser, (newUser, oldUser, onCleanup) => {
-    if (newUser && newUser._client) {
+    if (newUser?._client) {
       const client = newUser._client;
       
       // Listen for dataPing to update stats-based calculation
@@ -237,7 +237,7 @@ export function useUserState(audioState, voiceState) {
           debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
           
           // Set initial jitter buffer size if settings available
-          if (settings && settings.jitterBufferSize) {
+          if (settings?.jitterBufferSize) {
              userNode.setJitterBufferSize(settings.jitterBufferSize.value);
           }
         } catch (err) {
