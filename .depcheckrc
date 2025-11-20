@@ -3,7 +3,6 @@
     "@babel/plugin-transform-runtime",
     "@babel/runtime",
     "@vue/test-utils",
-    "brfs",
     "depcheck",
     "sass",
     "jest",
