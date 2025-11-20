@@ -258,6 +258,9 @@ class BufferQueueNode extends EventEmitter {
         type: 'setJitterBufferSize',
         size: size
       });
+    } else {
+      // Queue the operation until worklet is ready
+      this.once('ready', () => this.setJitterBufferSize(size));
     }
   }
 

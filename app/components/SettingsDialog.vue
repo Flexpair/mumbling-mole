@@ -129,10 +129,11 @@
             <td colspan="2">
               <input
                 type="range"
-                min="20"
+                min="40"
                 max="1000"
                 step="20"
                 v-model.number="jitterBufferMs"
+                aria-labelledby="settings-dialog_jitter_buffer"
                 title="Adjust buffer size to handle network jitter (higher = more stable, lower = less latency)"
               />
             </td>

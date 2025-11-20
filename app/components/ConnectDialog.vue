@@ -58,6 +58,7 @@
             class="test-toggle-label"
             @click="handleToggleLoopback"
             :aria-pressed="isTestActive || isLoopbackMode"
+            aria-label="Toggle audio loopback test"
             style="height: 32px; display: inline-flex; align-items: center; cursor: pointer; background: none; border: none; padding: 0; color: inherit; font: inherit;"
           >
             <span

@@ -36,11 +36,19 @@ export function useUserState(audioState, voiceState) {
 
   // Settings injection
   let settings = null;
+  let jitterBufferWatchStop = null;
   
   function setSettings(s) {
     settings = s;
+    
+    // Clean up existing watcher if present
+    if (jitterBufferWatchStop) {
+      jitterBufferWatchStop();
+      jitterBufferWatchStop = null;
+    }
+
     if (settings && settings.jitterBufferSize) {
-      watch(settings.jitterBufferSize, (newSize) => {
+      jitterBufferWatchStop = watch(settings.jitterBufferSize, (newSize) => {
         debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
         _streamManager.forEach((resources) => {
           if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {

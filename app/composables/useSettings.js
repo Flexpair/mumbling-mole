@@ -19,7 +19,8 @@ export function useSettings(defaults = {}) {
   const userCountInChannelName = useLocalStorage('userCountInChannelName', defaults.userCountInChannelName || false, { prefix: 'mumble.' });
   const audioBitrate = useLocalStorage('audioBitrate', defaults.audioBitrate || 40000, { prefix: 'mumble.' });
   const samplesPerPacket = useLocalStorage('samplesPerPacket', defaults.samplesPerPacket || 960, { prefix: 'mumble.' });
-  const jitterBufferSize = useLocalStorage('jitterBufferSize', defaults.jitterBufferSize || 25, { prefix: 'mumble.' });
+  // Default jitter buffer: 3 packets (60ms) - safe for typical 30-50ms latency
+  const jitterBufferSize = useLocalStorage('jitterBufferSize', defaults.jitterBufferSize || 3, { prefix: 'mumble.' });
 
   // Dialog-specific state (not persisted)
   const pttKeyDisplay = ref(pttKey.value);
