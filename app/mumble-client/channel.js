@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import removeValue from 'remove-value'
+import removeValue from '../utils/remove-value.js'
 
 class Channel extends EventEmitter {
   constructor (client, id) {

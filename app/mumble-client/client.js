@@ -7,7 +7,7 @@ import DropStream from 'drop-stream'
 import { getOSName, getOSVersion } from './utils.js'
 import User from './user.js'
 import Channel from './channel.js'
-import removeValue from 'remove-value'
+import removeValue from '../utils/remove-value.js'
 import Stats from 'stats-incremental'
 
 const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType

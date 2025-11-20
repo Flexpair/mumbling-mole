@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import DropStream from 'drop-stream'
-import removeValue from 'remove-value'
+import removeValue from '../utils/remove-value.js'
 import Timer from 'rtimer'
 
 class User extends EventEmitter {
