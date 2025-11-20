@@ -169,8 +169,8 @@ describe("worker.js", () => {
       );
 
       // Verify success response
-      // Note: mumbleConnectMock returns a promise that resolves immediately, 
-      // but the worker uses .then(), so we might need to wait for microtasks.
+      // Note: Promise resolution always happens in a microtask, so we need to wait
+      // for the microtask queue to flush before checking postMessage.
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(global.self.postMessage).toHaveBeenCalledWith(

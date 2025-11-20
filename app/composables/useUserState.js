@@ -4,6 +4,13 @@ import { debugLog } from './debug-utils';
 import { createVoiceStreamManager } from '../utils/voice-stream-manager';
 import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
 
+// Jitter buffer mode configurations
+const JITTER_BUFFER_MODES = {
+  'low-latency': { factor: 3, minPackets: 2 },
+  'balanced': { factor: 4, minPackets: 3 },
+  'high-quality': { factor: 5, minPackets: 4 }
+};
+
 /**
  * useUserState - Vue composable for user-related state and operations
  * 
@@ -22,7 +29,7 @@ import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
  * User protocol objects (mumble-client/user.js) maintain channel.users array.
  * UI only needs user.channel() reference for sendMessage and messageBoxHint.
  */
-export function useUserState(audioState, voiceState, connectionState) {
+export function useUserState(audioState, voiceState) {
   // Current user
   const thisUser = ref(null);
   
@@ -46,25 +53,9 @@ export function useUserState(audioState, voiceState, connectionState) {
     }
 
     // Determine parameters based on mode
-    let factor = 4;
-    let minPackets = 3;
     const mode = settings.jitterBufferMode ? settings.jitterBufferMode.value : 'balanced';
-    
-    switch (mode) {
-      case 'low-latency':
-        factor = 3;
-        minPackets = 2;
-        break;
-      case 'high-quality':
-        factor = 5;
-        minPackets = 4;
-        break;
-      case 'balanced':
-      default:
-        factor = 4;
-        minPackets = 3;
-        break;
-    }
+    const config = JITTER_BUFFER_MODES[mode] || JITTER_BUFFER_MODES['balanced'];
+    const { factor, minPackets } = config;
 
     // Check for active connection and stats
     if (thisUser.value && thisUser.value._client && thisUser.value._client.dataStats) {
@@ -106,6 +97,9 @@ export function useUserState(audioState, voiceState, connectionState) {
       // Listen for dataPing to update stats-based calculation
       client.on('dataPing', recalculateJitterBuffer);
       
+      // Initialize buffer immediately
+      recalculateJitterBuffer();
+
       onCleanup(() => {
         client.off('dataPing', recalculateJitterBuffer);
       });

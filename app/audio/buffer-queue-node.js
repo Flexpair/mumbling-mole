@@ -258,10 +258,12 @@ class BufferQueueNode extends EventEmitter {
         type: 'setJitterBufferSize',
         size: size
       });
-    } else {
+    } else if (this._isInitializing) {
       // Queue the operation until worklet is ready
       this.once('ready', () => this.setJitterBufferSize(size));
     }
+    // If not initializing and not ready, the node might be dead or not started yet.
+    // We ignore the update to prevent infinite recursion or memory leaks.
   }
 
   connect(...args) {

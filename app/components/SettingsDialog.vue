@@ -131,7 +131,7 @@
           </tr>
           <tr>
             <td colspan="2">
-              <div style="font-size: 0.8em; color: #666; margin-top: 4px;">
+              <div class="settings-help-text">
                 Current buffer: {{ jitterBufferMs }} ms (Dynamic)
               </div>
             </td>
@@ -238,10 +238,9 @@ const jitterBufferMode = computed({
   set: (val) => { appState.settings.jitterBufferMode.value = val; }
 });
 
-const jitterBufferMs = computed({
-  get: () => jitterBufferSize.value * 20,
-  set: (val) => { jitterBufferSize.value = Math.round(val / 20); }
-});
+const MS_PER_PACKET = 20; // 20ms per packet at 48kHz (960 samples)
+
+const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
 // Computed: Bandwidth calculations (from AppState.settings)
 const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
@@ -381,6 +380,12 @@ dialog::backdrop {
 .server-limit-note {
   color: #666;
   font-style: italic;
+}
+
+.settings-help-text {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 4px;
 }
 
 .actual-bitrate-note {
