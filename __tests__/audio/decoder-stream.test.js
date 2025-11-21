@@ -23,7 +23,7 @@ class MockWorker {
     mockWorkerInstances.push(this);
   }
 }
-global.Worker = MockWorker;
+globalThis.Worker = MockWorker;
 
 // Mock reuse-pool
 const mockPool = {

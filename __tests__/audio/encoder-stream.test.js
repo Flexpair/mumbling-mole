@@ -20,7 +20,7 @@ class MockWorker {
     this.postMessage = jest.fn();
   }
 }
-global.Worker = MockWorker;
+globalThis.Worker = MockWorker;
 
 // Mock reuse-pool
 const mockPool = {

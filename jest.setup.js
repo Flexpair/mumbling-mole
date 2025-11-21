@@ -73,7 +73,7 @@ beforeEach(() => {
 const originalWarn = console.warn;
 const originalError = console.error;
 
-global.console = {
+globalThis.console = {
   ...console,
   warn: jest.fn((...args) => {
     // Uncomment to see warnings during test development:

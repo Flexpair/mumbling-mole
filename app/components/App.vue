@@ -77,7 +77,7 @@ onMounted(() => {
   if (document.readyState === 'complete') {
     finalize();
   } else {
-    window.addEventListener('load', finalize, { once: true });
+    globalThis.addEventListener('load', finalize, { once: true });
   }
   
   // Wire up GuacamoleFrame reference to appState

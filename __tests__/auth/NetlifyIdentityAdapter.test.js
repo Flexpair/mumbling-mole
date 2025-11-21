@@ -31,8 +31,8 @@ describe('NetlifyIdentityAdapter', () => {
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     
     // Setup window.netlifyIdentity
-    global.window = global.window || {};
-    global.window.netlifyIdentity = mockNetlifyIdentity;
+    globalThis.window = globalThis.window || {};
+    globalThis.window.netlifyIdentity = mockNetlifyIdentity;
     
     // Import module fresh each time
     const module = await import('../../app/auth/NetlifyIdentityAdapter.js');
@@ -41,7 +41,7 @@ describe('NetlifyIdentityAdapter', () => {
 
   afterEach(() => {
     consoleWarnSpy.mockRestore();
-    delete global.window.netlifyIdentity;
+    delete globalThis.window.netlifyIdentity;
   });
 
   describe('Constructor', () => {
@@ -52,7 +52,7 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('creates fallback mock when window.netlifyIdentity is unavailable', () => {
-      delete global.window.netlifyIdentity;
+      delete globalThis.window.netlifyIdentity;
       adapter = new NetlifyIdentityAdapter();
       
       expect(adapter.netlifyIdentity).toBeDefined();
@@ -63,8 +63,8 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('creates fallback mock when init function is missing', () => {
-      global.window.netlifyIdentity = { ...mockNetlifyIdentity };
-      delete global.window.netlifyIdentity.init;
+      globalThis.window.netlifyIdentity = { ...mockNetlifyIdentity };
+      delete globalThis.window.netlifyIdentity.init;
       
       adapter = new NetlifyIdentityAdapter();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -499,7 +499,7 @@ describe('NetlifyIdentityAdapter', () => {
 
   describe('_createFallbackMock()', () => {
     beforeEach(() => {
-      delete global.window.netlifyIdentity;
+      delete globalThis.window.netlifyIdentity;
       adapter = new NetlifyIdentityAdapter();
     });
 

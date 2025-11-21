@@ -35,13 +35,13 @@ const mockAudioContextManager = {
 // Removed getusermedia mock as we now use navigator.mediaDevices.getUserMedia directly
 
 // Setup navigator.mediaDevices.getUserMedia
-if (!global.navigator) {
-  global.navigator = {};
+if (!globalThis.navigator) {
+  globalThis.navigator = {};
 }
-if (!global.navigator.mediaDevices) {
-  global.navigator.mediaDevices = {};
+if (!globalThis.navigator.mediaDevices) {
+  globalThis.navigator.mediaDevices = {};
 }
-global.navigator.mediaDevices.getUserMedia = mockGetUserMedia;
+globalThis.navigator.mediaDevices.getUserMedia = mockGetUserMedia;
 
 jest.unstable_mockModule('keyboardjs', () => ({
   default: mockKeyboardjs
@@ -604,7 +604,7 @@ describe('enumMicrophones', () => {
   
   beforeEach(() => {
     mockEnumerateDevices = jest.fn();
-    originalNavigator = global.navigator;
+    originalNavigator = globalThis.navigator;
     
     // Create navigator mock
     Object.defineProperty(global, 'navigator', {
@@ -737,7 +737,7 @@ describe('initVoice Integration Tests', () => {
     globalThis.AudioWorkletNode = jest.fn(() => mockAudioWorkletNode);
 
     // Mock window._audioMixer
-    global.window = global.window || {};
+    globalThis.window = globalThis.window || {};
 
     // Mock ensureAudioContext
     mockEnsureAudioContext.mockResolvedValue(mockAudioContext);
@@ -749,7 +749,7 @@ describe('initVoice Integration Tests', () => {
   afterEach(() => {
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
-    delete global.window._audioMixer;
+    delete globalThis.window._audioMixer;
     delete globalThis.AudioWorkletNode;
     
     // Reset module-level mixer state

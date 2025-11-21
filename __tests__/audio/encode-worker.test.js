@@ -78,7 +78,7 @@ describe('encode-worker', () => {
   });
 
   afterEach(() => {
-    delete global.self;
+    delete globalThis.self;
   });
 
   describe('Initialization', () => {

@@ -48,7 +48,7 @@ class MockWorker {
 }
 
 // Set up global Worker mock
-global.Worker = MockWorker;
+globalThis.Worker = MockWorker;
 
 // Now import the module
 const WorkerBasedMumbleConnector = (await import('../app/worker-client.js')).default;

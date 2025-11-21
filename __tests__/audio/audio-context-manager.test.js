@@ -59,8 +59,8 @@ describe('AudioContextManager', () => {
       })
     };
 
-    global.AudioContext = jest.fn(() => mockAudioContext);
-    global.webkitAudioContext = jest.fn(() => mockAudioContext);
+    globalThis.AudioContext = jest.fn(() => mockAudioContext);
+    globalThis.webkitAudioContext = jest.fn(() => mockAudioContext);
 
     const module = await import('../../app/audio/audio-context-manager.js');
     audioContextManager = module.default;
@@ -81,13 +81,13 @@ describe('AudioContextManager', () => {
   });
 
   afterEach(() => {
-    delete global.AudioContext;
-    delete global.webkitAudioContext;
+    delete globalThis.AudioContext;
+    delete globalThis.webkitAudioContext;
   });
 
   test('creates AudioContext', async () => {
     const context = await getAudioContext();
-    expect(global.AudioContext).toHaveBeenCalled();
+    expect(globalThis.AudioContext).toHaveBeenCalled();
     expect(context).toBe(mockAudioContext);
   });
 
@@ -95,7 +95,7 @@ describe('AudioContextManager', () => {
     const ctx1 = await getAudioContext();
     const ctx2 = await getAudioContext();
     expect(ctx1).toBe(ctx2);
-    expect(global.AudioContext).toHaveBeenCalledTimes(1);
+    expect(globalThis.AudioContext).toHaveBeenCalledTimes(1);
   });
 
   test('suspends context', async () => {
@@ -231,18 +231,18 @@ describe('AudioContextManager', () => {
     await context1.close();
     
     // Clear the mock to prepare for new context creation
-    global.AudioContext.mockClear();
+    globalThis.AudioContext.mockClear();
     
     // Mock a new context for recreation
     const mockAudioContext2 = { ...mockAudioContext, state: 'suspended', _stateChangeListeners: [] };
-    global.AudioContext.mockImplementation(() => mockAudioContext2);
+    globalThis.AudioContext.mockImplementation(() => mockAudioContext2);
     
     // This should detect closed state and recreate
     const context2 = await audioContextManager.getAudioContext();
     
     // Should warn about recreation
     expect(consoleWarn).toHaveBeenCalled();
-    expect(global.AudioContext).toHaveBeenCalled();
+    expect(globalThis.AudioContext).toHaveBeenCalled();
     expect(context2).toBe(mockAudioContext2);
     
     consoleWarn.mockRestore();
@@ -286,7 +286,7 @@ describe('AudioContextManager', () => {
       latencyHint: 'playback'
     });
     
-    expect(global.AudioContext).toHaveBeenCalledWith(
+    expect(globalThis.AudioContext).toHaveBeenCalledWith(
       expect.objectContaining({
         sampleRate: 44100,
         latencyHint: 'playback'
@@ -297,13 +297,13 @@ describe('AudioContextManager', () => {
   test('should remove undefined sampleRate from config', async () => {
     await getAudioContext({ sampleRate: undefined });
     
-    const callArgs = global.AudioContext.mock.calls[0][0];
+    const callArgs = globalThis.AudioContext.mock.calls[0][0];
     expect(callArgs).not.toHaveProperty('sampleRate');
   });
 
   test('should handle browser without AudioContext', async () => {
-    delete global.AudioContext;
-    delete global.webkitAudioContext;
+    delete globalThis.AudioContext;
+    delete globalThis.webkitAudioContext;
     
     // Reset manager
     audioContextManager.audioContext = null;
@@ -317,11 +317,11 @@ describe('AudioContextManager', () => {
   });
 
   test('should use webkitAudioContext as fallback', async () => {
-    delete global.AudioContext;
+    delete globalThis.AudioContext;
     
     await getAudioContext();
     
-    expect(global.webkitAudioContext).toHaveBeenCalled();
+    expect(globalThis.webkitAudioContext).toHaveBeenCalled();
   });
 
   test('should expose manager on window', () => {
