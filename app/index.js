@@ -1,10 +1,6 @@
-// Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
-// Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
 import url from "node:url";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
-
-// Vue.js imports
 import { createApp } from 'vue';
 import AppVue from "./components/App.vue";
 
@@ -54,24 +50,20 @@ ui.guacamoleFrame = {};
 ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
 ui.user.setSettings(ui.settings);
 
-// Initialize auth
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
-ui.netlifyIdentity = ui.auth; // Backward compatibility
+ui.netlifyIdentity = ui.auth;
 
-// Delegate UI methods to UIState composable
 ui.openSettings = function() {
-  return ui.ui.openSettings(); // No more SettingsDialog class needed
+  return ui.ui.openSettings();
 };
 
 ui.closeSettings = function() {
   return ui.ui.closeSettings();
 };
 
-// Used only for debugging
 globalThis.mumbleUi = ui;
 
-// Make auth available globally (backward compatibility)
 if (ui.auth) {
   globalThis.netlifyIdentity = ui.auth;
 }

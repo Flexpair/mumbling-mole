@@ -424,22 +424,12 @@ function handleClientMessage(data) {
     return;
   }
 
-  // Debug log before calling method
-  if (method === 'setSelfMute' || method === 'setSelfDeaf') {
-    console.log(`[WORKER] Calling ${method} on target with args:`, args);
-  }
-
   // Call the method
   const result = target[method](...args);
   
   // Only send response for query-type methods (those that need return values)
   // Regular calls (like sendMessage) don't need responses
   // The worker will only respond if the main thread is waiting for a promise
-  
-  // Debug log after calling method
-  if (method === 'setSelfMute' || method === 'setSelfDeaf') {
-    console.log(`[WORKER] ${method} completed`);
-  }
 }
 
 function handleVoiceStream(data) {

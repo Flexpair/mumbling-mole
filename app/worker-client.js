@@ -2,12 +2,9 @@ import MumbleClient from "./mumble-client/index.js";
 import EventEmitter from "node:events";
 import { Writable, PassThrough } from "node:stream";
 import toArrayBuffer from "to-arraybuffer";
-// Import the compiled worker bundle. Rename to avoid confusing the global Worker constructor.
-// Native Worker constructor syntax (esbuild compatible)
-// We keep a small factory so tests / future mocking can override if needed.
+
 function createWorker() {
   try {
-    // Use relative path instead of import.meta.url for esbuild IIFE compatibility
     return new Worker('./worker.js', { type: 'classic' });
   } catch (e) {
     console.error('[worker] failed to construct worker', e);

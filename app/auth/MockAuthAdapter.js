@@ -174,8 +174,6 @@ class MockAuthAdapter extends AuthProvider {
     if (!this.users.has(email)) {
       throw new Error('User not found');
     }
-    
-    console.log(`[MockAuth] Password reset email sent to ${email}`);
   }
 
   /**

@@ -12,6 +12,15 @@
 import { ref, computed } from 'vue';
 import { useLocalStorage } from './useLocalStorage.js';
 
+// Cache MumbleClient import to avoid repeated require() calls in computed properties
+let _mumbleClient = null;
+function getMumbleClient() {
+  if (!_mumbleClient) {
+    _mumbleClient = require('../mumble-client/index.js').default;
+  }
+  return _mumbleClient;
+}
+
 export function useSettings(defaults = {}) {
   // Core settings (auto-persisted to localStorage via useLocalStorage)
   const voiceMode = useLocalStorage('voiceMode', defaults.voiceMode || 'cont', { prefix: 'mumble.' });
@@ -32,16 +41,6 @@ export function useSettings(defaults = {}) {
     get: () => samplesPerPacket.value / 48,
     set: (value) => { samplesPerPacket.value = value * 48; }
   });
-
-  /**
-   * Save settings to localStorage
-   * Note: With useLocalStorage, this is now automatic via watchers.
-   * This method is kept for backward compatibility but is a no-op.
-   */
-  const save = () => {
-    // No-op: useLocalStorage auto-saves on change
-    // Kept for backward compatibility with existing code
-  };
 
   /**
    * Apply settings from dialog to main settings
@@ -88,8 +87,7 @@ export function useSettings(defaults = {}) {
    * Calculate total bandwidth (without position data for consistency with actual usage)
    */
   const totalBandwidth = computed(() => {
-    // Import MumbleClient here to avoid circular dependency
-    const MumbleClient = require('../mumble-client/index.js').default;
+    const MumbleClient = getMumbleClient();
     return MumbleClient.calcEnforcableBandwidth(
       audioBitrate.value,
       samplesPerPacket.value,
@@ -102,7 +100,7 @@ export function useSettings(defaults = {}) {
    * Note: Currently always 0 since position data is not sent (sendPosition=false)
    */
   const positionBandwidth = computed(() => {
-    const MumbleClient = require('../mumble-client/index.js').default;
+    const MumbleClient = getMumbleClient();
     return (
       MumbleClient.calcEnforcableBandwidth(
         audioBitrate.value,
@@ -121,7 +119,7 @@ export function useSettings(defaults = {}) {
    * Calculate overhead bandwidth (protocol overhead)
    */
   const overheadBandwidth = computed(() => {
-    const MumbleClient = require('../mumble-client/index.js').default;
+    const MumbleClient = getMumbleClient();
     return MumbleClient.calcEnforcableBandwidth(
       0,
       samplesPerPacket.value,
@@ -149,7 +147,6 @@ export function useSettings(defaults = {}) {
     overheadBandwidth,
     
     // Methods
-    save,
     applyFrom,
     recordPttKey
   };

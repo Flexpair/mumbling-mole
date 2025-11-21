@@ -295,10 +295,7 @@ const recordPttKey = () => {
 
 // Form submission
 const handleSubmit = () => {
-  // Save settings to localStorage
-  appState.settings.save();
-
-  // Trigger AppState.applySettings behavior (recreates voice handler with new settings)
+  // Settings auto-save via useLocalStorage, just apply and close
   appState.applySettings();
   
   // Close the dialog
