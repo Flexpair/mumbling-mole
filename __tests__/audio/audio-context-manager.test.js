@@ -325,6 +325,6 @@ describe('AudioContextManager', () => {
   });
 
   test('should expose manager on window', () => {
-    expect(window.audioContextManager).toBe(audioContextManager);
+    expect(globalThis.audioContextManager).toBe(audioContextManager);
   });
 });

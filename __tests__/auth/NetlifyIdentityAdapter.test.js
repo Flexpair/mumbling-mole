@@ -41,18 +41,18 @@ describe('NetlifyIdentityAdapter', () => {
 
   afterEach(() => {
     consoleWarnSpy.mockRestore();
-    delete globalThis.window.netlifyIdentity;
+    delete globalThis.netlifyIdentity;
   });
 
   describe('Constructor', () => {
-    test('uses window.netlifyIdentity when available', () => {
+    test('uses globalThis.netlifyIdentity when available', () => {
       adapter = new NetlifyIdentityAdapter();
       expect(adapter.netlifyIdentity).toBe(mockNetlifyIdentity);
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
 
-    test('creates fallback mock when window.netlifyIdentity is unavailable', () => {
-      delete globalThis.window.netlifyIdentity;
+    test('creates fallback mock when globalThis.netlifyIdentity is unavailable', () => {
+      delete globalThis.netlifyIdentity;
       adapter = new NetlifyIdentityAdapter();
       
       expect(adapter.netlifyIdentity).toBeDefined();
@@ -63,8 +63,8 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('creates fallback mock when init function is missing', () => {
-      globalThis.window.netlifyIdentity = { ...mockNetlifyIdentity };
-      delete globalThis.window.netlifyIdentity.init;
+      globalThis.netlifyIdentity = { ...mockNetlifyIdentity };
+      delete globalThis.netlifyIdentity.init;
       
       adapter = new NetlifyIdentityAdapter();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -499,7 +499,7 @@ describe('NetlifyIdentityAdapter', () => {
 
   describe('_createFallbackMock()', () => {
     beforeEach(() => {
-      delete globalThis.window.netlifyIdentity;
+      delete globalThis.netlifyIdentity;
       adapter = new NetlifyIdentityAdapter();
     });
 

@@ -736,9 +736,8 @@ describe('initVoice Integration Tests', () => {
     // Mock global AudioWorkletNode constructor
     globalThis.AudioWorkletNode = jest.fn(() => mockAudioWorkletNode);
 
-    // Mock window._audioMixer
-    globalThis.window = globalThis.window || {};
-
+    // Mock globalThis._audioMixer
+    
     // Mock ensureAudioContext
     mockEnsureAudioContext.mockResolvedValue(mockAudioContext);
 
@@ -749,7 +748,7 @@ describe('initVoice Integration Tests', () => {
   afterEach(() => {
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
-    delete globalThis.window._audioMixer;
+    delete globalThis._audioMixer;
     delete globalThis.AudioWorkletNode;
     
     // Reset module-level mixer state
