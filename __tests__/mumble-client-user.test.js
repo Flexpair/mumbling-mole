@@ -46,7 +46,7 @@ jest.unstable_mockModule('node:events', () => ({
   }
 }));
 
-jest.unstable_mockModule('drop-stream', () => ({
+jest.unstable_mockModule('../app/utils/drop-stream.js', () => ({
   default: {
     obj: jest.fn(() => ({
       once: jest.fn(),

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import DropStream from 'drop-stream'
+import DropStream from '../utils/drop-stream.js'
 import Timer from 'rtimer'
 
 class User extends EventEmitter {

@@ -6,7 +6,6 @@ import { jest } from '@jest/globals';
 
 // Mock dependencies before imports
 let mockKeyboardjs;
-let mockGetUserMedia;
 let mockEnsureAudioContext;
 let mockGetCurrentMixer;
 
@@ -16,9 +15,6 @@ beforeAll(async () => {
     bind: jest.fn(),
     unbind: jest.fn()
   };
-
-  // Mock getUserMedia
-  mockGetUserMedia = jest.fn();
 
   // Mock audio-context-manager
   mockEnsureAudioContext = jest.fn();
@@ -40,17 +36,13 @@ beforeAll(async () => {
     default: mockKeyboardjs
   }));
 
-  jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
-    default: mockGetUserMedia
-  }));
-
   jest.unstable_mockModule('../../app/audio/audio-context-manager.js', () => ({
     default: { getStats: jest.fn() },
     ensureAudioContext: mockEnsureAudioContext,
     getAudioContext: jest.fn()
   }));
 
-  jest.unstable_mockModule('drop-stream', () => ({
+  jest.unstable_mockModule('../../app/utils/drop-stream.js', () => ({
     default: mockDropStream
   }));
 

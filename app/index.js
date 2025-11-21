@@ -1,4 +1,3 @@
-import url from "node:url";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 import { createApp } from 'vue';
@@ -10,9 +9,6 @@ import {
 import {
   translate,
 } from "./localize";
-
-// Debug flag for controlling verbose logging in voice handlers
-const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -68,7 +64,8 @@ if (ui.auth) {
 
 function initializeUI() {
   // Parse URL query parameters
-  let queryParams = url.parse(document.location.href, true).query;
+  const urlObj = new URL(document.location.href);
+  let queryParams = Object.fromEntries(urlObj.searchParams.entries());
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
     ui.connectDialog.address.value = queryParams.address;

@@ -32,15 +32,22 @@ const mockAudioContextManager = {
 };
 
 // Mock modules
-jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
-  default: mockGetUserMedia
-}));
+// Removed getusermedia mock as we now use navigator.mediaDevices.getUserMedia directly
+
+// Setup navigator.mediaDevices.getUserMedia
+if (!global.navigator) {
+  global.navigator = {};
+}
+if (!global.navigator.mediaDevices) {
+  global.navigator.mediaDevices = {};
+}
+global.navigator.mediaDevices.getUserMedia = mockGetUserMedia;
 
 jest.unstable_mockModule('keyboardjs', () => ({
   default: mockKeyboardjs
 }));
 
-jest.unstable_mockModule('drop-stream', () => ({
+jest.unstable_mockModule('../../app/utils/drop-stream.js', () => ({
   default: mockDropStream
 }));
 
@@ -758,10 +765,7 @@ describe('initVoice Integration Tests', () => {
       const onError = jest.fn();
 
       // Setup getUserMedia to call success callback
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        // Simulate async getUserMedia success
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Call initVoice
       initVoice(onData, onError);
@@ -816,9 +820,7 @@ describe('initVoice Integration Tests', () => {
       const onData = jest.fn();
       const onError = jest.fn();
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       initVoice(onData, onError);
 
@@ -856,9 +858,7 @@ describe('initVoice Integration Tests', () => {
       const callback1 = jest.fn();
       const callback2 = jest.fn();
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Register callbacks before initialization
       onAudioMixerReady(callback1);
@@ -879,9 +879,7 @@ describe('initVoice Integration Tests', () => {
       });
       const successCallback = jest.fn();
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       onAudioMixerReady(errorCallback);
       onAudioMixerReady(successCallback);
@@ -901,9 +899,7 @@ describe('initVoice Integration Tests', () => {
     });
 
     test('should setup track ended event listener', async () => {
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       initVoice(jest.fn(), jest.fn());
 
@@ -921,9 +917,7 @@ describe('initVoice Integration Tests', () => {
       const mockError = new Error('Permission denied');
 
       // Setup getUserMedia to call error callback
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(mockError, null), 0);
-      });
+      mockGetUserMedia.mockRejectedValue(mockError);
 
       initVoice(onData, onError);
 
@@ -944,9 +938,7 @@ describe('initVoice Integration Tests', () => {
       const onError = jest.fn();
       const workletError = new Error('Failed to load AudioWorklet module');
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Mock AudioWorklet module loading failure
       mockAudioContext.audioWorklet.addModule.mockRejectedValue(workletError);
@@ -970,9 +962,7 @@ describe('initVoice Integration Tests', () => {
       const onError = jest.fn();
       const contextError = new Error('AudioContext creation failed');
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Mock AudioContext initialization failure
       mockEnsureAudioContext.mockRejectedValue(contextError);
@@ -996,9 +986,7 @@ describe('initVoice Integration Tests', () => {
       const onError = jest.fn();
       const nodeError = new Error('AudioWorkletNode creation failed');
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Mock AudioWorkletNode constructor to throw
       globalThis.AudioWorkletNode = jest.fn(() => {
@@ -1022,9 +1010,7 @@ describe('initVoice Integration Tests', () => {
 
   describe('Mixer Lifecycle & Race Conditions', () => {
     test('should track current mixer instance', async () => {
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Get mixer before initialization (might be from previous test or null)
       const mixerBefore = getCurrentMixer();
@@ -1054,9 +1040,7 @@ describe('initVoice Integration Tests', () => {
         }
       });
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       initVoice(jest.fn(), jest.fn());
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -1090,9 +1074,7 @@ describe('initVoice Integration Tests', () => {
         }
       });
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
-        setTimeout(() => callback(null, mockMediaStream), 0);
-      });
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
       // Make disconnect throw errors
       mockAudioWorkletNode.disconnect.mockImplementation(() => {
@@ -1124,11 +1106,11 @@ describe('initVoice Integration Tests', () => {
       // Changing select.value here won't affect initVoice() because it already captured
       // the reference at import time. This is a known design issue documented in voice.js.
 
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
+      mockGetUserMedia.mockImplementation((constraints) => {
         // Verify constraints were created (deviceId depends on select value at import time)
         expect(constraints.audio).toBeDefined();
         expect(constraints.audio.deviceId).toBeDefined();
-        setTimeout(() => callback(null, mockMediaStream), 0);
+        return Promise.resolve(mockMediaStream);
       });
 
       initVoice(onData, onError);
@@ -1139,14 +1121,14 @@ describe('initVoice Integration Tests', () => {
     });
 
     test('should request audio with proper constraints', async () => {
-      mockGetUserMedia.mockImplementation((constraints, callback) => {
+      mockGetUserMedia.mockImplementation((constraints) => {
         // Verify all audio constraints
         expect(constraints.audio.echoCancellation).toBe(true);
         expect(constraints.audio.autoGainControl).toBe(true);
         expect(constraints.audio.noiseSuppression).toBe(true);
         expect(constraints.audio.channelCount).toEqual({ ideal: 1 });
         expect(constraints.audio.sampleRate).toEqual({ ideal: 48000 });
-        setTimeout(() => callback(null, mockMediaStream), 0);
+        return Promise.resolve(mockMediaStream);
       });
 
       initVoice(jest.fn(), jest.fn());
