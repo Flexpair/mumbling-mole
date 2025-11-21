@@ -1,14 +1,3 @@
-/**
- * useSettings - Vue Composable for Application Settings
- * 
- * Manages persistent application settings with localStorage sync.
- * Combines functionality of Settings and SettingsDialog classes.
- * 
- * Replaced Knockout Settings + SettingsDialog classes (index.js) in Phase 5 Step 5.
- * 
- * Now uses useLocalStorage composable for automatic persistence (eliminates manual save() boilerplate).
- */
-
 import { ref, computed } from 'vue';
 import { useLocalStorage } from './useLocalStorage.js';
 
@@ -41,22 +30,6 @@ export function useSettings(defaults = {}) {
     get: () => samplesPerPacket.value / 48,
     set: (value) => { samplesPerPacket.value = value * 48; }
   });
-
-  /**
-   * Apply settings from dialog to main settings
-   * Note: With useLocalStorage, changes are auto-saved.
-   * This method just copies values (no explicit save() needed).
-   */
-  const applyFrom = (dialogSettings) => {
-    voiceMode.value = dialogSettings.voiceMode.value;
-    pttKey.value = dialogSettings.pttKey.value;
-    userCountInChannelName.value = dialogSettings.userCountInChannelName.value;
-    audioBitrate.value = dialogSettings.audioBitrate.value;
-    samplesPerPacket.value = dialogSettings.samplesPerPacket.value;
-    jitterBufferSize.value = dialogSettings.jitterBufferSize.value;
-    jitterBufferMode.value = dialogSettings.jitterBufferMode.value;
-    // No explicit save() needed - useLocalStorage auto-saves
-  };
 
   /**
    * Record PTT key combination
@@ -96,26 +69,6 @@ export function useSettings(defaults = {}) {
   });
 
   /**
-   * Calculate position bandwidth (overhead for position data)
-   * Note: Currently always 0 since position data is not sent (sendPosition=false)
-   */
-  const positionBandwidth = computed(() => {
-    const MumbleClient = getMumbleClient();
-    return (
-      MumbleClient.calcEnforcableBandwidth(
-        audioBitrate.value,
-        samplesPerPacket.value,
-        true  // with position
-      ) -
-      MumbleClient.calcEnforcableBandwidth(
-        audioBitrate.value,
-        samplesPerPacket.value,
-        false  // without position
-      )
-    );
-  });
-
-  /**
    * Calculate overhead bandwidth (protocol overhead)
    */
   const overheadBandwidth = computed(() => {
@@ -143,11 +96,9 @@ export function useSettings(defaults = {}) {
     // Computed
     msPerPacket,
     totalBandwidth,
-    positionBandwidth,
     overheadBandwidth,
     
     // Methods
-    applyFrom,
     recordPttKey
   };
 }

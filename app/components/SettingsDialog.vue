@@ -244,7 +244,6 @@ const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
 // Computed: Bandwidth calculations (from AppState.settings)
 const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
-const positionBandwidth = computed(() => appState.settings.positionBandwidth.value);
 const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
 
 // Calculate maximum allowed bitrate based on server configuration

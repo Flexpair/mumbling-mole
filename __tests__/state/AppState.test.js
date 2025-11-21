@@ -108,7 +108,6 @@ describe('AppState - Vue Composables Architecture', () => {
       // Computed properties
       msPerPacket: { value: 20 },
       totalBandwidth: { value: 0 },
-      positionBandwidth: { value: 0 },
       overheadBandwidth: { value: 0 },
       // Methods
       save: jest.fn(),
