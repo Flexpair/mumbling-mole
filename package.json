@@ -47,7 +47,6 @@
     "jest-environment-jsdom": "^30.2.0",
     "keyboardjs": "2.7.0",
     "libopus.js": "0.0.1",
-    "promise": "^8.3.0",
     "protobufjs": "^7.2.6",
     "reduplexer": "^1.1.0",
     "reuse-pool": "1.0.2",

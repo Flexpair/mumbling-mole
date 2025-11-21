@@ -1,4 +1,3 @@
-import Promise from "promise";
 import websocketStream from "websocket-stream";
 import MumbleClient from "./mumble-client/index.js";
 

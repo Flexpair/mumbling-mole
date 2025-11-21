@@ -2,7 +2,6 @@ import mumbleStreams from '../mumble-streams/index.js'
 import duplexer from 'reduplexer'
 import { EventEmitter } from 'node:events'
 import through2 from 'through2'
-import Promise from 'promise'
 import DropStream from 'drop-stream'
 import { getOSName, getOSVersion } from './utils.js'
 import User from './user.js'
@@ -212,9 +211,9 @@ class MumbleClient extends EventEmitter {
    * Calling this method will begin the initialization of the connection.
    *
    * @param stream - The stream used for the data channel.
-   * @param callback - Optional callback that is invoked when the connection has been established.
+   * @returns {Promise} Promise that resolves when the connection has been established.
    */
-  connectDataStream (stream, callback) {
+  connectDataStream (stream) {
     if (this._dataStream) throw new Error('Already connected!')
     this._dataStream = stream
 
@@ -247,7 +246,7 @@ class MumbleClient extends EventEmitter {
       this.once('connected', () => resolve(this))
       this.once('reject', reject)
       this.once('error', reject)
-    }).nodeify(callback)
+    })
   }
 
   /**

@@ -1,5 +1,4 @@
 import MumbleClient from "./mumble-client/index.js";
-import Promise from "promise";
 import EventEmitter from "node:events";
 import { Writable, PassThrough } from "node:stream";
 import toArrayBuffer from "to-arraybuffer";
