@@ -14,11 +14,22 @@ import {
 const urlParams = new URLSearchParams(globalThis.location.search);
 const isDebugAudio = urlParams.has('debug-audio');
 
+// Global debug flag for general logging; enable by ?debug in URL
+const isDebug = urlParams.has('debug') || !!globalThis.mumbleWebConfig?.debug;
+
 // Set global debug flag for audio pipeline logging
 // This is checked by decoder-stream.js and vendored mumble-streams
 if (isDebugAudio) {
   globalThis.MUMBLE_DEBUG_AUDIO = true;
+  // log internal audio debug separately — only when explicitly requested
   console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
+}
+
+// Expose small logger that is enabled via ?debug or the runtime config
+function log() {
+  if (!isDebug) return;
+  // eslint-disable-next-line no-console
+  console.log(...arguments);
 }
 
 
@@ -132,9 +143,8 @@ function initializeUI() {
   })();
 }
 
-function log() {
-  console.log(...arguments);
-}
+// Backwards-compatible log export used by some modules
+globalThis.mumbleLog = log;
 
 async function main() {
   console.log('[DEBUG] main() called - starting initialization');
