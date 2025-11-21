@@ -37,7 +37,6 @@
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@jest/globals": "^30.2.0",
     "@playwright/test": "^1.56.1",
-    "@vue/test-utils": "^2.4.6",
     "depcheck": "^1.4.7",
     "drop-stream": "^1.0.0",
     "esbuild": "^0.27.0",
@@ -57,7 +56,6 @@
     "through2": "^4.0.2",
     "to-arraybuffer": "1.0.1",
     "vue": "^3.5.24",
-    "wait-port": "^1.1.0",
     "websocket-stream": "^5.5.2",
     "ws": "^8.18.3"
   },
