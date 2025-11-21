@@ -2,12 +2,10 @@ import mumbleStreams from '../mumble-streams/index.js'
 import duplexer from 'reduplexer'
 import { EventEmitter } from 'node:events'
 import through2 from 'through2'
-import Promise from 'promise'
-import DropStream from 'drop-stream'
+import DropStream from '../utils/drop-stream.js'
 import { getOSName, getOSVersion } from './utils.js'
 import User from './user.js'
 import Channel from './channel.js'
-import removeValue from 'remove-value'
 import Stats from 'stats-incremental'
 
 const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
@@ -212,9 +210,9 @@ class MumbleClient extends EventEmitter {
    * Calling this method will begin the initialization of the connection.
    *
    * @param stream - The stream used for the data channel.
-   * @param callback - Optional callback that is invoked when the connection has been established.
+   * @returns {Promise} Promise that resolves when the connection has been established.
    */
-  connectDataStream (stream, callback) {
+  connectDataStream (stream) {
     if (this._dataStream) throw new Error('Already connected!')
     this._dataStream = stream
 
@@ -247,7 +245,7 @@ class MumbleClient extends EventEmitter {
       this.once('connected', () => resolve(this))
       this.once('reject', reject)
       this.once('error', reject)
-    }).nodeify(callback)
+    })
   }
 
   /**
@@ -614,7 +612,10 @@ class MumbleClient extends EventEmitter {
     if (channel) {
       channel._remove()
       delete this._channelById[channel._id]
-      removeValue(this.channels, channel)
+      const index = this.channels.indexOf(channel)
+      if (index !== -1) {
+        this.channels.splice(index, 1)
+      }
     }
   }
 
@@ -638,7 +639,10 @@ class MumbleClient extends EventEmitter {
     if (user) {
       user._remove(this._userById[payload.actor], payload.reason, payload.ban)
       delete this._userById[user._id]
-      removeValue(this.users, user)
+      const index = this.users.indexOf(user)
+      if (index !== -1) {
+        this.users.splice(index, 1)
+      }
     }
   }
 

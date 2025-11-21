@@ -174,11 +174,11 @@ describe('BufferQueueNode - Basic Functionality', () => {
       }))
     };
 
-    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
   });
 
   afterEach(() => {
-    delete global.AudioWorkletNode;
+    delete globalThis.AudioWorkletNode;
   });
 
   test('requires audioContext parameter', () => {
@@ -211,7 +211,7 @@ describe('BufferQueueNode - Basic Functionality', () => {
     // Explicitly initialize the node
     await node.initialize();
     
-    expect(global.AudioWorkletNode).toHaveBeenCalledWith(
+    expect(globalThis.AudioWorkletNode).toHaveBeenCalledWith(
       mockAudioContext,
       'playback-buffer-processor',
       expect.objectContaining({
@@ -270,11 +270,11 @@ describe('BufferQueueNode - Audio Connection', () => {
       }
     };
 
-    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
   });
 
   afterEach(() => {
-    delete global.AudioWorkletNode;
+    delete globalThis.AudioWorkletNode;
   });
 
   test('connect forwards to worklet node', async () => {
@@ -335,11 +335,11 @@ describe('BufferQueueNode - Error Handling', () => {
       }
     };
 
-    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
   });
 
   afterEach(() => {
-    delete global.AudioWorkletNode;
+    delete globalThis.AudioWorkletNode;
   });
 
   test('emits error on worklet initialization failure', async () => {
@@ -393,11 +393,11 @@ describe('BufferQueueNode - Stream Events', () => {
       }
     };
 
-    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
   });
 
   afterEach(() => {
-    delete global.AudioWorkletNode;
+    delete globalThis.AudioWorkletNode;
   });
 
   test('sends finish message on stream finish', async () => {
@@ -466,11 +466,11 @@ describe('BufferQueueNode - _write() Method', () => {
       }
     };
 
-    global.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
   });
 
   afterEach(() => {
-    delete global.AudioWorkletNode;
+    delete globalThis.AudioWorkletNode;
   });
 
   test('writes Float32Array in object mode', async () => {

@@ -25,16 +25,6 @@ const translations = {};
 flatten(translationsJson, "", translations);
 
 /**
- * Initialize localization (no-op since we only support English now)
- * Kept for API compatibility with existing code
- * @param {string} _languageDefault - Ignored, always uses English
- * @param {string} [_languageFallback] - Ignored, always uses English
- */
-export async function initialize(_languageDefault, _languageFallback = "en") {
-  // No-op: English translations are statically imported above
-}
-
-/**
  * Gets a translation by its key (English only)
  *
  * @param {string} key - Translation key in dot notation (e.g., "connectdialog.title")
@@ -47,40 +37,4 @@ export function translate(key, _languageChosen) {
   }
   console.warn(`Missing translation for key: ${key}`);
   return "{{" + key + "}}";
-}
-
-/**
- * @author svartoyg
- */
-function translatePiece(selector, kind, parameters, key) {
-  let element = document.querySelector(selector);
-  if (!element) {
-    console.warn(
-      `translation selector "${selector}" for "${key}" did not match any element`
-    );
-    return;
-  }
-  
-  const translation = translate(key);
-  switch (kind) {
-    case "textcontent":
-      element.textContent = translation;
-      break;
-    case "attribute":
-      element.setAttribute(parameters.name || "value", translation);
-      break;
-    default:
-      console.warn('unhandled dom translation kind "' + kind + '"');
-      break;
-  }
-}
-
-/**
- * @author svartoyg
- */
-export function translateEverything() {
-  // ALL UI components migrated to Vue.js (migration complete)
-  // Vue components use {{ translate('key') }} or computed properties via inject('translate')
-  // DOM-based translation (translatePiece) no longer needed
-  // This function kept as no-op for API compatibility during migration
 }

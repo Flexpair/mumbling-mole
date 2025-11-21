@@ -244,7 +244,6 @@ const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
 // Computed: Bandwidth calculations (from AppState.settings)
 const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
-const positionBandwidth = computed(() => appState.settings.positionBandwidth.value);
 const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
 
 // Calculate maximum allowed bitrate based on server configuration
@@ -295,10 +294,7 @@ const recordPttKey = () => {
 
 // Form submission
 const handleSubmit = () => {
-  // Save settings to localStorage
-  appState.settings.save();
-
-  // Trigger AppState.applySettings behavior (recreates voice handler with new settings)
+  // Settings auto-save via useLocalStorage, just apply and close
   appState.applySettings();
   
   // Close the dialog

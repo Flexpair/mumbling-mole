@@ -1,5 +1,4 @@
 import { EventEmitter } from 'node:events'
-import removeValue from 'remove-value'
 
 class Channel extends EventEmitter {
   constructor (client, id) {
@@ -14,7 +13,10 @@ class Channel extends EventEmitter {
 
   _remove () {
     if (this.parent) {
-      removeValue(this.parent.children, this)
+      const index = this.parent.children.indexOf(this)
+      if (index !== -1) {
+        this.parent.children.splice(index, 1)
+      }
     }
     this.emit('remove')
   }
@@ -61,7 +63,10 @@ class Channel extends EventEmitter {
     this._updateLinks(msg, changes)
     if (msg.parent != null) {
       if (this.parent) {
-        removeValue(this.parent.children, this)
+        const index = this.parent.children.indexOf(this)
+        if (index !== -1) {
+          this.parent.children.splice(index, 1)
+        }
       }
       this._parentId = msg.parent
       if (this.parent) {

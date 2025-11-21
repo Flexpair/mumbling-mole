@@ -46,14 +46,6 @@ jest.unstable_mockModule('node:events', () => ({
   }
 }));
 
-jest.unstable_mockModule('remove-value', () => ({
-  default: jest.fn((array, value) => {
-    if (array.includes(value)) {
-      array.splice(array.indexOf(value), 1);
-    }
-  })
-}));
-
 const Channel = (await import('../app/mumble-client/channel.js')).default;
 
 describe('mumble-client Channel', () => {

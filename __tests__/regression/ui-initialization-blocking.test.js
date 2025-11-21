@@ -53,7 +53,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
       close: jest.fn()
     };
     
-    global.AudioContext = jest.fn(() => mockAudioContext);
+    globalThis.AudioContext = jest.fn(() => mockAudioContext);
   });
   
   afterEach(() => {

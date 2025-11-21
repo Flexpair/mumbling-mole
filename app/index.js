@@ -1,10 +1,5 @@
-// Removed legacy 'subworkers' import: nested worker polyfill caused constructor hijack issues.
-// Removed redundant manual Buffer/process attachment (handled by ProvidePlugin + DefinePlugin)
-import url from "node:url";
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
-
-// Vue.js imports
 import { createApp } from 'vue';
 import AppVue from "./components/App.vue";
 
@@ -12,23 +7,29 @@ import {
   enumMicrophones,
 } from "./audio/voice";
 import {
-  initialize as localizationInitialize,
-  translateEverything,
   translate,
 } from "./localize";
-
-// Debug flag for controlling verbose logging in voice handlers
-const DEBUG_VOICE_LOGGING = false; // Set to true for development debugging
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
 const isDebugAudio = urlParams.has('debug-audio');
 
+// Global debug flag for general logging; enable by ?debug in URL
+const isDebug = urlParams.has('debug') || !!globalThis.mumbleWebConfig?.debug;
+
 // Set global debug flag for audio pipeline logging
 // This is checked by decoder-stream.js and vendored mumble-streams
 if (isDebugAudio) {
   globalThis.MUMBLE_DEBUG_AUDIO = true;
+  // log internal audio debug separately — only when explicitly requested
   console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
+}
+
+// Expose small logger that is enabled via ?debug or the runtime config
+function log() {
+  if (!isDebug) return;
+  // eslint-disable-next-line no-console
+  console.log(...arguments);
 }
 
 
@@ -54,31 +55,28 @@ ui.guacamoleFrame = {};
 ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
 ui.user.setSettings(ui.settings);
 
-// Initialize auth
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
-ui.netlifyIdentity = ui.auth; // Backward compatibility
+ui.netlifyIdentity = ui.auth;
 
-// Delegate UI methods to UIState composable
 ui.openSettings = function() {
-  return ui.ui.openSettings(); // No more SettingsDialog class needed
+  return ui.ui.openSettings();
 };
 
 ui.closeSettings = function() {
   return ui.ui.closeSettings();
 };
 
-// Used only for debugging
 globalThis.mumbleUi = ui;
 
-// Make auth available globally (backward compatibility)
 if (ui.auth) {
   globalThis.netlifyIdentity = ui.auth;
 }
 
 function initializeUI() {
   // Parse URL query parameters
-  let queryParams = url.parse(document.location.href, true).query;
+  const urlObj = new URL(document.location.href);
+  let queryParams = Object.fromEntries(urlObj.searchParams.entries());
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   if (queryParams.address) {
     ui.connectDialog.address.value = queryParams.address;
@@ -145,18 +143,13 @@ function initializeUI() {
   })();
 }
 
-function log() {
-  console.log(...arguments);
-}
+// Backwards-compatible log export used by some modules
+globalThis.mumbleLog = log;
 
 async function main() {
   console.log('[DEBUG] main() called - starting initialization');
   document.title = globalThis.location.hostname;
-  console.log('[DEBUG] About to initialize localization');
-  await localizationInitialize('en'); // Always use English
-  console.log('[DEBUG] Localization complete, translating everything');
-  translateEverything();
-  console.log('[DEBUG] Translation complete, initializing UI');
+  console.log('[DEBUG] Localization complete, initializing UI');
   
   // Initialize UI state and auth
   initializeUI();

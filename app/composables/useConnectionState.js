@@ -17,7 +17,7 @@ import { buildWebSocketUrl } from '../utils/websocket-url';
  * - Internal non-reactive client instance
  */
 export function useConnectionState(log) {
-  const logger = log || console.log.bind(console);
+  const logger = log || console.log;
   
   // Connection infrastructure
   const connector = new WorkerBasedMumbleConnector();

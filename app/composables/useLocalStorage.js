@@ -98,22 +98,4 @@ export function useLocalStorage(key, defaultValue, options = {}) {
   return storedValue;
 }
 
-/**
- * Remove a key from localStorage and reset to default value
- * 
- * @param {Ref} storageRef - Ref returned by useLocalStorage
- * @param {string} key - localStorage key
- * @param {*} defaultValue - Default value to reset to
- * @param {Object} options - Same options as useLocalStorage
- */
-export function removeLocalStorage(storageRef, key, defaultValue, options = {}) {
-  const { prefix = '' } = options;
-  const storageKey = prefix + key;
-  
-  try {
-    globalThis.localStorage.removeItem(storageKey);
-    storageRef.value = defaultValue;
-  } catch (error) {
-    console.error(`[useLocalStorage] Failed to remove key "${storageKey}":`, error);
-  }
-}
+

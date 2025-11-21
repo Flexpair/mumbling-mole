@@ -1,9 +1,5 @@
 import NetlifyIdentityAdapter from './NetlifyIdentityAdapter.js';
 import MockAuthAdapter from './MockAuthAdapter.js';
-// Import other adapters as they're implemented:
-// import SupabaseAuthAdapter from './SupabaseAuthAdapter.js';
-// import Auth0Adapter from './Auth0Adapter.js';
-// import FirebaseAuthAdapter from './FirebaseAuthAdapter.js';
 
 /**
  * Authentication Provider Factory
@@ -52,27 +48,6 @@ class AuthFactory {
       case 'mock':
         return new MockAuthAdapter(providerOptions);
 
-      // Uncomment and implement as needed:
-      /*
-      case 'supabase':
-        if (!options.url || !options.anonKey) {
-          throw new Error('Supabase requires url and anonKey in config.auth.options');
-        }
-        return new SupabaseAuthAdapter(options.url, options.anonKey);
-
-      case 'auth0':
-        if (!options.domain || !options.clientId) {
-          throw new Error('Auth0 requires domain and clientId in config.auth.options');
-        }
-        return new Auth0Adapter(options.domain, options.clientId);
-
-      case 'firebase':
-        if (!options.apiKey || !options.authDomain) {
-          throw new Error('Firebase requires apiKey and authDomain in config.auth.options');
-        }
-        return new FirebaseAuthAdapter(options);
-      */
-
       default:
         throw new Error(`Unknown auth provider: ${provider}. Supported: ${AuthFactory.getSupportedProviders().join(', ')}`);
     }
@@ -83,14 +58,7 @@ class AuthFactory {
    * @returns {Array<string>}
    */
   static getSupportedProviders() {
-    return [
-      'netlify',
-      'mock',
-      // Add more as they're implemented:
-      // 'supabase',
-      // 'auth0',
-      // 'firebase',
-    ];
+    return ['netlify', 'mock'];
   }
 
   /**

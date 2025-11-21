@@ -41,10 +41,6 @@ describe('mumble-websocket', () => {
       default: jest.fn(() => mockMumbleClient)
     }));
 
-    await jest.unstable_mockModule('promise', () => ({
-      default: Promise
-    }));
-
     // Import after mocks are set up
     const module = await import('../app/mumble-websocket.js');
     connect = module.default;

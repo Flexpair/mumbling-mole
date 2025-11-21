@@ -1045,9 +1045,7 @@ import AppState from './state/AppState';
 // Import specific module
 import AudioState from './state/AudioState';
 
-// Import all
-import * as State from './state';
-const appState = new State.AppState(config, log);
+const appState = new AppState(config, log);
 ```
 
 ## Common Patterns

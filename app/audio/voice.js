@@ -1,7 +1,6 @@
 import { Writable } from "node:stream";
-import getUserMedia from "./getusermedia";
 import keyboardjs from "keyboardjs";
-import DropStream from "drop-stream";
+import DropStream from "../utils/drop-stream.js";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 
 // VOICE-HANDLER: Base class for voice transmission handling
@@ -360,11 +359,18 @@ export function initVoice(onData, onUserMediaError) {
     },
   };
 
-  getUserMedia(constraints, (err, userMedia) => {
-    if (err) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const error = new Error("MediaStreamError");
+    error.name = "NotSupportedError";
+    onUserMediaError(error);
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then(userMedia => {
+      handleUserMediaSuccess(userMedia, onData, onUserMediaError);
+    })
+    .catch(err => {
       onUserMediaError(err);
-      return;
-    }
-    handleUserMediaSuccess(userMedia, onData, onUserMediaError);
-  });
+    });
 }

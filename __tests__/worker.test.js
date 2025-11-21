@@ -115,13 +115,13 @@ jest.spyOn(globalThis, 'addEventListener');
 jest.spyOn(globalThis, 'postMessage').mockImplementation((msg) => postMessageCalls.push(msg));
 
 // For backward compatibility if needed
-global.self = {
+globalThis.self = {
   postMessage: globalThis.postMessage,
   addEventListener: globalThis.addEventListener,
 };
 
 // Mock require for worker.js (needed for codecs)
-global.require = jest.fn((path) => {
+globalThis.require = jest.fn((path) => {
   if (path === "./audio/codecs-browser.js") return { opus: "mocked" };
   return {};
 });
@@ -183,7 +183,7 @@ describe("worker.js", () => {
       // for the microtask queue to flush before checking postMessage.
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      expect(global.self.postMessage).toHaveBeenCalledWith(
+      expect(globalThis.self.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           reqId: 1,
           result: expect.any(Number)
@@ -214,7 +214,7 @@ describe("worker.js", () => {
       client.emit("denied", denialReason);
       
       // Verify proxied message
-      expect(global.self.postMessage).toHaveBeenCalledWith(
+      expect(globalThis.self.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           event: "denied",
           value: [denialReason]

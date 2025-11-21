@@ -46,7 +46,7 @@ jest.unstable_mockModule('node:events', () => ({
   }
 }));
 
-jest.unstable_mockModule('drop-stream', () => ({
+jest.unstable_mockModule('../app/utils/drop-stream.js', () => ({
   default: {
     obj: jest.fn(() => ({
       once: jest.fn(),
@@ -54,14 +54,6 @@ jest.unstable_mockModule('drop-stream', () => ({
       end: jest.fn()
     }))
   }
-}));
-
-jest.unstable_mockModule('remove-value', () => ({
-  default: jest.fn((array, value) => {
-    if (array.includes(value)) {
-      array.splice(array.indexOf(value), 1);
-    }
-  })
 }));
 
 jest.unstable_mockModule('rtimer', () => ({

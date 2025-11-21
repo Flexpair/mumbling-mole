@@ -17,10 +17,6 @@ jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
   }))
 }));
 
-jest.unstable_mockModule('promise', () => ({
-  default: global.Promise
-}));
-
 jest.unstable_mockModule('to-arraybuffer', () => ({
   default: jest.fn((buf) => {
     if (buf instanceof ArrayBuffer) return buf;
@@ -52,7 +48,7 @@ class MockWorker {
 }
 
 // Set up global Worker mock
-global.Worker = MockWorker;
+globalThis.Worker = MockWorker;
 
 // Now import the module
 const WorkerBasedMumbleConnector = (await import('../app/worker-client.js')).default;

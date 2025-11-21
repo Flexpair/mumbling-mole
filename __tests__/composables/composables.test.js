@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 describe('Vue Composables', () => {
   // Mock Worker for ConnectionState tests
   beforeEach(() => {
-    global.Worker = class Worker {
+    globalThis.Worker = class Worker {
       constructor(url, options) {
         this.url = url;
         this.options = options;

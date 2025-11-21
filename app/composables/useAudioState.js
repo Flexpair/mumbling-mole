@@ -241,7 +241,6 @@ export function useAudioState() {
         };
         
         beeperReady.value = true;
-        console.log('[BEEP] Persistent beeper initialized successfully');
         return _persistentBeeper;
       } catch (err) {
         console.error('[BEEP] Failed to initialize persistent beeper:', err);
