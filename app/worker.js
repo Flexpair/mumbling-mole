@@ -228,6 +228,7 @@ function setupClient(id, client) {
   client.on("dataPing", () => {
     pushProp(id, client, "dataStats");
   });
+  registerEventProxy(id, client, "dataPing");
   
   client.on("connected", () => {
     pushProp(id, client, "maxBandwidth");
