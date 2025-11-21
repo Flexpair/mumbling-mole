@@ -109,13 +109,6 @@ const mockDuplexer = jest.fn((encoder, decoder, opts) => {
 jest.unstable_mockModule('../app/mumble-streams/index.js', () => ({ default: mockMumbleStreams }));
 jest.unstable_mockModule('reduplexer', () => ({ default: mockDuplexer }));
 jest.unstable_mockModule('drop-stream', () => ({ default: mockDropStream }));
-jest.unstable_mockModule('../app/utils/remove-value.js', () => ({
-  default: jest.fn((array, value) => {
-    if (array.includes(value)) {
-      array.splice(array.indexOf(value), 1);
-    }
-  })
-}));
 jest.unstable_mockModule('stats-incremental', () => ({
   default: jest.fn(() => ({
     push: jest.fn(),

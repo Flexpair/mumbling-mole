@@ -1,6 +1,5 @@
 import { EventEmitter } from 'node:events'
 import DropStream from 'drop-stream'
-import removeValue from '../utils/remove-value.js'
 import Timer from 'rtimer'
 
 class User extends EventEmitter {
@@ -80,7 +79,10 @@ class User extends EventEmitter {
     const newChannelId = msg.channelId ?? msg.channel_id;
     if (newChannelId != null) {
       if (this.channel) {
-        removeValue(this.channel.users, this)
+        const index = this.channel.users.indexOf(this)
+        if (index !== -1) {
+          this.channel.users.splice(index, 1)
+        }
       }
       this._channelId = newChannelId
       if (this.channel) {
@@ -94,7 +96,10 @@ class User extends EventEmitter {
 
   _remove (actor, reason, ban) {
     if (this.channel) {
-      removeValue(this.channel.users, this)
+      const index = this.channel.users.indexOf(this)
+      if (index !== -1) {
+        this.channel.users.splice(index, 1)
+      }
     }
     this.emit('remove', actor, reason, ban)
   }

@@ -6,7 +6,6 @@ import DropStream from 'drop-stream'
 import { getOSName, getOSVersion } from './utils.js'
 import User from './user.js'
 import Channel from './channel.js'
-import removeValue from '../utils/remove-value.js'
 import Stats from 'stats-incremental'
 
 const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
@@ -613,7 +612,10 @@ class MumbleClient extends EventEmitter {
     if (channel) {
       channel._remove()
       delete this._channelById[channel._id]
-      removeValue(this.channels, channel)
+      const index = this.channels.indexOf(channel)
+      if (index !== -1) {
+        this.channels.splice(index, 1)
+      }
     }
   }
 
@@ -637,7 +639,10 @@ class MumbleClient extends EventEmitter {
     if (user) {
       user._remove(this._userById[payload.actor], payload.reason, payload.ban)
       delete this._userById[user._id]
-      removeValue(this.users, user)
+      const index = this.users.indexOf(user)
+      if (index !== -1) {
+        this.users.splice(index, 1)
+      }
     }
   }
 

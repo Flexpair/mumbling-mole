@@ -18,8 +18,6 @@ export { useConnectionInfo } from './useConnectionInfo.js';
 export { useSettings } from './useSettings.js';
 
 // Utility composables (reusable UI helpers)
-export { useLocalStorage, removeLocalStorage } from './useLocalStorage.js';
-export { useTooltip, vTooltip } from './useTooltip.js';
+export { useLocalStorage } from './useLocalStorage.js';
+export { vTooltip } from './useTooltip.js';
 export { useClipboard } from './useClipboard.js';
-export { useDialog } from './useDialog.js';
-export { useKeyboardShortcut } from './useKeyboardShortcut.js';

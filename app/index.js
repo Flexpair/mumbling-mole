@@ -8,8 +8,6 @@ import {
   enumMicrophones,
 } from "./audio/voice";
 import {
-  initialize as localizationInitialize,
-  translateEverything,
   translate,
 } from "./localize";
 
@@ -144,11 +142,7 @@ function log() {
 async function main() {
   console.log('[DEBUG] main() called - starting initialization');
   document.title = globalThis.location.hostname;
-  console.log('[DEBUG] About to initialize localization');
-  await localizationInitialize('en'); // Always use English
-  console.log('[DEBUG] Localization complete, translating everything');
-  translateEverything();
-  console.log('[DEBUG] Translation complete, initializing UI');
+  console.log('[DEBUG] Localization complete, initializing UI');
   
   // Initialize UI state and auth
   initializeUI();

@@ -7,32 +7,6 @@
 
 import { reactive } from 'vue';
 
-export function useTooltip() {
-  const tooltipState = reactive({
-    visible: false,
-    text: '',
-    x: 0,
-    y: 0,
-  });
-
-  const show = (text, event) => {
-    tooltipState.text = text;
-    tooltipState.x = event.clientX;
-    tooltipState.y = event.clientY;
-    tooltipState.visible = true;
-  };
-
-  const hide = () => {
-    tooltipState.visible = false;
-  };
-
-  return {
-    tooltipState,
-    show,
-    hide,
-  };
-}
-
 /**
  * v-tooltip Custom Directive
  * 
