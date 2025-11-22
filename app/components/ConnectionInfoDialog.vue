@@ -1,13 +1,18 @@
 <template>
   <Teleport to="body">
     <Transition name="dialog-fade">
-      <div v-if="visible" class="connection-info-dialog dialog-container">
+      <div 
+        v-if="visible" 
+        class="connection-info-dialog dialog-container"
+        role="dialog"
+        aria-labelledby="dialog-title"
+      >
         <!-- Sidebar Navigation -->
         <div class="dialog-sidebar">
-          <div class="sidebar-header">
+          <div class="sidebar-header" id="dialog-title">
             Settings
           </div>
-          <nav class="sidebar-nav">
+          <nav class="sidebar-nav" role="tablist">
             <button 
               :class="['nav-item', { active: activeTab === 'latency' }]"
               @click="activeTab = 'latency'"
@@ -49,7 +54,7 @@
           <Transition name="fade-slide" mode="out-in">
             
             <!-- Client Tab -->
-            <div v-if="activeTab === 'client'" key="client" class="content-panel">
+            <div v-if="activeTab === 'client'" key="client" class="content-panel" role="tabpanel" id="client-panel">
               <h2 class="panel-title">Client Settings</h2>
               
               <div class="setting-group">
@@ -80,7 +85,7 @@
             </div>
 
             <!-- Audio Delay Tab -->
-            <div v-else-if="activeTab === 'latency'" key="latency" class="content-panel">
+            <div v-else-if="activeTab === 'latency'" key="latency" class="content-panel" role="tabpanel" id="latency-panel">
               <h2 class="panel-title">Audio Delay</h2>
 
               <div class="stat-card">
@@ -112,7 +117,7 @@
             </div>
 
             <!-- Bandwidth Tab -->
-            <div v-else-if="activeTab === 'bandwidth'" key="bandwidth" class="content-panel">
+            <div v-else-if="activeTab === 'bandwidth'" key="bandwidth" class="content-panel" role="tabpanel" id="bandwidth-panel">
               <h2 class="panel-title">Outgoing Audio Bandwidth</h2>
 
               <div class="setting-group">
@@ -140,6 +145,13 @@
                     ref="sliderTrack"
                     @mousedown="onDragStart"
                     @touchstart.prevent="onDragStart"
+                    @keydown="onKeyDown"
+                    tabindex="0"
+                    role="slider"
+                    :aria-valuemin="minGrossBandwidth"
+                    :aria-valuemax="maxAllowedBandwidth"
+                    :aria-valuenow="grossBandwidth"
+                    aria-label="Gross bandwidth slider"
                   >
                     <!-- Net Bandwidth Fill -->
                     <div class="slider-track-fill" :style="trackFillStyle"></div>
@@ -167,7 +179,7 @@
             </div>
 
             <!-- Server Tab -->
-            <div v-else-if="activeTab === 'server'" key="server" class="content-panel">
+            <div v-else-if="activeTab === 'server'" key="server" class="content-panel" role="tabpanel" id="server-panel">
               <h2 class="panel-title">Server Version Info</h2>
 
               <div class="info-section">
@@ -192,7 +204,7 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 import { useClipboard } from '../composables';
@@ -312,6 +324,47 @@ const onDragEnd = () => {
   window.removeEventListener('touchmove', onDragMove);
   window.removeEventListener('touchend', onDragEnd);
 };
+
+// Keyboard navigation for slider
+const onKeyDown = (event) => {
+  const step = 1000; // 1 kbps step
+  let newValue = grossBandwidth.value;
+  
+  switch(event.key) {
+    case 'ArrowRight':
+    case 'ArrowUp':
+      event.preventDefault();
+      newValue = Math.min(maxAllowedBandwidth.value, grossBandwidth.value + step);
+      break;
+    case 'ArrowLeft':
+    case 'ArrowDown':
+      event.preventDefault();
+      newValue = Math.max(minGrossBandwidth.value, grossBandwidth.value - step);
+      break;
+    case 'Home':
+      event.preventDefault();
+      newValue = minGrossBandwidth.value;
+      break;
+    case 'End':
+      event.preventDefault();
+      newValue = maxAllowedBandwidth.value;
+      break;
+    default:
+      return;
+  }
+  
+  grossBandwidth.value = newValue;
+};
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (isDragging.value) {
+    window.removeEventListener('mousemove', onDragMove);
+    window.removeEventListener('mouseup', onDragEnd);
+    window.removeEventListener('touchmove', onDragMove);
+    window.removeEventListener('touchend', onDragEnd);
+  }
+});
 
 const updateSliderFromEvent = (event) => {
   if (!sliderTrack.value) return;
@@ -491,7 +544,7 @@ onMounted(() => {
     appState.openSettings = () => {
       if (appState.ui.currentOpenModal.value !== null) return;
       updateStats();
-      activeTab.value = 'audio';
+      activeTab.value = 'latency';
       visible.value = true;
       appState.ui.currentOpenModal.value = 'connectionInfo';
     };

@@ -1,6 +1,6 @@
 # Copilot Instructions · mumbling-mole
 
-Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket tunneling. **NOT WebRTC** - uses websockify to bridge WebSocket (browser) ↔ TCP (Mumble protocol). Audio capture via AudioWorklet (48 kHz, 960-sample frames), encoding in Web Workers (Opus via libopus.js WASM).
+Modern browser-based Mumble voice client built with Vue.js 3 and Web Audio.
 
 ## 🚨 Critical Constraints
 
