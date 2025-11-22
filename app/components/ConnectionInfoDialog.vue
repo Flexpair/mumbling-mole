@@ -76,7 +76,7 @@
                 </div>
               </div>
 
-              <div class="setting-group" style="margin-top: 30px;">
+              <div class="setting-group version-group">
                 <label class="setting-label">Client Version</label>
                 <button @click="copyCommitHash" class="action-button" :title="copyButtonTitle">
                   {{ copyButtonText }}
@@ -122,7 +122,7 @@
 
               <div class="setting-group">
                 <div class="label-row">
-                  <p class="setting-label info" style="margin-bottom: 15px;">
+                  <p class="setting-label info top-info">
                     <span v-if="isServerLimited">
                       Gross bandwidth is limited by server to {{ (maxAllowedBandwidth / 1000).toFixed(0) }} kbps.
                     </span>
@@ -131,7 +131,7 @@
                     </span>
                   </p>
                 </div>
-                <div class="slider-container" style="position: relative; margin: 50px 0 50px 0;">
+                <div class="slider-container bandwidth-slider">
                   <!-- Floating Badges -->
                   <div class="floating-badge top" :style="grossBadgeStyle">
                     {{ (grossBandwidth / 1000).toFixed(1) }} kbps
@@ -170,7 +170,7 @@
                   </div>
                 </div>
 
-                <div class="label-row" style="margin-top: 15px;">
+                <div class="label-row bottom-spacing">
                    <p class="setting-label info">
                      Net bandwidth minimum is 8 kbps for audio transmission.
                    </p>
@@ -241,7 +241,6 @@ const visible = computed({
 const serverVersion = computed(() => appState.connectionInfo.serverVersion.value);
 const latencyMs = computed(() => appState.connectionInfo.latencyMs.value);
 const latencyDeviation = computed(() => appState.connectionInfo.latencyDeviation.value);
-const maxBandwidth = computed(() => appState.connectionInfo.maxBandwidth.value);
 
 // Settings
 const voiceMode = computed({
@@ -264,11 +263,6 @@ const samplesPerPacket = computed({
   set: (val) => { appState.settings.samplesPerPacket.value = val; }
 });
 
-const msPerPacket = computed({
-  get: () => samplesPerPacket.value / 48,
-  set: (val) => { samplesPerPacket.value = val * 48; }
-});
-
 const jitterBufferSize = computed({
   get: () => appState.settings.jitterBufferSize.value,
   set: (val) => { appState.settings.jitterBufferSize.value = val; }
@@ -282,7 +276,6 @@ const jitterBufferMode = computed({
 const MS_PER_PACKET = 20;
 const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
-const totalBandwidth = computed(() => appState.settings.totalBandwidth.value);
 const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
 
 const grossBandwidth = computed({
@@ -665,6 +658,10 @@ onMounted(() => {
   margin-bottom: 25px;
 }
 
+.setting-group.version-group {
+  margin-top: 30px;
+}
+
 .setting-label {
   display: block;
   margin-bottom: 8px;
@@ -676,6 +673,10 @@ onMounted(() => {
 .setting-label.info {
   font-weight: normal;
   opacity: 0.8;
+}
+
+.setting-label.info.top-info {
+  margin-bottom: 15px;
 }
 
 .control-wrapper {
@@ -729,6 +730,11 @@ onMounted(() => {
   margin: 15px 0;
 }
 
+.slider-container.bandwidth-slider {
+  position: relative;
+  margin: 50px 0;
+}
+
 .slider-labels {
   display: flex;
   justify-content: space-between;
@@ -737,20 +743,14 @@ onMounted(() => {
   margin-top: 5px;
 }
 
-.value-badge {
-  background: #00ffff;
-  color: #000;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  float: right;
-}
-
 .label-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.label-row.bottom-spacing {
+  margin-top: 15px;
 }
 
 /* Stats */
@@ -773,20 +773,6 @@ onMounted(() => {
 .stat-sub {
   font-size: 12px;
   color: #888;
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  margin-bottom: 25px;
-}
-
-.stat-item {
-  background: #252526;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #333;
 }
 
 .stat-label {
@@ -815,14 +801,6 @@ onMounted(() => {
   border: 1px solid #333;
 }
 
-.info-section h3 {
-  margin: 0 0 15px 0;
-  font-size: 14px;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
 .info-row {
   display: flex;
   justify-content: space-between;
@@ -847,20 +825,6 @@ onMounted(() => {
   margin-top: 8px;
   font-size: 12px;
   color: #888;
-}
-
-.info-note.warning {
-  color: #ffaa00;
-}
-
-.muted {
-  color: #666;
-}
-
-.divider {
-  height: 1px;
-  background: #333;
-  margin: 25px 0;
 }
 
 /* Transitions */
