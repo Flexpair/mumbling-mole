@@ -13,6 +13,13 @@ function getMumbleClient() {
 export function useSettings(defaults = {}) {
   // Core settings (auto-persisted to localStorage via useLocalStorage)
   const voiceMode = useLocalStorage('voiceMode', defaults.voiceMode || 'cont', { prefix: 'mumble.' });
+  
+  // FORCE-CONT: PTT is currently disabled/untested (Nov 2025)
+  // If user had PTT selected previously, force switch to Continuous
+  if (voiceMode.value === 'ptt') {
+    voiceMode.value = 'cont';
+  }
+
   const pttKey = useLocalStorage('pttKey', defaults.pttKey || 'ctrl + shift', { prefix: 'mumble.' });
   const userCountInChannelName = useLocalStorage('userCountInChannelName', defaults.userCountInChannelName || false, { prefix: 'mumble.' });
   const audioBitrate = useLocalStorage('audioBitrate', defaults.audioBitrate || 40000, { prefix: 'mumble.' });
