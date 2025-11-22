@@ -57,7 +57,13 @@ export default class AppState {
     // while keeping actions available from the store instance
     this._vueState = {
       connection: { ...connectionStore, ...safeStoreToRefs(connectionStore) },
-      audio: { ...audioStore, ...safeStoreToRefs(audioStore) },
+      audio: { 
+        ...audioStore, 
+        ...safeStoreToRefs(audioStore),
+        // Expose audioContext as value (getter) for backward compatibility with tests/legacy code
+        // that expects the raw AudioContext object, not a Ref.
+        get audioContext() { return audioStore.audioContext; }
+      },
       voice: { ...voiceStore, ...safeStoreToRefs(voiceStore) },
       ui: { ...uiStore, ...safeStoreToRefs(uiStore) },
       user: { ...userStore, ...safeStoreToRefs(userStore) },

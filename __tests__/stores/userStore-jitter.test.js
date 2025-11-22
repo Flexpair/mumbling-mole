@@ -94,6 +94,14 @@ const mockVoiceState = {
   setDeaf: jest.fn()
 };
 
+jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
+  useAudioStore: () => mockAudioState
+}));
+
+jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
+  useVoiceStore: () => mockVoiceState
+}));
+
 const mockConnectionState = {
   getClient: jest.fn()
 };
@@ -125,7 +133,7 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer', () => ({
   })
 }));
 
-// Mock debug-utils before importing useUserState
+// Mock debug-utils before importing useUserStore
 jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
   debugLog: jest.fn()
 }));
@@ -138,12 +146,12 @@ jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
 }));
 
 // Import the composable
-const { createPinia, setActivePinia } = await import('pinia');
+const { createPinia, setActivePinia, storeToRefs } = await import('pinia');
 
-const { useUserState } = await import('../../app/composables/useUserState.js');
+const { useUserStore } = await import('../../app/stores/userStore.js');
 
-describe('useUserState Jitter Buffer Calculation', () => {
-  let userState;
+describe('useUserStore Jitter Buffer Calculation', () => {
+  let userStore;
   let mockClient;
   let mockUser;
   let dataPingCallback;
@@ -180,17 +188,18 @@ describe('useUserState Jitter Buffer Calculation', () => {
 
     mockConnectionState.getClient.mockReturnValue(mockClient);
     
-    userState = useUserState(mockAudioState, mockVoiceState);
-    userState.setSettings(mockSettings);
+    userStore = useUserStore();
+    userStore.setSettings(mockSettings);
   });
 
   test('should calculate correct jitter buffer for 143ms latency', async () => {
     // Setup user
-    userState.thisUser.value = mockUser.__ui;
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
     await nextTick();
 
     // Verify user is set
-    expect(userState.thisUser.value).toBeTruthy();
+    expect(thisUser.value).toBeTruthy();
     
     // Setup stats
     // Latency 143ms, Variance 0 (for simplicity)
@@ -211,7 +220,8 @@ describe('useUserState Jitter Buffer Calculation', () => {
   });
 
   test('should handle stats.n = 0 correctly (skip calculation)', async () => {
-    userState.thisUser.value = mockUser.__ui;
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
     await nextTick();
 
     mockSettings.jitterBufferSize.value = 5; // Set to non-default

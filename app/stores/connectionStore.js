@@ -82,6 +82,13 @@ export const useConnectionStore = defineStore('connection', () => {
   function reset() {
     disconnect();
   }
+
+  /**
+   * Reset client (alias for reset for backward compatibility)
+   */
+  function resetClient() {
+    reset();
+  }
   
   // Return store API
   return {
@@ -99,5 +106,6 @@ export const useConnectionStore = defineStore('connection', () => {
     connect,
     disconnect,
     reset,
+    resetClient,
   };
 });

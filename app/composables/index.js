@@ -6,11 +6,7 @@
  */
 
 // State composables (core application state)
-export { useConnectionState } from './useConnectionState';
-export { useAudioState } from './useAudioState';
-export { useVoiceState } from './useVoiceState';
-export { useUIState } from './useUIState';
-export { useUserState } from './useUserState';
+// Note: Core state is now managed directly via Pinia stores in app/stores/
 export { useConnectionDialog } from './useConnectionDialog.js';
 export { useConnectErrorDialog } from './useConnectErrorDialog.js';
 export { useSampleRateWarningDialog } from './useSampleRateWarningDialog.js';

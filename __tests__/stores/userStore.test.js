@@ -105,10 +105,31 @@ jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
   debugLog: (...args) => console.log(...args)
 }));
 
-// Import the composable under test
-const { createPinia, setActivePinia } = await import('pinia');
+// Mock AudioStore
+const mockAudioState = {
+  audioContext: {},
+  audioLockActive: { value: false }
+};
 
-const { useUserState } = await import('../../app/composables/useUserState.js');
+// Mock VoiceStore
+const mockVoiceState = {
+  isLoopbackMode: false,
+  loopbackDominantFrequency: 0,
+  setMute: jest.fn(),
+  updateVoiceHandler: jest.fn()
+};
+
+jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
+  useAudioStore: () => mockAudioState
+}));
+
+jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
+  useVoiceStore: () => mockVoiceState
+}));
+
+// Import the store under test
+const { createPinia, setActivePinia, storeToRefs } = await import('pinia');
+const { useUserStore } = await import('../../app/stores/userStore.js');
 const { ref } = await import('vue');
 
 // Mock mumble-client User and Client
@@ -130,28 +151,22 @@ class MockUser {
   }
 }
 
-describe('useUserState Jitter Buffer Calculation', () => {
-  let userState;
+describe('useUserStore Jitter Buffer Calculation', () => {
+  let userStore;
   let mockClient;
   let mockUser;
   let mockUIUser;
-  let mockAudioState;
-  let mockVoiceState;
   let mockSettings;
 
   beforeEach(() => {
     setActivePinia(createPinia());
-    mockAudioState = {
-      audioContext: {},
-      audioLockActive: ref(false)
-    };
-
-    mockVoiceState = {
-      isLoopbackMode: ref(false),
-      loopbackDominantFrequency: ref(0),
-      setMute: jest.fn(),
-      updateVoiceHandler: jest.fn()
-    };
+    
+    // Reset mocks
+    mockAudioState.audioLockActive.value = false;
+    mockVoiceState.isLoopbackMode = false;
+    mockVoiceState.loopbackDominantFrequency = 0;
+    mockVoiceState.setMute.mockClear();
+    mockVoiceState.updateVoiceHandler.mockClear();
 
     mockSettings = {
       jitterBufferSize: ref(3),
@@ -171,14 +186,15 @@ describe('useUserState Jitter Buffer Calculation', () => {
       talking: ref('off')
     };
 
-    userState = useUserState(mockAudioState, mockVoiceState);
-    userState.setSettings(mockSettings);
+    userStore = useUserStore();
+    userStore.setSettings(mockSettings);
   });
 
 
   test('should calculate jitter buffer based on client stats', async () => {
     // Set the current user to our mock UI wrapper
-    userState.thisUser.value = mockUIUser;
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
 
     // Wait for watcher to run
     await new Promise(r => setTimeout(r, 100));

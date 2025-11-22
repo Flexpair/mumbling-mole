@@ -15,7 +15,7 @@
 import { jest } from '@jest/globals';
 import { createPinia, setActivePinia } from 'pinia';
 
-// Mock BufferQueueNode before importing useUserState
+// Mock BufferQueueNode before importing useUserStore
 let mockBufferQueueNodeInstance = null;
 let mockInitializeCalled = false;
 
@@ -90,12 +90,46 @@ jest.unstable_mockModule('../../app/utils/voice-stream-manager', () => ({
   createVoiceStreamManager: jest.fn(() => mockStreamManager)
 }));
 
-// Import useAudioStore
-const { useAudioStore } = await import('../../app/stores/audioStore.js');
+// Mock AudioContext
+const mockAudioContext = {
+  createGain: jest.fn(() => ({
+    gain: { value: 1 },
+    connect: jest.fn(),
+  })),
+  createAnalyser: jest.fn(() => ({
+    fftSize: 0,
+    smoothingTimeConstant: 0,
+    connect: jest.fn(),
+  })),
+  destination: {},
+};
+
+// Mock AudioStore
+const mockAudioState = {
+  getAudioContext: jest.fn(() => mockAudioContext),
+  audioContext: mockAudioContext
+};
+
+// Mock VoiceStore
+const mockVoiceState = {
+  isLoopbackMode: false,
+  updateLoopbackFrequency: jest.fn(),
+  loopbackDominantFrequency: 0
+};
+
+jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
+  useAudioStore: () => mockAudioState
+}));
+
+jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
+  useVoiceStore: () => mockVoiceState
+}));
+
+// Import useUserStore
+const { useUserStore } = await import('../../app/stores/userStore.js');
 
 describe('Regression: BufferQueueNode initialization bug', () => {
-  let useUserState;
-  let mockAudioContext;
+  let userStore;
   let mockUser;
   let mockStream;
   
@@ -106,28 +140,12 @@ describe('Regression: BufferQueueNode initialization bug', () => {
     mockBufferQueueNodeInstance = null;
     mockInitializeCalled = false;
     
-    // Import after mocks are set up
-    const module = await import('../../app/composables/useUserState.js');
-    useUserState = module.useUserState;
+    // Reset store mocks
+    mockVoiceState.isLoopbackMode = false;
     
-    // Create mock AudioContext
-    mockAudioContext = {
-      createGain: jest.fn(() => ({
-        gain: { value: 1 },
-        connect: jest.fn(),
-      })),
-      createAnalyser: jest.fn(() => ({
-        fftSize: 0,
-        smoothingTimeConstant: 0,
-        connect: jest.fn(),
-      })),
-      destination: {},
-    };
+    // Create user store
+    userStore = useUserStore();
     
-    // Set mock AudioContext in store
-    const audioStore = useAudioStore();
-    audioStore.audioContext = mockAudioContext;
-
     // Create mock user with EventEmitter pattern
     mockUser = {
       session: 12345,
@@ -173,22 +191,8 @@ describe('Regression: BufferQueueNode initialization bug', () => {
   });
   
   test('CRITICAL: BufferQueueNode.initialize() must be called when voice stream is received', async () => {
-    // Setup
-    const mockAudioState = {
-      getAudioContext: () => mockAudioContext,
-    };
-    
-    const mockVoiceState = {
-      isLoopbackMode: { value: false },
-      updateLoopbackFrequency: jest.fn(),
-      loopbackDominantFrequency: { value: 0 },
-    };
-    
-    // Create user state
-    const userState = useUserState(mockAudioState, mockVoiceState);
-    
     // Register the user (this sets up voice event handlers)
-    userState.registerUser(mockUser);
+    userStore.registerUser(mockUser);
     
     // Verify user.on('voice') was called during registration
     expect(mockUser.on).toHaveBeenCalledWith('voice', expect.any(Function));
@@ -220,21 +224,10 @@ describe('Regression: BufferQueueNode initialization bug', () => {
   
   test('BufferQueueNode.initialize() must be called in loopback mode too', async () => {
     // Setup with loopback mode enabled
-    const mockAudioState = {
-      getAudioContext: () => mockAudioContext,
-    };
-    
-    const mockVoiceState = {
-      isLoopbackMode: { value: true }, // Loopback mode
-      updateLoopbackFrequency: jest.fn(),
-      loopbackDominantFrequency: { value: 0 },
-    };
-    
-    // Create user state
-    const userState = useUserState(mockAudioState, mockVoiceState);
+    mockVoiceState.isLoopbackMode = true;
     
     // Register the user
-    userState.registerUser(mockUser);
+    userStore.registerUser(mockUser);
     
     // Simulate receiving a voice stream in loopback mode
     await mockUser.emit('voice', mockStream);
@@ -269,22 +262,10 @@ describe('Regression: BufferQueueNode initialization bug', () => {
       return instance;
     });
     
-    const mockAudioState = {
-      getAudioContext: () => mockAudioContext,
-    };
-    
-    const mockVoiceState = {
-      isLoopbackMode: { value: false },
-      updateLoopbackFrequency: jest.fn(),
-      loopbackDominantFrequency: { value: 0 },
-    };
-    
     // Spy on console.error to verify error is logged
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
-    // Create user state
-    const userState = useUserState(mockAudioState, mockVoiceState);
-    userState.registerUser(mockUser);
+    userStore.registerUser(mockUser);
     
     // Simulate receiving a voice stream
     await mockUser.emit('voice', mockStream);
@@ -317,21 +298,8 @@ describe('Regression: BufferQueueNode initialization bug', () => {
     // 3. BufferQueueNode is created and initialized
     // 4. Audio data flows through the node
     
-    const mockAudioState = {
-      getAudioContext: () => mockAudioContext,
-    };
-    
-    const mockVoiceState = {
-      isLoopbackMode: { value: false },
-      updateLoopbackFrequency: jest.fn(),
-      loopbackDominantFrequency: { value: 0 },
-    };
-    
-    // Create user state
-    const userState = useUserState(mockAudioState, mockVoiceState);
-    
     // Register user (sets up event handlers)
-    userState.registerUser(mockUser);
+    userStore.registerUser(mockUser);
     
     // Simulate receiving voice stream
     await mockUser.emit('voice', mockStream);

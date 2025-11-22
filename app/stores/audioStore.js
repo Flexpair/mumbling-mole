@@ -26,6 +26,21 @@ export const useAudioStore = defineStore('audio', () => {
   const beeperReady = ref(false);
   let _persistentBeeper = null;
 
+  // SYNC-WITH-MANAGER: Ensure store stays in sync with AudioContextManager singleton
+  // This handles cases where AudioContext is initialized by other modules (e.g. voice.js)
+  // and ensures the store always reflects the current AudioContext state.
+  audioContextManager.onReady((ctx) => {
+    if (audioContext.value !== ctx) {
+      audioContext.value = ctx;
+      debugLog('AudioStore synced with AudioContextManager (onReady)');
+    }
+  });
+
+  // Check if already initialized (e.g. if store is created after AudioContext)
+  if (audioContextManager.audioContext && !audioContext.value) {
+    audioContext.value = audioContextManager.audioContext;
+  }
+
   /**
    * Get AudioContext instance
    * @returns {AudioContext|null}
