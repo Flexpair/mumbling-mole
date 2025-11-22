@@ -7,6 +7,9 @@
 
 // Simple ref implementation for tests
 export function ref(value) {
+  if (value && value.__v_isRef) {
+    return value;
+  }
   const r = {
     value,
     __v_isRef: true,
@@ -16,12 +19,80 @@ export function ref(value) {
 
 // Simple reactive implementation for tests
 export function reactive(obj) {
-  return obj;
+  // Simple proxy to handle ref unwrapping for Pinia
+  return new Proxy(obj, {
+    get(target, prop, receiver) {
+      if (prop === '__v_raw') return target;
+      const val = Reflect.get(target, prop, receiver);
+      // Auto-unwrap refs
+      if (val && val.__v_isRef && !val.__v_isComputed) {
+        return val.value;
+      }
+      return val;
+    },
+    set(target, prop, value, receiver) {
+      const current = target[prop];
+      if (current && current.__v_isRef) {
+        if (value === current) {
+          return true;
+        }
+        current.value = value;
+        return true;
+      }
+      target[prop] = value;
+      return true;
+    }
+  });
 }
 
 // markRaw implementation for tests - prevents reactivity
 export function markRaw(obj) {
   return obj;
+}
+
+// toRaw implementation for tests
+export function toRaw(obj) {
+  return obj;
+}
+
+let currentScope = null;
+
+// effectScope implementation for tests
+export function effectScope(detached) {
+  const scope = {
+    active: true,
+    effects: [],
+    cleanups: [],
+    run(fn) {
+      const prev = currentScope;
+      currentScope = this;
+      try {
+        return fn();
+      } finally {
+        currentScope = prev;
+      }
+    },
+    stop() {
+      this.active = false;
+    }
+  };
+  return scope;
+}
+
+export function getCurrentScope() {
+  return currentScope;
+}
+
+export function onScopeDispose(fn) {
+  // no-op
+}
+
+export function getCurrentInstance() {
+  return null;
+}
+
+export function hasInjectionContext() {
+  return false;
 }
 
 // Simple computed implementation for tests
@@ -92,15 +163,16 @@ export function isRef(r) {
 
 // toRef helper
 export function toRef(object, key) {
-  return {
+  const wrapper = {
+    __v_isRef: true,
     get value() {
       return object[key];
     },
-    set value(val) {
-      object[key] = val;
-    },
-    __v_isRef: true,
+    set value(newVal) {
+      object[key] = newVal;
+    }
   };
+  return wrapper;
 }
 
 // toRefs helper
@@ -115,6 +187,16 @@ export function toRefs(object) {
 // unref helper
 export function unref(ref) {
   return isRef(ref) ? ref.value : ref;
+}
+
+// isReactive helper
+export function isReactive(obj) {
+  return obj && obj.__v_isReactive === true;
+}
+
+// shallowRef helper
+export function shallowRef(value) {
+  return ref(value);
 }
 
 // Default export
@@ -138,4 +220,13 @@ export default {
   toRef,
   toRefs,
   unref,
+  markRaw,
+  toRaw,
+  effectScope,
+  getCurrentScope,
+  onScopeDispose,
+  getCurrentInstance,
+  hasInjectionContext,
+  isReactive,
+  shallowRef,
 };

@@ -13,6 +13,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { createPinia, setActivePinia } from 'pinia';
 
 // Mock BufferQueueNode before importing useUserState
 let mockBufferQueueNodeInstance = null;
@@ -89,6 +90,9 @@ jest.unstable_mockModule('../../app/utils/voice-stream-manager', () => ({
   createVoiceStreamManager: jest.fn(() => mockStreamManager)
 }));
 
+// Import useAudioStore
+const { useAudioStore } = await import('../../app/stores/audioStore.js');
+
 describe('Regression: BufferQueueNode initialization bug', () => {
   let useUserState;
   let mockAudioContext;
@@ -96,6 +100,7 @@ describe('Regression: BufferQueueNode initialization bug', () => {
   let mockStream;
   
   beforeEach(async () => {
+    setActivePinia(createPinia());
     // Reset mocks
     jest.clearAllMocks();
     mockBufferQueueNodeInstance = null;
@@ -119,6 +124,10 @@ describe('Regression: BufferQueueNode initialization bug', () => {
       destination: {},
     };
     
+    // Set mock AudioContext in store
+    const audioStore = useAudioStore();
+    audioStore.audioContext = mockAudioContext;
+
     // Create mock user with EventEmitter pattern
     mockUser = {
       session: 12345,

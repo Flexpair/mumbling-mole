@@ -6,6 +6,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { createPinia, setActivePinia } from 'pinia';
 
 // Mock BufferQueueNode before imports
 const mockBufferQueueNodeInstances = [];
@@ -78,7 +79,9 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer.js', () => ({
 }));
 
 // Import after mocks
+setActivePinia(createPinia());
 const { useUserState } = await import('../../app/composables/useUserState.js');
+const { useAudioStore } = await import('../../app/stores/audioStore.js');
 
 // Mock user factory
 function createMockUser(id, name) {
@@ -162,6 +165,10 @@ describe('Multi-Stream Voice Handling', () => {
     jest.clearAllMocks();
     mockBufferQueueNodeInstances.length = 0;
     mockStreamResources.clear();
+
+    // Initialize audio store with mock context
+    const audioStore = useAudioStore();
+    audioStore.audioContext = mockAudioContext;
 
     // Create fresh userState (only 2 params: audioState, voiceState)
     userState = useUserState(mockAudioState, mockVoiceState);

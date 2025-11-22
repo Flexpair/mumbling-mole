@@ -6,6 +6,7 @@
  */
 
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { createPinia, setActivePinia } from 'pinia';
 
 // Mock dependencies
 jest.unstable_mockModule('../../app/worker-client.js', () => ({
@@ -50,6 +51,7 @@ describe('AppState - Vue Composables Architecture', () => {
   let mockConfig;
 
   beforeEach(() => {
+    setActivePinia(createPinia());
     // Mock auth (using plain objects instead of knockout observables)
     mockAuth = {
       currentUser: {

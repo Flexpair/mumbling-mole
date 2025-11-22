@@ -1,6 +1,7 @@
 import AuthFactory from "./auth/AuthFactory";
 import AppState from "./state/AppState";
 import { createApp } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
 import AppVue from "./components/App.vue";
 
 import {
@@ -47,6 +48,10 @@ function getUsernameFromMetadata(user) {
 }
 
 import { useSettings, vTooltip } from "./composables/index.js";
+
+// Initialize Pinia before AppState to allow stores to be used
+const pinia = createPinia();
+setActivePinia(pinia);
 
 const ui = new AppState(globalThis.mumbleWebConfig, log);
 globalThis.ui = ui;
@@ -184,6 +189,7 @@ async function main() {
   // Mount Vue.js App component (single root that contains all UI)
   try {
     const vueApp = createApp(AppVue);
+    vueApp.use(pinia);
     
     // Register global custom directives
     vueApp.directive('tooltip', vTooltip);

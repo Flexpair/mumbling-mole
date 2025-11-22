@@ -1,10 +1,11 @@
 import { watch, ref, computed } from 'vue';
+import { safeStoreToRefs } from '../utils/safeStoreToRefs';
+import { useConnectionStore } from '../stores/connectionStore';
+import { useAudioStore } from '../stores/audioStore';
+import { useVoiceStore } from '../stores/voiceStore';
+import { useUIStore } from '../stores/uiStore';
+import { useUserStore } from '../stores/userStore';
 import {
-  useConnectionState,
-  useAudioState,
-  useVoiceState,
-  useUIState,
-  useUserState,
   useConnectionDialog,
   useConnectErrorDialog,
   useSampleRateWarningDialog,
@@ -16,20 +17,19 @@ import packageJson from '../../package.json';
 /**
  * AppState - main state coordinator
  * 
- * Composes all state modules using Vue 3 composables.
+ * Composes all state modules using Pinia stores.
  * Provides a centralized API for application-wide state management.
  * 
  * Architecture:
- * - ConnectionState: client connection, root user/channel setup
- * - AudioState: AudioContext, beeper, audio pipeline
- * - VoiceState: voice handler, loopback mode, voice controls
- * - UIState: modals, message box, settings dialog
- * - UserState: current user, self mute/deaf, user registration, voice streams
+ * - ConnectionStore: client connection, root user/channel setup
+ * - AudioStore: AudioContext, beeper, audio pipeline
+ * - VoiceStore: voice handler, loopback mode, voice controls
+ * - UIStore: modals, message box, settings dialog
+ * - UserStore: current user, self mute/deaf, user registration, voice streams
  * 
  * State management:
- * - All state uses Vue 3 reactive primitives (ref, computed, watch)
- * - Composables provide modular, reusable state logic
- * - Cross-module dependencies handled via watchers and subscriptions
+ * - All state uses Pinia stores
+ * - Cross-module dependencies handled via store composition
  */
 export default class AppState {
   constructor(config, log) {
@@ -39,29 +39,34 @@ export default class AppState {
     // Store Vue runtime for creating refs/computed
     this._vue = { ref, computed };
     
-    // Initialize Vue composables (source of truth)
-    const connectionState = useConnectionState(this.log);
-    const audioState = useAudioState();
-    const voiceState = useVoiceState();
-    const uiState = useUIState();
-    const userState = useUserState(audioState, voiceState, connectionState);
+    // Initialize Pinia stores (source of truth)
+    const connectionStore = useConnectionStore();
+    const audioStore = useAudioStore();
+    const voiceStore = useVoiceStore();
+    const uiStore = useUIStore();
+    const userStore = useUserStore();
+    
     const connectionDialog = useConnectionDialog();
     const connectErrorDialog = useConnectErrorDialog();
     const sampleRateWarningDialog = useSampleRateWarningDialog();
+
     const connectionInfo = useConnectionInfo();
     
-    // Store composable references
+    // Store store references
+    // We mix in safeStoreToRefs to provide Ref access (backward compatibility)
+    // while keeping actions available from the store instance
     this._vueState = {
-      connection: connectionState,
-      audio: audioState,
-      voice: voiceState,
-      ui: uiState,
-      user: userState,
+      connection: { ...connectionStore, ...safeStoreToRefs(connectionStore) },
+      audio: { ...audioStore, ...safeStoreToRefs(audioStore) },
+      voice: { ...voiceStore, ...safeStoreToRefs(voiceStore) },
+      ui: { ...uiStore, ...safeStoreToRefs(uiStore) },
+      user: { ...userStore, ...safeStoreToRefs(userStore) },
       dialog: connectionDialog,
       errorDialog: connectErrorDialog,
       sampleRateDialog: sampleRateWarningDialog,
       connectionInfoDialog: connectionInfo,
     };
+
     
     // External dependencies (set during initialization)
     this.settings = null; // Set externally from index.js

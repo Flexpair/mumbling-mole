@@ -26,10 +26,50 @@ jest.unstable_mockModule('vue', () => {
       listeners.get(source).push(cb);
       return () => {};
     },
-    reactive: (o) => o,
+    reactive: (o) => {
+      // Simple proxy to handle ref unwrapping for Pinia
+      return new Proxy(o, {
+        get(target, prop, receiver) {
+          const val = target[prop];
+          return (val && val.__v_isRef) ? val.value : val;
+        },
+        set(target, prop, value, receiver) {
+          const current = target[prop];
+          if (current && current.__v_isRef) {
+            current.value = value;
+            return true;
+          }
+          target[prop] = value;
+          return true;
+        }
+      });
+    },
     markRaw: (o) => o,
     computed: () => ({ value: 0 }),
-    nextTick: async () => {}
+    nextTick: async () => {},
+    effectScope: () => ({ active: true, run: fn => fn(), stop: () => {} }),
+    getCurrentScope: () => null,
+    onScopeDispose: () => {},
+    toRaw: (o) => o,
+    isRef: (r) => r?.__v_isRef === true,
+    toRef: (o, k) => ({ get value() { return o[k]; }, set value(v) { o[k] = v; }, __v_isRef: true }),
+    toRefs: (o) => {
+      const ret = {};
+      for (const k in o) ret[k] = { get value() { return o[k]; }, set value(v) { o[k] = v; }, __v_isRef: true };
+      return ret;
+    },
+    inject: () => {},
+    provide: () => {},
+    getCurrentInstance: () => null,
+    hasInjectionContext: () => false,
+    isReactive: () => false,
+    shallowRef: (v) => ({ value: v, __v_isRef: true }),
+    unref: (r) => r?.__v_isRef ? r.value : r,
+    triggerRef: () => {},
+    customRef: (factory) => {
+      const { get, set } = factory(() => {}, () => {});
+      return { get value() { return get(); }, set value(v) { set(v); }, __v_isRef: true };
+    },
   };
 });
 
@@ -66,6 +106,8 @@ jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
 }));
 
 // Import the composable under test
+const { createPinia, setActivePinia } = await import('pinia');
+
 const { useUserState } = await import('../../app/composables/useUserState.js');
 const { ref } = await import('vue');
 
@@ -98,6 +140,7 @@ describe('useUserState Jitter Buffer Calculation', () => {
   let mockSettings;
 
   beforeEach(() => {
+    setActivePinia(createPinia());
     mockAudioState = {
       audioContext: {},
       audioLockActive: ref(false)

@@ -15,6 +15,7 @@
 
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'node:events';
+import { createPinia, setActivePinia } from 'pinia';
 
 describe('Server-State Synchronization - Critical Integration Test', () => {
   let User;
@@ -40,6 +41,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
   }
 
   beforeEach(async () => {
+    setActivePinia(createPinia());
     // Mock dependencies - inline mocks for ES modules
     jest.unstable_mockModule('../../app/audio/buffer-queue-node.js', () => ({
       default: class BufferQueueNodeMock {

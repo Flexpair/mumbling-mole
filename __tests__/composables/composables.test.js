@@ -4,10 +4,12 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
+import { createPinia, setActivePinia } from 'pinia';
 
 describe('Vue Composables', () => {
   // Mock Worker for ConnectionState tests
   beforeEach(() => {
+    setActivePinia(createPinia());
     globalThis.Worker = class Worker {
       constructor(url, options) {
         this.url = url;

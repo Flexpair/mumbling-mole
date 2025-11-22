@@ -1,83 +1,22 @@
-import { ref } from 'vue';
+import { safeStoreToRefs } from '../utils/safeStoreToRefs';
+import { useUIStore } from '../stores/uiStore';
 
 /**
- * useUIState - Vue composable for UI-specific state and modal management
+ * useUIState - Adapter for Pinia UIStore
  * 
- * Responsibilities:
- * - Message box state
- * - Modal management (prevent multiple modals)
- * - Settings dialog state
- * 
- * State management:
- * - ref() for all reactive UI state
- * 
- * NOTE: Selection state removed - no UI for selecting channels/users.
- * All messages go to current channel (thisUser().channel()).
+ * Maintains backward compatibility with existing code that expects
+ * the composable API.
  */
 export function useUIState() {
-  // Modal management - track currently open modal
-  const currentOpenModal = ref(null);
+  const store = useUIStore();
   
-  // Message box
-  const messageBox = ref('');
+  const { 
+    currentOpenModal,
+    messageBox,
+    messageConfirmed,
+    settingsDialog
+  } = safeStoreToRefs(store);
   
-  // Message confirmation (for visual feedback when message is sent)
-  const messageConfirmed = ref(false);
-  
-  // Settings dialog
-  const settingsDialog = ref(null);
-
-  /**
-   * Open settings dialog (simplified for Vue composables)
-   * Just sets settingsDialog.value to a truthy marker to trigger visibility
-   */
-  function openSettings() {
-    // Prevent opening if another modal is already open
-    if (currentOpenModal.value !== null) {
-      return;
-    }
-    // Set to true to indicate settings dialog should be visible
-    settingsDialog.value = true;
-    currentOpenModal.value = 'settings';
-  }
-
-  /**
-   * Close settings dialog
-   */
-  function closeSettings() {
-    settingsDialog.value = null;
-    
-    // Clear the modal state
-    if (currentOpenModal.value === 'settings') {
-      currentOpenModal.value = null;
-    }
-  }
-
-  /**
-   * Submit message box content
-   * @param {Function} sendMessageFn - Function to send the message
-   * @param {object} target - Target channel/user for the message
-   */
-  function submitMessageBox(sendMessageFn, target) {
-    const messageText = messageBox.value;
-    if (messageText.trim()) {
-      // Send message - confirmation will come from 'messageSent' event
-      sendMessageFn(target, messageText);
-      messageBox.value = '';
-    }
-  }
-
-  /**
-   * Reset UI state
-   */
-  function reset() {
-    messageBox.value = '';
-    messageConfirmed.value = false;
-    settingsDialog.value = null;
-    currentOpenModal.value = null;
-  }
-
-  // Return composable API
   return {
     // State (reactive)
     currentOpenModal,
@@ -86,9 +25,10 @@ export function useUIState() {
     settingsDialog,
     
     // Methods
-    openSettings,
-    closeSettings,
-    submitMessageBox,
-    reset,
+    openSettings: store.openSettings,
+    closeSettings: store.closeSettings,
+    submitMessageBox: store.submitMessageBox,
+    reset: store.reset,
   };
 }
+
