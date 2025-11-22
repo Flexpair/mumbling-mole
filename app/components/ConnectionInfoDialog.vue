@@ -210,7 +210,6 @@ import buildInfo from '../build-info.json';
 import { useClipboard } from '../composables';
 import keyboardjs from 'keyboardjs';
 
-const translate = inject('translate');
 const t = inject('translate');
 
 // Active tab state - default to first tab (latency)
@@ -995,10 +994,6 @@ onMounted(() => {
   box-shadow: none;
   padding: 0;
   line-height: 14px;
-}
-
-.floating-badge::after, .floating-badge::before {
-  content: none;
 }
 
 /* Top Badge (Gross) - Text Left of Line */
