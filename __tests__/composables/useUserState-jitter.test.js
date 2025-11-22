@@ -85,6 +85,18 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer', () => ({
   })
 }));
 
+// Mock debug-utils before importing useUserState
+jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
+  debugLog: jest.fn()
+}));
+
+// Mock BufferQueueNode dependency
+jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
+  default: class MockBufferQueueNode {
+    setJitterBufferSize() {}
+  }
+}));
+
 // Import the composable
 const { useUserState } = await import('../../app/composables/useUserState.js');
 
@@ -125,13 +137,12 @@ describe('useUserState Jitter Buffer Calculation', () => {
 
     mockConnectionState.getClient.mockReturnValue(mockClient);
     
-    userState = useUserState(mockAudioState, mockVoiceState, mockConnectionState);
+    userState = useUserState(mockAudioState, mockVoiceState);
     userState.setSettings(mockSettings);
   });
 
   test('should calculate correct jitter buffer for 143ms latency', async () => {
     // Setup user
-    userState.registerUser(mockUser);
     userState.thisUser.value = mockUser.__ui;
     await nextTick();
 
@@ -157,7 +168,6 @@ describe('useUserState Jitter Buffer Calculation', () => {
   });
 
   test('should handle stats.n = 0 correctly (skip calculation)', async () => {
-    userState.registerUser(mockUser);
     userState.thisUser.value = mockUser.__ui;
     await nextTick();
 

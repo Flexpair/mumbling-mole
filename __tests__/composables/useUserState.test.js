@@ -147,7 +147,6 @@ describe('useUserState Jitter Buffer Calculation', () => {
     const callback = mockClient.on.mock.calls.find(call => call[0] === 'dataPing')[1];
     
     // Call it
-    console.log('Calling dataPing callback manually');
     callback();
     
     // Check if jitterBufferSize was updated
