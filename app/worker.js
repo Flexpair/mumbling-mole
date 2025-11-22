@@ -29,9 +29,30 @@ function resolve(reqId, value, transfer) {
 
 function reject(reqId, value, transfer) {
   console.error(value);
-  let jsonValue = structuredClone(value);
-  if (value.$type) {
-    jsonValue.$type = { name: value.$type.name };
+  
+  // Handle non-cloneable Event objects (like WebSocket errors)
+  if (value instanceof Event) {
+    value = {
+      message: 'Connection failed',
+      type: value.type,
+      isTrusted: value.isTrusted
+    };
+  }
+
+  let jsonValue;
+  try {
+    jsonValue = structuredClone(value);
+  } catch (e) {
+    // Fallback for other non-cloneable objects
+    jsonValue = {
+      message: value.message || 'Unknown error',
+      name: value.name || 'Error',
+      stack: value.stack
+    };
+  }
+
+  if (jsonValue && jsonValue.$type) {
+    jsonValue.$type = { name: jsonValue.$type.name };
   }
   postMessage(
     {

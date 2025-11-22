@@ -59,17 +59,9 @@
       />
     </a>
     <img
-      v-tooltip="'View connection statistics'"
-      class="tb-information"
-      alt="Show information about connection quality"
-      rel="information"
-      src="svg/mumble.svg"
-      @click="handleConnectionInfoClick"
-    />
-    <img
-      v-tooltip="'Open audio settings'"
+      v-tooltip="'Audio Info & Settings'"
       class="tb-settings"
-      alt="Open audio settings dialog"
+      alt="Open audio info and settings dialog"
       rel="settings"
       src="svg/config_basic.svg"
       @click="handleSettingsClick"
@@ -143,12 +135,6 @@ const handleUndeafClick = () => {
 
 const handleSubmitMessageBox = () => {
   appState.submitMessageBox();
-};
-
-const handleConnectionInfoClick = () => {
-  if (appState.connectionInfo?.show) {
-    appState.connectionInfo.show();
-  }
 };
 
 const handleSettingsClick = () => {

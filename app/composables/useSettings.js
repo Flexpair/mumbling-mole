@@ -13,6 +13,25 @@ function getMumbleClient() {
 export function useSettings(defaults = {}) {
   // Core settings (auto-persisted to localStorage via useLocalStorage)
   const voiceMode = useLocalStorage('voiceMode', defaults.voiceMode || 'cont', { prefix: 'mumble.' });
+  
+  // FORCE-CONT: PTT is currently disabled/untested (Nov 2025)
+  // If user had PTT selected previously, force switch to Continuous
+  if (voiceMode.value === 'ptt') {
+    voiceMode.value = 'cont';
+    // Notify user of forced override (PTT disabled)
+    if (typeof window !== 'undefined' && window?.appState?.ui?.showMessageBox) {
+      window.appState.ui.showMessageBox({
+        title: 'Voice Mode Changed',
+        message: 'Push-To-Talk mode is currently disabled. Your voice mode has been switched to Continuous transmission.',
+        type: 'info',
+        ariaLabel: 'Voice mode changed notification',
+        // Accessible: focusable, dismissable, plain language
+      });
+    } else {
+      console.warn('[Settings] PTT mode is disabled. Voice mode forcibly switched to Continuous transmission.');
+    }
+  }
+
   const pttKey = useLocalStorage('pttKey', defaults.pttKey || 'ctrl + shift', { prefix: 'mumble.' });
   const userCountInChannelName = useLocalStorage('userCountInChannelName', defaults.userCountInChannelName || false, { prefix: 'mumble.' });
   const audioBitrate = useLocalStorage('audioBitrate', defaults.audioBitrate || 40000, { prefix: 'mumble.' });

@@ -25,7 +25,7 @@
     }
   },
   "connectinfo": {
-    "title": "Audio transmission info",
+    "title": "Audio Info & Settings",
     "server": "Audio server details",
     "webapp": "Statistics for this web app",
     "native": "Desktop client / mobile app"
@@ -38,10 +38,11 @@
     "title": "Audio Quality Settings",
     "setting": "Setting",
     "control": "Control",
-    "transmission": "Transmission",
+    "transmission": "Transmission Mode",
     "cont": "Continuous",
     "ptt": "Push-to-Talk",
-    "ptt_key": "Key",
+    "ptt_disabled": "(Coming Soon)",
+    "ptt_key": "PTT Key",
     "audio_quality": "Audio Quality",
     "packet": "Audio per Packet",
     "jitter_buffer": "Jitter Buffer",
