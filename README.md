@@ -603,11 +603,9 @@ git commit -m "Your message"
 
 ## ⚠️ Known Limitations
 
-- **No unit tests**: Only integration/E2E tests exist (see [tests/README.md](./tests/README.md))
-- **Build complexity**: Multi-stage build with vendor transpilation can be fragile
-- **GlobalBindings anti-pattern**: 1474-line god object centralizes all UI state
 - **AudioWorklet constraints**: Processors can't use imports, must be ES5-compatible
 - **Loopback test limitations**: Tests encode/decode but NOT cross-client playback initialization
+- **Audio buffer issues**: Unbounded playback queue ([#201](https://github.com/Flexpair/mumbling-mole/issues/201)), no configurable jitter buffer ([#202](https://github.com/Flexpair/mumbling-mole/issues/202)), missing Opus PLC ([#203](https://github.com/Flexpair/mumbling-mole/issues/203))
 
 ## 📄 License
 
