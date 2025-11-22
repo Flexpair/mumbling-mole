@@ -147,8 +147,7 @@ function gotDevices(deviceInfos) {
   audioInputSelect.replaceChildren();
 
   let fallbackIndex = 1;
-  for (const element of deviceInfos) {
-    const deviceInfo = element;
+  for (const deviceInfo of deviceInfos) {
     if (deviceInfo.kind !== "audioinput") {
       continue;
     }

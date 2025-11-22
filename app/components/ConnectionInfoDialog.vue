@@ -62,7 +62,7 @@
                 <div class="control-wrapper">
                   <select v-model="voiceMode" class="modern-select">
                     <option value="cont">{{ t('settingsdialog.cont') }}</option>
-                    <option value="ptt" disabled>{{ t('settingsdialog.ptt') }} (Temporarily Disabled)</option>
+                    <option value="ptt" disabled>{{ t('settingsdialog.ptt') }} {{ t('settingsdialog.ptt_disabled') }}</option>
                   </select>
                 </div>
               </div>
@@ -274,6 +274,7 @@ const jitterBufferMode = computed({
 });
 
 const MS_PER_PACKET = 20;
+const MIN_AUDIO_BITRATE = 8000;
 const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
 const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
@@ -286,7 +287,7 @@ const grossBandwidth = computed({
     
     const overhead = appState.settings.overheadBandwidth.value;
     let newNet = val - overhead;
-    if (newNet < 8000) newNet = 8000;
+    if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
     appState.settings.audioBitrate.value = newNet;
   }
 });
@@ -320,7 +321,7 @@ const onDragEnd = () => {
 // Keyboard navigation for slider
 const onKeyDown = (event) => {
   const step = 1000; // 1 kbps step
-  let newValue = grossBandwidth.value;
+  let newValue;
   
   switch(event.key) {
     case 'ArrowRight':
@@ -350,11 +351,14 @@ const onKeyDown = (event) => {
 
 // Cleanup on unmount
 onUnmounted(() => {
-  if (isDragging.value) {
-    window.removeEventListener('mousemove', onDragMove);
-    window.removeEventListener('mouseup', onDragEnd);
-    window.removeEventListener('touchmove', onDragMove);
-    window.removeEventListener('touchend', onDragEnd);
+  window.removeEventListener('mousemove', onDragMove);
+  window.removeEventListener('mouseup', onDragEnd);
+  window.removeEventListener('touchmove', onDragMove);
+  window.removeEventListener('touchend', onDragEnd);
+
+  if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
   }
 });
 
@@ -432,7 +436,7 @@ const netBadgeStyle = computed(() => {
 const minGrossBandwidth = computed(() => {
   // Opus minimum useful bitrate is ~8 kbps
   // We allow the slider to go exactly down to this limit + overhead
-  return 8000 + appState.settings.overheadBandwidth.value;
+  return MIN_AUDIO_BITRATE + appState.settings.overheadBandwidth.value;
 });
 
 const maxAllowedBandwidth = computed(() => {
@@ -518,7 +522,7 @@ const handleHide = () => {
 };
 
 onMounted(() => {
-  appState.connectionInfo.show = (tab = 'audio') => {
+  appState.connectionInfo.show = (tab = 'latency') => {
     if (appState.ui.currentOpenModal.value !== null) return;
     updateStats();
     // Map old tab names to new ones if necessary

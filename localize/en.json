@@ -41,6 +41,7 @@
     "transmission": "Transmission Mode",
     "cont": "Continuous",
     "ptt": "Push-to-Talk",
+    "ptt_disabled": "(Coming Soon)",
     "ptt_key": "PTT Key",
     "audio_quality": "Audio Quality",
     "packet": "Audio per Packet",

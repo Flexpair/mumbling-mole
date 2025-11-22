@@ -51,8 +51,8 @@ function reject(reqId, value, transfer) {
     };
   }
 
-  if (value && value.$type) {
-    jsonValue.$type = { name: value.$type.name };
+  if (jsonValue && jsonValue.$type) {
+    jsonValue.$type = { name: jsonValue.$type.name };
   }
   postMessage(
     {
