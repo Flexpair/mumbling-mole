@@ -1,10 +1,10 @@
 import { watch, ref, computed } from 'vue';
 import { safeStoreToRefs } from '../utils/safeStoreToRefs';
-import { useConnectionStore } from '../stores/connectionStore';
-import { useAudioStore } from '../stores/audioStore';
-import { useVoiceStore } from '../stores/voiceStore';
-import { useUIStore } from '../stores/uiStore';
-import { useUserStore } from '../stores/userStore';
+import { useConnectionStore } from './connectionStore';
+import { useAudioStore } from './audioStore';
+import { useVoiceStore } from './voiceStore';
+import { useUIStore } from './uiStore';
+import { useUserStore } from './userStore';
 import {
   useConnectionDialog,
   useConnectErrorDialog,

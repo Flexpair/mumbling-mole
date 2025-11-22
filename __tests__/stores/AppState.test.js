@@ -43,7 +43,7 @@ jest.unstable_mockModule('../../app/audio/voice.js', () => ({
 }));
 
 // Import after mocks
-const { default: AppState } = await import('../../app/state/AppState.js');
+const { default: AppState } = await import('../../app/stores/AppState.js');
 
 describe('AppState - Vue Composables Architecture', () => {
   let appState;

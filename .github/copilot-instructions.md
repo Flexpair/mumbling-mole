@@ -274,12 +274,12 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 
 ## Key file map
 **UI/session**: `app/index.js` (AppState initialization + Vue mount + ConnectDialog + GuacamoleFrame), `app/index.html` (single Vue mount point), `app/localize.js` (i18n), `app/components/App.vue` (root), `app/components/ConnectDialog.vue` (connection dialog)  
-**State modules**: `app/state/AppState.js` (coordinator with integrated channel registration), `app/state/ConnectionState.js` (WebSocket/client), `app/state/AudioState.js` (AudioContext singleton), `app/state/VoiceState.js` (voice handler/loopback), `app/state/UIState.js` (modals/messageBox), `app/state/UserState.js` (thisUser/mute/deaf)  
+**State modules**: `app/stores/AppState.js` (coordinator with integrated channel registration), `app/stores/connectionStore.js` (WebSocket/client), `app/stores/audioStore.js` (AudioContext singleton), `app/stores/voiceStore.js` (voice handler/loopback), `app/stores/uiStore.js` (modals/messageBox), `app/stores/userStore.js` (thisUser/mute/deaf)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `build-esbuild.mjs` (esbuild config with Vue plugin + validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
 **Testing**: `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation), `scripts/audit-ci.cjs` (dependency vulnerability checks)  
-**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/state/README.md` (state architecture diagrams + migration guide)
+**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/stores/README.md` (state architecture diagrams + migration guide)
 
 ## Test infrastructure (Jest + Playwright)
 **Unit tests** (Jest 30.2.0): 1477 tests, ES modules with jsdom environment.

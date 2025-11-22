@@ -272,7 +272,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     
-    const appStatePath = path.join(process.cwd(), 'app', 'state', 'AppState.js');
+    const appStatePath = path.join(process.cwd(), 'app', 'stores', 'AppState.js');
     const appStateContent = await fs.readFile(appStatePath, 'utf-8');
     
     // PROOF: initialize() method is NOT in AppState anymore

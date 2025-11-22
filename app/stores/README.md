@@ -357,7 +357,7 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 
 #### After:
 ```javascript
-import AppState from "./state/AppState";
+import AppState from "./stores/AppState";
 
 // Remove the entire GlobalBindings class definition
 // (it's been replaced by the modules in app/state/)
@@ -369,7 +369,7 @@ var ui = new AppState(window.mumbleWebConfig, log);
 
 1. **Add import at top of file** (after other imports):
 ```javascript
-import AppState from "./state/AppState";
+import AppState from "./stores/AppState";
 ```
 
 2. **Find the `class GlobalBindings` definition** (starts around line 474):
@@ -1040,7 +1040,7 @@ app/state/
 
 ```javascript
 // Import main coordinator
-import AppState from './state/AppState';
+import AppState from './stores/AppState';
 
 // Import specific module
 import AudioState from './state/AudioState';
@@ -1391,7 +1391,7 @@ Fixed dual-runtime API inconsistencies and added comprehensive test coverage. Al
 - Prevented "not a function" error when exiting loopback test mode
 
 **Test Coverage:**
-- Rewrote `__tests__/state/AppState.test.js` with 35 comprehensive tests (was 1 skipped)
+- Rewrote `__tests_./stores/AppState.test.js` with 35 comprehensive tests (was 1 skipped)
 - Fixed Playwright E2E test (`loopback-frequency.spec.js`) for root-level API
 - Coverage: AppState 78%, AudioState 94%, VoiceState 98%, UserState 94%
 

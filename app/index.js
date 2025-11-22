@@ -1,5 +1,5 @@
 import AuthFactory from "./auth/AuthFactory";
-import AppState from "./state/AppState";
+import AppState from "./stores/AppState";
 import { createApp } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import AppVue from "./components/App.vue";

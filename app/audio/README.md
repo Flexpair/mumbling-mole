@@ -309,7 +309,7 @@ will appear automatically when ready. No timeout errors!
 
 ### Related Files
 - **`app/audio/voice.js`**: `onAudioMixerReady()` callback registration, mixer ready notification
-- **`app/state/AppState.js`**: Registers callback in `_performConnect()` to initialize beeper when ready
+- **`app/stores/AppState.js`**: Registers callback in `_performConnect()` to initialize beeper when ready
 - **`app/state/AudioState.js`**: `initializePersistentBeeper()` - idempotent, event-based initialization
 - **`app/state/VoiceState.js`**: `initVoiceInput()` accepts mixer ready callback
 - **`app/index.html`**: Button visibility bound to `beeperReady()` observable
