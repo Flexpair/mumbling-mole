@@ -136,42 +136,30 @@ function getAudioInputSelect() {
   return document.querySelector("select#audioSource");
 }
 
-function getSelectors() {
-  const audioInputSelect = getAudioInputSelect();
-  return audioInputSelect ? [audioInputSelect] : [];
-}
-
 function gotDevices(deviceInfos) {
   // Handles being called several times to update labels. Preserve values.
-  const selectors = getSelectors();
-  if (selectors.length === 0) {
+  const audioInputSelect = getAudioInputSelect();
+  if (!audioInputSelect) {
     console.warn('[VOICE] audioSource select element not found in DOM');
     return;
   }
-  const values = selectors.map((select) => select.value);
-  for (const select of selectors) {
-    select.replaceChildren();
-  }
-  const audioInputSelect = getAudioInputSelect();
+  const previousValue = audioInputSelect.value;
+  audioInputSelect.replaceChildren();
+
+  let fallbackIndex = 1;
   for (const element of deviceInfos) {
     const deviceInfo = element;
+    if (deviceInfo.kind !== "audioinput") {
+      continue;
+    }
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
-    if (deviceInfo.kind === "audioinput") {
-      option.text =
-        deviceInfo.label || `microphone ${audioInputSelect?.childNodes.length + 1 || 1}`;
-      audioInputSelect?.appendChild(option);
-    }
+    option.text = deviceInfo.label || `microphone ${fallbackIndex++}`;
+    audioInputSelect.appendChild(option);
   }
-  for (let selectorIndex = 0; selectorIndex < selectors.length; selectorIndex++) {
-    const select = selectors[selectorIndex];
-    if (
-      Array.prototype.slice
-        .call(select.childNodes)
-        .some((n) => n.value === values[selectorIndex])
-    ) {
-      select.value = values[selectorIndex];
-    }
+
+  if (Array.from(audioInputSelect.options).some((n) => n.value === previousValue)) {
+    audioInputSelect.value = previousValue;
   }
 }
 
@@ -299,11 +287,9 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
 
     // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
     // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
-    let pcmFrameCount = 0;
     node.port.onmessage = (ev) => {
       if (ev.data?.type === "pcm" && ev.data.data) {
         const f32 = new Float32Array(ev.data.data);
-        pcmFrameCount++;
         // NOTE: Debug logging removed - was using undefined 'this._isLoopbackMode'
         // initVoice is not a class method and has no 'this' context
         onData(Buffer.from(f32.buffer));
