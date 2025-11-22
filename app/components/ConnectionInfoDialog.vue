@@ -122,7 +122,7 @@
 
               <div class="setting-group">
                 <div class="label-row">
-                  <p class="setting-label" style="font-weight: normal; opacity: 0.8; margin-bottom: 15px;">
+                  <p class="setting-label info" style="margin-bottom: 15px;">
                     <span v-if="isServerLimited">
                       Gross bandwidth is limited by server to {{ (maxAllowedBandwidth / 1000).toFixed(0) }} kbps.
                     </span>
@@ -171,7 +171,7 @@
                 </div>
 
                 <div class="label-row" style="margin-top: 15px;">
-                   <p class="setting-label" style="font-weight: normal; opacity: 0.8;">
+                   <p class="setting-label info">
                      Net bandwidth minimum is 8 kbps for audio transmission.
                    </p>
                 </div>
@@ -673,6 +673,11 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.setting-label.info {
+  font-weight: normal;
+  opacity: 0.8;
+}
+
 .control-wrapper {
   position: relative;
 }
@@ -693,16 +698,21 @@ onMounted(() => {
   border-color: #00ffff;
 }
 
-.ptt-record-btn {
-  width: 100%;
-  padding: 10px;
+.ptt-record-btn,
+.action-button {
+  padding: 10px 16px;
   background: #2d2d2d;
   border: 1px solid #444;
   border-radius: 6px;
-  color: #00ffff;
-  font-weight: 600;
+  color: #fff;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.ptt-record-btn {
+  width: 100%;
+  color: #00ffff;
+  font-weight: 600;
 }
 
 .ptt-record-btn:hover {
@@ -710,34 +720,13 @@ onMounted(() => {
   border-color: #00ffff;
 }
 
+.action-button {
+  font-size: 13px;
+}
+
 /* Slider */
 .slider-container {
   margin: 15px 0;
-}
-
-.modern-slider {
-  width: 100%;
-  height: 6px;
-  background: #444;
-  border-radius: 3px;
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.modern-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  background: #00ffff;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-
-.modern-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
 }
 
 .slider-labels {
@@ -872,22 +861,6 @@ onMounted(() => {
   height: 1px;
   background: #333;
   margin: 25px 0;
-}
-
-.action-button {
-  background: #333;
-  color: #fff;
-  border: 1px solid #444;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.action-button:hover {
-  background: #444;
-  border-color: #555;
 }
 
 /* Transitions */
