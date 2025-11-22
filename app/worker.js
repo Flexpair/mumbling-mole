@@ -195,39 +195,149 @@ function setupUser(id, user) {
   return user.id;
 }
 
-function setupClient(id, client) {
-  let tempRootChannel = null;
+// Extract message transform functions for better readability
+function transformMessageEvent(sender, message, users, channels, trees) {
+  return [
+    sender.id,
+    message,
+    users.map((it) => it.id),
+    channels.map((it) => it.id),
+    trees.map((it) => it.id),
+  ];
+}
+
+// Extract root channel detection logic
+function findRootChannel(channels) {
+  if (!channels || typeof channels !== 'object') {
+    return null;
+  }
   
+  const channelEntries = Object.entries(channels);
+  const rootCandidates = channelEntries.filter(
+    ([id, ch]) => !ch.parent || ch.parent === null || ch.parent === undefined
+  );
+  
+  if (rootCandidates.length > 0) {
+    const [, rootChannel] = rootCandidates[0];
+    return rootChannel;
+  }
+  
+  return null;
+}
+
+// Client state initialization manager - handles deferred initialization of client state
+class ClientInitializer {
+  constructor(id, client, ROOT_CHECK_INTERVAL_MS, ROOT_CHECK_MAX_COUNT, ROOT_CHECK_TIMEOUT_SECONDS) {
+    this.id = id;
+    this.client = client;
+    this.initialized = false;
+    this.tempRootChannel = null;
+    this.rootCheckInterval = null;
+    this.ROOT_CHECK_INTERVAL_MS = ROOT_CHECK_INTERVAL_MS;
+    this.ROOT_CHECK_MAX_COUNT = ROOT_CHECK_MAX_COUNT;
+    this.ROOT_CHECK_TIMEOUT_SECONDS = ROOT_CHECK_TIMEOUT_SECONDS;
+  }
+
+  initialize() {
+    if (this.initialized) {
+      return;
+    }
+    
+    let rootChannel = this.client.root;
+    if (!rootChannel && this.tempRootChannel) {
+      rootChannel = this.tempRootChannel;
+    }
+    
+    if (!rootChannel) {
+      return;
+    }
+
+    this.initialized = true;
+
+    setupChannel(this.id, rootChannel);
+    for (let user of this.client.users) {
+      setupUser(this.id, user);
+    }
+
+    pushProp(this.id, this.client, "root", () => rootChannel.id);
+    pushProp(this.id, this.client, "self", (it) => it.id);
+    pushProp(this.id, this.client, "serverVersion");
+    pushProp(this.id, this.client, "maxBandwidth");
+
+    this.cleanup();
+  }
+
+  cleanup() {
+    // Only remove listeners if they were attached
+    if (this.boundInitialize) {
+      this.client.removeListener("newChannel", this.boundInitialize);
+      this.client.removeListener("connected", this.boundInitialize);
+    }
+    
+    if (this.rootCheckInterval) {
+      clearInterval(this.rootCheckInterval);
+      this.rootCheckInterval = null;
+    }
+    
+    this.tempRootChannel = null;
+  }
+
+  startPeriodicCheck() {
+    let checkCount = 0;
+    
+    this.rootCheckInterval = setInterval(() => {
+      checkCount++;
+      
+      const rootChannel = findRootChannel(this.client.channels);
+      if (rootChannel) {
+        clearInterval(this.rootCheckInterval);
+        this.rootCheckInterval = null;
+        this.tempRootChannel = rootChannel;
+        this.initialize();
+        return;
+      }
+      
+      if (this.client.root || checkCount > this.ROOT_CHECK_MAX_COUNT) {
+        clearInterval(this.rootCheckInterval);
+        this.rootCheckInterval = null;
+        if (this.client.root) {
+          this.initialize();
+        } else {
+          console.warn(
+            `[WORKER] Failed to initialize: root channel not found after ${this.ROOT_CHECK_TIMEOUT_SECONDS}s`
+          );
+        }
+      }
+    }, this.ROOT_CHECK_INTERVAL_MS);
+  }
+
+  attachEventListeners() {
+    this.boundInitialize = () => this.initialize();
+    this.client.on("newChannel", this.boundInitialize);
+    this.client.on("connected", this.boundInitialize);
+  }
+}
+
+function setupClient(id, client) {
   const ROOT_CHECK_INTERVAL_MS = 500;
   const ROOT_CHECK_MAX_COUNT = 20;
   const ROOT_CHECK_TIMEOUT_SECONDS = (ROOT_CHECK_MAX_COUNT * ROOT_CHECK_INTERVAL_MS) / 1000;
   
   id = { client: id };
 
+  // Register event proxies with extracted transform functions
   registerEventProxy(id, client, "error");
   registerEventProxy(id, client, "denied", (it) => [it]);
   registerEventProxy(id, client, "newChannel", (it) => [setupChannel(id, it)]);
   registerEventProxy(id, client, "newUser", (it) => [setupUser(id, it)]);
   registerEventProxy(id, client, "messageSent", (messageText) => [messageText]);
-  registerEventProxy(
-    id,
-    client,
-    "message",
-    (sender, message, users, channels, trees) => {
-      return [
-        sender.id,
-        message,
-        users.map((it) => it.id),
-        channels.map((it) => it.id),
-        trees.map((it) => it.id),
-      ];
-    }
-  );
+  registerEventProxy(id, client, "message", transformMessageEvent);
   
   // STATS-MONITORING: Push data statistics when ping responses arrive
   client.on("dataPing", () => {
     pushProp(id, client, "dataStats");
   });
+  registerEventProxy(id, client, "dataPing");
   
   client.on("connected", () => {
     pushProp(id, client, "maxBandwidth");
@@ -238,104 +348,29 @@ function setupClient(id, client) {
   client.on("serverVersion", () => {
     pushProp(id, client, "serverVersion");
   });
+
+  // Initialize client state with extracted class
+  const initializer = new ClientInitializer(
+    id,
+    client,
+    ROOT_CHECK_INTERVAL_MS,
+    ROOT_CHECK_MAX_COUNT,
+    ROOT_CHECK_TIMEOUT_SECONDS
+  );
   
   client.on("disconnect", () => {
-    if (rootCheckInterval) {
-      clearInterval(rootCheckInterval);
-      rootCheckInterval = null;
-    }
+    initializer.cleanup();
   });
 
-  let initialized = false;
-  let rootCheckInterval = null;
-
-  const initializeClientState = () => {
-    if (initialized) {
-      return;
-    }
-    let rootChannel = client.root;
-    
-    if (!rootChannel && tempRootChannel) {
-      rootChannel = tempRootChannel;
-    }
-    
-    if (!rootChannel) {
-      return;
-    }
-
-    initialized = true;
-
-    setupChannel(id, rootChannel);
-    for (let user of client.users) {
-      setupUser(id, user);
-    }
-
-    pushProp(id, client, "root", () => rootChannel.id);
-    pushProp(id, client, "self", (it) => it.id);
-    pushProp(id, client, "serverVersion");
-    pushProp(id, client, "maxBandwidth");
-
-    client.removeListener("newChannel", initializeClientState);
-    client.removeListener("connected", initializeClientState);
-    if (rootCheckInterval) {
-      clearInterval(rootCheckInterval);
-      rootCheckInterval = null;
-    }
-    
-    tempRootChannel = null;
-  };
-
-  initializeClientState();
+  initializer.initialize();
   
-  if (!initialized) {
+  if (!initializer.initialized) {
     // Three-strategy root channel initialization to handle various server behaviors:
     // 1. newChannel event (primary) - most servers send this first
     // 2. connected event (backup) - fires when root arrives after connection
     // 3. Periodic check (fallback) - handles servers with unusual timing/event delivery
-    client.on("newChannel", () => {
-      initializeClientState();
-    });
-    
-    client.on("connected", () => {
-      initializeClientState();
-    });
-    
-    let checkCount = 0;
-    rootCheckInterval = setInterval(() => {
-      checkCount++;
-      
-      if (client.channels) {
-        const channels = client.channels;
-        
-        if (typeof channels === 'object') {
-          const channelEntries = Object.entries(channels);
-          
-          const rootCandidates = channelEntries.filter(([id, ch]) => !ch.parent || ch.parent === null || ch.parent === undefined);
-          
-          if (rootCandidates.length > 0) {
-            const [, rootChannel] = rootCandidates[0];
-            
-            clearInterval(rootCheckInterval);
-            rootCheckInterval = null;
-            
-            tempRootChannel = rootChannel;
-            
-            initializeClientState();
-            return;
-          }
-        }
-      }
-      
-      if (client.root || checkCount > ROOT_CHECK_MAX_COUNT) {
-        clearInterval(rootCheckInterval);
-        rootCheckInterval = null;
-        if (client.root) {
-          initializeClientState();
-        } else {
-          console.warn(`[WORKER] Failed to initialize: root channel not found after ${ROOT_CHECK_TIMEOUT_SECONDS}s`);
-        }
-      }
-    }, ROOT_CHECK_INTERVAL_MS);
+    initializer.attachEventListeners();
+    initializer.startPeriodicCheck();
   }
 }
 

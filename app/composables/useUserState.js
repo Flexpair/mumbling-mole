@@ -58,12 +58,13 @@ export function useUserState(audioState, voiceState) {
     const { factor, minPackets } = config;
 
     // Check for active connection and stats
-    if (thisUser.value?._client?.dataStats) {
-        const client = thisUser.value._client;
+    if (thisUser.value?.model?._client?.dataStats) {
+        const client = thisUser.value.model._client;
         const stats = client.dataStats;
         
         // Only use stats if we have enough samples (variance > 0 usually implies some samples)
-        if (stats?.mean > 0) {
+        // FIX: Also check n > 0 to be sure we have samples, even if variance is 0 (perfect connection)
+        if (stats?.n > 0) {
             const latency = stats.mean;
             const deviation = Math.sqrt(stats.variance);
             
@@ -78,7 +79,11 @@ export function useUserState(audioState, voiceState) {
                settings.jitterBufferSize.value = targetPackets;
             }
             return;
+        } else {
+            debugLog('[VOICE]', `Skipping jitter buffer calc: stats.n=${stats?.n}, stats.mean=${stats?.mean}`);
         }
+    } else {
+        debugLog('[VOICE]', `Skipping jitter buffer calc: No dataStats on client`);
     }
     
     // Fallback: Not connected or no stats -> set to default (minPackets) for this mode
@@ -91,8 +96,10 @@ export function useUserState(audioState, voiceState) {
   
   // Auto-adjust jitter buffer based on latency
   watch(thisUser, (newUser, oldUser, onCleanup) => {
-    if (newUser?._client) {
-      const client = newUser._client;
+    if (newUser?.model?._client) {
+      const client = newUser.model._client;
+      
+      debugLog('[VOICE]', 'Jitter buffer auto-adjust enabled for user', newUser.name);
       
       // Listen for dataPing to update stats-based calculation
       client.on('dataPing', recalculateJitterBuffer);
@@ -103,6 +110,8 @@ export function useUserState(audioState, voiceState) {
       onCleanup(() => {
         client.off('dataPing', recalculateJitterBuffer);
       });
+    } else {
+        debugLog('[VOICE]', 'Jitter buffer auto-adjust disabled (no client)');
     }
   });
 

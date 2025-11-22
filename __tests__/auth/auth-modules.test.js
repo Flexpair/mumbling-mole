@@ -198,15 +198,14 @@ describe('AuthFactory', () => {
     });
 
     test('reads from window.mumbleWebConfig if available', () => {
-      globalThis.window = globalThis.window || {};
-      globalThis.window.mumbleWebConfig = {
+      globalThis.mumbleWebConfig = {
         auth: { provider: 'mock' }
       };
       
       const auth = AuthFactory.create();
       expect(auth).toBeInstanceOf(MockAuthAdapter);
       
-      delete globalThis.window.mumbleWebConfig;
+      delete globalThis.mumbleWebConfig;
     });
   });
 

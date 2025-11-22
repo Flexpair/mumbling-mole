@@ -282,53 +282,68 @@ class BufferQueueNode extends EventEmitter {
     return this;
   }
 
+  /**
+   * Handle callback/error emission in a consistent way
+   * @private
+   */
+  _handleCallback(callback, error) {
+    if (typeof callback === 'function') {
+      // Call callback with error if present, no arguments if successful
+      if (error) {
+        callback(error);
+      } else {
+        callback();
+      }
+    } else if (error) {
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * Format chunk data based on type and mode
+   * @private
+   */
+  _formatChunk(chunk) {
+    if (this._objectMode) {
+      if (chunk instanceof Float32Array) {
+        return new Float32ArrayWrapper(this._channels, this._interleaved, chunk);
+      } else if (chunk instanceof Int16Array) {
+        return new Int16ArrayWrapper(this._channels, this._interleaved, chunk);
+      } else {
+        return new AudioBufferWrapper(chunk);
+      }
+    }
+    
+    return new this._dataType(this._channels, this._interleaved, chunk);
+  }
+
+  /**
+   * Send formatted audio data to the AudioWorklet processor
+   * @private
+   */
+  _sendToWorklet(formatted) {
+    const channelData = formatted.toChannelData();
+    this._workletNode.port.postMessage({
+      type: 'data',
+      data: channelData
+    });
+  }
+
   _write(chunk, encoding, callback) {
     // ASYNC-GATE: Ensure initialization before writing
     if (!this._isReady) {
       this.initialize()
         .then(() => this._write(chunk, encoding, callback))
-        .catch(err => {
-          if (typeof callback === 'function') {
-            callback(err);
-          } else {
-            this.emit('error', err);
-          }
-        });
+        .catch(err => this._handleCallback(callback, err));
       return;
     }
 
     try {
-      let formatted;
-      if (this._objectMode) {
-        if (chunk instanceof Float32Array) {
-          formatted = new Float32ArrayWrapper(this._channels, this._interleaved, chunk);
-        } else if (chunk instanceof Int16Array) {
-          formatted = new Int16ArrayWrapper(this._channels, this._interleaved, chunk);
-        } else {
-          formatted = new AudioBufferWrapper(chunk);
-        }
-      } else {
-        formatted = new this._dataType(this._channels, this._interleaved, chunk);
-      }
-
-      // Convert to channel data format for worklet
-      const channelData = formatted.toChannelData();
-      
-      // Send to AudioWorklet processor
-      this._workletNode.port.postMessage({
-        type: 'data',
-        data: channelData
-      });
-      
-      if (typeof callback === 'function') {
-        callback();
-      }
+      const formatted = this._formatChunk(chunk);
+      this._sendToWorklet(formatted);
+      this._handleCallback(callback);
     } catch (error) {
-      if (typeof callback === 'function') {
-        callback(error);
-      } else {
-        this.emit('error', error);
-      }
+      this._handleCallback(callback, error);
     }
   }
 
