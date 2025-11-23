@@ -410,7 +410,7 @@ var ui = new AppState(window.mumbleWebConfig, log);
    - `GuacamoleFrame` class - stays as-is
    - `ConnectionInfo` class - stays as-is
    - `Settings` class - stays as-is
-   - `SettingsDialog` class - stays as-is
+   - `SettingsDialog` class - REMOVED (integrated into ConnectionInfoDialog)
    - Helper functions - stay as-is
    - `initializeUI()` function - stays as-is
    - `main()` function - stays as-is

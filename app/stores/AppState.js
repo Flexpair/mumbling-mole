@@ -613,10 +613,11 @@ export default class AppState {
   get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
   get messageBox() { return this._vueState.ui.messageBox; }
   get messageConfirmed() { return this._vueState.ui.messageConfirmed; }
-  get settingsDialog() { return this._vueState.ui.settingsDialog; }
   
-  openSettings = () => { return this._vueState.ui.openSettings(); }
-  closeSettings = () => { return this._vueState.ui.closeSettings(); }
+  // Settings dialog methods (overridden by ConnectionInfoDialog)
+  openSettings = () => { console.warn('openSettings called before initialization'); }
+  closeSettings = () => { console.warn('closeSettings called before initialization'); }
+
   submitMessageBox = () => {
     // WORKAROUND: user.channel is not set due to async worker property sync
     // Use root channel directly (all users start in root channel ID 0)

@@ -11,35 +11,6 @@ export const useUIStore = defineStore('ui', () => {
   // Message confirmation (for visual feedback when message is sent)
   const messageConfirmed = ref(false);
   
-  // Settings dialog
-  const settingsDialog = ref(null);
-
-  /**
-   * Open settings dialog (simplified for Vue composables)
-   * Just sets settingsDialog.value to a truthy marker to trigger visibility
-   */
-  function openSettings() {
-    // Prevent opening if another modal is already open
-    if (currentOpenModal.value !== null) {
-      return;
-    }
-    // Set to true to indicate settings dialog should be visible
-    settingsDialog.value = true;
-    currentOpenModal.value = 'settings';
-  }
-
-  /**
-   * Close settings dialog
-   */
-  function closeSettings() {
-    settingsDialog.value = null;
-    
-    // Clear the modal state
-    if (currentOpenModal.value === 'settings') {
-      currentOpenModal.value = null;
-    }
-  }
-
   /**
    * Submit message box content
    * @param {Function} sendMessageFn - Function to send the message
@@ -60,7 +31,6 @@ export const useUIStore = defineStore('ui', () => {
   function reset() {
     messageBox.value = '';
     messageConfirmed.value = false;
-    settingsDialog.value = null;
     currentOpenModal.value = null;
   }
 
@@ -69,11 +39,8 @@ export const useUIStore = defineStore('ui', () => {
     currentOpenModal,
     messageBox,
     messageConfirmed,
-    settingsDialog,
     
     // Methods
-    openSettings,
-    closeSettings,
     submitMessageBox,
     reset
   };

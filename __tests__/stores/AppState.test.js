@@ -200,7 +200,6 @@ describe('AppState - Vue Composables Architecture', () => {
     test('UI getters expose Vue refs', () => {
       expect(appState.currentOpenModal).toBe(appState._vueState.ui.currentOpenModal);
       expect(appState.messageBox).toBe(appState._vueState.ui.messageBox);
-      expect(appState.settingsDialog).toBe(appState._vueState.ui.settingsDialog);
     });
 
     test('user getters expose Vue refs', () => {

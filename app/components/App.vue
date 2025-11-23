@@ -29,7 +29,6 @@
     <ConnectErrorDialog />
     <SampleRateWarningDialog />
     <ConnectionInfoDialog />
-    <!-- SettingsDialog removed: Now integrated into ConnectionInfoDialog as a tab -->
   </div>
 </template>
 
@@ -45,7 +44,6 @@ import Toolbar from './Toolbar.vue';
 import MicPermissionRetryOverlay from './MicPermissionRetryOverlay.vue';
 import GuacamoleFrame from './GuacamoleFrame.vue';
 import ConnectionInfoDialog from './ConnectionInfoDialog.vue';
-// SettingsDialog removed: Now integrated into ConnectionInfoDialog
 
 // Get injected dependencies from parent (index.js)
 const appState = inject('appState');

@@ -64,14 +64,6 @@ const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 ui.auth = AuthFactory.create(authConfig);
 ui.netlifyIdentity = ui.auth;
 
-ui.openSettings = function() {
-  return ui.ui.openSettings();
-};
-
-ui.closeSettings = function() {
-  return ui.ui.closeSettings();
-};
-
 globalThis.mumbleUi = ui;
 
 if (ui.auth) {
