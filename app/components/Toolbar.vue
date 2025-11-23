@@ -96,60 +96,69 @@ import { computed, inject } from 'vue';
 import { useUserStore } from '../stores/userStore';
 import { useAudioStore } from '../stores/audioStore';
 import { useUIStore } from '../stores/uiStore';
-import { useConnectionStore } from '../stores/connectionStore';
 import { useVoiceStore } from '../stores/voiceStore';
+import { translate } from '../localize';
 import MessageConfirmation from './MessageConfirmation.vue';
+import packageJson from '../../package.json';
 
-const appState = inject('appState');
 const userStore = useUserStore();
 const audioStore = useAudioStore();
 const uiStore = useUIStore();
-const connectionStore = useConnectionStore();
 const voiceStore = useVoiceStore();
 
-// Computed properties that directly track Pinia store state
-// NOTE: Pinia setup stores expose plain values on the store instance,
-// so we intentionally DO NOT access `.value` here.
-const selfMute = computed(() => userStore.selfMute ?? false);
-const selfDeaf = computed(() => userStore.selfDeaf ?? false);
-const audioLockActive = computed(() => audioStore.audioLockActive ?? false);
+// Inject auth for logout
+const auth = inject('auth');
 
-// Writable computed for 2-way binding with messageBox (UI store)
+// Computed properties - Pinia refs are already reactive, no .value needed here
+const selfMute = computed(() => userStore.selfMute);
+const selfDeaf = computed(() => userStore.selfDeaf);
+const audioLockActive = computed(() => audioStore.audioLockActive);
+
+// Writable computed for 2-way binding with messageBox
 const messageBox = computed({
-  get: () => uiStore.messageBox || '',
-  set: (val) => {
-    uiStore.messageBox = val;
-  }
+  get: () => uiStore.messageBox,
+  set: (val) => { uiStore.messageBox = val; }
 });
 
-// AppState computed properties (still provided by AppState for now)
-const messageBoxHint = computed(() => appState.messageBoxHint?.value || '');
-const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
+// Message box placeholder hint - simplified
+const messageBoxHint = computed(() => {
+  const user = userStore.thisUser;
+  if (!user?.channel?.value?.name) return '';
+  return translate('chat.channel_message_placeholder').replace('%1', user.channel.value.name.value);
+});
+
+// Mailto link for desktop attachment
+const mailToDesktop = computed(() => 
+  `mailto:mail@${globalThis.location.hostname}?subject=Send%20attachment%20to%20desktop`
+);
 
 // Methods
 const handleMuteClick = () => {
-  const currentUser = userStore.thisUser;
-  userStore.requestMute(currentUser);
+  userStore.requestMute(userStore.thisUser);
 };
 
 const handleUnmuteClick = () => {
-  const currentUser = userStore.thisUser;
-  userStore.requestUnmute(currentUser);
+  userStore.requestUnmute(userStore.thisUser);
 };
 
 const handleDeafClick = () => {
-  const currentUser = userStore.thisUser;
-  const isLoopbackMode = voiceStore.isLoopbackMode?.value ?? false;
-  userStore.requestDeaf(currentUser, isLoopbackMode);
+  userStore.requestDeaf(userStore.thisUser, voiceStore.isLoopbackMode);
 };
 
 const handleUndeafClick = () => {
-  const currentUser = userStore.thisUser;
-  userStore.requestUndeaf(currentUser);
+  userStore.requestUndeaf(userStore.thisUser);
 };
 
 const handleSubmitMessageBox = () => {
-  appState.submitMessageBox();
+  const messageText = uiStore.messageBox;
+  if (!messageText.trim()) return;
+  
+  // Get target channel from current user
+  const channel = userStore.thisUser?.channel?.value;
+  if (!channel?.model?.sendMessage) return;
+  
+  channel.model.sendMessage(messageText);
+  uiStore.messageBox = '';
 };
 
 const handleSettingsClick = () => {
@@ -157,15 +166,12 @@ const handleSettingsClick = () => {
 };
 
 const handleSourceCodeClick = () => {
-  if (appState.openSourceCode) {
-    appState.openSourceCode();
-  }
+  globalThis.open(packageJson.homepage, '_blank').focus();
 };
 
 const handleLogoutClick = () => {
-  if (appState.logoutUser) {
-    appState.logoutUser();
-  }
+  auth.logout();
+  location.reload();
 };
 </script>
 

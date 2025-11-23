@@ -183,10 +183,12 @@ async function main() {
     // Register global custom directives
     vueApp.directive('tooltip', vTooltip);
     
-    // Provide AppState, config, and translate function to all Vue components
-    vueApp.provide('appState', ui);
+    // Provide dependencies to all Vue components
+    vueApp.provide('appState', ui); // TODO: Remove - transitional compatibility layer
     vueApp.provide('config', globalThis.mumbleWebConfig);
     vueApp.provide('translate', translate);
+    vueApp.provide('auth', ui.auth); // Provide auth directly for Pinia-native components
+    vueApp.provide('settings', ui.settings); // Provide settings directly for Pinia-native components
     
     const mountedApp = vueApp.mount('#app');
     
