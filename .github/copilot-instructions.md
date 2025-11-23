@@ -46,37 +46,38 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 - **Capture (send)**: Strict real-time, MUST be 960 samples. AudioWorklet (`recorder-worker.js`) runs in high-priority audio thread, accumulates 128-sample blocks → posts 960-sample frames. No buffering possible, <3ms execution budget. Web Worker (`encode-worker.js`) handles Opus encoding (libopus.js WASM, 1-5ms, non-blocking).
 - **Playback (receive)**: Jitter-tolerant via unbounded queue. Decoder handles variable frame sizes (Opus flexible). `buffer-queue-node.js` queues decoded packets, `playback-buffer-processor.js` (AudioWorklet) dequeues at constant rate, fills silence if empty. ⚠️ **Known issues**: Queue has no size limit (memory leak #201), no configurable jitter buffer (#202), no Opus PLC for packet loss (#203).
 
-**✅ COMPLETED: Full Vue.js 3 Migration** (November 2025)
-- **Status**: COMPLETE - All UI components AND state modules migrated to Vue.js 3
-- **UI Components** (9 total): `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue`
-- **State Management**: All 5 state modules (`app/state/`) use Vue composables; additional UI composables in `app/composables/` (clipboard, tooltip, dialogs, settings, localStorage)
-- **Composable Organization**: Core state (`useConnectionState`, `useAudioState`, `useVoiceState`, `useUIState`, `useUserState`) in `app/state/`; UI helpers in `app/composables/`
-- **HTML cleanup**: Removed ~230 lines of Knockout templates; single Vue mount point `<div id="app"></div>`
-- **Architecture**: Components use `provide/inject` pattern; AppState composes Vue composables from both directories
-- **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`
-- **Test coverage**: 1477 tests passing; VoiceState (97.82%), AudioState (93.6%), UserState (94.47%), AppState (78.46%)
-- **Knockout.js removed**: No Knockout dependencies remain - app is 100% Vue.js 3
+**🚧 IN PROGRESS: Pinia Migration** (Branch: `feature/pinia-migration-test-fixes`, November 2025)
+- **Status**: ACTIVE MIGRATION - Migrating from Vue 3 composables to Pinia stores
+- **UI Components** (9 total): `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue` - **All use Pinia stores directly**
+- **State Management**: All 5 core modules migrated to **Pinia stores** in `app/stores/`: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore` (using `defineStore()` with Composition API setup syntax)
+- **Directory structure**: `app/state/` directory REMOVED - replaced by `app/stores/` (Pinia stores). UI helpers remain in `app/composables/`
+- **AppState**: Now a **compatibility layer** - composes Pinia stores, exposes `window.mumbleUi` for legacy tests/code, handles cross-module subscriptions
+- **Component pattern**: Vue components use `const store = useXStore()` directly (e.g., `useConnectionStore()`, `useUserStore()`)
+- **Build tooling**: `esbuild-plugin-vue3` compiles `.vue` SFCs; Vue runtime compiler enabled via `vue.esm-bundler.js`; Pinia initialized before AppState in `app/index.js`
+- **Test coverage**: Tests use both Pinia stores directly AND legacy `window.mumbleUi` API during migration
+- **Migration TODO**: Gradually migrate remaining `window.mumbleUi`/`AppState` consumers to direct Pinia usage; simplify/remove AppState compatibility layer once complete
 - **Critical constraint**: Audio pipeline, worker threads, and Mumble protocol remain UNCHANGED
 
 **Docker Environment**: Development happens INSIDE `mumble` container. Murmur server runs in SEPARATE `murmur` container (`murmur:64738`). Cannot restart murmur from dev container - restart entire Codespace if connection fails. Never suggest `docker-compose up` or `docker ps` commands.
 
 ## Getting started reading code
 **Entry points by use case:**
-- **UI/UX flow**: `app/index.html` (single Vue mount point) → `app/index.js` (AppState init, Vue mount, auth, connection) → `app/components/App.vue` (root component) → individual Vue components
-- **State management**: `app/state/AppState.js` (5-module composition) → individual modules in `app/state/` + UI composables in `app/composables/`
+- **UI/UX flow**: `app/index.html` (single Vue mount point) → `app/index.js` (Pinia init, AppState setup, Vue mount, auth) → `app/components/App.vue` (root component) → individual Vue components
+- **State management**: `app/stores/AppState.js` (coordinator + compatibility layer) → individual Pinia stores in `app/stores/` (`connectionStore.js`, `audioStore.js`, `voiceStore.js`, `uiStore.js`, `userStore.js`) + UI composables in `app/composables/`
 - **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
 - **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
-- **Build system**: `build-esbuild.mjs` (esbuild config with Vue plugin, clean builds)
+- **Build system**: `build-esbuild.mjs` (esbuild config with Vue + Pinia plugins, clean builds)
 
-**Composable organization**:
-- **Core state** (`app/state/`): 5 state modules using Vue composables - connection, audio, voice, UI, user
-- **UI helpers** (`app/composables/`): Utility composables - clipboard, tooltip, dialogs, settings, localStorage, debug utils
+**State organization (Pinia migration)**:
+- **Pinia stores** (`app/stores/`): 5 core stores using `defineStore()` with Composition API - `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`
+- **UI composables** (`app/composables/`): Dialog helpers, settings, clipboard, tooltip, localStorage, debug utils
+- **AppState** (`app/stores/AppState.js`): Compatibility layer that composes Pinia stores, exposes legacy `window.mumbleUi` API
 
-**Read these READMEs first**: `app/state/README.md` (architecture diagrams), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
+**Read these READMEs first**: `app/stores/README.md` (architecture diagrams + Pinia migration status), `app/audio/README.md` (production debugging), `tests/README.md` (testing strategy), `app/auth/README.md` (auth abstraction)
 
 ## Architecture & threading
-**Main thread** (`app/index.js`): Bootstraps state via `AppState` (Vue composable-based architecture), handles Netlify Identity, Guacamole iframe, dispatches voice controls to worker  
-**State architecture**: Uses modular `AppState` composed of 5 Vue composable modules: `useConnectionState`, `useAudioState`, `useVoiceState`, `useUIState`, `useUserState`. All state uses Vue 3 reactive primitives (ref, computed, watch). Channel registration handled directly in AppState (single-channel mode). See `app/state/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) was removed in Oct 2024  
+**Main thread** (`app/index.js`): Initializes Pinia via `createPinia()` → bootstraps `AppState` (coordinator that composes Pinia stores) → mounts Vue app → handles auth, Guacamole iframe  
+**State architecture**: Uses **Pinia stores** (`app/stores/`) with `defineStore()` + Composition API setup syntax. Five core stores: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`. All state uses Vue 3 reactive primitives (ref, computed, watch). `AppState` acts as compatibility layer exposing `window.mumbleUi` for legacy code. Channel registration handled directly in AppState (single-channel mode). See `app/stores/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) removed Oct 2024  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **WebSocket tunneling**: `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**. This is how browser clients connect to standard Mumble servers without native TCP sockets - websockify proxies the Mumble TCP protocol over WebSocket connections that browsers can handle  
@@ -148,26 +149,38 @@ watch(connected, (isConnected) => {
 <div v-for="(user, index) in users" :key="index">...</div>
 ```
 
-**UI state**: Reactive state lives in modular composables under `app/state/` (5 core modules: Connection, Audio, Voice, UI, User) and `app/composables/` (UI helpers: clipboard, tooltip, dialogs, settings, localStorage). Persist via `localStorage` (`mumble.*` keys); wire to Vue directives in `.vue` components. Access via `appState.connection.connected.value`, `appState.audio.audioContext`, etc. Example pattern:
+**UI state**: Reactive state lives in **Pinia stores** under `app/stores/` (5 core modules: Connection, Audio, Voice, UI, User) and UI composables in `app/composables/` (clipboard, tooltip, dialogs, settings, localStorage). Persist via `localStorage` (`mumble.*` keys); wire to Vue directives in `.vue` components. Vue components access stores directly via `useXStore()` pattern. Example patterns:
 ```javascript
-// Modular state (app/state/AppState.js)
+// Pinia store definition (app/stores/connectionStore.js)
+import { defineStore } from 'pinia';
+export const useConnectionStore = defineStore('connection', () => {
+  const connected = ref(false);
+  const client = ref(null);
+  // ... actions and computed
+  return { connected, client, /* actions */ };
+});
+
+// Component usage (in .vue file <script setup>)
+import { useConnectionStore } from '../stores/connectionStore';
+const connectionStore = useConnectionStore();
+// Access state: connectionStore.connected
+
+// AppState compatibility layer (app/stores/AppState.js)
 class AppState {
   constructor() {
+    const connectionStore = useConnectionStore();
+    const audioStore = useAudioStore();
+    // ... etc
     this._vueState = {
-      connection: useConnectionState(this.log),
-      audio: useAudioState(),
-      voice: useVoiceState(),
-      ui: useUIState(),
-      user: useUserState(audioState, voiceState)
+      connection: { ...connectionStore, ...safeStoreToRefs(connectionStore) },
+      // ... compose all stores
     };
-    // Channel registration handled directly via _registerChannel()
   }
 }
-// Public API via getters/methods
+// Legacy API via getters/methods (for backward compatibility)
 get connected() { return this._vueState.user.thisUser.value != null; }
-get audioContext() { return this._vueState.audio.audioContext; }
 ```
-**State module dependencies**: `UserState` receives `AudioState` and `VoiceState` in constructor for cross-module subscriptions (e.g., selfMute → VoiceState.setMute). Channel registration handled directly in `AppState._registerChannel()` for single-channel mode. See `app/state/README.md` diagrams for data flow
+**Store dependencies**: Stores can access each other via `useXStore()` within actions for cross-module subscriptions (e.g., `userStore` calls `voiceStore.setMute()`). Channel registration handled directly in `AppState._registerChannel()` for single-channel mode. See `app/stores/README.md` diagrams for data flow
 **Worker events**: Must update both `_dispatchEvent` in `worker-client.js` AND `registerEventProxy` in `worker.js`; only pass numeric IDs across thread boundary (never serialize full objects)  
 **Audio invariants**: 48 kHz mono, 960-sample frames (20ms @ 48 kHz), `samplesPerPacket` in settings—changing requires coordinated updates to `voice.js`, worker resampler, `Settings` serialization  
 **AudioContext**: **Always** `ensureAudioContext()` from `audio-context-manager.js`; never `new AudioContext()` directly (breaks singleton pattern). Manager handles autoplay policies, state changes, resume retries with exponential backoff (MAX_RESUME_ATTEMPTS=5)  
@@ -274,13 +287,13 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Playwright debugging**: Run with `--headed` for visible browser; use `--debug` for step-through debugging; `--trace on` generates detailed trace files in `test-results/`; Codespaces requires public URL auto-detection (configured in `playwright.config.js`)
 
 ## Key file map
-**UI/session**: `app/index.js` (AppState initialization + Vue mount + ConnectDialog + GuacamoleFrame), `app/index.html` (single Vue mount point), `app/localize.js` (i18n), `app/components/App.vue` (root), `app/components/ConnectDialog.vue` (connection dialog)  
-**State modules**: `app/stores/AppState.js` (coordinator with integrated channel registration), `app/stores/connectionStore.js` (WebSocket/client), `app/stores/audioStore.js` (AudioContext singleton), `app/stores/voiceStore.js` (voice handler/loopback), `app/stores/uiStore.js` (modals/messageBox), `app/stores/userStore.js` (thisUser/mute/deaf)  
+**UI/session**: `app/index.js` (Pinia init + AppState setup + Vue mount + auth), `app/index.html` (single Vue mount point), `app/localize.js` (i18n), `app/components/App.vue` (root), `app/components/ConnectDialog.vue` (connection dialog)  
+**Pinia stores**: `app/stores/AppState.js` (coordinator + compatibility layer + channel registration), `app/stores/connectionStore.js` (WebSocket/client), `app/stores/audioStore.js` (AudioContext singleton), `app/stores/voiceStore.js` (voice handler/loopback), `app/stores/uiStore.js` (modals/messageBox), `app/stores/userStore.js` (thisUser/mute/deaf)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
-**Build/runtime**: `build-esbuild.mjs` (esbuild config with Vue plugin + validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
+**Build/runtime**: `build-esbuild.mjs` (esbuild config with Vue + Pinia plugins + validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
 **Testing**: `tests/playwright/loopback-frequency.spec.js` (automated UI loopback test with mute/deaf validation), `scripts/audit-ci.cjs` (dependency vulnerability checks)  
-**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/stores/README.md` (state architecture diagrams + migration guide)
+**Documentation**: `app/audio/README.md` (production audio debugging), `tests/README.md` (comprehensive test guide + Playwright loopback docs), `app/auth/README.md` (auth abstraction), `app/stores/README.md` (Pinia store architecture + migration status)
 
 ## Test infrastructure (Jest + Playwright)
 **Unit tests** (Jest 30.2.0): 1477 tests, ES modules with jsdom environment.
