@@ -76,6 +76,17 @@ npm install
 ### 2. Start Development Server
 
 ```bash
+                    
+### State Management & Pinia Migration
+
+- **Source of truth**: All runtime state lebt heute in **Pinia-Stores** unter `app/stores/` (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`).
+- **Koordinator/Kompatibilität**: `app/stores/AppState.js` komponiert diese Stores und exponiert einen kompatiblen API‑Layer über `window.mumbleUi` (für ältere Tests und Übergangscode).
+- **Aktueller Stand**:
+  - Alle Vue 3 Komponenten nutzen Pinia direkt (via `useXStore()`); Knockout ist vollständig entfernt.
+  - Die alten „State‑Module“-Konzepte (Connection/Audio/Voice/UI/User) existieren weiter, werden aber von Pinia‑Stores implementiert.
+- **Offene TODOs für die Migration**:
+  - Schrittweise alle verbleibenden Aufrufer von `window.mumbleUi`/`AppState` auf direkte Pinia‑Verwendung bzw. `provide/inject` umstellen.
+  - Sobald keine Legacy‑Aufrufer mehr existieren, den `AppState`‑Kompatibilitätslayer verschlanken oder entfernen und die Architektur‑Diagramme/Docs endgültig auf Pinia‑Terminologie aktualisieren.
 # Set your Mumble server address and start the dev server
 MUMBLE_SERVER=voice.example.com:64738 ./start-dev-server.sh
 ```
