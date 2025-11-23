@@ -470,8 +470,10 @@ describe('AppState - Vue Composables Architecture', () => {
       expect(typeof appState.resetClient).toBe('function');
     });
 
-    test('should track connection ID for race safety', () => {
-      expect(appState._currentConnectionId).toBeDefined();
+    test('connection ID tracking moved to useConnectionLogic composable', () => {
+      // Connection ID is now tracked in useConnectionLogic, not AppState
+      // This is a cleaner separation of concerns
+      expect(appState._connectionLogic).toBeDefined();
     });
   });
 

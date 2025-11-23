@@ -37,9 +37,6 @@ export default class AppState {
     this.config = config;
     this.log = log || console.log.bind(console);
     
-    // Store Vue runtime for creating refs/computed
-    this._vue = { ref, computed };
-    
     // Initialize Pinia stores (source of truth)
     const connectionStore = useConnectionStore();
     const audioStore = useAudioStore();
@@ -82,16 +79,6 @@ export default class AppState {
     this.guacamoleFrame = null; // Set externally from index.js
     this.auth = null; // Set externally from index.js
     
-    // Guacamole credentials storage
-    this._guacLogin = null;
-    this._guacPassword = null;
-    
-    // Connection tracking for race safety
-    this._currentConnectionId = null;
-    
-    // Timer tracking for message confirmation
-    this._messageConfirmationTimer = null;
-    
     // Set up cross-module subscriptions
     this._setupSubscriptions();
     
@@ -105,7 +92,7 @@ export default class AppState {
    */
   _initializeComputedProperties() {
     // Message box placeholder hint
-    this.messageBoxHint = this._vue.computed(() => {
+    this.messageBoxHint = computed(() => {
       if (!this._vueState.user.thisUser.value) {
         return '';
       }
@@ -122,7 +109,7 @@ export default class AppState {
     });
     
     // Mailto link for desktop attachment
-    this.mailToDesktop = this._vue.ref(
+    this.mailToDesktop = ref(
       'mailto:mail@' +
       globalThis.location.hostname +
       '?subject=Send%20attachment%20to%20desktop'
@@ -279,11 +266,8 @@ export default class AppState {
   closeSettings = () => { console.warn('closeSettings called before initialization'); }
 
   submitMessageBox = () => {
-    // WORKAROUND: user.channel is not set due to async worker property sync
-    // Use root channel directly (all users start in root channel ID 0)
-    const target = this._rootChannel;
-    
-    return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), target);
+    // Pass null target - sendMessage will use thisUser.channel as fallback
+    return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), null);
   }
 
   // User module
