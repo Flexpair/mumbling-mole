@@ -96,12 +96,16 @@ import { computed, inject } from 'vue';
 import { useUserStore } from '../stores/userStore';
 import { useAudioStore } from '../stores/audioStore';
 import { useUIStore } from '../stores/uiStore';
+import { useConnectionStore } from '../stores/connectionStore';
+import { useVoiceStore } from '../stores/voiceStore';
 import MessageConfirmation from './MessageConfirmation.vue';
 
 const appState = inject('appState');
 const userStore = useUserStore();
 const audioStore = useAudioStore();
 const uiStore = useUIStore();
+const connectionStore = useConnectionStore();
+const voiceStore = useVoiceStore();
 
 // Computed properties that directly track Pinia store state
 const selfMute = computed(() => userStore.selfMute ?? false);
@@ -122,19 +126,66 @@ const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 
 // Methods
 const handleMuteClick = () => {
-  appState.requestMute(appState.thisUser?.value);
+  const thisUser = userStore.thisUser;
+  if (!thisUser?.value) return;
+
+  userStore.requestMute(thisUser.value);
+
+  const client = connectionStore.getClient();
+  if (client) {
+    client.setSelfMute(true);
+  }
 };
 
 const handleUnmuteClick = () => {
-  appState.handleUnmuteClick();
+  if (audioLockActive.value) {
+    if (appState?.notifyAudioLock) {
+      appState.notifyAudioLock();
+    }
+    return;
+  }
+
+  const thisUser = userStore.thisUser;
+  if (!thisUser?.value) return;
+
+  userStore.requestUnmute(thisUser.value);
+
+  const client = connectionStore.getClient();
+  if (client) {
+    client.setSelfMute(false);
+    client.setSelfDeaf(false);
+  }
 };
 
 const handleDeafClick = () => {
-  appState.requestDeaf(appState.thisUser?.value);
+  const thisUser = userStore.thisUser;
+  if (!thisUser?.value) return;
+
+  userStore.requestDeaf(thisUser.value, voiceStore.isLoopbackMode ?? false);
+
+  const client = connectionStore.getClient();
+  if (client) {
+    client.setSelfDeaf(true);
+  }
 };
 
 const handleUndeafClick = () => {
-  appState.handleUndeafClick();
+  if (audioLockActive.value) {
+    if (appState?.notifyAudioLock) {
+      appState.notifyAudioLock();
+    }
+    return;
+  }
+
+  const thisUser = userStore.thisUser;
+  if (!thisUser?.value) return;
+
+  userStore.requestUndeaf(thisUser.value);
+
+  const client = connectionStore.getClient();
+  if (client) {
+    client.setSelfDeaf(false);
+  }
 };
 
 const handleSubmitMessageBox = () => {
