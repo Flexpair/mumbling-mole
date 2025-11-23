@@ -77,7 +77,6 @@ export default class AppState {
       connectionInfoDialog: connectionInfo,
     };
 
-    
     // External dependencies (set during initialization)
     this.settings = null; // Set externally from index.js
     this.guacamoleFrame = null; // Set externally from index.js

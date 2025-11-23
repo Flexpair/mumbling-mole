@@ -438,8 +438,6 @@ function handleClientMessage(data) {
   const { clientId, userId, channelId, method, payload } = data;
   let client = clients[clientId];
 
-
-
   let target;
   let allowedMethods;
   let args = payload; // Local variable for potentially modified arguments

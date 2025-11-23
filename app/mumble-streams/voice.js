@@ -1,7 +1,5 @@
 import { Transform } from 'node:stream';
 
-
-
 /**
  * @typedef {('Opus')} Codec
  */
@@ -40,7 +38,6 @@ import { Transform } from 'node:stream';
  * @typedef {object} PingData
  * @property timestamp The timestamp for this ping packet.
  */
-
 
 /**
  * Transform stream for encoding {@link VoiceData Mumble voice packets}

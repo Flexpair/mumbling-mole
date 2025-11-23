@@ -1,4 +1,3 @@
-import { ref, inject } from 'vue';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
@@ -21,9 +20,7 @@ export function useConnectionLogic() {
   const sampleRateWarningDialog = useSampleRateWarningDialog();
   
   // External dependencies (injected or accessed via global config)
-  // In a pure composition API world, these would be passed in or provided
   const config = globalThis.mumbleWebConfig || {};
-  // const auth = globalThis.mumbleUi?.auth; // REMOVED: Access dynamically to avoid initialization order issues
   
   // Connection tracking for race safety
   let _currentConnectionId = null;
@@ -428,11 +425,6 @@ export function useConnectionLogic() {
       if (!target) {
         return;
       }
-      // target is a reactive object (ref/proxy) from the store
-      // We need to access the underlying model to call sendMessage
-      // If it's a ref, we might need .value, but usually store objects are unwrapped or reactive
-      // In AppState it was: target.model.sendMessage(message)
-      // Let's assume target has a model property.
       if (target.model) {
         target.model.sendMessage(message);
       } else if (target.value && target.value.model) {

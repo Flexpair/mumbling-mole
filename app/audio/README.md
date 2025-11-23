@@ -452,7 +452,7 @@ High resolution allows accurate pitch detection (e.g., 440 Hz displays as 440.5 
 
 ### Debugging
 
-Enable `DEBUG_VOICE_LOGGING` in `UserState.js` for console logs:
+Add `?debug-audio` URL parameter to enable console logs:
 ```
 [LOOPBACK-FREQ] Frequency analysis started for loopback mode
 [LOOPBACK-FREQ] Dominant frequency: 440.5 Hz, amplitude: 156
