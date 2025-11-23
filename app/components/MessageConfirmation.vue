@@ -13,31 +13,38 @@
 
 <script setup>
 import { ref, watch, onUnmounted } from 'vue';
+import { useUIStore } from '../stores/uiStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import { translate } from '../localize';
-
-const props = defineProps({
-  appState: {
-    type: Object,
-    required: true
-  }
-});
 
 const isConfirmed = ref(false);
 let resetTimer = null;
 
+const uiStore = useUIStore();
+const connectionStore = useConnectionStore();
+
 // Handle click on checkmark to send message
 function handleClick() {
-  // Trigger message send via submitMessageBox
-  if (props.appState.ui?.submitMessageBox) {
-    const sendMessageFn = props.appState.sendMessage.bind(props.appState);
-    const target = null; // null = send to current channel
-    props.appState.ui.submitMessageBox(sendMessageFn, target);
+  const client = connectionStore.getClient?.();
+  if (!client) {
+    return;
   }
+
+  const rootChannel = client.root;
+  if (!rootChannel || typeof rootChannel.sendMessage !== 'function') {
+    return;
+  }
+
+  uiStore.submitMessageBox?.((target, message) => {
+    if (target && typeof target.sendMessage === 'function') {
+      target.sendMessage(message);
+    }
+  }, rootChannel);
 }
 
 // Watch for message confirmation from AppState
 watch(
-  () => props.appState.messageConfirmed?.value,
+  () => uiStore.messageConfirmed,
   (confirmed) => {
     if (confirmed) {
       // Show confirmation

@@ -46,7 +46,7 @@
         v-model="messageBox"
       />
       <!-- Message confirmation (green checkmark) appears inside message box -->
-      <MessageConfirmation :appState="appState" />
+      <MessageConfirmation />
     </div>
     <a
       :href="mailToDesktop"
@@ -93,26 +93,30 @@
 
 <script setup>
 import { computed, inject } from 'vue';
+import { useUserStore } from '../stores/userStore';
+import { useAudioStore } from '../stores/audioStore';
+import { useUIStore } from '../stores/uiStore';
 import MessageConfirmation from './MessageConfirmation.vue';
 
 const appState = inject('appState');
+const userStore = useUserStore();
+const audioStore = useAudioStore();
+const uiStore = useUIStore();
 
-// Computed properties that directly track Vue refs
-const selfMute = computed(() => appState.selfMute?.value || false);
-const selfDeaf = computed(() => appState.selfDeaf?.value || false);
-const audioLockActive = computed(() => appState.audioLockActive?.value || false);
+// Computed properties that directly track Pinia store state
+const selfMute = computed(() => userStore.selfMute ?? false);
+const selfDeaf = computed(() => userStore.selfDeaf ?? false);
+const audioLockActive = computed(() => audioStore.audioLockActive ?? false);
 
-// Writable computed for 2-way binding with messageBox
+// Writable computed for 2-way binding with messageBox (UI store)
 const messageBox = computed({
-  get: () => appState.messageBox?.value || '',
+  get: () => uiStore.messageBox || '',
   set: (val) => {
-    if (appState.messageBox) {
-      appState.messageBox.value = val;
-    }
+    uiStore.messageBox = val;
   }
 });
 
-// AppState computed properties (now Vue computed refs, not Knockout)
+// AppState computed properties (still provided by AppState for now)
 const messageBoxHint = computed(() => appState.messageBoxHint?.value || '');
 const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 
