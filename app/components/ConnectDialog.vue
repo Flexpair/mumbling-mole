@@ -81,7 +81,6 @@
               @mouseup="stopBeep"
               @mouseleave="stopBeep"
               :class="{ active: isBeeping }"
-              :disabled="!beeperReady || !voiceHandlerReady"
               :aria-pressed="isBeeping ? 'true' : 'false'"
               style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
             >
@@ -118,6 +117,9 @@
 
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { useAudioStore } from '../stores/audioStore';
+import { useVoiceStore } from '../stores/voiceStore';
+import { useUserStore } from '../stores/userStore';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
@@ -126,10 +128,15 @@ import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from '
  * No more bidirectional sync with Knockout observables.
  */
 
-// Inject AppState (from main app)
+// Inject AppState (from main app) for high-level orchestration (connect, loopback, Guacamole)
 const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 const translate = inject('translate');
+
+// Direct Pinia stores for core reactive state (critical path)
+const audioStore = useAudioStore();
+const voiceStore = useVoiceStore();
+const userStore = useUserStore();
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = ref(null);
@@ -179,15 +186,15 @@ watch(visible, async (val) => {
   }
 });
 
-// Computed state from AppState
-const connected = computed(() => appState?.connected() ?? false);
-const isBeeping = computed(() => appState?.isBeeping?.value ?? false);
+// Computed state from Pinia stores (values are auto-unwrapped by Pinia)
+const connected = computed(() => userStore.thisUser != null);
+const isBeeping = computed(() => audioStore.isBeeping ?? false);
 
-// Computed properties from Vue refs in AppState
-const beeperReady = computed(() => appState?.beeperReady?.value ?? false);
-const voiceHandlerReady = computed(() => appState?.voiceHandlerReady?.value ?? false);
-const isLoopbackMode = computed(() => appState?.isLoopbackMode?.value ?? false);
-const dominantFrequency = computed(() => appState?.loopbackDominantFrequency?.value ?? 0);
+// Computed properties from Pinia store state
+const beeperReady = computed(() => audioStore.beeperReady ?? false);
+const voiceHandlerReady = computed(() => voiceStore.voiceHandlerReady ?? false);
+const isLoopbackMode = computed(() => voiceStore.isLoopbackMode ?? false);
+const dominantFrequency = computed(() => voiceStore.loopbackDominantFrequency ?? 0);
 
 // Subscribe to Knockout observables
 onMounted(() => {
@@ -294,11 +301,11 @@ async function handleExitTest() {
  */
 function startBeep() {
   console.log('[ConnectDialog Vue] startBeep() called');
-  if (appState?.startBeep) {
-    console.log('[ConnectDialog Vue] Calling appState.startBeep()');
-    appState.startBeep();
+  if (audioStore?.startBeep) {
+    console.log('[ConnectDialog Vue] Calling audioStore.startBeep()');
+    audioStore.startBeep();
   } else {
-    console.error('[ConnectDialog Vue] appState.startBeep not available');
+    console.error('[ConnectDialog Vue] audioStore.startBeep not available');
   }
 }
 
@@ -307,8 +314,8 @@ function startBeep() {
  */
 function stopBeep() {
   console.log('[ConnectDialog Vue] stopBeep() called');
-  if (appState?.stopBeep) {
-    appState.stopBeep();
+  if (audioStore?.stopBeep) {
+    audioStore.stopBeep();
   }
 }
 
