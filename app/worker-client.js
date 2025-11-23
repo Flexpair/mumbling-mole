@@ -67,11 +67,6 @@ class WorkerBasedMumbleConnector {
     });
   }
 
-  _callPromise(id, method, payload, transfer) {
-    // Alias for _query for semantic clarity when we expect a response
-    return this._query(id, method, payload, transfer);
-  }
-
   _addCall(proxy, name, id) {
     proxy[name] = (...args) => {
       this._call(id, name, args);

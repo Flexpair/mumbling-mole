@@ -330,19 +330,16 @@ This guide explains how to complete the migration from the monolithic `GlobalBin
 
 ## What Has Been Done ✅
 
-1. **Created 7 State Modules** in `app/state/`:
-   - `ConnectionState.js` - Server connection management (133 lines)
-   - `AudioState.js` - Audio context & beeper (264 lines)
-   - `VoiceState.js` - Voice handler & loopback (107 lines)
-   - `UIState.js` - UI state & modals (77 lines)
-   - `UserState.js` - User management (225 lines)
-   - `AppState.js` - Main coordinator with integrated channel registration (518 lines)
+1. **Created 5 Pinia Stores** in `app/stores/`:
+   - `connectionStore.js` - Server connection management
+   - `audioStore.js` - Audio context & beeper
+   - `voiceStore.js` - Voice handler & loopback
+   - `uiStore.js` - UI state & modals
+   - `userStore.js` - User management
+   - `AppState.js` - Main coordinator (compatibility layer)
 
 2. **Created Documentation**:
    - `README.md` - Architecture & API reference
-   - `REFACTORING_SUMMARY.md` - Project overview
-   - `ARCHITECTURE.md` - Visual diagrams
-   - `MIGRATION_GUIDE.md` - This file
 
 3. **Backward Compatibility**:
    - `AppState` exposes same API as `GlobalBindings`
@@ -371,7 +368,7 @@ var ui = new GlobalBindings(window.mumbleWebConfig);
 import AppState from "./stores/AppState";
 
 // Remove the entire GlobalBindings class definition
-// (it's been replaced by the modules in app/state/)
+// (it's been replaced by the stores in app/stores/)
 
 var ui = new AppState(window.mumbleWebConfig, log);
 ```
@@ -600,7 +597,7 @@ If issues arise and you need to rollback:
    - Change `new AppState(...)` back to `new GlobalBindings(...)`
 
 2. **Keep the new modules**:
-   - The `app/state/` directory can remain
+   - The `app/stores/` directory can remain
    - It doesn't affect the old code
    - You can retry migration later
 
@@ -643,9 +640,7 @@ Once the migration is complete and stable:
 If you encounter issues during migration:
 
 1. **Check Documentation**:
-   - `app/state/README.md` - API reference
-   - `app/state/ARCHITECTURE.md` - Visual diagrams
-   - `app/state/REFACTORING_SUMMARY.md` - Project overview
+   - `app/stores/README.md` - API reference and architecture
 
 2. **Compare Implementations**:
    - Look at old `GlobalBindings` code
@@ -1031,18 +1026,15 @@ expect(mockAudio.startBeep).toHaveBeenCalled();
 ## File Locations
 
 ```
-app/state/
+app/stores/
 ├── index.js                  # Module exports
-├── AppState.js               # Main coordinator
-├── ConnectionState.js        # Connection management
-├── AudioState.js             # Audio & beeper
-├── VoiceState.js             # Voice handler
-├── UIState.js                # UI state
-├── UserState.js              # User management
-├── ChannelState.js           # Channel tree
+├── AppState.js               # Main coordinator (compatibility layer)
+├── connectionStore.js        # Connection management
+├── audioStore.js             # Audio & beeper
+├── voiceStore.js             # Voice handler
+├── uiStore.js                # UI state
+├── userStore.js              # User management
 ├── README.md                 # Full documentation
-├── MIGRATION_GUIDE.md        # Migration steps
-├── ARCHITECTURE.md           # Visual diagrams
 ├── REFACTORING_SUMMARY.md    # Project overview
 └── QUICK_REFERENCE.md        # This file
 ```
@@ -1193,22 +1185,21 @@ AppState exposes the same API as GlobalBindings via getters and delegation.
 The refactoring was designed for **incremental adoption**:
 
 ### Phase 1: Create Modules ✅ COMPLETED
-- Created 6 state modules + 1 coordinator
+- Created 5 Pinia stores + 1 coordinator (AppState)
 - Each module is self-contained and functional
-- Comprehensive documentation in `app/state/README.md`
+- Comprehensive documentation in this file
 
-### Phase 2: Update index.js (TODO)
-- Replace `GlobalBindings` with `AppState` instantiation
-- Maintain same external API via delegation
-- Test incrementally
+### Phase 2: Update index.js ✅ COMPLETED
+- Replaced `GlobalBindings` with `AppState` instantiation
+- Pinia initialized and stores registered
+- Backward compatibility maintained via `AppState`
 
-### Phase 3: Update index.html (TODO)
-- Review Knockout bindings
-- Ensure compatibility with new structure
-- No changes needed if delegation is complete
+### Phase 3: Update index.html ✅ COMPLETED
+- Knockout bindings removed
+- Replaced with Vue 3 root component (`<div id="app">`)
 
-### Phase 4: Test & Validate (TODO)
-- Run existing test suite: `npm run test:quick`
+### Phase 4: Test & Validate (IN PROGRESS)
+- Run existing test suite: `npm run test:unit`
 - Manual testing of:
   - Connection/disconnection
   - Audio features (mute/deaf/beeper)
@@ -1259,17 +1250,15 @@ class AppState {
 ## File Structure
 
 ```
-app/state/
+app/stores/
 ├── README.md                 # Architecture documentation
-├── REFACTORING_SUMMARY.md    # This file
 ├── index.js                  # Module exports
-├── AppState.js               # Main coordinator (518 lines)
-├── ConnectionState.js        # Connection management (133 lines)
-├── AudioState.js             # Audio & beeper (264 lines)
-├── VoiceState.js             # Voice handler (107 lines)
-├── UIState.js                # UI state (77 lines)
-├── UserState.js              # User management (225 lines)
-└── ChannelState.js           # Channel tree (145 lines)
+├── AppState.js               # Main coordinator
+├── connectionStore.js        # Connection management
+├── audioStore.js             # Audio & beeper
+├── voiceStore.js             # Voice handler
+├── uiStore.js                # UI state
+└── userStore.js              # User management
 ```
 
 ## Metrics

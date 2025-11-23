@@ -48,7 +48,7 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 
 **🚧 IN PROGRESS: Pinia Migration** (Branch: `feature/pinia-migration-test-fixes`, November 2025)
 - **Status**: ACTIVE MIGRATION - Migrating from Vue 3 composables to Pinia stores
-- **UI Components** (9 total): `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `SettingsDialog.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue` - **All use Pinia stores directly**
+- **UI Components** (9 total): `App.vue` (root), `ConnectDialog.vue`, `ConnectionInfoDialog.vue`, `ConnectErrorDialog.vue`, `SampleRateWarningDialog.vue`, `GuacamoleFrame.vue`, `Toolbar.vue`, `MicPermissionRetryOverlay.vue`, `MessageConfirmation.vue` - **All use Pinia stores directly**
 - **State Management**: All 5 core modules migrated to **Pinia stores** in `app/stores/`: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore` (using `defineStore()` with Composition API setup syntax)
 - **Directory structure**: `app/state/` directory REMOVED - replaced by `app/stores/` (Pinia stores). UI helpers remain in `app/composables/`
 - **AppState**: Now a **compatibility layer** - composes Pinia stores, exposes `window.mumbleUi` for legacy tests/code, handles cross-module subscriptions

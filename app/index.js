@@ -19,18 +19,12 @@ const isMockAuth = urlParams.has('mock-auth');
 // Global debug flag for general logging; enable by ?debug in URL
 const isDebug = urlParams.has('debug') || !!globalThis.mumbleWebConfig?.debug;
 
-// Set global debug flag for audio pipeline logging
-// This is checked by decoder-stream.js and vendored mumble-streams
 if (isDebugAudio) {
   globalThis.MUMBLE_DEBUG_AUDIO = true;
-  // log internal audio debug separately — only when explicitly requested
-  console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
 }
 
-// Expose small logger that is enabled via ?debug or the runtime config
 function log() {
   if (!isDebug) return;
-  // eslint-disable-next-line no-console
   console.log(...arguments);
 }
 
@@ -73,13 +67,9 @@ if (isMockAuth) {
 }
 
 ui.auth = AuthFactory.create(authConfig);
-ui.netlifyIdentity = ui.auth;
 
 globalThis.mumbleUi = ui;
 
-if (ui.auth) {
-  globalThis.netlifyIdentity = ui.auth;
-}
 
 /**
  * Apply URL query parameters to connect dialog
@@ -181,13 +171,9 @@ function initializeUI() {
 globalThis.mumbleLog = log;
 
 async function main() {
-  console.log('[DEBUG] main() called - starting initialization');
   document.title = globalThis.location.hostname;
-  console.log('[DEBUG] Localization complete, initializing UI');
   
-  // Initialize UI state and auth
   initializeUI();
-  console.log('[DEBUG] UI initialized, mounting Vue app');
   
   // Mount Vue.js App component (single root that contains all UI)
   try {
@@ -204,12 +190,9 @@ async function main() {
     
     const mountedApp = vueApp.mount('#app');
     
-    // Make Vue app inspectable in DevTools
     globalThis.__VUE_APP__ = mountedApp;
-    
-    console.log('[VUE] ✅ App mounted successfully');
   } catch (error) {
-    console.error('[VUE] ❌ Failed to mount App:', error);
+    console.error('[VUE] Failed to mount App:', error);
     // Fall back to showing an error message
     document.getElementById('app').innerHTML = `
       <div style="padding: 20px; color: red; font-family: sans-serif;">

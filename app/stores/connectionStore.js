@@ -7,9 +7,8 @@ import { buildWebSocketUrl } from '../utils/websocket-url';
 export const useConnectionStore = defineStore('connection', () => {
   const logger = globalThis.mumbleLog || console.log;
   
-  // Connection infrastructure
   const connector = new WorkerBasedMumbleConnector();
-  const client = shallowRef(null); // Reactive reference to client
+  const client = shallowRef(null);
   
   // Connection parameters (reactive)
   const remoteHost = ref(null);

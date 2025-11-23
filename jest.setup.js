@@ -87,20 +87,10 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-// Mock console.warn/error to reduce noise (but keep for debugging)
-const originalWarn = console.warn;
-const originalError = console.error;
-
 globalThis.console = {
   ...console,
-  warn: jest.fn((...args) => {
-    // Uncomment to see warnings during test development:
-    // originalWarn(...args);
-  }),
-  error: jest.fn((...args) => {
-    // Uncomment to see errors during test development:
-    // originalError(...args);
-  }),
+  warn: jest.fn(),
+  error: jest.fn(),
 };
 
 // Add custom matchers

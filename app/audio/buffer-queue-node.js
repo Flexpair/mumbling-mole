@@ -3,50 +3,7 @@
  * Maintains API compatibility while using modern AudioWorkletNode instead of deprecated ScriptProcessorNode
  */
 
-/**
- * Simple EventEmitter for browser compatibility (replaces Node.js Writable)
- */
-class EventEmitter {
-  constructor() {
-    this._listeners = {};
-  }
-
-  on(event, callback) {
-    if (!this._listeners[event]) {
-      this._listeners[event] = [];
-    }
-    this._listeners[event].push(callback);
-    return this;
-  }
-
-  once(event, callback) {
-    const wrapper = (...args) => {
-      callback(...args);
-      this.removeListener(event, wrapper);
-    };
-    return this.on(event, wrapper);
-  }
-
-  emit(event, ...args) {
-    if (this._listeners[event]) {
-      for (const callback of this._listeners[event]) {
-        try {
-          callback(...args);
-        } catch (err) {
-          console.error(`Error in ${event} listener:`, err);
-        }
-      }
-    }
-    return this;
-  }
-
-  removeListener(event, callback) {
-    if (this._listeners[event]) {
-      this._listeners[event] = this._listeners[event].filter(cb => cb !== callback);
-    }
-    return this;
-  }
-}
+import EventEmitter from 'node:events';
 
 /**
  * Wrapper classes for different audio buffer formats
