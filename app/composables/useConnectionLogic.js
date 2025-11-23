@@ -424,6 +424,7 @@ export function useConnectionLogic({ auth, settings } = {}) {
     resetClient,
     sendMessage,
     connected,
-    updateVoiceHandler
+    updateVoiceHandler,
+    performConnect: _performConnect // Export for SampleRateWarningDialog
   };
 }

@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { Transition, ref, onMounted, inject, provide } from 'vue';
+import { Transition, ref, onMounted, inject } from 'vue';
 import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)
@@ -47,14 +47,8 @@ import GuacamoleFrame from './GuacamoleFrame.vue';
 import ConnectionInfoDialog from './ConnectionInfoDialog.vue';
 
 // Get injected dependencies from parent (index.js)
-const appState = inject('appState');
-const config = inject('config');
-const translate = inject('translate');
-
-// Re-provide to child components
-provide('appState', appState);
-provide('config', config);
-provide('translate', translate);
+// Note: config and translate are provided by index.js and automatically
+// inherited by child components via provide/inject chain
 
 // Preloader state
 const showPreloader = ref(true);
@@ -80,12 +74,6 @@ onMounted(() => {
   }
   
   // Wire up GuacamoleFrame reference to uiStore
-  if (guacamoleFrameRef.value && appState) {
-    // Legacy support
-    appState.guacamoleFrame = guacamoleFrameRef.value;
-  }
-  
-  // New Pinia support
   if (guacamoleFrameRef.value) {
     const uiStore = useUIStore();
     uiStore.guacamoleFrame = guacamoleFrameRef.value;
