@@ -291,12 +291,16 @@ class MumbleClient extends EventEmitter {
           numberOfChannels: numberOfChannels
         }
       } else {
-        chunk = {
+        const nextChunk = {
           target: target,
           pcm: chunk.pcm,
-          numberOfChannels: numberOfChannels,
-          position: { x: chunk.x, y: chunk.y, z: chunk.z }
+          numberOfChannels: numberOfChannels
+        };
+        const hasPosition = Number.isFinite(chunk.x) && Number.isFinite(chunk.y) && Number.isFinite(chunk.z);
+        if (hasPosition) {
+          nextChunk.position = { x: chunk.x, y: chunk.y, z: chunk.z };
         }
+        chunk = nextChunk;
       }
       const samples =
         this._samplesPerPacket || chunk.pcm.length / numberOfChannels

@@ -40,8 +40,9 @@ class VoiceHandler extends Writable {
       // VOICE-STREAM-CREATION: Create voice stream with specified target
       // samplesPerPacket controls frame size (default 960 samples = 20ms @ 48kHz)
       // target parameter routes voice to different destinations
+      const samplesPerPacket = this._settings.samplesPerPacket?.value || 960;
       this._outbound = this._client.createVoiceStream(
-        this._settings.samplesPerPacket.value,
+        samplesPerPacket,
         this._target
       );
 
