@@ -1,337 +1,132 @@
-import { watch, ref, computed } from 'vue';
-import { safeStoreToRefs } from '../utils/safeStoreToRefs';
+import { watch } from 'vue';
 import { useConnectionStore } from './connectionStore';
 import { useAudioStore } from './audioStore';
 import { useVoiceStore } from './voiceStore';
 import { useUIStore } from './uiStore';
 import { useUserStore } from './userStore';
-import { useConnectionLogic } from '../composables/useConnectionLogic';
-import {
+import { 
   useConnectionDialog,
   useConnectErrorDialog,
   useSampleRateWarningDialog,
-  useConnectionInfo,
-} from '../composables';
-import { translate } from '../localize';
-import packageJson from '../../package.json';
+  useConnectionInfo
+} from '../composables/index';
 
 /**
- * AppState - main state coordinator
+ * AppState - Minimal initialization coordinator
  * 
- * Composes all state modules using Pinia stores.
- * Provides a centralized API for application-wide state management.
+ * Responsibilities:
+ * - Initialize Pinia stores
+ * - Set up cross-store reactive subscriptions
+ * - Register channel in single-channel mode
  * 
- * Architecture:
- * - ConnectionStore: client connection, root user/channel setup
- * - AudioStore: AudioContext, beeper, audio pipeline
- * - VoiceStore: voice handler, loopback mode, voice controls
- * - UIStore: modals, message box, settings dialog
- * - UserStore: current user, self mute/deaf, user registration, voice streams
+ * All business logic has been migrated to:
+ * - Pinia stores (connectionStore, audioStore, voiceStore, uiStore, userStore)
+ * - Composables (useConnectionLogic, useConnectionDialog, etc.)
  * 
- * State management:
- * - All state uses Pinia stores
- * - Cross-module dependencies handled via store composition
+ * Components access state directly via stores, not through AppState.
  */
 export default class AppState {
   constructor(config, log) {
     this.config = config;
     this.log = log || console.log.bind(console);
     
-    // Initialize Pinia stores (source of truth)
-    const connectionStore = useConnectionStore();
-    const audioStore = useAudioStore();
-    const voiceStore = useVoiceStore();
-    const uiStore = useUIStore();
-    const userStore = useUserStore();
+    // Initialize Pinia stores
+    this.connectionStore = useConnectionStore();
+    this.audioStore = useAudioStore();
+    this.voiceStore = useVoiceStore();
+    this.uiStore = useUIStore();
+    this.userStore = useUserStore();
     
-    // Initialize connection logic placeholder (will be set up after dependencies are injected)
-    this._connectionLogic = null;
-    
-    const connectionDialog = useConnectionDialog();
-    const connectErrorDialog = useConnectErrorDialog();
-    const sampleRateWarningDialog = useSampleRateWarningDialog();
-
-    const connectionInfo = useConnectionInfo();
-    
-    // Store store references
-    // We mix in safeStoreToRefs to provide Ref access (backward compatibility)
-    // while keeping actions available from the store instance
+    // Alias for tests (backward compatibility)
     this._vueState = {
-      connection: { ...connectionStore, ...safeStoreToRefs(connectionStore) },
-      audio: { 
-        ...audioStore, 
-        ...safeStoreToRefs(audioStore),
-        // Expose audioContext as value (getter) for backward compatibility with tests/legacy code
-        // that expects the raw AudioContext object, not a Ref.
-        get audioContext() { return audioStore.audioContext; }
-      },
-      voice: { ...voiceStore, ...safeStoreToRefs(voiceStore) },
-      ui: { ...uiStore, ...safeStoreToRefs(uiStore) },
-      user: { ...userStore, ...safeStoreToRefs(userStore) },
-      dialog: connectionDialog,
-      errorDialog: connectErrorDialog,
-      sampleRateDialog: sampleRateWarningDialog,
-      connectionInfoDialog: connectionInfo,
+      connection: this.connectionStore,
+      audio: this.audioStore,
+      voice: this.voiceStore,
+      ui: this.uiStore,
+      user: this.userStore
     };
-
-    // External dependencies (set during initialization)
-    this.settings = null; // Set externally from index.js
-    this.guacamoleFrame = null; // Set externally from index.js
-    this.auth = null; // Set externally from index.js
     
     // Set up cross-module subscriptions
     this._setupSubscriptions();
-    
-    // Initialize lazy computed properties after _vueState is ready
-    this._initializeComputedProperties();
   }
 
   /**
-   * Initialize computed properties (called after _vueState is ready)
-   * @private
-   */
-  _initializeComputedProperties() {
-    // Message box placeholder hint
-    this.messageBoxHint = computed(() => {
-      if (!this._vueState.user.thisUser.value) {
-        return '';
-      }
-      // With markRaw, channel is a ref that might be undefined
-      const channelRef = this._vueState.user.thisUser.value.channel;
-      if (!channelRef?.value) {
-        return '';
-      }
-      const target = channelRef.value;
-      if (!target?.name) {
-        return '';
-      }
-      return translate('chat.channel_message_placeholder').replace('%1', target.name.value);
-    });
-    
-    // Mailto link for desktop attachment
-    this.mailToDesktop = ref(
-      'mailto:mail@' +
-      globalThis.location.hostname +
-      '?subject=Send%20attachment%20to%20desktop'
-    );
-  }
-
-  /**
-   * Set up reactive subscriptions between modules
+   * Set up reactive subscriptions between stores
    * @private
    */
   _setupSubscriptions() {
-    // When selfMute changes, update voice handler
-    watch(() => this._vueState.user.selfMute.value, (mute) => {
-      this._vueState.voice.setMute(mute);
+    // When selfMute changes, update voice handler mute state
+    watch(() => this.userStore.selfMute, (mute) => {
+      this.voiceStore.setMute(mute);
     });
   }
 
   /**
-   * Initialize connection logic with injected dependencies
-   * Must be called after auth and settings are set
-   * @private
+   * Register channel in single-channel mode
+   * Called from index.js after client connection
    */
-  _initializeConnectionLogic() {
-    if (!this.auth || !this.settings) {
-      console.error('[AppState] Cannot initialize connection logic - auth or settings not set');
-      return;
-    }
-    
-    this._connectionLogic = useConnectionLogic({ 
-      auth: this.auth, 
-      settings: this.settings 
-    });
+  _registerChannel(channel) {
+    this.connectionStore.registerChannel(channel);
   }
 
-  /**
-   * Update voice handler based on current settings
-   */
-  _updateVoiceHandler() {
-    if (!this._connectionLogic) {
-      console.warn('[AppState] Connection logic not initialized yet');
-      return;
-    }
-    this._connectionLogic.updateVoiceHandler();
+  // Minimal getters for index.js initialization and tests (will be removed once fully migrated)
+  get connectDialog() {
+    return useConnectionDialog();
   }
 
-  // ============================================================
-  // PUBLIC API - Expose module functionality
-  // ============================================================
-
-  /**
-   * Check if connected
-   * @returns {boolean}
-   */
-  connected = () => {
-    return this._vueState.user.thisUser.value != null;
+  get connectErrorDialog() {
+    return useConnectErrorDialog();
   }
 
-  /**
-   * Get current client
-   * @returns {object|null}
-   */
-  getClient = () => {
-    return this._vueState.connection.getClient();
+  get sampleRateWarningDialog() {
+    return useSampleRateWarningDialog();
   }
 
-  /**
-   * Connect to Mumble server
-   */
-  async connect(host, port, username, password, tokens = []) {
-    if (!this._connectionLogic) {
-      this._initializeConnectionLogic();
-    }
-    await this._connectionLogic.connect(host, port, username, password, tokens);
+  get connectionInfo() {
+    return useConnectionInfo();
   }
 
-  /**
-   * Connect in loopback test mode
-   */
-  async connectLoopback(host, port, username, password, tokens = []) {
-    if (!this._connectionLogic) {
-      this._initializeConnectionLogic();
-    }
-    await this._connectionLogic.connectLoopback(host, port, username, password, tokens);
+  get user() {
+    return this.userStore;
   }
 
-  /**
-   * Start loopback test on existing connection
-   */
-  startLoopbackTest = async () => {
-    if (!this._connectionLogic) {
-      this._initializeConnectionLogic();
-    }
-    await this._connectionLogic.startLoopbackTest();
+  get audio() {
+    return this.audioStore;
   }
 
-  /**
-   * Reset client and all state
-   */
-  resetClient = () => {
-    if (!this._connectionLogic) {
-      console.warn('[AppState] Connection logic not initialized');
-      return;
-    }
-    this._connectionLogic.resetClient();
+  get voice() {
+    return this.voiceStore;
   }
 
-  /**
-   * Send message to channel or user
-   */
-  sendMessage = (target, message) => {
-    if (!this._connectionLogic) {
-      console.warn('[AppState] Connection logic not initialized');
-      return;
-    }
-    this._connectionLogic.sendMessage(target, message);
+  get connection() {
+    return this.connectionStore;
   }
 
-  // ============================================================
-  // DELEGATION - Expose Knockout observables for backward compatibility
-  // ============================================================
-
-  // Connection Dialog module (Vue refs, no Knockout wrapper needed)
-  get connectDialog() { return this._vueState.dialog; }
-
-  // Audio module
-  get audioContext() { return this._vueState.audio.audioContext; }
-  get audioLockActive() { return this._vueState.audio.audioLockActive; }
-  get audioLockReason() { return this._vueState.audio.audioLockReason; }
-  get audioLockDetails() { return this._vueState.audio.audioLockDetails; }
-  get micPermissionDenied() { return this._vueState.audio.micPermissionDenied; }
-  get micPermissionErrorMessage() { return this._vueState.audio.micPermissionErrorMessage; }
-  get isBeeping() { return this._vueState.audio.isBeeping; }
-  get beeperReady() { return this._vueState.audio.beeperReady; }
-  
-  startBeep = () => { return this._vueState.audio.startBeep(); }
-  stopBeep = () => { return this._vueState.audio.stopBeep(); }
-  retryMicrophonePermission = () => { return this._vueState.audio.retryMicrophonePermission(); }
-  initializeAudioContext = () => { return this._vueState.audio.initializeAudioContext(); }
-  _initializePersistentBeeper = () => { return this._vueState.audio.initializePersistentBeeper(); }
-
-  // Voice module
-  get isLoopbackMode() { return this._vueState.voice.isLoopbackMode; }
-  get voiceHandlerReady() { return this._vueState.voice.voiceHandlerReady; }
-  get loopbackDominantFrequency() { return this._vueState.voice.loopbackDominantFrequency; }
-  get voiceHandler() { return this._vueState.voice.voiceHandler; }
-
-  // UI module
-  get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
-  get messageBox() { return this._vueState.ui.messageBox; }
-  get messageConfirmed() { return this._vueState.ui.messageConfirmed; }
-
-  submitMessageBox = () => {
-    // Pass null target - sendMessage will use thisUser.channel as fallback
-    return this._vueState.ui.submitMessageBox((t, m) => this.sendMessage(t, m), null);
+  get ui() {
+    return this.uiStore;
   }
 
-  // User module
-  get thisUser() { return this._vueState.user.thisUser; }
-  get selfMute() { return this._vueState.user.selfMute; }
-  get selfDeaf() { return this._vueState.user.selfDeaf; }
-  
-  requestMute = (user) => { 
-    this._vueState.user.requestMute(user);
-  }
-  
-  requestDeaf = (user) => { 
-    this._vueState.user.requestDeaf(user, this._vueState.voice.isLoopbackMode.value);
-  }
-  
-  requestUnmute = (user) => {
-    this._vueState.user.requestUnmute(user);
-  }
-  
-  requestUndeaf = (user) => {
-    if (this._vueState.audio.audioLockActive.value) {
-      this.notifyAudioLock();
-      return;
-    }
-    this._vueState.user.requestUndeaf(user);
-    if (this.connected()) {
-      this._vueState.connection.getClient().setSelfDeaf(false);
-    }
+  get auth() {
+    return this._auth;
   }
 
-  // Connection module
-  get remoteHost() { return this._vueState.connection.remoteHost; }
-  get remotePort() { return this._vueState.connection.remotePort; }
-  get client() { return this._vueState.connection.getClient(); }
-  set client(value) { 
-    // Direct assignment is no longer supported - use composable API or connection methods
-    throw new Error('Direct assignment to appState.client is no longer supported. Use the composable API or appropriate methods to update the client.');
+  set auth(value) {
+    this._auth = value;
   }
 
-  // Helpers
-  notifyAudioLock = () => {
-    const details = this._vueState.audio.audioLockDetails.value || {};
-    const sr = details.sampleRate ?? this._vueState.audio.audioContext?.sampleRate;
-    this.sampleRateWarningDialog.showInfo(sr);
+  get settings() {
+    return this._settings;
   }
 
-  applySettings = () => {
-    // Settings are now managed by Vue composable and saved via dialog
-    // Just update the voice handler with new settings
-    this._updateVoiceHandler();
+  set settings(value) {
+    this._settings = value;
   }
 
-  logoutUser = () => {
-    this.auth.logout();
-    location.reload();
+  get guacamoleFrame() {
+    return this._guacamoleFrame;
   }
 
-  openSourceCode = () => {
-    globalThis.open(packageJson.homepage, '_blank').focus();
+  set guacamoleFrame(value) {
+    this._guacamoleFrame = value;
   }
-
-  // Expose Vue state for direct access from Vue components
-  get connection() { return this._vueState.connection; }
-  get audio() { return this._vueState.audio; }
-  get voice() { return this._vueState.voice; }
-  get ui() { return this._vueState.ui; }
-  get user() { return this._vueState.user; }
-  get connectErrorDialog() { return this._vueState.errorDialog; }
-  get sampleRateWarningDialog() { return this._vueState.sampleRateDialog; }
-  get connectionInfo() { return this._vueState.connectionInfoDialog; }
 }
