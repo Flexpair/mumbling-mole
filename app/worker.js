@@ -88,22 +88,23 @@ function pushProp(id, obj, prop, transform) {
   });
 }
 
-function setupOutboundVoice(voiceId, samplesPerPacket, stream) {
+function setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget) {
   let resampler = new PassThrough();
 
-  let buffer2Float32Array = new Transform({
+  let buffer2PCMData = new Transform({
     transform(data, _, callback) {
-      callback(
-        null,
-        new Float32Array(data.buffer, data.byteOffset, data.byteLength / 4)
-      );
+      callback(null, {
+        pcm: new Float32Array(data.buffer, data.byteOffset, data.byteLength / 4),
+        target: voiceTarget,
+        numberOfChannels: 1
+      });
     },
     readableObjectMode: true,
   });
 
   resampler
     .pipe(chunker(4 * samplesPerPacket))
-    .pipe(buffer2Float32Array)
+    .pipe(buffer2PCMData)
     .pipe(stream);
 
   voiceStreams[voiceId] = resampler;
@@ -455,8 +456,9 @@ function handleClientMessage(data) {
     if (method === "createVoiceStream") {
       let voiceId = payload.shift();
       let samplesPerPacket = payload.shift();
+      let voiceTarget = payload[0];
       let stream = target.createVoiceStream(...payload);
-      setupOutboundVoice(voiceId, samplesPerPacket, stream);
+      setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget);
       return;
     }
     if (method === "disconnect") {

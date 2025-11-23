@@ -11,6 +11,9 @@ export const useUIStore = defineStore('ui', () => {
   // Message confirmation (for visual feedback when message is sent)
   const messageConfirmed = ref(false);
   
+  // Guacamole frame reference
+  const guacamoleFrame = ref(null);
+  
   /**
    * Submit message box content
    * @param {Function} sendMessageFn - Function to send the message
@@ -39,6 +42,7 @@ export const useUIStore = defineStore('ui', () => {
     currentOpenModal,
     messageBox,
     messageConfirmed,
+    guacamoleFrame,
     
     // Methods
     submitMessageBox,

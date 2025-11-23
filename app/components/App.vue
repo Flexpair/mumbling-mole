@@ -34,6 +34,7 @@
 
 <script setup>
 import { Transition, ref, onMounted, inject, provide } from 'vue';
+import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)
 // defineAsyncComponent requires format:'esm' which is a larger architectural change
@@ -78,10 +79,17 @@ onMounted(() => {
     globalThis.addEventListener('load', finalize, { once: true });
   }
   
-  // Wire up GuacamoleFrame reference to appState
+  // Wire up GuacamoleFrame reference to uiStore
   if (guacamoleFrameRef.value && appState) {
+    // Legacy support
     appState.guacamoleFrame = guacamoleFrameRef.value;
-    console.log('[App.vue] GuacamoleFrame reference assigned to appState.guacamoleFrame');
+  }
+  
+  // New Pinia support
+  if (guacamoleFrameRef.value) {
+    const uiStore = useUIStore();
+    uiStore.guacamoleFrame = guacamoleFrameRef.value;
+    console.log('[App.vue] GuacamoleFrame reference assigned to uiStore.guacamoleFrame');
   }
 });
 </script>

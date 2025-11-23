@@ -64,6 +64,24 @@ globalThis.AudioWorkletNode = class MockAudioWorkletNode {
   disconnect() {}
 };
 
+// Mock Web Worker
+global.Worker = class Worker {
+  constructor(stringUrl) {
+    this.url = stringUrl;
+    this.onmessage = () => {};
+    this.onerror = () => {};
+  }
+  postMessage(msg) {
+    // No-op for tests unless mocked specifically
+  }
+  terminate() {}
+  addEventListener(type, listener) {
+    if (type === 'message') this.onmessage = listener;
+    if (type === 'error') this.onerror = listener;
+  }
+  removeEventListener() {}
+};
+
 // Mock localStorage (jsdom provides this, but ensure it's clean)
 beforeEach(() => {
   localStorage.clear();

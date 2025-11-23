@@ -57,6 +57,11 @@ test.describe('Loopback Frequency Test', () => {
     page.on('pageerror', error => {
       console.error(`[PAGE EXCEPTION] ${error.message}\n${error.stack}`);
     });
+
+    // Capture network failures (404s, etc)
+    page.on('requestfailed', request => {
+      console.error(`[NETWORK FAIL] ${request.url()} - ${request.failure().errorText}`);
+    });
     
     // Navigate to app with mock-auth parameter to bypass Netlify Identity
     // Also enable debug-audio for detailed audio pipeline logging during tests

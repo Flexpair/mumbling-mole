@@ -90,6 +90,21 @@ export const useConnectionStore = defineStore('connection', () => {
     reset();
   }
   
+  /**
+   * Register channel with UI state
+   * @param {object} channel - Channel object from mumble-client
+   */
+  function registerChannel(channel) {
+    if (channel.__ui) {
+      return;
+    }
+    
+    channel.__ui = {
+      model: channel,
+      name: ref(channel.name),
+    };
+  }
+
   // Return store API
   return {
     // State
@@ -107,5 +122,6 @@ export const useConnectionStore = defineStore('connection', () => {
     disconnect,
     reset,
     resetClient,
+    registerChannel,
   };
 });

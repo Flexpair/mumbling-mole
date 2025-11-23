@@ -5,6 +5,7 @@ import { useAudioStore } from './audioStore';
 import { useVoiceStore } from './voiceStore';
 import { useUIStore } from './uiStore';
 import { useUserStore } from './userStore';
+import { useConnectionLogic } from '../composables/useConnectionLogic';
 import {
   useConnectionDialog,
   useConnectErrorDialog,
@@ -45,6 +46,9 @@ export default class AppState {
     const voiceStore = useVoiceStore();
     const uiStore = useUIStore();
     const userStore = useUserStore();
+    
+    // Initialize connection logic
+    this._connectionLogic = useConnectionLogic();
     
     const connectionDialog = useConnectionDialog();
     const connectErrorDialog = useConnectErrorDialog();
@@ -137,6 +141,13 @@ export default class AppState {
     });
   }
 
+  /**
+   * Update voice handler based on current settings
+   */
+  _updateVoiceHandler() {
+    this._connectionLogic.updateVoiceHandler();
+  }
+
   // ============================================================
   // PUBLIC API - Expose module functionality
   // ============================================================
@@ -161,423 +172,35 @@ export default class AppState {
    * Connect to Mumble server
    */
   async connect(host, port, username, password, tokens = [], channelName = '') {
-    await this._setupConnection({
-      host, 
-      port, 
-      username, 
-      password, 
-      tokens, 
-      channelName,
-      isLoopback: false
-    });
+    await this._connectionLogic.connect(host, port, username, password, tokens, channelName);
   }
 
   /**
    * Connect in loopback test mode
    */
   async connectLoopback(host, port, username, password, tokens = [], channelName = '') {
-    await this._setupConnection({
-      host, 
-      port, 
-      username, 
-      password, 
-      tokens, 
-      channelName,
-      isLoopback: true
-    });
-  }
-
-  /**
-   * Common connection setup for both normal and loopback modes
-   * REFACTORED: Eliminates 78 lines of code duplication (Nov 10, 2025)
-   * @private
-   */
-  async _setupConnection(params) {
-    const { host, port, username, password, tokens = [], channelName = '', isLoopback = false } = params;
-
-    // Auth check (common for both modes)
-    const identity = this.auth.currentUser();
-    if (!identity?.app_metadata) {
-      alert('You do not have permission to connect to the server. Please contact the administrator.');
-      return;
-    }
-
-    // Ensure required roles (common for both modes)
-    let user_roles = identity.app_metadata.roles || [];
-    if (!Array.isArray(user_roles)) {
-      user_roles = [];
-    }
-
-    if (!user_roles.includes('watch')) user_roles.push('watch');
-    if (!user_roles.includes('listen')) user_roles.push('listen');
-    identity.app_metadata.roles = user_roles;
-
-    // Initialize AudioContext (common for both modes)
-    if (!this._vueState.audio.audioContext) {
-      await this._vueState.audio.initializeAudioContext();
-    }
-
-    // Sample rate check (ONLY for normal mode, skip in loopback)
-    if (!isLoopback) {
-      const currentSampleRate = this._vueState.audio.audioContext ? this._vueState.audio.audioContext.sampleRate : null;
-      const audioCompatible = currentSampleRate === 48000;
-      
-      if (!audioCompatible) {
-        const connectionParams = { host, port, username, password, tokens, channelName };
-        this.sampleRateWarningDialog.show(currentSampleRate, connectionParams);
-        return;
-      }
-    }
-
-    // Prepare connection parameters
-    const connectionParams = {
-      host, 
-      port, 
-      username, 
-      password, 
-      tokens, 
-      channelName,
-      isLoopback
-    };
-
-    // Request microphone permission (common for both modes)
-    // Store connection ID to detect if connection was cancelled during async operations
-    const connectionId = isLoopback ? Symbol('loopback-connection') : Symbol('connection');
-    this._currentConnectionId = connectionId;
-    
-    if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          // RACE-SAFE: Only update state if this connection is still active
-          if (this._currentConnectionId === connectionId) {
-            this._vueState.audio.micPermissionDenied.value = false;
-          }
-          // Always stop tracks to avoid mic staying active
-          for (const track of stream.getTracks()) {
-            track.stop();
-          }
-        })
-        .catch((err) => {
-          console.warn('Microphone permission denied:', err);
-          // RACE-SAFE: Only update state if this connection is still active
-          if (this._currentConnectionId === connectionId) {
-            this._vueState.audio.micPermissionDenied.value = true;
-          }
-        });
-    }
-
-    // Clear audio lock (common for both modes)
-    this._vueState.audio.clearAudioLock({ resetStates: true });
-
-    // Loopback-specific setup
-    if (isLoopback) {
-      this._vueState.voice.isLoopbackMode.value = true;
-      // Ensure microphone is NOT muted for loopback test
-      this._vueState.user.selfMute.value = false;
-    }
-    
-    // Perform connection (common for both modes)
-    await this._performConnect(connectionParams, { audioEnabled: true });
+    await this._connectionLogic.connectLoopback(host, port, username, password, tokens, channelName);
   }
 
   /**
    * Start loopback test on existing connection
    */
   startLoopbackTest = async () => {
-    if (this.connected()) {
-      this._vueState.voice.isLoopbackMode.value = true;
-      
-      if (this._vueState.voice.voiceHandler) {
-        this._vueState.voice.setMute(true);
-        this._vueState.voice.endVoiceHandler();
-      }
-      
-      this._updateVoiceHandler();
-      await this._vueState.audio.initializePersistentBeeper();
-    } else {
-      const host = this.config.defaults.host || 'localhost';
-      const port = this.config.defaults.port || 64738;
-      const username = this.config.defaults.username || 'WebClient';
-      const password = this.config.defaults.password || '';
-      this.connectLoopback(host, port, username, password);
-    }
-  }
-
-  /**
-   * Setup audio for connection
-   * @private
-   */
-  async _setupAudioForConnection(audioEnabled, sampleRate, isLoopback) {
-    if (audioEnabled) {
-      this._vueState.voice.initVoiceInput(
-        (data) => {
-          if (this._vueState.connection.getClient()) {
-            this._vueState.voice.writeVoiceData(data);
-          } else {
-            this._vueState.voice.endVoiceHandler();
-          }
-        },
-        (err) => {
-          this.log(translate('logentry.mic_init_error'), err);
-        },
-        () => {
-          this._vueState.audio.initializePersistentBeeper();
-        }
-      );
-    } else {
-      this._vueState.audio.activateAudioLock('sample-rate', { sampleRate });
-      this._vueState.voice.endVoiceHandler();
-    }
-
-    try {
-      await this._vueState.audio.resumeAudioContext();
-      
-      try {
-        await this._vueState.audio.loadAudioWorkletModule('playback-buffer-processor.js');
-      } catch (err) {
-        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
-      }
-    } catch (error) {
-      console.warn('AudioContext resume failed, continuing anyway:', error);
-    }
-  }
-
-  /**
-   * Reset UI state for new connection
-   * @private
-   */
-  _resetUIForConnection() {
-    this._vueState.audio.stopBeep();
-    this._vueState.user.thisUser.value = null;
-    
-    const wasLoopback = this._vueState.voice.isLoopbackMode.value;
-    if (!wasLoopback) {
-      this._vueState.audio.beeperReady.value = false;
-      this._vueState.voice.voiceHandlerReady.value = false;
-    }
-  }
-
-  /**
-   * Setup Guacamole frame if needed
-   * @private
-   */
-  _setupGuacamoleFrame(guac_login) {
-    if (guac_login && !this._vueState.voice.isLoopbackMode.value) {
-      this.guacamoleFrame.start(guac_login, this._guacPassword);
-      this.guacamoleFrame.show();
-    } else if (!guac_login && !this._vueState.voice.isLoopbackMode.value) {
-      alert('For visual access please ask your administrator.');
-    }
-  }
-
-  /**
-   * Setup minimal client event handlers
-   * @private
-   */
-  _setupClientHandlers(client) {
-    // Register voice listeners for other users joining
-    client.on('newUser', (user) => {
-      this._vueState.user.registerUser(user);
-    });
-    
-    // Listen for messageSent event (fired when message written to network)
-    client.on('messageSent', (messageText) => {
-      // Clear any existing timer
-      if (this._messageConfirmationTimer) {
-        clearTimeout(this._messageConfirmationTimer);
-      }
-      
-      // Trigger UI confirmation
-      this._vueState.ui.messageConfirmed.value = true;
-      
-      // Reset after 2 seconds
-      this._messageConfirmationTimer = setTimeout(() => {
-        this._vueState.ui.messageConfirmed.value = false;
-        this._messageConfirmationTimer = null;
-      }, 2000);
-    });
-  }
-
-  /**
-   * Establish client connection and setup
-   * @private
-   */
-  async _establishClientConnection(host, port, username, password, tokens, channelName) {
-    const client = await this._vueState.connection.connect(host, port, username, password, tokens);
-    
-    const user_roles = (this.auth.currentUser()?.app_metadata?.roles) || [];
-    let guac_login = false;
-    if (user_roles.includes('admin')) {
-      guac_login = 'admin';
-    } else if (user_roles.includes('edit')) {
-      guac_login = 'editor';
-    } else if (user_roles.includes('watch')) {
-      guac_login = 'watcher';
-    }
-    
-    this._guacLogin = guac_login;
-    this._guacPassword = this.connectDialog.password.value; // Vue ref
-    this._setupGuacamoleFrame(guac_login);
-    
-    if (this._vueState.voice.isLoopbackMode.value) {
-      this.log(translate('logentry.connected_loopback'));
-    } else {
-      this.log(translate('logentry.connected'));
-    }
-
-    // Register root channel and self user
-    this._registerChannel(client.root);
-    
-    if (client.self) {
-      this._vueState.user.registerUser(client.self);
-      this._vueState.user.thisUser.value = client.self.__ui;
-    }
-
-    // CRITICAL: Register voice listeners for all existing users in the channel
-    // Without this, users who joined before us won't have voice event handlers
-    for (const user of client.users.values()) {
-      if (user !== client.self) {
-        this._vueState.user.registerUser(user);
-      }
-    }
-
-    this._setupClientHandlers(client);
-    
-    // CRITICAL: Set audio quality BEFORE creating voice handler
-    // This ensures client knows bitrate/samplesPerPacket for voice stream encoding
-    client.setAudioQuality(
-      this.settings.audioBitrate.value,
-      this.settings.samplesPerPacket.value
-    );
-    
-    this._updateVoiceHandler();
-  }
-
-  /**
-   * Register channel UI wrapper (Vue refs instead of Knockout)
-   * @private
-   */
-  _registerChannel(channel) {
-    if (channel.__ui) {
-      return;
-    }
-    
-    const { ref } = this._vue;
-    channel.__ui = {
-      model: channel,
-      name: ref(channel.name),
-    };
-    
-    // Store root channel reference for sendMessage workaround
-    if (channel._id === 0) {
-      this._rootChannel = channel.__ui;
-    }
-  }
-
-  /**
-   * Perform the actual connection
-   * @private
-   */
-  async _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { host, port, username, password, tokens = [], channelName: targetChannel = '' } = connectionParams;
-    const isLoopback = connectionParams.isLoopback || false;
-
-    if (isLoopback) {
-      this._vueState.voice.isLoopbackMode.value = true;
-    }
-
-    await this._setupAudioForConnection(audioEnabled, sampleRate, isLoopback);
-    this._resetUIForConnection();
-
-    try {
-      await this._establishClientConnection(host, port, username, password, tokens, targetChannel);
-    } catch (err) {
-      if (err.$type?.name === 'Reject') {
-        this.connectErrorDialog.type.value = err.type;
-        this.connectErrorDialog.reason.value = err.reason;
-        this.connectErrorDialog.visible.value = true;
-      } else {
-        this.log(translate('logentry.connection_error'), err);
-      }
-    }
-  }
-
-  /**
-   * Update voice handler
-   * @private
-   */
-  _updateVoiceHandler() {
-    this._vueState.voice.updateVoiceHandler(
-      this._vueState.connection.getClient(),
-      this.settings,
-      () => {
-        if (this._vueState.user.thisUser.value) {
-          this._vueState.user.thisUser.value.talking.value = 'on';
-        }
-      },
-      () => {
-        if (this._vueState.user.thisUser.value) {
-          this._vueState.user.thisUser.value.talking.value = 'off';
-        }
-        if (this._vueState.voice.isLoopbackMode.value) {
-          this._vueState.voice.loopbackDominantFrequency.value = 0;
-        }
-      }
-    );
-    
-    if (this._vueState.voice.isLoopbackMode.value) {
-      this._vueState.voice.setMute(false);
-    } else if (this._vueState.audio.audioLockActive.value || this._vueState.user.selfMute.value) {
-      this._vueState.voice.setMute(true);
-    }
-
-    const client = this._vueState.connection.getClient();
-    if (client) {
-      client.setAudioQuality(
-        this.settings.audioBitrate.value,
-        this.settings.samplesPerPacket.value
-      );
-    }
+    await this._connectionLogic.startLoopbackTest();
   }
 
   /**
    * Reset client and all state
    */
   resetClient = () => {
-    // Clear message confirmation timer
-    if (this._messageConfirmationTimer) {
-      clearTimeout(this._messageConfirmationTimer);
-      this._messageConfirmationTimer = null;
-    }
-    
-    this._currentConnectionId = null;
-    this._vueState.audio.stopBeep();
-    this._vueState.connection.disconnect();
-    this._vueState.user.thisUser.value = null;
-    
-    const wasLoopback = this._vueState.voice.isLoopbackMode.value;
-    this._vueState.voice.isLoopbackMode.value = false;
-    
-    if (!wasLoopback) {
-      this._vueState.audio.beeperReady.value = false;
-      this._vueState.voice.voiceHandlerReady.value = false;
-    }
+    this._connectionLogic.resetClient();
   }
 
   /**
    * Send message to channel or user
    */
   sendMessage = (target, message) => {
-    if (this.connected()) {
-      if (!target) {
-        target = this._vueState.user.thisUser.value?.channel.value;
-      }
-      if (!target) {
-        return;
-      }
-      target.model.sendMessage(message);
-    }
+    this._connectionLogic.sendMessage(target, message);
   }
 
   // ============================================================
@@ -633,28 +256,14 @@ export default class AppState {
   
   requestMute = (user) => { 
     this._vueState.user.requestMute(user);
-    if (this.connected()) {
-      this._vueState.connection.getClient().setSelfMute(true);
-    }
   }
   
   requestDeaf = (user) => { 
     this._vueState.user.requestDeaf(user, this._vueState.voice.isLoopbackMode.value);
-    if (this.connected()) {
-      this._vueState.connection.getClient().setSelfDeaf(true);
-    }
   }
   
   requestUnmute = (user) => {
-    if (this._vueState.audio.audioLockActive.value) {
-      this.notifyAudioLock();
-      return;
-    }
     this._vueState.user.requestUnmute(user);
-    if (this.connected()) {
-      this._vueState.connection.getClient().setSelfMute(false);
-      this._vueState.connection.getClient().setSelfDeaf(false);
-    }
   }
   
   requestUndeaf = (user) => {

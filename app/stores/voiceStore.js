@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
+import { useAudioStore } from './audioStore';
+import { useConnectionStore } from './connectionStore';
 import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
@@ -10,6 +12,9 @@ import { translate } from '../localize';
 import { debugLog } from '../composables/debug-utils';
 
 export const useVoiceStore = defineStore('voice', () => {
+  const audioStore = useAudioStore();
+  const connectionStore = useConnectionStore();
+
   // Voice handler instance (reactive ref)
   const voiceHandler = shallowRef(null);
   
@@ -34,6 +39,46 @@ export const useVoiceStore = defineStore('voice', () => {
     // Register for mixer ready notification if callback provided
     if (onMixerReady) {
       onAudioMixerReady(onMixerReady);
+    }
+  }
+
+  /**
+   * Setup audio/voice for connection
+   * @param {boolean} audioEnabled - Whether audio is enabled
+   * @param {number} sampleRate - Current sample rate
+   */
+  async function setupVoiceForConnection(audioEnabled, sampleRate) {
+    if (audioEnabled) {
+      initVoiceInput(
+        (data) => {
+          if (connectionStore.getClient()) {
+            writeVoiceData(data);
+          } else {
+            endVoiceHandler();
+          }
+        },
+        (err) => {
+          console.log(translate('logentry.mic_init_error'), err);
+        },
+        () => {
+          audioStore.initializePersistentBeeper();
+        }
+      );
+    } else {
+      audioStore.activateAudioLock('sample-rate', { sampleRate });
+      endVoiceHandler();
+    }
+
+    try {
+      await audioStore.resumeAudioContext();
+      
+      try {
+        await audioStore.loadAudioWorkletModule('playback-buffer-processor.js');
+      } catch (err) {
+        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
+      }
+    } catch (error) {
+      console.warn('AudioContext resume failed, continuing anyway:', error);
     }
   }
 
@@ -165,6 +210,7 @@ export const useVoiceStore = defineStore('voice', () => {
     
     // Methods
     initVoiceInput,
+    setupVoiceForConnection,
     updateVoiceHandler,
     updateLoopbackFrequency,
     setMute,

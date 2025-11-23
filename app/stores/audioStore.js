@@ -352,6 +352,21 @@ export const useAudioStore = defineStore('audio', () => {
     // Note: we don't destroy _persistentBeeper, it can be reused
   }
 
+  /**
+   * Notify user about audio lock
+   */
+  function notifyAudioLock() {
+    if (audioLockActive.value) {
+      const reason = audioLockReason.value;
+      const details = audioLockDetails.value;
+      
+      if (reason === 'mic_permission') {
+        micPermissionDenied.value = true;
+        micPermissionErrorMessage.value = details;
+      }
+    }
+  }
+
   return {
     // State
     audioContext,
@@ -368,13 +383,12 @@ export const useAudioStore = defineStore('audio', () => {
     initializeAudioContext,
     resumeAudioContext,
     loadAudioWorkletModule,
-    activateAudioLock,
-    clearAudioLock,
-    attemptMicrophonePermission,
-    retryMicrophonePermission,
-    initializePersistentBeeper,
     startBeep,
     stopBeep,
-    resetBeeper
+    initializePersistentBeeper,
+    retryMicrophonePermission,
+    notifyAudioLock,
+    activateAudioLock,
+    clearAudioLock
   };
 });

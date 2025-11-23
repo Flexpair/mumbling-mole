@@ -209,6 +209,8 @@ import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 import { useClipboard } from '../composables';
 import keyboardjs from 'keyboardjs';
+import { useUIStore } from '../stores/uiStore';
+import { useConnectionStore } from '../stores/connectionStore';
 
 const t = inject('translate');
 
@@ -231,16 +233,20 @@ const copyCommitHash = () => copyToClipboard(commitHash);
 
 // AppState Injection
 const appState = inject('appState');
+const uiStore = useUIStore();
+const connectionStore = useConnectionStore();
 
 const visible = computed({
-  get: () => appState.connectionInfo.visible.value,
-  set: (val) => { appState.connectionInfo.visible.value = val; }
+  get: () => uiStore.currentOpenModal === 'connectionInfo' || uiStore.currentOpenModal === 'settings',
+  set: (val) => { 
+    if (!val) uiStore.currentOpenModal = null; 
+  }
 });
 
-// Connection Stats
-const serverVersion = computed(() => appState.connectionInfo.serverVersion.value);
-const latencyMs = computed(() => appState.connectionInfo.latencyMs.value);
-const latencyDeviation = computed(() => appState.connectionInfo.latencyDeviation.value);
+// Connection Stats (Local refs)
+const serverVersion = ref(null);
+const latencyMs = ref(Number.NaN);
+const latencyDeviation = ref(Number.NaN);
 
 // Settings
 const voiceMode = computed({
@@ -460,21 +466,21 @@ watch(maxAllowedBandwidth, (newMax) => {
 });
 
 function updateStats() {
-  const client = appState?.client;
+  const client = connectionStore.getClient();
   if (client) {
-    appState.connectionInfo.serverVersion.value = client.serverVersion || null;
+    serverVersion.value = client.serverVersion || null;
     const dataStats = client.dataStats;
     if (dataStats) {
-      appState.connectionInfo.latencyMs.value = dataStats.mean;
-      appState.connectionInfo.latencyDeviation.value = Math.sqrt(dataStats.variance);
+      latencyMs.value = dataStats.mean;
+      latencyDeviation.value = Math.sqrt(dataStats.variance);
     } else {
-      appState.connectionInfo.latencyMs.value = Number.NaN;
-      appState.connectionInfo.latencyDeviation.value = Number.NaN;
+      latencyMs.value = Number.NaN;
+      latencyDeviation.value = Number.NaN;
     }
   } else {
-    appState.connectionInfo.serverVersion.value = null;
-    appState.connectionInfo.latencyMs.value = Number.NaN;
-    appState.connectionInfo.latencyDeviation.value = Number.NaN;
+    serverVersion.value = null;
+    latencyMs.value = Number.NaN;
+    latencyDeviation.value = Number.NaN;
   }
   
   const spp = appState?.settings?.samplesPerPacket?.value;
@@ -516,36 +522,22 @@ const recordPttKey = () => {
 const handleHide = () => {
   visible.value = false;
   appState.applySettings(); // Auto-save on close
-  if (appState?.ui.currentOpenModal.value === 'connectionInfo') {
-    appState.ui.currentOpenModal.value = null;
-  }
 };
 
-onMounted(() => {
-  appState.connectionInfo.show = (tab = 'latency') => {
-    if (appState.ui.currentOpenModal.value !== null) return;
+// Watch for modal opening to reset tab
+watch(() => uiStore.currentOpenModal, (newVal) => {
+  if (newVal === 'connectionInfo' || newVal === 'settings') {
     updateStats();
-    // Map old tab names to new ones if necessary
-    if (tab === 'info' || tab === 'connection') activeTab.value = 'latency';
-    else if (tab === 'advanced') activeTab.value = 'latency';
-    else activeTab.value = tab;
-    
-    visible.value = true;
-    appState.ui.currentOpenModal.value = 'connectionInfo';
-  };
-
-  appState.connectionInfo.hide = handleHide;
-
-  if (appState.settings) {
-    appState.openSettings = () => {
-      if (appState.ui.currentOpenModal.value !== null) return;
-      updateStats();
-      activeTab.value = 'latency';
-      visible.value = true;
-      appState.ui.currentOpenModal.value = 'connectionInfo';
-    };
-    appState.closeSettings = handleHide;
+    // If opening as 'settings', default to latency (or whatever default)
+    // If opening as 'connectionInfo', default to latency
+    // Logic from old appState.openSettings:
+    activeTab.value = 'latency';
   }
+});
+
+onMounted(() => {
+  // No longer need to register appState.connectionInfo.show or appState.openSettings
+  // Visibility is driven by uiStore.currentOpenModal
 });
 </script>
 

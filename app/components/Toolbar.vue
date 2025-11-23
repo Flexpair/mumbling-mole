@@ -129,103 +129,23 @@ const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 // Methods
 const handleMuteClick = () => {
   const currentUser = userStore.thisUser;
-  console.log('[Toolbar] handleMuteClick', {
-    hasUser: !!currentUser,
-    selfMuteBefore: selfMute.value,
-    selfDeafBefore: selfDeaf.value
-  });
-
   userStore.requestMute(currentUser);
-
-  const client = connectionStore.getClient();
-  if (client) {
-    client.setSelfMute(true);
-  }
-
-  console.log('[Toolbar] handleMuteClick after', {
-    selfMuteAfter: selfMute.value,
-    selfDeafAfter: selfDeaf.value
-  });
 };
 
 const handleUnmuteClick = () => {
-  console.log('[Toolbar] handleUnmuteClick', {
-    audioLockActive: audioLockActive.value,
-    selfMuteBefore: selfMute.value,
-    selfDeafBefore: selfDeaf.value
-  });
-
-  if (audioLockActive.value) {
-    if (appState.notifyAudioLock) {
-      appState.notifyAudioLock();
-    }
-    return;
-  }
-
   const currentUser = userStore.thisUser;
   userStore.requestUnmute(currentUser);
-
-  const client = connectionStore.getClient();
-  if (client) {
-    client.setSelfMute(false);
-    client.setSelfDeaf(false);
-  }
-
-  console.log('[Toolbar] handleUnmuteClick after', {
-    selfMuteAfter: selfMute.value,
-    selfDeafAfter: selfDeaf.value
-  });
 };
 
 const handleDeafClick = () => {
   const currentUser = userStore.thisUser;
   const isLoopbackMode = voiceStore.isLoopbackMode?.value ?? false;
-  console.log('[Toolbar] handleDeafClick', {
-    hasUser: !!currentUser,
-    isLoopbackMode,
-    selfMuteBefore: selfMute.value,
-    selfDeafBefore: selfDeaf.value
-  });
-
   userStore.requestDeaf(currentUser, isLoopbackMode);
-
-  const client = connectionStore.getClient();
-  if (client) {
-    client.setSelfDeaf(true);
-  }
-
-  console.log('[Toolbar] handleDeafClick after', {
-    selfMuteAfter: selfMute.value,
-    selfDeafAfter: selfDeaf.value
-  });
 };
 
 const handleUndeafClick = () => {
-  console.log('[Toolbar] handleUndeafClick', {
-    audioLockActive: audioLockActive.value,
-    selfMuteBefore: selfMute.value,
-    selfDeafBefore: selfDeaf.value
-  });
-
-  if (audioLockActive.value) {
-    if (appState.notifyAudioLock) {
-      appState.notifyAudioLock();
-    }
-    return;
-  }
-
   const currentUser = userStore.thisUser;
   userStore.requestUndeaf(currentUser);
-
-  const client = connectionStore.getClient();
-  if (client) {
-    client.setSelfDeaf(false);
-  }
-
-  console.log('[Toolbar] handleUndeafClick after', {
-    selfMuteAfter: selfMute.value,
-    selfDeafAfter: selfDeaf.value
-  });
 };
 
 const handleSubmitMessageBox = () => {
@@ -233,9 +153,7 @@ const handleSubmitMessageBox = () => {
 };
 
 const handleSettingsClick = () => {
-  if (appState.openSettings) {
-    appState.openSettings();
-  }
+  uiStore.currentOpenModal = 'settings';
 };
 
 const handleSourceCodeClick = () => {
