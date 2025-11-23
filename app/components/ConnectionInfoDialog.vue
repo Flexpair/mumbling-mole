@@ -207,10 +207,11 @@
 import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
-import { useClipboard } from '../composables';
+import { useClipboard, useConnectionInfo } from '../composables';
 import keyboardjs from 'keyboardjs';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
+import { useUserStore } from '../stores/userStore';
 
 const t = inject('translate');
 
@@ -231,10 +232,12 @@ const copyButtonTitle = computed(() =>
 
 const copyCommitHash = () => copyToClipboard(commitHash);
 
-// AppState Injection
-const appState = inject('appState');
+// Injected dependencies and stores
+const settings = inject('settings');
 const uiStore = useUIStore();
 const connectionStore = useConnectionStore();
+const userStore = useUserStore();
+const connectionInfo = useConnectionInfo();
 
 const visible = computed({
   get: () => uiStore.currentOpenModal === 'connectionInfo' || uiStore.currentOpenModal === 'settings',
@@ -248,53 +251,53 @@ const serverVersion = ref(null);
 const latencyMs = ref(Number.NaN);
 const latencyDeviation = ref(Number.NaN);
 
-// Settings
+// Settings (direct access to injected settings refs)
 const voiceMode = computed({
-  get: () => appState.settings.voiceMode.value,
-  set: (val) => { appState.settings.voiceMode.value = val; }
+  get: () => settings.voiceMode.value,
+  set: (val) => { settings.voiceMode.value = val; }
 });
 
 const pttKeyDisplay = computed({
-  get: () => appState.settings.pttKeyDisplay.value,
-  set: (val) => { appState.settings.pttKeyDisplay.value = val; }
+  get: () => settings.pttKeyDisplay.value,
+  set: (val) => { settings.pttKeyDisplay.value = val; }
 });
 
 const audioBitrate = computed({
-  get: () => appState.settings.audioBitrate.value,
-  set: (val) => { appState.settings.audioBitrate.value = val; }
+  get: () => settings.audioBitrate.value,
+  set: (val) => { settings.audioBitrate.value = val; }
 });
 
 const samplesPerPacket = computed({
-  get: () => appState.settings.samplesPerPacket.value,
-  set: (val) => { appState.settings.samplesPerPacket.value = val; }
+  get: () => settings.samplesPerPacket.value,
+  set: (val) => { settings.samplesPerPacket.value = val; }
 });
 
 const jitterBufferSize = computed({
-  get: () => appState.settings.jitterBufferSize.value,
-  set: (val) => { appState.settings.jitterBufferSize.value = val; }
+  get: () => settings.jitterBufferSize.value,
+  set: (val) => { settings.jitterBufferSize.value = val; }
 });
 
 const jitterBufferMode = computed({
-  get: () => appState.settings.jitterBufferMode.value,
-  set: (val) => { appState.settings.jitterBufferMode.value = val; }
+  get: () => settings.jitterBufferMode.value,
+  set: (val) => { settings.jitterBufferMode.value = val; }
 });
 
 const MS_PER_PACKET = 20;
 const MIN_AUDIO_BITRATE = 8000;
 const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
-const overheadBandwidth = computed(() => appState.settings.overheadBandwidth.value);
+const overheadBandwidth = computed(() => settings.overheadBandwidth.value);
 
 const grossBandwidth = computed({
-  get: () => appState.settings.totalBandwidth.value,
+  get: () => settings.totalBandwidth.value,
   set: (val) => {
     // Clamp to max allowed
     if (val > maxAllowedBandwidth.value) val = maxAllowedBandwidth.value;
     
-    const overhead = appState.settings.overheadBandwidth.value;
+    const overhead = settings.overheadBandwidth.value;
     let newNet = val - overhead;
     if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
-    appState.settings.audioBitrate.value = newNet;
+    settings.audioBitrate.value = newNet;
   }
 });
 
@@ -442,12 +445,12 @@ const netBadgeStyle = computed(() => {
 const minGrossBandwidth = computed(() => {
   // Opus minimum useful bitrate is ~8 kbps
   // We allow the slider to go exactly down to this limit + overhead
-  return MIN_AUDIO_BITRATE + appState.settings.overheadBandwidth.value;
+  return MIN_AUDIO_BITRATE + settings.overheadBandwidth.value;
 });
 
 const maxAllowedBandwidth = computed(() => {
-  const isConnected = appState.user?.thisUser.value != null;
-  const client = isConnected ? appState.client : null;
+  const isConnected = userStore.thisUser != null;
+  const client = isConnected ? connectionStore.client : null;
   if (!client || client.maxBandwidth === undefined || client.maxBandwidth === null) {
     return 130000; // Default max gross (~128k net + overhead)
   }
@@ -455,7 +458,7 @@ const maxAllowedBandwidth = computed(() => {
 });
 
 const isServerLimited = computed(() => {
-  const client = appState?.client;
+  const client = connectionStore.client;
   return client?.maxBandwidth != null;
 });
 
@@ -483,7 +486,7 @@ function updateStats() {
     latencyDeviation.value = Number.NaN;
   }
   
-  const spp = appState?.settings?.samplesPerPacket?.value;
+  const spp = settings.samplesPerPacket.value;
   if (client && spp) {
     const maxBandwidthValue = client.maxBandwidth;
     const maxBitrateValue = maxBandwidthValue === null || maxBandwidthValue === undefined 
@@ -492,10 +495,10 @@ function updateStats() {
     const actualBitrate = client.getActualBitrate(spp, false);
     const actualBandwidth = MumbleClient.calcEnforcableBandwidth(actualBitrate, spp, false);
     
-    appState.connectionInfo.maxBitrate.value = maxBitrateValue;
-    appState.connectionInfo.currentBitrate.value = actualBitrate;
-    appState.connectionInfo.maxBandwidth.value = maxBandwidthValue;
-    appState.connectionInfo.currentBandwidth.value = actualBandwidth;
+    connectionInfo.maxBitrate.value = maxBitrateValue;
+    connectionInfo.currentBitrate.value = actualBitrate;
+    connectionInfo.maxBandwidth.value = maxBandwidthValue;
+    connectionInfo.currentBandwidth.value = actualBandwidth;
   }
 }
 
@@ -516,12 +519,12 @@ watch(visible, (val) => {
 });
 
 const recordPttKey = () => {
-  appState.settings.recordPttKey(keyboardjs);
+  settings.recordPttKey(keyboardjs);
 };
 
 const handleHide = () => {
   visible.value = false;
-  appState.applySettings(); // Auto-save on close
+  settings.save(); // Auto-save on close
 };
 
 // Watch for modal opening to reset tab
