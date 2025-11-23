@@ -120,23 +120,29 @@ import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from '
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
+import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
- * 
- * Uses AppState.connectDialog composable directly (Vue refs).
- * No more bidirectional sync with Knockout observables.
+/**
+ * Uses Pinia stores and composables directly.
+ * No more AppState compatibility layer.
  */
 
-// Inject AppState (from main app) for high-level orchestration (connect, loopback, Guacamole)
-const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 const translate = inject('translate');
+const auth = inject('auth');
+const settings = inject('settings');
 
-// Direct Pinia stores for core reactive state (critical path)
+// Pinia stores
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const userStore = useUserStore();
+
+// Composables
+const connectDialog = useConnectionDialog();
+const connectionLogic = useConnectionLogic({ auth, settings });
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = ref(null);
@@ -147,31 +153,30 @@ const microphoneContainer = ref(null);
 /** @type {import('vue').Ref<HTMLButtonElement | null>} */
 const pianoButton = ref(null);
 
-// Direct refs to AppState.connectDialog (no local copies, no sync needed)
-const dialog = computed(() => appState?.connectDialog);
+// Direct access to composable refs (already reactive)
 const visible = computed({
-  get: () => dialog.value?.visible.value ?? false,
-  set: (val) => { if (dialog.value) dialog.value.visible.value = val; }
+  get: () => connectDialog.visible.value,
+  set: (val) => { connectDialog.visible.value = val; }
 });
 const isTestActive = computed({
-  get: () => dialog.value?.isTestActive.value ?? false,
-  set: (val) => { if (dialog.value) dialog.value.isTestActive.value = val; }
+  get: () => connectDialog.isTestActive.value,
+  set: (val) => { connectDialog.isTestActive.value = val; }
 });
 const address = computed({
-  get: () => dialog.value?.address.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.address.value = val; }
+  get: () => connectDialog.address.value,
+  set: (val) => { connectDialog.address.value = val; }
 });
 const port = computed({
-  get: () => dialog.value?.port.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.port.value = val; }
+  get: () => connectDialog.port.value,
+  set: (val) => { connectDialog.port.value = val; }
 });
 const username = computed({
-  get: () => dialog.value?.username.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.username.value = val; }
+  get: () => connectDialog.username.value,
+  set: (val) => { connectDialog.username.value = val; }
 });
 const password = computed({
-  get: () => dialog.value?.password.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.password.value = val; }
+  get: () => connectDialog.password.value,
+  set: (val) => { connectDialog.password.value = val; }
 });
 
 // Watch visible and sync with native dialog open/close
@@ -230,38 +235,25 @@ onUnmounted(() => {
 async function handleConnect() {
   console.log('[ConnectDialog Vue] handleConnect() called');
   
-  // Call AppState.connect() or handle exit test mode
-  if (appState?.connect) {
-    console.log('[ConnectDialog Vue] Calling appState.connect()');
+  // If in test mode and connected: exit test mode and switch to normal mode
+  if (isTestActive.value && connected.value) {
+    console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
+    isTestActive.value = false;
+    voiceStore.isLoopbackMode = false;
+    voiceStore.updateVoiceHandler();
     
-    // If in test mode and connected: exit test mode and switch to normal mode
-    if (isTestActive.value && connected.value) {
-      console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
-      isTestActive.value = false;
-      appState.isLoopbackMode.value = false;
-      appState._updateVoiceHandler();
-      
-      // Show Guacamole desktop if credentials exist
-      if (appState._guacLogin && appState.guacamoleFrame?.start) {
-        appState.guacamoleFrame.start(appState._guacLogin, appState._guacPassword);
-        if (appState.guacamoleFrame.show) appState.guacamoleFrame.show();
-      }
-      
-      // Close dialog when switching from test to normal mode
-      visible.value = false;
-      return;
-    }
+    // Close dialog when switching from test to normal mode
+    visible.value = false;
+    return;
+  }
+  
+  // Normal connection flow (not in test mode)
+  if (!isTestActive.value) {
+    // Hide dialog before connecting
+    visible.value = false;
     
-    // Normal connection flow (not in test mode)
-    if (!isTestActive.value) {
-      // Hide dialog before connecting
-      visible.value = false;
-      
-      console.log('[ConnectDialog Vue] Connecting in normal mode');
-      await appState.connect(address.value, port.value, username.value, password.value);
-    }
-  } else {
-    console.error('[ConnectDialog Vue] appState.connect not available!');
+    console.log('[ConnectDialog Vue] Connecting in normal mode');
+    await connectionLogic.connect(address.value, port.value, username.value, password.value);
   }
 }
 
@@ -278,12 +270,9 @@ async function handleToggleLoopback() {
     return;
   }
   
-  // Call AppState.connectLoopback()
-  if (appState?.connectLoopback) {
-    console.log('[ConnectDialog Vue] Activating test mode');
-    isTestActive.value = true;
-    await appState.connectLoopback(address.value, port.value, username.value, password.value);
-  }
+  console.log('[ConnectDialog Vue] Activating test mode');
+  isTestActive.value = true;
+  await connectionLogic.connectLoopback(address.value, port.value, username.value, password.value);
 }
 
 /**
