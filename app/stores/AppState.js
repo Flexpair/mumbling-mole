@@ -260,10 +260,6 @@ export default class AppState {
   get currentOpenModal() { return this._vueState.ui.currentOpenModal; }
   get messageBox() { return this._vueState.ui.messageBox; }
   get messageConfirmed() { return this._vueState.ui.messageConfirmed; }
-  
-  // Settings dialog methods (overridden by ConnectionInfoDialog)
-  openSettings = () => { console.warn('openSettings called before initialization'); }
-  closeSettings = () => { console.warn('closeSettings called before initialization'); }
 
   submitMessageBox = () => {
     // Pass null target - sendMessage will use thisUser.channel as fallback
@@ -312,18 +308,6 @@ export default class AppState {
     const details = this._vueState.audio.audioLockDetails.value || {};
     const sr = details.sampleRate ?? this._vueState.audio.audioContext?.sampleRate;
     this.sampleRateWarningDialog.showInfo(sr);
-  }
-
-  handleUnmuteClick = () => {
-    if (this._vueState.user.thisUser.value) {
-      this.requestUnmute(this._vueState.user.thisUser.value);
-    }
-  }
-
-  handleUndeafClick = () => {
-    if (this._vueState.user.thisUser.value) {
-      this.requestUndeaf(this._vueState.user.thisUser.value);
-    }
   }
 
   applySettings = () => {
