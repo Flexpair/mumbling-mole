@@ -120,6 +120,7 @@ import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from '
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
+import { useUIStore } from '../stores/uiStore';
 import { useConnectionDialog } from '../composables/useConnectionDialog';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
@@ -240,7 +241,25 @@ async function handleConnect() {
     console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
     isTestActive.value = false;
     voiceStore.isLoopbackMode = false;
-    voiceStore.updateVoiceHandler();
+    
+    // Update voice handler to switch from loopback (target=31) to normal (target=0)
+    connectionLogic.updateVoiceHandler();
+    
+    // Setup and show Guacamole frame when exiting test mode
+    const uiStore = useUIStore();
+    if (uiStore.guacamoleFrame) {
+      // Get user roles to determine Guacamole access
+      const user_roles = (auth?.currentUser()?.app_metadata?.roles) || [];
+      const guac_login = connectionLogic.getGuacamoleLogin(user_roles);
+      
+      if (guac_login) {
+        console.log('[ConnectDialog Vue] Starting and showing Guacamole frame');
+        uiStore.guacamoleFrame.start(guac_login, password.value);
+        uiStore.guacamoleFrame.show();
+      } else {
+        alert('For visual access please ask your administrator.');
+      }
+    }
     
     // Close dialog when switching from test to normal mode
     visible.value = false;

@@ -7,6 +7,18 @@ import { useSampleRateWarningDialog, useConnectErrorDialog } from './index';
 import { translate } from '../localize';
 
 /**
+ * Determine Guacamole login role from user roles
+ * @param {Array} roles - User roles array
+ * @returns {string|false} - 'admin', 'editor', 'watcher', or false
+ */
+function getGuacamoleLogin(roles = []) {
+  if (roles.includes('admin')) return 'admin';
+  if (roles.includes('edit')) return 'editor';
+  if (roles.includes('watch')) return 'watcher';
+  return false;
+}
+
+/**
  * Composable for connection orchestration logic
  * Replaces the connection logic previously in AppState.js
  * 
@@ -220,14 +232,7 @@ export function useConnectionLogic({ auth, settings } = {}) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
     
     const user_roles = (auth?.currentUser()?.app_metadata?.roles) || [];
-    let guac_login = false;
-    if (user_roles.includes('admin')) {
-      guac_login = 'admin';
-    } else if (user_roles.includes('edit')) {
-      guac_login = 'editor';
-    } else if (user_roles.includes('watch')) {
-      guac_login = 'watcher';
-    }
+    const guac_login = getGuacamoleLogin(user_roles);
     
     // Setup Guacamole
     _setupGuacamoleFrame(guac_login, password);
@@ -425,6 +430,7 @@ export function useConnectionLogic({ auth, settings } = {}) {
     sendMessage,
     connected,
     updateVoiceHandler,
-    performConnect: _performConnect // Export for SampleRateWarningDialog
+    performConnect: _performConnect, // Export for SampleRateWarningDialog
+    getGuacamoleLogin // Export for ConnectDialog
   };
 }
