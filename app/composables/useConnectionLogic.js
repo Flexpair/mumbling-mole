@@ -3,14 +3,19 @@ import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUserStore } from '../stores/userStore';
-import { useSampleRateWarningDialog } from './index';
+import { useSampleRateWarningDialog, useConnectErrorDialog } from './index';
 import { translate } from '../localize';
 
 /**
  * Composable for connection orchestration logic
  * Replaces the connection logic previously in AppState.js
+ * 
+ * @param {Object} options - Injected dependencies
+ * @param {Object} options.auth - Auth provider instance
+ * @param {Object} options.settings - Settings composable
+ * @returns {Object} Connection logic methods
  */
-export function useConnectionLogic() {
+export function useConnectionLogic({ auth, settings } = {}) {
   const connectionStore = useConnectionStore();
   const audioStore = useAudioStore();
   const voiceStore = useVoiceStore();
@@ -18,8 +23,9 @@ export function useConnectionLogic() {
   const userStore = useUserStore();
   
   const sampleRateWarningDialog = useSampleRateWarningDialog();
+  const connectErrorDialog = useConnectErrorDialog();
   
-  // External dependencies (injected or accessed via global config)
+  // External dependencies
   const config = globalThis.mumbleWebConfig || {};
   
   // Connection tracking for race safety
@@ -39,14 +45,13 @@ export function useConnectionLogic() {
   /**
    * Connect to Mumble server
    */
-  async function connect(host, port, username, password, tokens = [], channelName = '') {
+  async function connect(host, port, username, password, tokens = []) {
     await _setupConnection({
       host, 
       port, 
       username, 
       password, 
-      tokens, 
-      channelName,
+      tokens,
       isLoopback: false
     });
   }
@@ -54,14 +59,13 @@ export function useConnectionLogic() {
   /**
    * Connect in loopback test mode
    */
-  async function connectLoopback(host, port, username, password, tokens = [], channelName = '') {
+  async function connectLoopback(host, port, username, password, tokens = []) {
     await _setupConnection({
       host, 
       port, 
       username, 
       password, 
-      tokens, 
-      channelName,
+      tokens,
       isLoopback: true
     });
   }
@@ -71,13 +75,16 @@ export function useConnectionLogic() {
    * @private
    */
   async function _setupConnection(params) {
-    const { host, port, username, password, tokens = [], channelName = '', isLoopback = false } = params;
+    const { host, port, username, password, tokens = [], isLoopback = false } = params;
 
     // Auth check
-    // Note: We need to access auth provider. 
-    // Ideally this should be injected or in a store, but for now we access it via global or passed param
-    const auth = globalThis.mumbleUi?.auth;
-    const identity = auth?.currentUser();
+    if (!auth) {
+      console.error('[useConnectionLogic] Auth provider not available');
+      alert('Authentication system not initialized. Please refresh the page.');
+      return;
+    }
+    
+    const identity = auth.currentUser();
     if (!identity?.app_metadata) {
       alert('You do not have permission to connect to the server. Please contact the administrator.');
       return;
@@ -104,7 +111,7 @@ export function useConnectionLogic() {
       const audioCompatible = currentSampleRate === 48000;
       
       if (!audioCompatible) {
-        const connectionParams = { host, port, username, password, tokens, channelName };
+        const connectionParams = { host, port, username, password, tokens };
         sampleRateWarningDialog.show(currentSampleRate, connectionParams);
         return;
       }
@@ -116,8 +123,7 @@ export function useConnectionLogic() {
       port, 
       username, 
       password, 
-      tokens, 
-      channelName,
+      tokens,
       isLoopback
     };
 
@@ -166,7 +172,7 @@ export function useConnectionLogic() {
    * @private
    */
   async function _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { host, port, username, password, tokens = [], channelName: targetChannel = '' } = connectionParams;
+    const { host, port, username, password, tokens = [] } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
 
     if (isLoopback) {
@@ -180,14 +186,11 @@ export function useConnectionLogic() {
     _resetUIForConnection();
 
     try {
-      await _establishClientConnection(host, port, username, password, tokens, targetChannel);
+      await _establishClientConnection(host, port, username, password, tokens);
     } catch (err) {
       console.error('Connection failed:', err);
-      // Handle connection error
-      // Note: Error dialog handling might need to be triggered here or in the caller
-      // For now we just log it, as the original code did (mostly)
-      if (globalThis.mumbleUi?.connectErrorDialog) {
-         globalThis.mumbleUi.connectErrorDialog.show(err, connectionParams);
+      if (connectErrorDialog) {
+         connectErrorDialog.show(err, connectionParams);
       } else {
          alert('Connection failed: ' + err.message);
       }
@@ -213,10 +216,9 @@ export function useConnectionLogic() {
    * Establish client connection and setup
    * @private
    */
-  async function _establishClientConnection(host, port, username, password, tokens, channelName) {
+  async function _establishClientConnection(host, port, username, password, tokens) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
     
-    const auth = globalThis.mumbleUi?.auth;
     const user_roles = (auth?.currentUser()?.app_metadata?.roles) || [];
     let guac_login = false;
     if (user_roles.includes('admin')) {
@@ -254,9 +256,7 @@ export function useConnectionLogic() {
     _setupClientHandlers(client);
     
     // CRITICAL: Set audio quality BEFORE creating voice handler
-    const settings = globalThis.mumbleUi?.settings;
     if (settings) {
-        // Extract and validate settings values with fallbacks
         const samplesPerPacket = settings.samplesPerPacket?.value || 960;
         const audioBitrate = settings.audioBitrate?.value || 40000;
         
@@ -267,20 +267,6 @@ export function useConnectionLogic() {
 
     // Initialize voice handler
     updateVoiceHandler();
-
-    // Join target channel if specified
-    if (channelName) {
-      // Find channel by name (simple search)
-      // Note: This logic was implicit in original code or handled by client?
-      // Original code didn't seem to have explicit channel join logic in _establishClientConnection
-      // It might be handled by the server or client lib if passed in connect options?
-      // Checking mumble-client connect options... it doesn't seem to take channelName.
-      // The original AppState.js passed channelName to _setupConnection but didn't seem to use it in _establishClientConnection
-      // except passing it through.
-      // Wait, looking at AppState.js again...
-      // It passes channelName to _establishClientConnection but doesn't use it there.
-      // It seems unused in the original code too?
-    }
   }
 
   /**
@@ -327,10 +313,8 @@ export function useConnectionLogic() {
    * Update voice handler
    */
   function updateVoiceHandler() {
-    // Access settings via global ui object (set in index.js)
-    const settings = globalThis.mumbleUi?.settings;
     if (!settings) {
-      console.error('[updateVoiceHandler] settings not available yet');
+      console.error('[updateVoiceHandler] settings not available');
       return;
     }
 
@@ -359,10 +343,10 @@ export function useConnectionLogic() {
     }
 
     const client = connectionStore.getClient();
-    if (client) {
+    if (client && settings) {
       client.setAudioQuality(
-        userStore.settings.audioBitrate.value,
-        userStore.settings.samplesPerPacket.value
+        settings.audioBitrate.value,
+        settings.samplesPerPacket.value
       );
     }
   }

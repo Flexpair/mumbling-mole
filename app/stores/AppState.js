@@ -47,8 +47,8 @@ export default class AppState {
     const uiStore = useUIStore();
     const userStore = useUserStore();
     
-    // Initialize connection logic
-    this._connectionLogic = useConnectionLogic();
+    // Initialize connection logic placeholder (will be set up after dependencies are injected)
+    this._connectionLogic = null;
     
     const connectionDialog = useConnectionDialog();
     const connectErrorDialog = useConnectErrorDialog();
@@ -141,9 +141,30 @@ export default class AppState {
   }
 
   /**
+   * Initialize connection logic with injected dependencies
+   * Must be called after auth and settings are set
+   * @private
+   */
+  _initializeConnectionLogic() {
+    if (!this.auth || !this.settings) {
+      console.error('[AppState] Cannot initialize connection logic - auth or settings not set');
+      return;
+    }
+    
+    this._connectionLogic = useConnectionLogic({ 
+      auth: this.auth, 
+      settings: this.settings 
+    });
+  }
+
+  /**
    * Update voice handler based on current settings
    */
   _updateVoiceHandler() {
+    if (!this._connectionLogic) {
+      console.warn('[AppState] Connection logic not initialized yet');
+      return;
+    }
     this._connectionLogic.updateVoiceHandler();
   }
 
@@ -170,21 +191,30 @@ export default class AppState {
   /**
    * Connect to Mumble server
    */
-  async connect(host, port, username, password, tokens = [], channelName = '') {
-    await this._connectionLogic.connect(host, port, username, password, tokens, channelName);
+  async connect(host, port, username, password, tokens = []) {
+    if (!this._connectionLogic) {
+      this._initializeConnectionLogic();
+    }
+    await this._connectionLogic.connect(host, port, username, password, tokens);
   }
 
   /**
    * Connect in loopback test mode
    */
-  async connectLoopback(host, port, username, password, tokens = [], channelName = '') {
-    await this._connectionLogic.connectLoopback(host, port, username, password, tokens, channelName);
+  async connectLoopback(host, port, username, password, tokens = []) {
+    if (!this._connectionLogic) {
+      this._initializeConnectionLogic();
+    }
+    await this._connectionLogic.connectLoopback(host, port, username, password, tokens);
   }
 
   /**
    * Start loopback test on existing connection
    */
   startLoopbackTest = async () => {
+    if (!this._connectionLogic) {
+      this._initializeConnectionLogic();
+    }
     await this._connectionLogic.startLoopbackTest();
   }
 
@@ -192,6 +222,10 @@ export default class AppState {
    * Reset client and all state
    */
   resetClient = () => {
+    if (!this._connectionLogic) {
+      console.warn('[AppState] Connection logic not initialized');
+      return;
+    }
     this._connectionLogic.resetClient();
   }
 
@@ -199,6 +233,10 @@ export default class AppState {
    * Send message to channel or user
    */
   sendMessage = (target, message) => {
+    if (!this._connectionLogic) {
+      console.warn('[AppState] Connection logic not initialized');
+      return;
+    }
     this._connectionLogic.sendMessage(target, message);
   }
 
