@@ -1,5 +1,5 @@
 export function getOSName () {
-  if (process.browser) {
+  if (typeof window !== 'undefined') {
     return 'Browser'
   } else {
     return 'Node.js'
@@ -7,7 +7,7 @@ export function getOSName () {
 }
 
 export function getOSVersion () {
-  if (process.browser) {
+  if (typeof window !== 'undefined') {
     return navigator.userAgent
   } else {
     return process.version
