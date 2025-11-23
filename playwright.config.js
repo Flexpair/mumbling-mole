@@ -83,8 +83,11 @@ export default defineConfig({
     // Capture screenshot on failure
     screenshot: 'only-on-failure',
     
-    // Capture video on failure
-    video: 'retain-on-failure',
+    // Capture video for all tests by default so loopback runs
+    // always have a recording available without extra env config.
+    // (Can still be overridden via PLAYWRIGHT_VIDEO if needed.)
+    // Valid values: 'off', 'on', 'retain-on-failure', 'on-first-retry'
+    video: process.env.PLAYWRIGHT_VIDEO || 'on',
     
     // Browser launch options
     launchOptions: {

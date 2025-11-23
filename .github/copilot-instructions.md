@@ -100,6 +100,7 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 - **Vue feature flags**: `__VUE_OPTIONS_API__=true`, `__VUE_PROD_DEVTOOLS__=false` set via define plugin
 
 ## Dev & test workflows
+**IMPORTANT:** **Always rebuild and restart the dev server before running any tests (unit, loopback, or audit).** In this repo that means running `./rebuild-and-restart.sh` first so the server and static assets reflect the latest code changes.  
 **Local dev**: `MUMBLE_SERVER=host:port ./start-dev-server.sh` → builds in dev mode, spawns `docker-entrypoint.sh`, opens `http://local.flexpair.app`, logs to `/tmp/entrypoint.log`  
 **Quick restart**: `./rebuild-and-restart.sh` convenience script rebuilds and restarts dev server (useful during active development)  
 **Static-only**: `SKIP_TUNNEL=1 PORT=8081 ./docker-entrypoint.sh` serves files via Python http.server (used by smoke tests)  

@@ -17,9 +17,11 @@ import { useAudioStore } from '../stores/audioStore';
 
 const audioStore = useAudioStore();
 
-// Computed properties that directly track audio store state (Pinia auto-unwrapping)
-const visible = computed(() => audioStore.micPermissionDenied ?? false);
-const errorMessage = computed(() => audioStore.micPermissionErrorMessage ?? '');
+// Computed properties that directly track audio store state
+// NOTE: Pinia setup stores expose plain values on the store instance,
+// so we intentionally DO NOT access `.value` here.
+const visible = computed(() => audioStore.micPermissionDenied || false);
+const errorMessage = computed(() => audioStore.micPermissionErrorMessage || '');
 
 // Methods
 const handleRetry = () => {

@@ -452,15 +452,6 @@ export default class AppState {
     );
     
     this._updateVoiceHandler();
-
-    if (this._vueState.audio.audioLockActive.value) {
-      this._vueState.connection.getClient().setSelfMute(true);
-      this._vueState.connection.getClient().setSelfDeaf(true);
-    } else if (this._vueState.user.selfDeaf.value) {
-      this._vueState.connection.getClient().setSelfDeaf(true);
-    } else if (this._vueState.user.selfMute.value) {
-      this._vueState.connection.getClient().setSelfMute(true);
-    }
   }
 
   /**

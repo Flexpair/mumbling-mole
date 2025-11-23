@@ -108,6 +108,8 @@ const connectionStore = useConnectionStore();
 const voiceStore = useVoiceStore();
 
 // Computed properties that directly track Pinia store state
+// NOTE: Pinia setup stores expose plain values on the store instance,
+// so we intentionally DO NOT access `.value` here.
 const selfMute = computed(() => userStore.selfMute ?? false);
 const selfDeaf = computed(() => userStore.selfDeaf ?? false);
 const audioLockActive = computed(() => audioStore.audioLockActive ?? false);
@@ -126,66 +128,104 @@ const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
 
 // Methods
 const handleMuteClick = () => {
-  const thisUser = userStore.thisUser;
-  if (!thisUser?.value) return;
+  const currentUser = userStore.thisUser;
+  console.log('[Toolbar] handleMuteClick', {
+    hasUser: !!currentUser,
+    selfMuteBefore: selfMute.value,
+    selfDeafBefore: selfDeaf.value
+  });
 
-  userStore.requestMute(thisUser.value);
+  userStore.requestMute(currentUser);
 
   const client = connectionStore.getClient();
   if (client) {
     client.setSelfMute(true);
   }
+
+  console.log('[Toolbar] handleMuteClick after', {
+    selfMuteAfter: selfMute.value,
+    selfDeafAfter: selfDeaf.value
+  });
 };
 
 const handleUnmuteClick = () => {
+  console.log('[Toolbar] handleUnmuteClick', {
+    audioLockActive: audioLockActive.value,
+    selfMuteBefore: selfMute.value,
+    selfDeafBefore: selfDeaf.value
+  });
+
   if (audioLockActive.value) {
-    if (appState?.notifyAudioLock) {
+    if (appState.notifyAudioLock) {
       appState.notifyAudioLock();
     }
     return;
   }
 
-  const thisUser = userStore.thisUser;
-  if (!thisUser?.value) return;
-
-  userStore.requestUnmute(thisUser.value);
+  const currentUser = userStore.thisUser;
+  userStore.requestUnmute(currentUser);
 
   const client = connectionStore.getClient();
   if (client) {
     client.setSelfMute(false);
     client.setSelfDeaf(false);
   }
+
+  console.log('[Toolbar] handleUnmuteClick after', {
+    selfMuteAfter: selfMute.value,
+    selfDeafAfter: selfDeaf.value
+  });
 };
 
 const handleDeafClick = () => {
-  const thisUser = userStore.thisUser;
-  if (!thisUser?.value) return;
+  const currentUser = userStore.thisUser;
+  const isLoopbackMode = voiceStore.isLoopbackMode?.value ?? false;
+  console.log('[Toolbar] handleDeafClick', {
+    hasUser: !!currentUser,
+    isLoopbackMode,
+    selfMuteBefore: selfMute.value,
+    selfDeafBefore: selfDeaf.value
+  });
 
-  userStore.requestDeaf(thisUser.value, voiceStore.isLoopbackMode ?? false);
+  userStore.requestDeaf(currentUser, isLoopbackMode);
 
   const client = connectionStore.getClient();
   if (client) {
     client.setSelfDeaf(true);
   }
+
+  console.log('[Toolbar] handleDeafClick after', {
+    selfMuteAfter: selfMute.value,
+    selfDeafAfter: selfDeaf.value
+  });
 };
 
 const handleUndeafClick = () => {
+  console.log('[Toolbar] handleUndeafClick', {
+    audioLockActive: audioLockActive.value,
+    selfMuteBefore: selfMute.value,
+    selfDeafBefore: selfDeaf.value
+  });
+
   if (audioLockActive.value) {
-    if (appState?.notifyAudioLock) {
+    if (appState.notifyAudioLock) {
       appState.notifyAudioLock();
     }
     return;
   }
 
-  const thisUser = userStore.thisUser;
-  if (!thisUser?.value) return;
-
-  userStore.requestUndeaf(thisUser.value);
+  const currentUser = userStore.thisUser;
+  userStore.requestUndeaf(currentUser);
 
   const client = connectionStore.getClient();
   if (client) {
     client.setSelfDeaf(false);
   }
+
+  console.log('[Toolbar] handleUndeafClick after', {
+    selfMuteAfter: selfMute.value,
+    selfDeafAfter: selfDeaf.value
+  });
 };
 
 const handleSubmitMessageBox = () => {
