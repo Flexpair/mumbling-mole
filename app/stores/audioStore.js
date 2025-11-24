@@ -1,27 +1,15 @@
-import { ref } from 'vue';
+import { defineStore } from 'pinia';
+import { ref, shallowRef } from 'vue';
 import audioContextManager, { ensureAudioContext } from '../audio/audio-context-manager';
 import { getCurrentMixer } from '../audio/voice';
-import { debugLog } from './debug-utils';
-import { createCachedInitWithCheck } from './promise-cache-utils';
+import { debugLog } from '../composables/debug-utils';
+import { createCachedInitWithCheck } from '../composables/promise-cache-utils';
 import { createMicrophonePermissionManager } from '../utils/microphone-permission';
 
-/**
- * useAudioState - Vue composable for audio context, permissions, and beeper
- * 
- * Responsibilities:
- * - AudioContext lifecycle management
- * - Audio lock state (sample rate warnings)
- * - Microphone permission handling
- * - Beeper/tone generator for latency testing
- * 
- * State management:
- * - ref() for reactive UI state
- * - Internal non-reactive state for audio resources
- */
-export function useAudioState() {
-  // Audio context (internal state, not reactive)
-  let audioContext = null;
-  let _audioWorkletModulesLoaded = new Set();
+export const useAudioStore = defineStore('audio', () => {
+  // Audio context (reactive ref)
+  const audioContext = shallowRef(null);
+  const _audioWorkletModulesLoaded = new Set();
   
   // Audio lock state (reactive)
   const audioLockActive = ref(false);
@@ -38,12 +26,27 @@ export function useAudioState() {
   const beeperReady = ref(false);
   let _persistentBeeper = null;
 
+  // SYNC-WITH-MANAGER: Ensure store stays in sync with AudioContextManager singleton
+  // This handles cases where AudioContext is initialized by other modules (e.g. voice.js)
+  // and ensures the store always reflects the current AudioContext state.
+  audioContextManager.onReady((ctx) => {
+    if (audioContext.value !== ctx) {
+      audioContext.value = ctx;
+      debugLog('AudioStore synced with AudioContextManager (onReady)');
+    }
+  });
+
+  // Check if already initialized (e.g. if store is created after AudioContext)
+  if (audioContextManager.audioContext && !audioContext.value) {
+    audioContext.value = audioContextManager.audioContext;
+  }
+
   /**
    * Get AudioContext instance
    * @returns {AudioContext|null}
    */
   function getAudioContext() {
-    return audioContext;
+    return audioContext.value;
   }
 
   /**
@@ -51,13 +54,14 @@ export function useAudioState() {
    * RACE-SAFE: Multiple concurrent calls will reuse the same initialization
    */
   const initializeAudioContext = createCachedInitWithCheck(
-    () => audioContext,
+    () => audioContext.value,
     async () => {
       try {
         // Use managed AudioContext that handles browser autoplay restrictions
-        audioContext = await ensureAudioContext({ 
+        const ctx = await ensureAudioContext({ 
           latencyHint: 'interactive' 
         });
+        audioContext.value = ctx;
 
         // Set up event handlers for audio context state changes
         audioContextManager.onSuspend(() => {
@@ -77,13 +81,13 @@ export function useAudioState() {
           if (!AudioContextClass) {
             throw new Error('AudioContext is not supported in this browser');
           }
-          audioContext = new AudioContextClass({ latencyHint: 'interactive' });
+          audioContext.value = new AudioContextClass({ latencyHint: 'interactive' });
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
         }
       }
       
-      return audioContext;
+      return audioContext.value;
     }
   );
 
@@ -91,9 +95,9 @@ export function useAudioState() {
    * Resume AudioContext if suspended
    */
   async function resumeAudioContext() {
-    if (audioContext?.state === 'suspended') {
-      await audioContext.resume();
-    } else if (!audioContext) {
+    if (audioContext.value?.state === 'suspended') {
+      await audioContext.value.resume();
+    } else if (!audioContext.value) {
       await initializeAudioContext();
     }
   }
@@ -104,7 +108,7 @@ export function useAudioState() {
    * @param {string} moduleUrl - URL of the AudioWorklet processor module
    */
   async function loadAudioWorkletModule(moduleUrl) {
-    if (!audioContext) {
+    if (!audioContext.value) {
       throw new Error('AudioContext not initialized');
     }
     
@@ -114,7 +118,7 @@ export function useAudioState() {
     }
     
     try {
-      await audioContext.audioWorklet.addModule(moduleUrl);
+      await audioContext.value.audioWorklet.addModule(moduleUrl);
       _audioWorkletModulesLoaded.add(moduleUrl);
     } catch (err) {
       // InvalidStateError means module was already loaded by another concurrent call
@@ -348,9 +352,24 @@ export function useAudioState() {
     // Note: we don't destroy _persistentBeeper, it can be reused
   }
 
-  // Return composable API
+  /**
+   * Notify user about audio lock
+   */
+  function notifyAudioLock() {
+    if (audioLockActive.value) {
+      const reason = audioLockReason.value;
+      const details = audioLockDetails.value;
+      
+      if (reason === 'mic_permission') {
+        micPermissionDenied.value = true;
+        micPermissionErrorMessage.value = details;
+      }
+    }
+  }
+
   return {
-    // State (reactive)
+    // State
+    audioContext,
     audioLockActive,
     audioLockReason,
     audioLockDetails,
@@ -359,25 +378,17 @@ export function useAudioState() {
     isBeeping,
     beeperReady,
     
-    // Getters (for internal state access)
-    getAudioContext,
-    
     // Methods
+    getAudioContext,
     initializeAudioContext,
     resumeAudioContext,
     loadAudioWorkletModule,
-    activateAudioLock,
-    clearAudioLock,
-    attemptMicrophonePermission,
-    retryMicrophonePermission,
-    initializePersistentBeeper,
     startBeep,
     stopBeep,
-    resetBeeper,
-    
-    // Expose audioContext for backward compatibility
-    get audioContext() {
-      return audioContext;
-    }
+    initializePersistentBeeper,
+    retryMicrophonePermission,
+    notifyAudioLock,
+    activateAudioLock,
+    clearAudioLock
   };
-}
+});

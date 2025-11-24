@@ -377,7 +377,7 @@ select {
 /* Microphone permission retry overlay (bottom-left) */
 .mic-permission-retry {
   position: fixed;
-  bottom: 20px;
+  bottom: 56px; /* Sit just above 36px toolbar height + small gap */
   left: 20px;
   background-color: #ffc107;
   border-radius: 8px;

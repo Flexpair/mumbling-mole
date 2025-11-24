@@ -25,6 +25,9 @@ class WorkerBasedMumbleConnector {
     throw e;
   }
     this._worker.addEventListener("message", this._onMessage.bind(this));
+    this._worker.addEventListener("error", (e) => {
+      console.error("[worker] error event:", e.message, e.filename, e.lineno);
+    });
     this._reqId = 1;
     this._requests = {};
     this._clients = {};
@@ -62,11 +65,6 @@ class WorkerBasedMumbleConnector {
     return new Promise((resolve, reject) => {
       this._requests[reqId] = [resolve, reject];
     });
-  }
-
-  _callPromise(id, method, payload, transfer) {
-    // Alias for _query for semantic clarity when we expect a response
-    return this._query(id, method, payload, transfer);
   }
 
   _addCall(proxy, name, id) {

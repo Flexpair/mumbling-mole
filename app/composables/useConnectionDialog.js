@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 
 /**
- * Connection Dialog State Composable
+ * Connection Dialog State Composable (SINGLETON)
  * 
  * Manages the state of the connection dialog (address, port, credentials, visibility).
  * Replaces the Knockout adapter object pattern from index.js.
@@ -13,8 +13,17 @@ import { ref } from 'vue';
  * - password: Server password
  * - visible: Dialog visibility state
  * - isTestActive: Whether audio test (loopback) mode is active
+ * 
+ * IMPORTANT: This is a SINGLETON pattern - all calls return the same instance.
+ * This ensures AppState and ConnectDialog.vue share the same state.
  */
+
+// Singleton instance (created once, reused everywhere)
+let instance = null;
+
 export function useConnectionDialog() {
+  if (instance) return instance;
+  
   // Connection parameters
   const address = ref('');
   const port = ref('');
@@ -43,7 +52,7 @@ export function useConnectionDialog() {
     isTestActive.value = false;
   };
   
-  return {
+  instance = {
     // State
     address,
     port,
@@ -57,4 +66,6 @@ export function useConnectionDialog() {
     hide,
     reset,
   };
+  
+  return instance;
 }

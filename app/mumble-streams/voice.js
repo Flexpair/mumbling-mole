@@ -1,7 +1,4 @@
-import util from 'node:util';
 import { Transform } from 'node:stream';
-
-
 
 /**
  * @typedef {('Opus')} Codec
@@ -42,7 +39,6 @@ import { Transform } from 'node:stream';
  * @property timestamp The timestamp for this ping packet.
  */
 
-
 /**
  * Transform stream for encoding {@link VoiceData Mumble voice packets}
  * and {@link PingData audio channel ping packets}.
@@ -51,94 +47,92 @@ import { Transform } from 'node:stream';
  * @constructs Encoder
  * @param {('server'|'client')} dest - Where encoded packets are headed to.
  */
-function Encoder(dest) {
-  // Allow use without new
-  if (!(this instanceof Encoder)) return new Encoder(dest);
+class Encoder extends Transform {
+  constructor(dest) {
+    if (dest != 'server' && dest != 'client') {
+      throw new TypeError('dest has to be either "server" or "client"');
+    }
 
-  if (dest != 'server' && dest != 'client') {
-    throw new TypeError('dest has to be either "server" or "client"');
+    super({
+      writableObjectMode: true
+    });
+
+    this._dest = dest;
   }
 
-  Transform.call(this, {
-    writableObjectMode: true
-  });
-
-  this._dest = dest;
-} 
-util.inherits(Encoder, Transform);
-
-Encoder.prototype._encodePingPacket = function(chunk) {
-  // Header byte + Timestamp
-  const buffer = Buffer.alloc(1 + 9);
-  let offset = 0;
-  offset += buffer.writeUInt8(0x20, offset); // Ping packet header
-  offset += toVarint(chunk.timestamp).value.copy(buffer, offset);
-  return buffer.slice(0, offset);
-};
-
-Encoder.prototype._encodeOpusFrames = function(chunk, callback) {
-  if (chunk.frames.length > 1) {
-    return callback(new Error('Opus only supports a single frame per packet'));
-  }
-  
-  const endBit = chunk.end ? 0x2000 : 0;
-  let voiceData;
-  
-  if (chunk.frames.length == 0) {
-    voiceData = toVarint(endBit).value;
-  } else {
-    const frameSize = toVarint(chunk.frames[0].length | endBit);
-    voiceData = Buffer.concat([frameSize.value, chunk.frames[0]]);
-  }
-  
-  return { codecId: 4, voiceData };
-};
-
-Encoder.prototype._encodeVoiceData = function(chunk, callback) {
-  if (chunk.codec == 'Opus') {
-    return this._encodeOpusFrames(chunk, callback);
-  } else {
-    return callback(new TypeError('Unknown codec: ' + chunk.codec));
-  }
-};
-
-Encoder.prototype._buildVoicePacket = function(codecId, chunk, voiceData) {
-  // Header byte + Source Session Id + Sequence Number + Voice + Position Data
-  const buffer = Buffer.alloc(1 + 9 + 9 + voiceData.length + 3 * 4);
-  let offset = 0;
-  
-  offset += buffer.writeUInt8(codecId << 5 | chunk.mode, offset);
-  
-  if (this._dest == 'client') {
-    offset += toVarint(chunk.source).value.copy(buffer, offset);
-  }
-  
-  offset += toVarint(chunk.seqNum).value.copy(buffer, offset);
-  offset += voiceData.copy(buffer, offset);
-  
-  if (chunk.position) {
-    offset += buffer.writeFloatBE(chunk.position.x, offset);
-    offset += buffer.writeFloatBE(chunk.position.y, offset);
-    offset += buffer.writeFloatBE(chunk.position.z, offset);
-  }
-  
-  return buffer.slice(0, offset);
-};
-
-Encoder.prototype._transform = function(chunk, encoding, callback) {
-  // Special case: Ping packets
-  if (chunk.timestamp !== undefined) {
-    return callback(null, this._encodePingPacket(chunk));
+  _encodePingPacket(chunk) {
+    // Header byte + Timestamp
+    const buffer = Buffer.alloc(1 + 9);
+    let offset = 0;
+    offset += buffer.writeUInt8(0x20, offset); // Ping packet header
+    offset += toVarint(chunk.timestamp).value.copy(buffer, offset);
+    return buffer.slice(0, offset);
   }
 
-  const result = this._encodeVoiceData(chunk, callback);
-  if (!result) return; // Error already sent via callback
-  
-  const { codecId, voiceData } = result;
-  const buffer = this._buildVoicePacket(codecId, chunk, voiceData);
-  
-  callback(null, buffer);
-};
+  _encodeOpusFrames(chunk, callback) {
+    if (chunk.frames.length > 1) {
+      return callback(new Error('Opus only supports a single frame per packet'));
+    }
+    
+    const endBit = chunk.end ? 0x2000 : 0;
+    let voiceData;
+    
+    if (chunk.frames.length == 0) {
+      voiceData = toVarint(endBit).value;
+    } else {
+      const frameSize = toVarint(chunk.frames[0].length | endBit);
+      voiceData = Buffer.concat([frameSize.value, chunk.frames[0]]);
+    }
+    
+    return { codecId: 4, voiceData };
+  }
+
+  _encodeVoiceData(chunk, callback) {
+    if (chunk.codec == 'Opus') {
+      return this._encodeOpusFrames(chunk, callback);
+    } else {
+      return callback(new TypeError('Unknown codec: ' + chunk.codec));
+    }
+  }
+
+  _buildVoicePacket(codecId, chunk, voiceData) {
+    // Header byte + Source Session Id + Sequence Number + Voice + Position Data
+    const buffer = Buffer.alloc(1 + 9 + 9 + voiceData.length + 3 * 4);
+    let offset = 0;
+    
+    offset += buffer.writeUInt8(codecId << 5 | chunk.mode, offset);
+    
+    if (this._dest == 'client') {
+      offset += toVarint(chunk.source).value.copy(buffer, offset);
+    }
+    
+    offset += toVarint(chunk.seqNum).value.copy(buffer, offset);
+    offset += voiceData.copy(buffer, offset);
+    
+    if (chunk.position) {
+      offset += buffer.writeFloatBE(chunk.position.x, offset);
+      offset += buffer.writeFloatBE(chunk.position.y, offset);
+      offset += buffer.writeFloatBE(chunk.position.z, offset);
+    }
+    
+    return buffer.slice(0, offset);
+  }
+
+  _transform(chunk, encoding, callback) {
+    // Special case: Ping packets
+    if (chunk.timestamp !== undefined) {
+      return callback(null, this._encodePingPacket(chunk));
+    }
+
+    const result = this._encodeVoiceData(chunk, callback);
+    if (!result) return; // Error already sent via callback
+    
+    const { codecId, voiceData } = result;
+    const buffer = this._buildVoicePacket(codecId, chunk, voiceData);
+    
+    callback(null, buffer);
+  }
+}
 
 /**
  * Transform stream for decoding {@link VoiceData Mumble voice packets}
@@ -148,128 +142,126 @@ Encoder.prototype._transform = function(chunk, encoding, callback) {
  * @constructs Decoder
  * @param {('server'|'client')} orig - Where encoded packets are coming from.
  */
-function Decoder(orig) {
-  // Allow use without new
-  if (!(this instanceof Decoder)) return new Decoder(orig);
+class Decoder extends Transform {
+  constructor(orig) {
+    if (orig != 'server' && orig != 'client') {
+      throw new TypeError('orig has to be either "server" or "client"');
+    }
 
-  if (orig != 'server' && orig != 'client') {
-    throw new TypeError('orig has to be either "server" or "client"');
+    super({
+      readableObjectMode: true
+    });
+
+    this._orig = orig;
   }
 
-  Transform.call(this, {
-    readableObjectMode: true
-  });
-
-  this._orig = orig;
-} 
-util.inherits(Decoder, Transform);
-
-Decoder.prototype._parsePingPacket = function(chunk) {
-  const val = fromVarint(chunk.slice(1));
-  if (!val) return { error: 'invalid timestamp' };
-  return { packet: { timestamp: val.value } };
-};
-
-Decoder.prototype._parseOpusFrames = function(chunk, offset) {
-  const voiceLength = fromVarint(chunk.slice(offset));
-  if (!voiceLength) return { error: 'invalid voice length' };
-  
-  const end = (voiceLength.value & 0x2000) > 0;
-  voiceLength.value &= 0x1fff;
-  offset += voiceLength.length;
-  
-  if (chunk.length < offset + voiceLength.value) {
-    return { error: 'not enough voice data' };
+  _parsePingPacket(chunk) {
+    const val = fromVarint(chunk.slice(1));
+    if (!val) return { error: 'invalid timestamp' };
+    return { packet: { timestamp: val.value } };
   }
-  
-  const voice = chunk.slice(offset, offset + voiceLength.value);
-  offset += voiceLength.value;
-  
-  return {
-    frames: voice.length ? [voice] : [],
-    end: end,
-    codec: 'Opus',
-    offset: offset
-  };
-};
 
-Decoder.prototype._parsePositionalData = function(chunk, offset) {
-  if (chunk.length > offset + 12) {
+  _parseOpusFrames(chunk, offset) {
+    const voiceLength = fromVarint(chunk.slice(offset));
+    if (!voiceLength) return { error: 'invalid voice length' };
+    
+    const end = (voiceLength.value & 0x2000) > 0;
+    voiceLength.value &= 0x1fff;
+    offset += voiceLength.length;
+    
+    if (chunk.length < offset + voiceLength.value) {
+      return { error: 'not enough voice data' };
+    }
+    
+    const voice = chunk.slice(offset, offset + voiceLength.value);
+    offset += voiceLength.value;
+    
     return {
-      x: chunk.readFloatBE(offset),
-      y: chunk.readFloatBE(offset + 4),
-      z: chunk.readFloatBE(offset + 8)
+      frames: voice.length ? [voice] : [],
+      end: end,
+      codec: 'Opus',
+      offset: offset
     };
   }
-  return null;
-};
 
-Decoder.prototype._parseVoicePacket = function(chunk) {
-  const packet = {};
-  const codecId = chunk[0] >> 5;
-  const target = chunk[0] & 0x1f;
-  packet.target = ['normal', 'shout', 'whisper'][target] || 'loopback';
-  
-  let offset = 1;
-  
-  // Parse source if from server
-  if (this._orig === 'server') {
-    const source = fromVarint(chunk.slice(offset));
-    if (!source) return { error: 'invalid source' };
-    offset += source.length;
-    packet.source = source.value;
+  _parsePositionalData(chunk, offset) {
+    if (chunk.length > offset + 12) {
+      return {
+        x: chunk.readFloatBE(offset),
+        y: chunk.readFloatBE(offset + 4),
+        z: chunk.readFloatBE(offset + 8)
+      };
+    }
+    return null;
   }
-  
-  // Parse sequence number
-  const sequenceNumber = fromVarint(chunk.slice(offset));
-  if (!sequenceNumber) return { error: 'invalid sequence number' };
-  offset += sequenceNumber.length;
-  packet.seqNum = sequenceNumber.value;
-  
-  // Parse voice frames by codec
-  let voiceResult;
-  if (codecId === 4) {
-    voiceResult = this._parseOpusFrames(chunk, offset);
-  } else {
-    this.emit('unknown_codec', codecId);
-    return { error: 'unknown codec ' + codecId };
-  }
-  
-  if (voiceResult.error) return voiceResult;
-  
-  packet.frames = voiceResult.frames;
-  packet.end = voiceResult.end;
-  packet.codec = voiceResult.codec;
-  offset = voiceResult.offset;
-  
-  // Parse positional data
-  const position = this._parsePositionalData(chunk, offset);
-  if (position) packet.position = position;
-  
-  return { packet: packet };
-};
 
-Decoder.prototype._transform = function(chunk, encoding, callback) {
-  const reject = (reason) => {
-    this.emit('debug', 'Failed to parse voice packet', reason, chunk);
-    callback();
-  };
-
-  try {
-    if (chunk.length === 0) return reject('empty');
-    
+  _parseVoicePacket(chunk) {
+    const packet = {};
     const codecId = chunk[0] >> 5;
-    const result = (codecId === 1) 
-      ? this._parsePingPacket(chunk)
-      : this._parseVoicePacket(chunk);
+    const target = chunk[0] & 0x1f;
+    packet.target = ['normal', 'shout', 'whisper'][target] || 'loopback';
     
-    if (result.error) return reject(result.error);
+    let offset = 1;
     
-    callback(null, result.packet);
-  } catch (e) {
-    reject(e.message);
+    // Parse source if from server
+    if (this._orig === 'server') {
+      const source = fromVarint(chunk.slice(offset));
+      if (!source) return { error: 'invalid source' };
+      offset += source.length;
+      packet.source = source.value;
+    }
+    
+    // Parse sequence number
+    const sequenceNumber = fromVarint(chunk.slice(offset));
+    if (!sequenceNumber) return { error: 'invalid sequence number' };
+    offset += sequenceNumber.length;
+    packet.seqNum = sequenceNumber.value;
+    
+    // Parse voice frames by codec
+    let voiceResult;
+    if (codecId === 4) {
+      voiceResult = this._parseOpusFrames(chunk, offset);
+    } else {
+      this.emit('unknown_codec', codecId);
+      return { error: 'unknown codec ' + codecId };
+    }
+    
+    if (voiceResult.error) return voiceResult;
+    
+    packet.frames = voiceResult.frames;
+    packet.end = voiceResult.end;
+    packet.codec = voiceResult.codec;
+    offset = voiceResult.offset;
+    
+    // Parse positional data
+    const position = this._parsePositionalData(chunk, offset);
+    if (position) packet.position = position;
+    
+    return { packet: packet };
   }
-};
+
+  _transform(chunk, encoding, callback) {
+    const reject = (reason) => {
+      this.emit('debug', 'Failed to parse voice packet', reason, chunk);
+      callback();
+    };
+
+    try {
+      if (chunk.length === 0) return reject('empty');
+      
+      const codecId = chunk[0] >> 5;
+      const result = (codecId === 1) 
+        ? this._parsePingPacket(chunk)
+        : this._parseVoicePacket(chunk);
+      
+      if (result.error) return reject(result.error);
+      
+      callback(null, result.packet);
+    } catch (e) {
+      reject(e.message);
+    }
+  }
+}
 
 // Functions below from node-mumble
 // https://github.com/Rantanen/node-mumble/blob/master/LICENSE

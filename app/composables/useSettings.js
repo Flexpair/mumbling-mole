@@ -1,14 +1,6 @@
 import { ref, computed } from 'vue';
 import { useLocalStorage } from './useLocalStorage.js';
-
-// Cache MumbleClient import to avoid repeated require() calls in computed properties
-let _mumbleClient = null;
-function getMumbleClient() {
-  if (!_mumbleClient) {
-    _mumbleClient = require('../mumble-client/index.js').default;
-  }
-  return _mumbleClient;
-}
+import MumbleClient from '../mumble-client/index.js';
 
 export function useSettings(defaults = {}) {
   // Core settings (auto-persisted to localStorage via useLocalStorage)
@@ -18,18 +10,7 @@ export function useSettings(defaults = {}) {
   // If user had PTT selected previously, force switch to Continuous
   if (voiceMode.value === 'ptt') {
     voiceMode.value = 'cont';
-    // Notify user of forced override (PTT disabled)
-    if (typeof window !== 'undefined' && window?.appState?.ui?.showMessageBox) {
-      window.appState.ui.showMessageBox({
-        title: 'Voice Mode Changed',
-        message: 'Push-To-Talk mode is currently disabled. Your voice mode has been switched to Continuous transmission.',
-        type: 'info',
-        ariaLabel: 'Voice mode changed notification',
-        // Accessible: focusable, dismissable, plain language
-      });
-    } else {
-      console.warn('[Settings] PTT mode is disabled. Voice mode forcibly switched to Continuous transmission.');
-    }
+    console.warn('[Settings] PTT mode is disabled. Voice mode forcibly switched to Continuous transmission.');
   }
 
   const pttKey = useLocalStorage('pttKey', defaults.pttKey || 'ctrl + shift', { prefix: 'mumble.' });
@@ -79,7 +60,6 @@ export function useSettings(defaults = {}) {
    * Calculate total bandwidth (without position data for consistency with actual usage)
    */
   const totalBandwidth = computed(() => {
-    const MumbleClient = getMumbleClient();
     return MumbleClient.calcEnforcableBandwidth(
       audioBitrate.value,
       samplesPerPacket.value,
@@ -91,7 +71,6 @@ export function useSettings(defaults = {}) {
    * Calculate overhead bandwidth (protocol overhead)
    */
   const overheadBandwidth = computed(() => {
-    const MumbleClient = getMumbleClient();
     return MumbleClient.calcEnforcableBandwidth(
       0,
       samplesPerPacket.value,

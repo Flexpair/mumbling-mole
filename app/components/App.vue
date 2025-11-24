@@ -29,12 +29,12 @@
     <ConnectErrorDialog />
     <SampleRateWarningDialog />
     <ConnectionInfoDialog />
-    <!-- SettingsDialog removed: Now integrated into ConnectionInfoDialog as a tab -->
   </div>
 </template>
 
 <script setup>
-import { Transition, ref, onMounted, inject, provide } from 'vue';
+import { Transition, ref, onMounted, inject } from 'vue';
+import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)
 // defineAsyncComponent requires format:'esm' which is a larger architectural change
@@ -45,17 +45,10 @@ import Toolbar from './Toolbar.vue';
 import MicPermissionRetryOverlay from './MicPermissionRetryOverlay.vue';
 import GuacamoleFrame from './GuacamoleFrame.vue';
 import ConnectionInfoDialog from './ConnectionInfoDialog.vue';
-// SettingsDialog removed: Now integrated into ConnectionInfoDialog
 
 // Get injected dependencies from parent (index.js)
-const appState = inject('appState');
-const config = inject('config');
-const translate = inject('translate');
-
-// Re-provide to child components
-provide('appState', appState);
-provide('config', config);
-provide('translate', translate);
+// Note: config and translate are provided by index.js and automatically
+// inherited by child components via provide/inject chain
 
 // Preloader state
 const showPreloader = ref(true);
@@ -80,10 +73,11 @@ onMounted(() => {
     globalThis.addEventListener('load', finalize, { once: true });
   }
   
-  // Wire up GuacamoleFrame reference to appState
-  if (guacamoleFrameRef.value && appState) {
-    appState.guacamoleFrame = guacamoleFrameRef.value;
-    console.log('[App.vue] GuacamoleFrame reference assigned to appState.guacamoleFrame');
+  // Wire up GuacamoleFrame reference to uiStore
+  if (guacamoleFrameRef.value) {
+    const uiStore = useUIStore();
+    uiStore.guacamoleFrame = guacamoleFrameRef.value;
+    console.log('[App.vue] GuacamoleFrame reference assigned to uiStore.guacamoleFrame');
   }
 });
 </script>

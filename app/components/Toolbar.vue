@@ -46,7 +46,7 @@
         v-model="messageBox"
       />
       <!-- Message confirmation (green checkmark) appears inside message box -->
-      <MessageConfirmation :appState="appState" />
+      <MessageConfirmation />
     </div>
     <a
       :href="mailToDesktop"
@@ -93,66 +93,85 @@
 
 <script setup>
 import { computed, inject } from 'vue';
+import { useUserStore } from '../stores/userStore';
+import { useAudioStore } from '../stores/audioStore';
+import { useUIStore } from '../stores/uiStore';
+import { useVoiceStore } from '../stores/voiceStore';
+import { translate } from '../localize';
 import MessageConfirmation from './MessageConfirmation.vue';
+import packageJson from '../../package.json';
 
-const appState = inject('appState');
+const userStore = useUserStore();
+const audioStore = useAudioStore();
+const uiStore = useUIStore();
+const voiceStore = useVoiceStore();
 
-// Computed properties that directly track Vue refs
-const selfMute = computed(() => appState.selfMute?.value || false);
-const selfDeaf = computed(() => appState.selfDeaf?.value || false);
-const audioLockActive = computed(() => appState.audioLockActive?.value || false);
+// Inject auth for logout
+const auth = inject('auth');
+
+// Computed properties - Pinia refs are already reactive, no .value needed here
+const selfMute = computed(() => userStore.selfMute);
+const selfDeaf = computed(() => userStore.selfDeaf);
+const audioLockActive = computed(() => audioStore.audioLockActive);
 
 // Writable computed for 2-way binding with messageBox
 const messageBox = computed({
-  get: () => appState.messageBox?.value || '',
-  set: (val) => {
-    if (appState.messageBox) {
-      appState.messageBox.value = val;
-    }
-  }
+  get: () => uiStore.messageBox,
+  set: (val) => { uiStore.messageBox = val; }
 });
 
-// AppState computed properties (now Vue computed refs, not Knockout)
-const messageBoxHint = computed(() => appState.messageBoxHint?.value || '');
-const mailToDesktop = computed(() => appState.mailToDesktop?.value || '');
+// Message box placeholder hint - simplified
+const messageBoxHint = computed(() => {
+  const user = userStore.thisUser;
+  if (!user?.channel?.value?.name) return '';
+  return translate('chat.channel_message_placeholder').replace('%1', user.channel.value.name.value);
+});
+
+// Mailto link for desktop attachment
+const mailToDesktop = computed(() => 
+  `mailto:mail@${globalThis.location.hostname}?subject=Send%20attachment%20to%20desktop`
+);
 
 // Methods
 const handleMuteClick = () => {
-  appState.requestMute(appState.thisUser?.value);
+  userStore.requestMute(userStore.thisUser);
 };
 
 const handleUnmuteClick = () => {
-  appState.handleUnmuteClick();
+  userStore.requestUnmute(userStore.thisUser);
 };
 
 const handleDeafClick = () => {
-  appState.requestDeaf(appState.thisUser?.value);
+  userStore.requestDeaf(userStore.thisUser, voiceStore.isLoopbackMode);
 };
 
 const handleUndeafClick = () => {
-  appState.handleUndeafClick();
+  userStore.requestUndeaf(userStore.thisUser);
 };
 
 const handleSubmitMessageBox = () => {
-  appState.submitMessageBox();
+  const messageText = uiStore.messageBox;
+  if (!messageText.trim()) return;
+  
+  // Get target channel from current user
+  const channel = userStore.thisUser?.channel?.value;
+  if (!channel?.model?.sendMessage) return;
+  
+  channel.model.sendMessage(messageText);
+  uiStore.messageBox = '';
 };
 
 const handleSettingsClick = () => {
-  if (appState.openSettings) {
-    appState.openSettings();
-  }
+  uiStore.currentOpenModal = 'settings';
 };
 
 const handleSourceCodeClick = () => {
-  if (appState.openSourceCode) {
-    appState.openSourceCode();
-  }
+  globalThis.open(packageJson.homepage, '_blank').focus();
 };
 
 const handleLogoutClick = () => {
-  if (appState.logoutUser) {
-    appState.logoutUser();
-  }
+  auth.logout();
+  location.reload();
 };
 </script>
 

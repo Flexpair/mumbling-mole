@@ -97,5 +97,3 @@ export function useLocalStorage(key, defaultValue, options = {}) {
 
   return storedValue;
 }
-
-

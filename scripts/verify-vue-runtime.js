@@ -60,11 +60,6 @@ const checks = [
     name: 'ConnectionInfoDialog.vue compiled',
     pattern: /VUE_CONNECTION_INFO|ConnectionInfoDialog/,
     description: 'ConnectionInfoDialog Vue component'
-  },
-  {
-    name: 'SettingsDialog.vue compiled',
-    pattern: /VUE_SETTINGS_DIALOG|SettingsDialog/,
-    description: 'SettingsDialog Vue component'
   }
 ];
 
@@ -87,8 +82,7 @@ for (const check of checks) {
 // 2. Check if .vue files exist in source
 const componentPaths = [
   path.join(__dirname, '..', 'app', 'components', 'ConnectDialog.vue'),
-  path.join(__dirname, '..', 'app', 'components', 'ConnectionInfoDialog.vue'),
-  path.join(__dirname, '..', 'app', 'components', 'SettingsDialog.vue')
+  path.join(__dirname, '..', 'app', 'components', 'ConnectionInfoDialog.vue')
 ];
 
 console.log('📁 Checking Vue component source files...\n');

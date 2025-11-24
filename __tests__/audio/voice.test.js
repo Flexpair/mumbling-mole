@@ -1100,11 +1100,6 @@ describe('initVoice Integration Tests', () => {
       const onData = jest.fn();
       const onError = jest.fn();
 
-      // LIMITATION: audioInputSelect is evaluated at module load time (see TODO in voice.js)
-      // The select element was created with value="default" before module import.
-      // Changing select.value here won't affect initVoice() because it already captured
-      // the reference at import time. This is a known design issue documented in voice.js.
-
       mockGetUserMedia.mockImplementation((constraints) => {
         // Verify constraints were created (deviceId depends on select value at import time)
         expect(constraints.audio).toBeDefined();

@@ -148,7 +148,6 @@ class MumbleClient extends EventEmitter {
     this._data.on('data', this._onData.bind(this))
     this._voice.on('data', this._onVoice.bind(this))
     this._voiceEncoder.on('data', data => {
-      // TODO This should only be the fallback option
       this._data.write({
         name: 'UDPTunnel',
         payload: data
@@ -248,29 +247,6 @@ class MumbleClient extends EventEmitter {
     })
   }
 
-  /**
-   * Connects this client to a duplex stream that is used for the voice channel.
-   * The provided duplex stream is expected to be valid and usable.
-   * The stream may be unreliable. That is, it may lose packets or deliver them
-   * out of order.
-   * It must however gurantee that packets arrive unmodified and/or are dropped
-   * when corrupted.
-   * It is also responsible for any encryption that is necessary.
-   *
-   * Connecting a voice channel is entirely optional. If no voice channel
-   * is connected, all voice data is tunneled through the data channel.
-   *
-   * @param stream - The stream used for the data channel.
-   * @returns {undefined}
-   */
-  connectVoiceStream (stream) {
-    // Connect the stream to the voice channel encoder and decoder
-    this._registerErrorHandler(stream)
-    this._voiceEncoder.pipe(stream).pipe(this._voiceDecoder)
-
-    // TODO: Ping packet
-  }
-
   createVoiceStream (target = 0, numberOfChannels = 1) {
     if (!this._codecs) {
       return DropStream.obj()
@@ -291,12 +267,16 @@ class MumbleClient extends EventEmitter {
           numberOfChannels: numberOfChannels
         }
       } else {
-        chunk = {
+        const nextChunk = {
           target: target,
           pcm: chunk.pcm,
-          numberOfChannels: numberOfChannels,
-          position: { x: chunk.x, y: chunk.y, z: chunk.z }
+          numberOfChannels: numberOfChannels
+        };
+        const hasPosition = Number.isFinite(chunk.x) && Number.isFinite(chunk.y) && Number.isFinite(chunk.z);
+        if (hasPosition) {
+          nextChunk.position = { x: chunk.x, y: chunk.y, z: chunk.z };
         }
+        chunk = nextChunk;
       }
       const samples =
         this._samplesPerPacket || chunk.pcm.length / numberOfChannels

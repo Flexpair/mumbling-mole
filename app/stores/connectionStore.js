@@ -1,27 +1,14 @@
-import { ref, computed } from 'vue';
+import { defineStore } from 'pinia';
+import { ref, shallowRef, computed } from 'vue';
 import WorkerBasedMumbleConnector from '../worker-client';
 import { translate } from '../localize';
 import { buildWebSocketUrl } from '../utils/websocket-url';
 
-/**
- * useConnectionState - Vue composable for Mumble server connection lifecycle
- * 
- * Responsibilities:
- * - WebSocket connection management via WorkerBasedMumbleConnector
- * - Remote host/port tracking
- * - Client instance lifecycle
- * - Connection state reactivity
- * 
- * State management:
- * - ref() for reactive state
- * - Internal non-reactive client instance
- */
-export function useConnectionState(log) {
-  const logger = log || console.log;
+export const useConnectionStore = defineStore('connection', () => {
+  const logger = globalThis.mumbleLog || console.log;
   
-  // Connection infrastructure
   const connector = new WorkerBasedMumbleConnector();
-  let client = null; // Not reactive - internal state only
+  const client = shallowRef(null);
   
   // Connection parameters (reactive)
   const remoteHost = ref(null);
@@ -32,7 +19,7 @@ export function useConnectionState(log) {
    * @returns {object|null} client instance
    */
   function getClient() {
-    return client;
+    return client.value;
   }
   
   /**
@@ -46,9 +33,9 @@ export function useConnectionState(log) {
    */
   async function connect(host, port, username, password, tokens = []) {
     // Disconnect existing client before creating new connection
-    if (client) {
-      client.disconnect();
-      client = null;
+    if (client.value) {
+      client.value.disconnect();
+      client.value = null;
     }
     
     remoteHost.value = host;
@@ -59,15 +46,17 @@ export function useConnectionState(log) {
     try {
       const wsUrl = buildWebSocketUrl(host, port);
 
-      client = await connector.connect(wsUrl, {
+      const newClient = await connector.connect(wsUrl, {
         username: username,
         password: password,
         tokens: tokens,
       });
 
+      client.value = newClient;
+
       logger(translate('logentry.connected'));
 
-      return client;
+      return newClient;
     } catch (err) {
       logger(translate('logentry.connection_failed'), err);
       throw err;
@@ -78,9 +67,9 @@ export function useConnectionState(log) {
    * Disconnect from current server
    */
   function disconnect() {
-    if (client) {
-      client.disconnect();
-      client = null;
+    if (client.value) {
+      client.value.disconnect();
+      client.value = null;
     }
     remoteHost.value = null;
     remotePort.value = null;
@@ -92,21 +81,46 @@ export function useConnectionState(log) {
   function reset() {
     disconnect();
   }
+
+  /**
+   * Reset client (alias for reset for backward compatibility)
+   */
+  function resetClient() {
+    reset();
+  }
   
-  // Return composable API
+  /**
+   * Register channel with UI state
+   * @param {object} channel - Channel object from mumble-client
+   */
+  function registerChannel(channel) {
+    if (channel.__ui) {
+      return;
+    }
+    
+    channel.__ui = {
+      model: channel,
+      name: ref(channel.name),
+    };
+  }
+
+  // Return store API
   return {
     // State
     connector,
     remoteHost,
     remotePort,
+    client,
     
     // Computed
-    isConnected: computed(() => client !== null),
+    isConnected: computed(() => client.value !== null),
     
     // Methods
     getClient,
     connect,
     disconnect,
     reset,
+    resetClient,
+    registerChannel,
   };
-}
+});

@@ -253,7 +253,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
     
     // PROOF 3: Auth initialization is async and doesn't block Vue mounting
     const vueMountIndex = indexContent.indexOf('vueApp.mount(\'#app\')');
-    const authInitIndex = indexContent.indexOf('await ui.auth.init(');
+    const authInitIndex = indexContent.indexOf('await auth.init(');
     
     expect(vueMountIndex).toBeGreaterThan(0);
     expect(authInitIndex).toBeGreaterThan(0);
@@ -266,19 +266,23 @@ describe('UI Freeze Regression (3.16.1)', () => {
 
   /**
    * INTEGRATION TEST:
-   * Verify AppState.js doesn't have the initialize() method anymore
+   * Verify AppState.js has been completely removed (migration complete)
    */
-  test('VERIFICATION: AppState.initialize() method removed', async () => {
+  test('VERIFICATION: AppState.js completely removed', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     
-    const appStatePath = path.join(process.cwd(), 'app', 'state', 'AppState.js');
-    const appStateContent = await fs.readFile(appStatePath, 'utf-8');
+    const appStatePath = path.join(process.cwd(), 'app', 'stores', 'AppState.js');
     
-    // PROOF: initialize() method is NOT in AppState anymore
-    expect(appStateContent).not.toMatch(/async\s+initialize\s*\(\)/);
-    expect(appStateContent).not.toMatch(/initialize\s*\(\s*\)\s*\{[^}]*audio\.initializeAudioContext/);
+    // PROOF: AppState.js no longer exists
+    await expect(fs.access(appStatePath)).rejects.toThrow();
     
-    console.log('✅ Verified: AppState.js does not have initialize() method');
+    // PROOF: index.js no longer imports AppState
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    expect(indexContent).not.toContain('import AppState from');
+    expect(indexContent).not.toContain('new AppState(');
+    
+    console.log('✅ Verified: AppState.js completely removed, direct Pinia usage only');
   });
 });

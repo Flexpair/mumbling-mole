@@ -309,7 +309,7 @@ will appear automatically when ready. No timeout errors!
 
 ### Related Files
 - **`app/audio/voice.js`**: `onAudioMixerReady()` callback registration, mixer ready notification
-- **`app/state/AppState.js`**: Registers callback in `_performConnect()` to initialize beeper when ready
+- **`app/stores/AppState.js`**: Registers callback in `_performConnect()` to initialize beeper when ready
 - **`app/state/AudioState.js`**: `initializePersistentBeeper()` - idempotent, event-based initialization
 - **`app/state/VoiceState.js`**: `initVoiceInput()` accepts mixer ready callback
 - **`app/index.html`**: Button visibility bound to `beeperReady()` observable
@@ -452,7 +452,7 @@ High resolution allows accurate pitch detection (e.g., 440 Hz displays as 440.5 
 
 ### Debugging
 
-Enable `DEBUG_VOICE_LOGGING` in `UserState.js` for console logs:
+Add `?debug-audio` URL parameter to enable console logs:
 ```
 [LOOPBACK-FREQ] Frequency analysis started for loopback mode
 [LOOPBACK-FREQ] Dominant frequency: 440.5 Hz, amplitude: 156

@@ -1,5 +1,4 @@
 import protobufjs from 'protobufjs';
-import util from 'node:util';
 import { Transform } from 'node:stream';
 import mumbleProtoContent from './Mumble.proto';
 
@@ -75,90 +74,88 @@ function decode(id, payload) {
 	return type.decode(data);
 }
 
-function Encoder() {
-  if (!(this instanceof Encoder)) return new Encoder();
-
-  Transform.call(this, {
-    writableObjectMode: true
-  });
-}
-util.inherits(Encoder, Transform);
-
-Encoder.prototype._transform = function(chunk, encoding, callback) {
-  if (typeof chunk.name !== 'string') {
-    return callback(new TypeError('chunk.name is not a string'));
+class Encoder extends Transform {
+  constructor() {
+    super({
+      writableObjectMode: true
+    });
   }
-  chunk.payload = chunk.payload || {};
 
-  let data;
-  if (chunk.name === 'UDPTunnel') {
-    data = chunk.payload;
-  } else {
-    try {
-      data = encode(chunk.name, chunk.payload);
-    } catch (e) {
-      callback(e);
-      return;
+  _transform(chunk, encoding, callback) {
+    if (typeof chunk.name !== 'string') {
+      return callback(new TypeError('chunk.name is not a string'));
     }
-  }
+    chunk.payload = chunk.payload || {};
 
-  const header = Buffer.allocUnsafe(6);
-  header.writeUInt16BE(idByName[chunk.name], 0);
-  header.writeUInt32BE(data.length, 2);
-
-  callback(null, Buffer.concat([header, data]));
-};
-
-function Decoder() {
-  if (!(this instanceof Decoder)) return new Decoder();
-
-  Transform.call(this, {
-    readableObjectMode: true
-  });
-
-	this._buffer = Buffer.allocUnsafe(1024);
-	this._bufferSize = 0;
-}
-util.inherits(Decoder, Transform);
-
-Decoder.prototype._transform = function(chunk, encoding, callback) {
-  if (this._buffer.length - this._bufferSize < chunk.length) {
-		const oldBuffer = this._buffer;
-		this._buffer = Buffer.allocUnsafe(this._bufferSize + chunk.length);
-		oldBuffer.copy(this._buffer, 0, 0, this._bufferSize);
-	}
-	this._bufferSize += chunk.copy(this._buffer, this._bufferSize);
-
-	while (this._bufferSize >= 6) {
-		const type = this._buffer.readUInt16BE(0);
-		const size = this._buffer.readUInt32BE(2);
-		if (this._bufferSize < 6 + size) {
-			break;
-		}
-
-		const typeName = nameById[type];
-		const data = this._buffer.slice(6, 6 + size);
-		let message;
-    if (typeName === 'UDPTunnel') {
-			message = Buffer.from(data);
+    let data;
+    if (chunk.name === 'UDPTunnel') {
+      data = chunk.payload;
     } else {
       try {
-        message = decode(type, data);
+        data = encode(chunk.name, chunk.payload);
       } catch (e) {
-        return callback(e);
+        callback(e);
+        return;
       }
     }
 
-		this._buffer.copy(this._buffer, 0, 6 + size, this._bufferSize);
-		this._bufferSize -= 6 + size;
+    const header = Buffer.allocUnsafe(6);
+    header.writeUInt16BE(idByName[chunk.name], 0);
+    header.writeUInt32BE(data.length, 2);
 
-    this.push({
-      name: typeName,
-      payload: message
+    callback(null, Buffer.concat([header, data]));
+  }
+}
+
+class Decoder extends Transform {
+  constructor() {
+    super({
+      readableObjectMode: true
     });
-	}
-  callback();
-};
+
+    this._buffer = Buffer.allocUnsafe(1024);
+    this._bufferSize = 0;
+  }
+
+  _transform(chunk, encoding, callback) {
+    if (this._buffer.length - this._bufferSize < chunk.length) {
+      const oldBuffer = this._buffer;
+      this._buffer = Buffer.allocUnsafe(this._bufferSize + chunk.length);
+      oldBuffer.copy(this._buffer, 0, 0, this._bufferSize);
+    }
+    this._bufferSize += chunk.copy(this._buffer, this._bufferSize);
+
+    while (this._bufferSize >= 6) {
+      const type = this._buffer.readUInt16BE(0);
+      const size = this._buffer.readUInt32BE(2);
+      if (this._bufferSize < 6 + size) {
+        break;
+      }
+
+      const typeName = nameById[type];
+      const data = this._buffer.slice(6, 6 + size);
+      let message;
+      if (typeName === 'UDPTunnel') {
+        message = Buffer.from(data);
+      } else {
+        try {
+          message = decode(type, data);
+        } catch (e) {
+          return callback(e);
+        }
+      }
+
+      this._buffer.copy(this._buffer, 0, 6 + size, this._bufferSize);
+      this._bufferSize -= 6 + size;
+
+      this.push({
+        name: typeName,
+        payload: message
+      });
+    }
+    callback();
+  }
+}
 
 export { Encoder, Decoder, typeByName as messages };
 export default {

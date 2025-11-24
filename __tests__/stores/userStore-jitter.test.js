@@ -35,8 +35,48 @@ jest.unstable_mockModule('vue', () => ({
     watch: mockWatch,
     nextTick: mockNextTick,
     markRaw: mockMarkRaw,
-    reactive: (o) => o,
-    computed: (fn) => ({ value: fn() })
+    reactive: (o) => {
+      // Simple proxy to handle ref unwrapping for Pinia
+      return new Proxy(o, {
+        get(target, prop, receiver) {
+          const val = target[prop];
+          return (val && val.__v_isRef) ? val.value : val;
+        },
+        set(target, prop, value, receiver) {
+          const current = target[prop];
+          if (current && current.__v_isRef) {
+            current.value = value;
+            return true;
+          }
+          target[prop] = value;
+          return true;
+        }
+      });
+    },
+    computed: (fn) => ({ value: fn() }),
+    effectScope: () => ({ active: true, run: fn => fn(), stop: () => {} }),
+    getCurrentScope: () => null,
+    onScopeDispose: () => {},
+    toRaw: (o) => o,
+    isRef: (r) => r?.__v_isRef === true,
+    toRef: (o, k) => ({ get value() { return o[k]; }, set value(v) { o[k] = v; }, __v_isRef: true }),
+    toRefs: (o) => {
+      const ret = {};
+      for (const k in o) ret[k] = { get value() { return o[k]; }, set value(v) { o[k] = v; }, __v_isRef: true };
+      return ret;
+    },
+    inject: () => {},
+    provide: () => {},
+    getCurrentInstance: () => null,
+    hasInjectionContext: () => false,
+    isReactive: () => false,
+    shallowRef: (v) => ({ value: v, __v_isRef: true }),
+    unref: (r) => r?.__v_isRef ? r.value : r,
+    triggerRef: () => {},
+    customRef: (factory) => {
+      const { get, set } = factory(() => {}, () => {});
+      return { get value() { return get(); }, set value(v) { set(v); }, __v_isRef: true };
+    },
 }));
 
 // Import Vue (mocked)
@@ -53,6 +93,14 @@ const mockVoiceState = {
   setMute: jest.fn(),
   setDeaf: jest.fn()
 };
+
+jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
+  useAudioStore: () => mockAudioState
+}));
+
+jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
+  useVoiceStore: () => mockVoiceState
+}));
 
 const mockConnectionState = {
   getClient: jest.fn()
@@ -85,7 +133,7 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer', () => ({
   })
 }));
 
-// Mock debug-utils before importing useUserState
+// Mock debug-utils before importing useUserStore
 jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
   debugLog: jest.fn()
 }));
@@ -98,15 +146,18 @@ jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
 }));
 
 // Import the composable
-const { useUserState } = await import('../../app/composables/useUserState.js');
+const { createPinia, setActivePinia, storeToRefs } = await import('pinia');
 
-describe('useUserState Jitter Buffer Calculation', () => {
-  let userState;
+const { useUserStore } = await import('../../app/stores/userStore.js');
+
+describe('useUserStore Jitter Buffer Calculation', () => {
+  let userStore;
   let mockClient;
   let mockUser;
   let dataPingCallback;
 
   beforeEach(() => {
+    setActivePinia(createPinia());
     // Reset watchers
     watchers.clear();
     
@@ -137,17 +188,18 @@ describe('useUserState Jitter Buffer Calculation', () => {
 
     mockConnectionState.getClient.mockReturnValue(mockClient);
     
-    userState = useUserState(mockAudioState, mockVoiceState);
-    userState.setSettings(mockSettings);
+    userStore = useUserStore();
+    userStore.setSettings(mockSettings);
   });
 
   test('should calculate correct jitter buffer for 143ms latency', async () => {
     // Setup user
-    userState.thisUser.value = mockUser.__ui;
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
     await nextTick();
 
     // Verify user is set
-    expect(userState.thisUser.value).toBeTruthy();
+    expect(thisUser.value).toBeTruthy();
     
     // Setup stats
     // Latency 143ms, Variance 0 (for simplicity)
@@ -168,7 +220,8 @@ describe('useUserState Jitter Buffer Calculation', () => {
   });
 
   test('should handle stats.n = 0 correctly (skip calculation)', async () => {
-    userState.thisUser.value = mockUser.__ui;
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
     await nextTick();
 
     mockSettings.jitterBufferSize.value = 5; // Set to non-default

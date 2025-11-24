@@ -1,6 +1,10 @@
-import { ref, watch, markRaw } from 'vue';
+import { defineStore } from 'pinia';
+import { ref, watch, markRaw, shallowRef } from 'vue';
+import { useAudioStore } from './audioStore';
+import { useVoiceStore } from './voiceStore';
+import { useConnectionStore } from './connectionStore';
 import BufferQueueNode from '../audio/buffer-queue-node';
-import { debugLog } from './debug-utils';
+import { debugLog } from '../composables/debug-utils';
 import { createVoiceStreamManager } from '../utils/voice-stream-manager';
 import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
 
@@ -11,25 +15,11 @@ const JITTER_BUFFER_MODES = {
   'high-quality': { factor: 5, minPackets: 4 }
 };
 
-/**
- * useUserState - Vue composable for user-related state and operations
- * 
- * Responsibilities:
- * - Current user (thisUser) tracking
- * - Self mute/deaf state
- * - Minimal user registration (protocol support)
- * - Voice stream playback for users
- * 
- * State management:
- * - ref() for reactive state
- * - watch() for reactive subscriptions
- * - markRaw() for protocol objects (prevents deep reactivity)
- * 
- * NOTE: No UI rendering of user lists - app displays minimal UI (MessageBox + audio controls).
- * User protocol objects (mumble-client/user.js) maintain channel.users array.
- * UI only needs user.channel() reference for sendMessage and messageBoxHint.
- */
-export function useUserState(audioState, voiceState) {
+export const useUserStore = defineStore('user', () => {
+  const audioStore = useAudioStore();
+  const voiceStore = useVoiceStore();
+  const connectionStore = useConnectionStore();
+  
   // Current user
   const thisUser = ref(null);
   
@@ -38,22 +28,24 @@ export function useUserState(audioState, voiceState) {
   const selfDeaf = ref(false);
   
   // CLEANUP-TRACKING: Voice stream resource manager
-  // Prevents memory leaks from intervals and subscriptions
   const _streamManager = createVoiceStreamManager();
 
-  // Settings injection
-  let settings = null;
+  // Settings injection - use shallowRef to track reference without double-wrapping reactive object
+  const settings = shallowRef(null);
   let jitterBufferWatchStop = null;
   let jitterBufferModeWatchStop = null;
   
+  // Cleanup tracking for thisUser watcher
+  let userWatchCleanup = null;
+  
   // Helper: Recalculate jitter buffer based on current mode and stats
   const recalculateJitterBuffer = () => {
-    if (!settings?.jitterBufferSize) {
+    if (!settings.value?.jitterBufferSize) {
         return;
     }
 
     // Determine parameters based on mode
-    const mode = settings.jitterBufferMode ? settings.jitterBufferMode.value : 'balanced';
+    const mode = settings.value.jitterBufferMode ? settings.value.jitterBufferMode.value : 'balanced';
     const config = JITTER_BUFFER_MODES[mode] || JITTER_BUFFER_MODES['balanced'];
     const { factor, minPackets } = config;
 
@@ -62,21 +54,16 @@ export function useUserState(audioState, voiceState) {
         const client = thisUser.value.model._client;
         const stats = client.dataStats;
         
-        // Only use stats if we have enough samples (variance > 0 usually implies some samples)
-        // FIX: Also check n > 0 to be sure we have samples, even if variance is 0 (perfect connection)
         if (stats?.n > 0) {
             const latency = stats.mean;
             const deviation = Math.sqrt(stats.variance);
             
-            // Formula: Latency + factor * Deviation
             const targetMs = latency + (factor * deviation);
-            
-            // Convert to packets (20ms per packet)
             const targetPackets = Math.max(minPackets, Math.ceil(targetMs / 20));
             
-            if (settings.jitterBufferSize.value !== targetPackets) {
+            if (settings.value.jitterBufferSize.value !== targetPackets) {
                debugLog('[VOICE]', `Auto-adjusting jitter buffer (${mode}): ${latency.toFixed(1)}ms + ${factor}*${deviation.toFixed(1)}ms = ${targetMs.toFixed(1)}ms -> ${targetPackets} packets`);
-               settings.jitterBufferSize.value = targetPackets;
+               settings.value.jitterBufferSize.value = targetPackets;
             }
             return;
         } else {
@@ -86,18 +73,25 @@ export function useUserState(audioState, voiceState) {
         debugLog('[VOICE]', `Skipping jitter buffer calc: No dataStats on client`);
     }
     
-    // Fallback: Not connected or no stats -> set to default (minPackets) for this mode
-    // This ensures immediate UI feedback when changing modes in disconnected state
-    if (settings.jitterBufferSize.value !== minPackets) {
+    if (settings.value.jitterBufferSize.value !== minPackets) {
         debugLog('[VOICE]', `Setting default jitter buffer for ${mode}: ${minPackets} packets`);
-        settings.jitterBufferSize.value = minPackets;
+        settings.value.jitterBufferSize.value = minPackets;
     }
   };
   
   // Auto-adjust jitter buffer based on latency
-  watch(thisUser, (newUser, oldUser, onCleanup) => {
+  watch(thisUser, (newUser) => {
+    // Clean up previous watcher resources
+    if (userWatchCleanup) {
+      userWatchCleanup();
+      userWatchCleanup = null;
+    }
+    
     if (newUser?.model?._client) {
       const client = newUser.model._client;
+      
+      // Set up interval to check stats
+      const interval = setInterval(recalculateJitterBuffer, 1000);
       
       debugLog('[VOICE]', 'Jitter buffer auto-adjust enabled for user', newUser.name);
       
@@ -106,17 +100,21 @@ export function useUserState(audioState, voiceState) {
       
       // Initialize buffer immediately
       recalculateJitterBuffer();
-
-      onCleanup(() => {
+      
+      // Store cleanup function
+      userWatchCleanup = () => {
+        clearInterval(interval);
         client.off('dataPing', recalculateJitterBuffer);
-      });
+      };
     } else {
         debugLog('[VOICE]', 'Jitter buffer auto-adjust disabled (no client)');
     }
   });
 
   function setSettings(s) {
-    settings = s;
+    console.log('[userStore.setSettings] Called with:', s);
+    settings.value = s;
+    console.log('[userStore.setSettings] settings.value is now:', settings.value);
     
     // Clean up existing watchers
     if (jitterBufferWatchStop) {
@@ -128,26 +126,52 @@ export function useUserState(audioState, voiceState) {
       jitterBufferModeWatchStop = null;
     }
 
-    if (settings) {
+    if (settings.value) {
       // Watch buffer size changes to update AudioWorklets
-      if (settings.jitterBufferSize) {
-        jitterBufferWatchStop = watch(settings.jitterBufferSize, (newSize) => {
-          debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
-          _streamManager.forEach((resources) => {
-            if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
-              resources.userNode.setJitterBufferSize(newSize);
-            }
-          });
-        });
+      if (settings.value.jitterBufferSize) {
+        jitterBufferWatchStop = watch(
+          () => settings.value.jitterBufferSize.value,
+          (newSize) => {
+            debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
+            _streamManager.forEach((resources) => {
+              if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
+                resources.userNode.setJitterBufferSize(newSize);
+              }
+            });
+          }
+        );
       }
 
       // Watch mode changes to trigger recalculation immediately
-      if (settings.jitterBufferMode) {
-        jitterBufferModeWatchStop = watch(settings.jitterBufferMode, () => {
-          recalculateJitterBuffer();
-        });
+      if (settings.value.jitterBufferMode) {
+        jitterBufferModeWatchStop = watch(
+          () => settings.value.jitterBufferMode.value,
+          () => {
+            recalculateJitterBuffer();
+          }
+        );
       }
     }
+  }
+
+  /**
+   * Clean up voice stream resources (intervals, watchers, audio nodes)
+   * RACE-SAFE: Can be called multiple times safely (idempotent)
+   * @param {string|number} identifier - Either streamId (specific stream) or sessionId (all streams for user)
+   * @private
+   */
+  function _cleanupVoiceStream(identifier) {
+    _streamManager.cleanup(identifier, (resources) => {
+      // Vue-specific disposal
+      if (resources.stopWatch) {
+        try {
+          resources.stopWatch();
+          debugLog('[VOICE]', 'Deaf watcher stopped');
+        } catch (err) {
+          console.error('[VOICE] Error stopping watcher:', err);
+        }
+      }
+    });
   }
 
   /**
@@ -179,29 +203,22 @@ export function useUserState(audioState, voiceState) {
   const handleVoiceStream = async (user, ui, stream) => {
     debugLog('[VOICE]', 'Voice stream received for user:', user.username, 'session:', user.session);
     
-    // CLEANUP-SAFETY: Generate unique stream ID to handle multiple streams per user
-    // Use timestamp + random to ensure uniqueness even if user.session is undefined
-    const streamId = `${user.session || 'unknown'}_${Date.now()}_${Math.random()}`;
+    const randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
+    const streamId = `${user.session || 'unknown'}_${Date.now()}_${randomValue}`;
     
-    // Clear any previous voice stream resources for this user (using session ID)
-    // This stops old intervals before starting new ones
     _cleanupVoiceStream(user.session);
     
-    // Create audio node for playing back received voice
     let userNode = new BufferQueueNode({
-      audioContext: audioState.getAudioContext(),
+      audioContext: audioStore.getAudioContext(),
     });
     
-    // CRITICAL FIX: Initialize BufferQueueNode before use
-    // This loads the AudioWorklet module and creates the worklet node
     try {
       debugLog('[VOICE]', 'Initializing BufferQueueNode...');
       await userNode.initialize();
       debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
       
-      // Set initial jitter buffer size if settings available
-      if (settings?.jitterBufferSize) {
-         userNode.setJitterBufferSize(settings.jitterBufferSize.value);
+      if (settings.value?.jitterBufferSize) {
+         userNode.setJitterBufferSize(settings.value.jitterBufferSize.value);
       }
     } catch (err) {
       console.error('[VOICE] ❌ Failed to initialize BufferQueueNode:', err);
@@ -210,36 +227,29 @@ export function useUserState(audioState, voiceState) {
         message: err.message,
         stack: err.stack
       });
-      // Clean up and abort - playback cannot work without AudioWorklet
       return;
     }
     
-    // Create a GainNode to control volume (for deafen functionality)
-    let gainNode = audioState.getAudioContext().createGain();
+    let gainNode = audioStore.getAudioContext().createGain();
     
-    // Set initial gain based on current deafen state
     gainNode.gain.value = selfDeaf.value ? 0 : 1;
     debugLog('[VOICE]', 'Initial gain set to:', gainNode.gain.value);
     
-    // LOOPBACK-FREQUENCY-ANALYSIS: Create AnalyserNode for frequency detection in loopback mode
     let analyserNode = null;
     let frequencyAnalyzer = null;
     
-    if (voiceState.isLoopbackMode.value) {
-      analyserNode = audioState.getAudioContext().createAnalyser();
-      analyserNode.fftSize = 32768; // FFT size for frequency resolution (~1.46 Hz resolution @ 48kHz)
-      analyserNode.smoothingTimeConstant = 0.8; // Smooth frequency data
+    if (voiceStore.isLoopbackMode) {
+      analyserNode = audioStore.getAudioContext().createAnalyser();
+      analyserNode.fftSize = 32768;
+      analyserNode.smoothingTimeConstant = 0.8;
       
-      // Connect: userNode -> gainNode -> analyserNode -> destination
-      // Frequency analysis AFTER gain node, so it only measures audible audio
       userNode.connect(gainNode);
       gainNode.connect(analyserNode);
-      analyserNode.connect(audioState.getAudioContext().destination);
+      analyserNode.connect(audioStore.getAudioContext().destination);
       
-      // Create and start frequency analyzer
       frequencyAnalyzer = createFrequencyAnalyzer({
         analyserNode,
-        onFrequencyUpdate: (freq) => voiceState.updateLoopbackFrequency(freq),
+        onFrequencyUpdate: (freq) => voiceStore.updateLoopbackFrequency(freq),
         isMuted: () => selfMute.value,
         isDeafened: () => selfDeaf.value
       });
@@ -247,23 +257,19 @@ export function useUserState(audioState, voiceState) {
       
       debugLog('[LOOPBACK-FREQ]', 'Frequency analysis started for loopback mode');
     } else {
-      // Normal mode: Connect: userNode -> gainNode -> destination
       userNode.connect(gainNode);
-      gainNode.connect(audioState.getAudioContext().destination);
+      gainNode.connect(audioStore.getAudioContext().destination);
     }
     
-    // Subscribe to selfDeaf changes to update gain (Vue watcher)
     const stopDeafWatch = watch(selfDeaf, (isDeaf) => {
       gainNode.gain.value = isDeaf ? 0 : 1;
       debugLog('[VOICE]', 'Gain updated to:', gainNode.gain.value);
     });
     
-    // CLEANUP-TRACKING: Store resources for proper cleanup
-    // Use streamId as key for this specific stream, store sessionId for fallback cleanup
     _streamManager.set(streamId, {
       sessionId: user.session,
-      analyzer: frequencyAnalyzer, // Store analyzer instead of interval
-      stopWatch: stopDeafWatch, // Vue watch cleanup function
+      analyzer: frequencyAnalyzer,
+      stopWatch: stopDeafWatch,
       userNode: userNode
     });
 
@@ -288,33 +294,23 @@ export function useUserState(audioState, voiceState) {
         debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
         ui.talking.value = 'off';
         
-        // CLEANUP: Use streamId to clean up this specific stream
         _cleanupVoiceStream(streamId);
       });
   };
 
   /**
    * Register a user with minimal UI wrapper
-   * Keeps essential properties: model, name, channel, selfMute/selfDeaf, talking (for voice UI).
-   * No tree observables or complex event handlers.
-   * 
    * @param {object} user - User model from mumble-client
    */
   function registerUser(user) {
-    
-    // FORCE RECREATION: Always delete old __ui and create fresh Vue-based one
-    // This ensures we never have stale Knockout or plain objects
     if (user.__ui) {
       delete user.__ui;
     }
 
-    // SERVER-STATE-SYNC: Listen for server's authoritative state updates
-    // This ensures UI ALWAYS matches server state (100% guarantee)
     const syncServerState = (serverState) => {
       debugLog('[SERVER-STATE-SYNC] Received server state:', serverState);
       debugLog('[SERVER-STATE-SYNC] Current UI state:', { selfMute: selfMute.value, selfDeaf: selfDeaf.value });
       
-      // Force UI to match server's state
       if (serverState.selfMute !== undefined) {
         selfMute.value = serverState.selfMute;
       }
@@ -325,129 +321,95 @@ export function useUserState(audioState, voiceState) {
       debugLog('[SERVER-STATE-SYNC] UI synchronized to:', { selfMute: selfMute.value, selfDeaf: selfDeaf.value });
     };
     
-    // Remove old listener if it exists to prevent memory leak
     if (user.__syncServerState) {
       user.off('server-state-sync', user.__syncServerState);
     }
     
-    // Store reference for cleanup and add listener
     user.__syncServerState = syncServerState;
     user.on('server-state-sync', syncServerState);
     
-    // Create new minimal wrapper with Vue refs
-    // Protocol user.channel exists on model; channel.users managed by mumble-client
-    // Use markRaw to prevent Vue from making this reactive and unwrapping nested refs
-    // 
-    // NOTE: user.channel will be undefined initially because WorkerBasedMumbleUser
-    // properties are populated async via pushProp messages. We don't wait for it
-    // because sendMessage now uses root channel directly.
     let ui = (user.__ui = markRaw({
       model: user,
       name: ref(user.username),
       channel: ref(user.channel?.__ui),
       selfMute: ref(user.selfMute),
       selfDeaf: ref(user.selfDeaf),
-      talking: ref('off'), // Needed for voice stream UI
+      talking: ref('off'),
     }));
     
-    // Subscribe to user updates for voice/mute/deaf state changes
     user.on('update', (actor, properties) => handleUserUpdate(user, ui, actor, properties));
 
-    // Voice stream handler (needed for audio playback)
     user.on('voice', (stream) => handleVoiceStream(user, ui, stream));
   }
   
-  /**
-   * Clean up voice stream resources (intervals, watchers, audio nodes)
-   * RACE-SAFE: Can be called multiple times safely (idempotent)
-   * @param {string|number} identifier - Either streamId (specific stream) or sessionId (all streams for user)
-   * @private
-   */
-  function _cleanupVoiceStream(identifier) {
-    _streamManager.cleanup(identifier, (resources) => {
-      // Vue-specific disposal
-      if (resources.stopWatch) {
-        try {
-          resources.stopWatch();
-          debugLog('[VOICE]', 'Deaf watcher stopped');
-        } catch (err) {
-          console.error('[VOICE] Error stopping watcher:', err);
-        }
-      }
-    });
-  }
-
-  /**
-   * Request mute for user
-   * @param {object} user - User UI object (optional, defaults to thisUser)
-   * @param {Function} onAudioLocked - Callback when audio is locked
-   */
   function requestMute(user, onAudioLocked) {
-    // If no user specified or user matches thisUser, toggle selfMute
-    // This allows muting even before connection (thisUser === null)
     if (user === undefined || user === thisUser.value) {
       selfMute.value = true;
+      if (thisUser.value) {
+        connectionStore.getClient()?.setSelfMute(true);
+      }
     }
   }
 
-  /**
-   * Request deaf for user
-   * @param {object} user - User UI object (optional, defaults to thisUser)
-   * @param {boolean} isLoopbackMode - Whether in loopback mode
-   */
   function requestDeaf(user, isLoopbackMode = false) {
-    // If no user specified or user matches thisUser, toggle selfDeaf
-    // This allows deafening even before connection (thisUser === null)
     if (user === undefined || user === thisUser.value) {
-      // In loopback mode, allow deaf without mute
-      // In normal mode, deaf automatically enables mute
       if (!isLoopbackMode) {
         selfMute.value = true;
       }
-      
       selfDeaf.value = true;
+      if (thisUser.value) {
+        connectionStore.getClient()?.setSelfDeaf(true);
+        if (!isLoopbackMode) {
+          connectionStore.getClient()?.setSelfMute(true);
+        }
+      }
     }
   }
 
-  /**
-   * Request unmute for user
-   * @param {object} user - User UI object (optional, defaults to thisUser)
-   * @param {Function} onAudioLocked - Callback when audio is locked
-   */
   function requestUnmute(user, onAudioLocked) {
-    // If no user specified or user matches thisUser, toggle selfMute
-    // This allows unmuting even before connection (thisUser === null)
+    if (audioStore.audioLockActive) {
+      audioStore.notifyAudioLock();
+      return;
+    }
+    
     if (user === undefined || user === thisUser.value) {
       selfMute.value = false;
       selfDeaf.value = false;
+      if (thisUser.value) {
+        connectionStore.getClient()?.setSelfMute(false);
+        connectionStore.getClient()?.setSelfDeaf(false);
+      }
     }
   }
 
-  /**
-   * Request undeaf for user
-   * @param {object} user - User UI object (optional, defaults to thisUser)
-   * @param {Function} onAudioLocked - Callback when audio is locked
-   */
   function requestUndeaf(user, onAudioLocked) {
-    // If no user specified or user matches thisUser, toggle selfDeaf
-    // This allows undeafening even before connection (thisUser === null)
+    if (audioStore.audioLockActive) {
+      audioStore.notifyAudioLock();
+      return;
+    }
+
     if (user === undefined || user === thisUser.value) {
       selfDeaf.value = false;
+      if (thisUser.value) {
+        connectionStore.getClient()?.setSelfDeaf(false);
+      }
     }
   }
 
-  /**
-   * Reset user state
-   */
   function reset() {
     thisUser.value = null;
     selfMute.value = false;
     selfDeaf.value = false;
   }
 
-  // Return composable API
+  // Set up cross-store reactive subscription: selfMute → voice.setMute
+  // Previously handled by AppState._setupSubscriptions()
+  watch(selfMute, (mute) => {
+    voiceStore.setMute(mute);
+  });
+
   return {
-    // State (reactive)
+    // State
     thisUser,
     selfMute,
     selfDeaf,
@@ -460,5 +422,6 @@ export function useUserState(audioState, voiceState) {
     requestUndeaf,
     reset,
     setSettings,
+    settings
   };
-}
+});

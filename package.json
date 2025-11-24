@@ -62,5 +62,8 @@
     "ws": "^8.18.3",
     "magic-string": "^0.30.10",
     "js-yaml": "^4.1.1"
+  },
+  "dependencies": {
+    "pinia": "^3.0.4"
   }
 }

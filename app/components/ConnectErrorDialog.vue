@@ -85,35 +85,44 @@
 
 <script setup>
 import { Teleport, Transition, computed, inject } from 'vue';
+import { useConnectErrorDialog } from '../composables/useConnectErrorDialog';
+import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { useConnectionLogic } from '../composables/useConnectionLogic';
 
-const appState = inject('appState');
 const translate = inject('translate');
+const auth = inject('auth');
+const settings = inject('settings');
 
-// Direct computed getters/setters pointing to AppState connectErrorDialog Vue refs
+// Composables
+const connectErrorDialog = useConnectErrorDialog();
+const connectDialog = useConnectionDialog();
+const connectionLogic = useConnectionLogic({ auth, settings });
+
+// Direct access to composable refs
 const visible = computed({
-  get: () => appState.connectErrorDialog.visible.value,
-  set: (val) => { appState.connectErrorDialog.visible.value = val; }
+  get: () => connectErrorDialog.visible.value,
+  set: (val) => { connectErrorDialog.visible.value = val; }
 });
 
 const type = computed({
-  get: () => appState.connectErrorDialog.type.value,
-  set: (val) => { appState.connectErrorDialog.type.value = val; }
+  get: () => connectErrorDialog.type.value,
+  set: (val) => { connectErrorDialog.type.value = val; }
 });
 
 const reason = computed({
-  get: () => appState.connectErrorDialog.reason.value,
-  set: (val) => { appState.connectErrorDialog.reason.value = val; }
+  get: () => connectErrorDialog.reason.value,
+  set: (val) => { connectErrorDialog.reason.value = val; }
 });
 
 // Username and password are shared with connectDialog
 const username = computed({
-  get: () => appState.connectDialog.username.value,
-  set: (val) => { appState.connectDialog.username.value = val; }
+  get: () => connectDialog.username.value,
+  set: (val) => { connectDialog.username.value = val; }
 });
 
 const password = computed({
-  get: () => appState.connectDialog.password.value,
-  set: (val) => { appState.connectDialog.password.value = val; }
+  get: () => connectDialog.password.value,
+  set: (val) => { connectDialog.password.value = val; }
 });
 
 // Methods
@@ -123,15 +132,12 @@ const hide = () => {
 
 const handleConnect = () => {
   hide();
-  // Call AppState.connect directly
-  if (appState.connect) {
-    appState.connect(
-      appState.connectDialog.address.value,
-      appState.connectDialog.port.value,
-      username.value,
-      password.value
-    );
-  }
+  connectionLogic.connect(
+    connectDialog.address.value,
+    connectDialog.port.value,
+    username.value,
+    password.value
+  );
 };
 </script>
 

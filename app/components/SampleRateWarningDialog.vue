@@ -41,24 +41,33 @@
 
 <script setup>
 import { Teleport, Transition, computed, inject } from 'vue';
+import { useUIStore } from '../stores/uiStore';
+import { useSampleRateWarningDialog } from '../composables/useSampleRateWarningDialog';
+import { useConnectionLogic } from '../composables/useConnectionLogic';
 
-const appState = inject('appState');
 const translate = inject('translate');
+const auth = inject('auth');
+const settings = inject('settings');
 
-// Direct access to AppState Vue refs (no local state, no sync needed)
+// Pinia store and composables
+const uiStore = useUIStore();
+const sampleRateWarningDialog = useSampleRateWarningDialog();
+const connectionLogic = useConnectionLogic({ auth, settings });
+
+// Direct access to composable refs
 const visible = computed({
-  get: () => appState.sampleRateWarningDialog.visible.value,
-  set: (val) => { appState.sampleRateWarningDialog.visible.value = val; }
+  get: () => sampleRateWarningDialog.visible.value,
+  set: (val) => { sampleRateWarningDialog.visible.value = val; }
 });
 
 const mode = computed({
-  get: () => appState.sampleRateWarningDialog.mode.value,
-  set: (val) => { appState.sampleRateWarningDialog.mode.value = val; }
+  get: () => sampleRateWarningDialog.mode.value,
+  set: (val) => { sampleRateWarningDialog.mode.value = val; }
 });
 
 const sampleRate = computed({
-  get: () => appState.sampleRateWarningDialog.sampleRate.value,
-  set: (val) => { appState.sampleRateWarningDialog.sampleRate.value = val; }
+  get: () => sampleRateWarningDialog.sampleRate.value,
+  set: (val) => { sampleRateWarningDialog.sampleRate.value = val; }
 });
 
 let pendingConnection = null;
@@ -107,31 +116,31 @@ const hints = computed(() => {
 
 // Methods
 const show = (sr, params) => {
-  if (appState.ui.currentOpenModal.value !== null) {
+  if (uiStore.currentOpenModal !== null) {
     return;
   }
   mode.value = 'confirm';
   sampleRate.value = sr || null;
   pendingConnection = params || null;
   visible.value = true;
-  appState.ui.currentOpenModal.value = 'sampleRateWarning';
+  uiStore.currentOpenModal = 'sampleRateWarning';
 };
 
 const showInfo = (sr) => {
-  if (appState.ui.currentOpenModal.value !== null) {
+  if (uiStore.currentOpenModal !== null) {
     return;
   }
   mode.value = 'info';
   sampleRate.value = sr || null;
   pendingConnection = null;
   visible.value = true;
-  appState.ui.currentOpenModal.value = 'sampleRateWarning';
+  uiStore.currentOpenModal = 'sampleRateWarning';
 };
 
 const hide = () => {
   visible.value = false;
-  if (appState.ui.currentOpenModal.value === 'sampleRateWarning') {
-    appState.ui.currentOpenModal.value = null;
+  if (uiStore.currentOpenModal === 'sampleRateWarning') {
+    uiStore.currentOpenModal = null;
   }
   pendingConnection = null;
 };
@@ -141,7 +150,7 @@ const joinWithoutAudio = () => {
   const sr = sampleRate.value;
   hide();
   if (params) {
-    appState._performConnect(params, {
+    connectionLogic.performConnect(params, {
       audioEnabled: false,
       sampleRate: sr,
     });
@@ -152,12 +161,12 @@ const cancel = () => {
   hide();
 };
 
-// Expose methods to appState for backward compatibility
-appState.sampleRateWarningDialog.show = show;
-appState.sampleRateWarningDialog.showInfo = showInfo;
-appState.sampleRateWarningDialog.hide = hide;
-appState.sampleRateWarningDialog.joinWithoutAudio = joinWithoutAudio;
-appState.sampleRateWarningDialog.cancel = cancel;
+// Expose methods to composable for backward compatibility with AppState
+sampleRateWarningDialog.show = show;
+sampleRateWarningDialog.showInfo = showInfo;
+sampleRateWarningDialog.hide = hide;
+sampleRateWarningDialog.joinWithoutAudio = joinWithoutAudio;
+sampleRateWarningDialog.cancel = cancel;
 </script>
 
 <style scoped>

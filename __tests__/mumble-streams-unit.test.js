@@ -281,11 +281,6 @@ describe('mumble-streams Unit Tests', () => {
         expect(decoder._orig).toBe('client');
       });
 
-      test('works without new keyword', () => {
-        const decoder = Decoder('server');
-        expect(decoder).toBeInstanceOf(Decoder);
-      });
-
       test('throws TypeError for invalid origin', () => {
         expect(createInvalidDecoder).toThrow(TypeError);
         expect(createInvalidDecoder).toThrow('orig has to be either "server" or "client"');

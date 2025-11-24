@@ -1,7 +1,12 @@
 import AuthFactory from "./auth/AuthFactory";
-import AppState from "./state/AppState";
 import { createApp } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
 import AppVue from "./components/App.vue";
+import { useUserStore } from "./stores/userStore";
+import { useAudioStore } from "./stores/audioStore";
+import { useVoiceStore } from "./stores/voiceStore";
+import { useUIStore } from "./stores/uiStore";
+import { useConnectionDialog } from "./composables/useConnectionDialog";
 
 import {
   enumMicrophones,
@@ -13,22 +18,17 @@ import {
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
 const isDebugAudio = urlParams.has('debug-audio');
+const isMockAuth = urlParams.has('mock-auth');
 
 // Global debug flag for general logging; enable by ?debug in URL
 const isDebug = urlParams.has('debug') || !!globalThis.mumbleWebConfig?.debug;
 
-// Set global debug flag for audio pipeline logging
-// This is checked by decoder-stream.js and vendored mumble-streams
 if (isDebugAudio) {
   globalThis.MUMBLE_DEBUG_AUDIO = true;
-  // log internal audio debug separately — only when explicitly requested
-  console.log('[DEBUG] Audio pipeline debug logging enabled via ?debug-audio parameter');
 }
 
-// Expose small logger that is enabled via ?debug or the runtime config
 function log() {
   if (!isDebug) return;
-  // eslint-disable-next-line no-console
   console.log(...arguments);
 }
 
@@ -48,30 +48,72 @@ function getUsernameFromMetadata(user) {
 
 import { useSettings, vTooltip } from "./composables/index.js";
 
-const ui = new AppState(globalThis.mumbleWebConfig, log);
-globalThis.ui = ui;
+// Initialize Pinia
+const pinia = createPinia();
+setActivePinia(pinia);
 
-ui.guacamoleFrame = {};
-ui.settings = useSettings(globalThis.mumbleWebConfig.settings);
-ui.user.setSettings(ui.settings);
+// Initialize stores and composables
+const userStore = useUserStore();
+const audioStore = useAudioStore();
+const voiceStore = useVoiceStore();
+const uiStore = useUIStore();
+const connectDialog = useConnectionDialog();
+const settings = useSettings(globalThis.mumbleWebConfig.settings);
 
-const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
-ui.auth = AuthFactory.create(authConfig);
-ui.netlifyIdentity = ui.auth;
+// Inject settings into userStore
+userStore.setSettings(settings);
 
-ui.openSettings = function() {
-  return ui.ui.openSettings();
-};
+// Initialize auth
+let authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 
-ui.closeSettings = function() {
-  return ui.ui.closeSettings();
-};
-
-globalThis.mumbleUi = ui;
-
-if (ui.auth) {
-  globalThis.netlifyIdentity = ui.auth;
+// Override with mock auth if requested via URL (used for automated tests)
+if (isMockAuth) {
+  console.log('[Auth] Using MockAuthAdapter via ?mock-auth parameter');
+  authConfig = { 
+    provider: 'mock',
+    mock: { autoLogin: true }
+  };
 }
+
+const auth = AuthFactory.create(authConfig);
+
+// Legacy global exports for Playwright tests (will be removed)
+const connected = () => userStore.thisUser != null;
+
+// Helper to deeply unwrap Vue refs (handles nested refs from Pinia)
+const unwrapRef = (val) => {
+  // Keep unwrapping until we get a non-ref value
+  while (val && typeof val === 'object' && '__v_isRef' in val) {
+    val = val.value;
+  }
+  return val;
+};
+
+globalThis.mumbleUi = { 
+  auth, 
+  settings, 
+  user: userStore,
+  audio: audioStore,
+  voice: voiceStore,
+  ui: uiStore,
+  connectDialog, 
+  connected,
+  // Legacy mutation helpers used by automation and remaining AppState clients
+  requestMute: (...args) => userStore.requestMute(...args),
+  requestUnmute: (...args) => userStore.requestUnmute(...args),
+  requestDeaf: (...args) => userStore.requestDeaf(...args),
+  requestUndeaf: (...args) => userStore.requestUndeaf(...args),
+  // Getters unwrap ref.value for test compatibility (using deep unwrap for Pinia)
+  get thisUser() { return unwrapRef(userStore.thisUser); },
+  get selfMute() { return unwrapRef(userStore.selfMute); },
+  get selfDeaf() { return unwrapRef(userStore.selfDeaf); },
+  get isLoopbackMode() { return unwrapRef(voiceStore.isLoopbackMode); },
+  get loopbackDominantFrequency() { return unwrapRef(voiceStore.loopbackDominantFrequency); },
+  get beeperReady() { return unwrapRef(audioStore.beeperReady); },
+  get voiceHandlerReady() { return unwrapRef(voiceStore.voiceHandlerReady); },
+  _initializePersistentBeeper: () => audioStore.initializePersistentBeeper()
+};
+
 
 /**
  * Apply URL query parameters to connect dialog
@@ -82,13 +124,13 @@ function applyQueryParamsToConnectDialog() {
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   
   if (queryParams.address) {
-    ui.connectDialog.address.value = queryParams.address;
+    connectDialog.address.value = queryParams.address;
   }
   if (queryParams.port) {
-    ui.connectDialog.port.value = queryParams.port;
+    connectDialog.port.value = queryParams.port;
   }
   if (queryParams.password) {
-    ui.connectDialog.password.value = queryParams.password;
+    connectDialog.password.value = queryParams.password;
   }
 }
 
@@ -98,22 +140,22 @@ function applyQueryParamsToConnectDialog() {
 function handleAuthLogin(user) {
   const username = getUsernameFromMetadata(user);
   if (username) {
-    ui.connectDialog.username.value = username;
+    connectDialog.username.value = username;
   }
-  ui.auth.close();
+  auth.close();
   // Show connect dialog after successful authentication
-  ui.connectDialog.visible.value = true;
+  connectDialog.visible.value = true;
 }
 
 /**
  * Handle auth modal close event
  */
 function handleAuthClose() {
-  if (ui.connectDialog.username.value) {
+  if (connectDialog.username.value) {
     // Show connect dialog when auth modal is closed and user is authenticated
-    ui.connectDialog.visible.value = true;
+    connectDialog.visible.value = true;
   } else {
-    ui.auth.open("login"); // open the modal to the login tab
+    auth.open("login"); // open the modal to the login tab
   }
 }
 
@@ -123,7 +165,7 @@ function handleAuthClose() {
 function handleAuthError(err) {
   console.warn("[Auth] Authentication error:", err);
   // Show connect dialog even if auth fails to allow retry
-  ui.connectDialog.visible.value = true;
+  connectDialog.visible.value = true;
 }
 
 /**
@@ -133,27 +175,27 @@ async function initializeAuth() {
   let user = null;
   
   try {
-    await ui.auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
+    await auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
       locale: "en",
       logo: false,
     });
-    user = ui.auth.currentUser();
+    user = auth.currentUser();
   } catch (e) {
     console.warn('[Auth] Initialization failed; continuing without authentication', e);
   }
 
   if (user == null) {
     // Hide connect dialog when showing authentication modal
-    ui.connectDialog.visible.value = false;
-    ui.auth.open("signup"); // open the modal to the signup tab
+    connectDialog.visible.value = false;
+    auth.open("signup"); // open the modal to the signup tab
   } else {
     const username = getUsernameFromMetadata(user);
     if (username) {
-      ui.connectDialog.username.value = username;
+      connectDialog.username.value = username;
     }
     // User is already authenticated, show connect dialog
-    ui.connectDialog.visible.value = true;
+    connectDialog.visible.value = true;
   }
 }
 
@@ -161,9 +203,9 @@ function initializeUI() {
   applyQueryParamsToConnectDialog();
 
   // Register event handlers BEFORE init() so they catch auto-login events
-  ui.auth.on("login", handleAuthLogin);
-  ui.auth.on("close", handleAuthClose);
-  ui.auth.on("error", handleAuthError);
+  auth.on("login", handleAuthLogin);
+  auth.on("close", handleAuthClose);
+  auth.on("error", handleAuthError);
 
   // Initialize auth asynchronously (don't block UI)
   initializeAuth();
@@ -173,34 +215,29 @@ function initializeUI() {
 globalThis.mumbleLog = log;
 
 async function main() {
-  console.log('[DEBUG] main() called - starting initialization');
   document.title = globalThis.location.hostname;
-  console.log('[DEBUG] Localization complete, initializing UI');
   
-  // Initialize UI state and auth
   initializeUI();
-  console.log('[DEBUG] UI initialized, mounting Vue app');
   
   // Mount Vue.js App component (single root that contains all UI)
   try {
     const vueApp = createApp(AppVue);
+    vueApp.use(pinia);
     
     // Register global custom directives
     vueApp.directive('tooltip', vTooltip);
     
-    // Provide AppState, config, and translate function to all Vue components
-    vueApp.provide('appState', ui);
+    // Provide dependencies to all Vue components
     vueApp.provide('config', globalThis.mumbleWebConfig);
     vueApp.provide('translate', translate);
+    vueApp.provide('auth', auth);
+    vueApp.provide('settings', settings);
     
     const mountedApp = vueApp.mount('#app');
     
-    // Make Vue app inspectable in DevTools
     globalThis.__VUE_APP__ = mountedApp;
-    
-    console.log('[VUE] ✅ App mounted successfully');
   } catch (error) {
-    console.error('[VUE] ❌ Failed to mount App:', error);
+    console.error('[VUE] Failed to mount App:', error);
     // Fall back to showing an error message
     document.getElementById('app').innerHTML = `
       <div style="padding: 20px; color: red; font-family: sans-serif;">

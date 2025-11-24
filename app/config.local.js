@@ -6,6 +6,12 @@ let config = globalThis.mumbleWebConfig;
 
 config.settings.audioBitrate = 96000;
 
+// Fix for dev environment: use the same port as the web server
+// This ensures we connect to websockify on port 8081 instead of trying 443/murmur
+if (window.location.port && window.location.port !== '80' && window.location.port !== '443') {
+  config.defaults.port = window.location.port;
+}
+
 // Use mock auth ONLY when explicitly requested via ?mock-auth URL parameter
 // Default: Always use Netlify Identity (production behavior)
 const useMockAuth = globalThis.location.search.includes('mock-auth');

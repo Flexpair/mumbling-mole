@@ -64,25 +64,33 @@ globalThis.AudioWorkletNode = class MockAudioWorkletNode {
   disconnect() {}
 };
 
+// Mock Web Worker
+global.Worker = class Worker {
+  constructor(stringUrl) {
+    this.url = stringUrl;
+    this.onmessage = () => {};
+    this.onerror = () => {};
+  }
+  postMessage(msg) {
+    // No-op for tests unless mocked specifically
+  }
+  terminate() {}
+  addEventListener(type, listener) {
+    if (type === 'message') this.onmessage = listener;
+    if (type === 'error') this.onerror = listener;
+  }
+  removeEventListener() {}
+};
+
 // Mock localStorage (jsdom provides this, but ensure it's clean)
 beforeEach(() => {
   localStorage.clear();
 });
 
-// Mock console.warn/error to reduce noise (but keep for debugging)
-const originalWarn = console.warn;
-const originalError = console.error;
-
 globalThis.console = {
   ...console,
-  warn: jest.fn((...args) => {
-    // Uncomment to see warnings during test development:
-    // originalWarn(...args);
-  }),
-  error: jest.fn((...args) => {
-    // Uncomment to see errors during test development:
-    // originalError(...args);
-  }),
+  warn: jest.fn(),
+  error: jest.fn(),
 };
 
 // Add custom matchers

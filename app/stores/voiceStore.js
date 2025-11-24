@@ -1,4 +1,7 @@
-import { ref } from 'vue';
+import { defineStore } from 'pinia';
+import { ref, shallowRef } from 'vue';
+import { useAudioStore } from './audioStore';
+import { useConnectionStore } from './connectionStore';
 import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
@@ -6,39 +9,14 @@ import {
   onAudioMixerReady,
 } from '../audio/voice';
 import { translate } from '../localize';
-import { debugLog } from './debug-utils';
+import { debugLog } from '../composables/debug-utils';
 
-/**
- * Initialize voice input capture
- * @param {Function} onData - Callback for voice data
- * @param {Function} onError - Callback for errors
- * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
- */
-function initVoiceInput(onData, onError, onMixerReady) {
-  initVoice(onData, onError);
-  
-  // Register for mixer ready notification if callback provided
-  if (onMixerReady) {
-    onAudioMixerReady(onMixerReady);
-  }
-}
+export const useVoiceStore = defineStore('voice', () => {
+  const audioStore = useAudioStore();
+  const connectionStore = useConnectionStore();
 
-/**
- * useVoiceState - Vue composable for voice handler and loopback testing
- * 
- * Responsibilities:
- * - Voice handler lifecycle (PTT/continuous)
- * - Loopback test mode management
- * - Voice handler ready state tracking
- * - Voice data routing (normal vs loopback target)
- * 
- * State management:
- * - ref() for reactive UI state and test mode flags
- * - Internal non-reactive voice handler instance
- */
-export function useVoiceState() {
-  // Voice handler instance (internal, not reactive)
-  let voiceHandler = null;
+  // Voice handler instance (reactive ref)
+  const voiceHandler = shallowRef(null);
   
   // Loopback mode - routes voice to server echo (target=31)
   const isLoopbackMode = ref(false);
@@ -48,6 +26,61 @@ export function useVoiceState() {
   
   // Loopback frequency analysis - tracks dominant frequency in returned audio
   const loopbackDominantFrequency = ref(0);
+
+  /**
+   * Initialize voice input capture
+   * @param {Function} onData - Callback for voice data
+   * @param {Function} onError - Callback for errors
+   * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
+   */
+  function initVoiceInput(onData, onError, onMixerReady) {
+    initVoice(onData, onError);
+    
+    // Register for mixer ready notification if callback provided
+    if (onMixerReady) {
+      onAudioMixerReady(onMixerReady);
+    }
+  }
+
+  /**
+   * Setup audio/voice for connection
+   * @param {boolean} audioEnabled - Whether audio is enabled
+   * @param {number} sampleRate - Current sample rate
+   */
+  async function setupVoiceForConnection(audioEnabled, sampleRate) {
+    if (audioEnabled) {
+      initVoiceInput(
+        (data) => {
+          if (connectionStore.getClient()) {
+            writeVoiceData(data);
+          } else {
+            endVoiceHandler();
+          }
+        },
+        (err) => {
+          console.log(translate('logentry.mic_init_error'), err);
+        },
+        () => {
+          audioStore.initializePersistentBeeper();
+        }
+      );
+    } else {
+      audioStore.activateAudioLock('sample-rate', { sampleRate });
+      endVoiceHandler();
+    }
+
+    try {
+      await audioStore.resumeAudioContext();
+      
+      try {
+        await audioStore.loadAudioWorkletModule('playback-buffer-processor.js');
+      } catch (err) {
+        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
+      }
+    } catch (error) {
+      console.warn('AudioContext resume failed, continuing anyway:', error);
+    }
+  }
 
   /**
    * Update/recreate voice handler based on settings
@@ -64,13 +97,13 @@ export function useVoiceState() {
     
     // Cleanup existing handler
     // Note: .end() is synchronous but we ensure null assignment before proceeding
-    if (voiceHandler) {
+    if (voiceHandler.value) {
       try {
-        voiceHandler.end();
+        voiceHandler.value.end();
       } catch (err) {
         console.error('[VOICE-HANDLER] Error during cleanup:', err);
       }
-      voiceHandler = null;
+      voiceHandler.value = null;
     }
     
     // Reset ready state during recreation
@@ -85,21 +118,24 @@ export function useVoiceState() {
     let target = isLoopbackMode.value ? 31 : 0;
     
     // Create appropriate handler based on voice activation mode
+    let newHandler;
     if (mode === 'cont') {
-      voiceHandler = new ContinuousVoiceHandler(client, settings, target);
+      newHandler = new ContinuousVoiceHandler(client, settings, target);
     } else if (mode === 'ptt') {
-      voiceHandler = new PushToTalkVoiceHandler(client, settings, target);
+      newHandler = new PushToTalkVoiceHandler(client, settings, target);
     } else {
       console.error(translate('logentry.unknown_voice_mode'), mode);
       return;
     }
     
+    voiceHandler.value = newHandler;
+    
     // Connect voice handler events
     if (onStartedTalking) {
-      voiceHandler.on('started_talking', onStartedTalking);
+      voiceHandler.value.on('started_talking', onStartedTalking);
     }
     if (onStoppedTalking) {
-      voiceHandler.on('stopped_talking', onStoppedTalking);
+      voiceHandler.value.on('stopped_talking', onStoppedTalking);
     }
     
     // Mark as ready
@@ -122,8 +158,8 @@ export function useVoiceState() {
    * @param {boolean} muted - Mute state
    */
   function setMute(muted) {
-    if (voiceHandler) {
-      voiceHandler.setMute(muted);
+    if (voiceHandler.value) {
+      voiceHandler.value.setMute(muted);
     }
   }
 
@@ -132,8 +168,8 @@ export function useVoiceState() {
    * @param {ArrayBuffer} data - Voice data to send
    */
   function writeVoiceData(data) {
-    if (voiceHandler) {
-      voiceHandler.write(data);
+    if (voiceHandler.value) {
+      voiceHandler.value.write(data);
     }
   }
 
@@ -142,16 +178,16 @@ export function useVoiceState() {
    * @returns {object|null}
    */
   function getVoiceHandler() {
-    return voiceHandler;
+    return voiceHandler.value;
   }
 
   /**
    * End voice handler
    */
   function endVoiceHandler() {
-    if (voiceHandler) {
-      voiceHandler.end();
-      voiceHandler = null;
+    if (voiceHandler.value) {
+      voiceHandler.value.end();
+      voiceHandler.value = null;
     }
     voiceHandlerReady.value = false;
   }
@@ -165,26 +201,22 @@ export function useVoiceState() {
     voiceHandlerReady.value = false;
   }
 
-  // Return composable API
   return {
-    // State (reactive)
+    // State
+    voiceHandler,
     isLoopbackMode,
     voiceHandlerReady,
     loopbackDominantFrequency,
     
     // Methods
     initVoiceInput,
+    setupVoiceForConnection,
     updateVoiceHandler,
     updateLoopbackFrequency,
     setMute,
     writeVoiceData,
     getVoiceHandler,
     endVoiceHandler,
-    reset,
-    
-    // Expose voiceHandler for backward compatibility
-    get voiceHandler() {
-      return voiceHandler;
-    }
+    reset
   };
-}
+});

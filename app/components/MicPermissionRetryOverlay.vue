@@ -12,21 +12,23 @@
 </template>
 
 <script setup>
-import { computed, inject } from 'vue';
+import { computed } from 'vue';
+import { useAudioStore } from '../stores/audioStore';
 
-const appState = inject('appState');
+const audioStore = useAudioStore();
 
-// Computed properties that directly track Vue refs
-const visible = computed(() => appState.micPermissionDenied?.value || false);
-const errorMessage = computed(() => appState.micPermissionErrorMessage?.value || '');
+// Computed properties that directly track audio store state
+// NOTE: Pinia setup stores expose plain values on the store instance,
+// so we intentionally DO NOT access `.value` here.
+const visible = computed(() => audioStore.micPermissionDenied || false);
+const errorMessage = computed(() => audioStore.micPermissionErrorMessage || '');
 
 // Methods
 const handleRetry = () => {
-  if (appState.retryMicrophonePermission) {
-    appState.retryMicrophonePermission();
+  if (audioStore.retryMicrophonePermission) {
+    audioStore.retryMicrophonePermission();
   }
 };
-</script>
 </script>
 
 <style scoped>

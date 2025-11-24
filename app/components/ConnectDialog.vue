@@ -81,7 +81,6 @@
               @mouseup="stopBeep"
               @mouseleave="stopBeep"
               :class="{ active: isBeeping }"
-              :disabled="!beeperReady || !voiceHandlerReady"
               :aria-pressed="isBeeping ? 'true' : 'false'"
               style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
             >
@@ -118,18 +117,33 @@
 
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { useAudioStore } from '../stores/audioStore';
+import { useVoiceStore } from '../stores/voiceStore';
+import { useUserStore } from '../stores/userStore';
+import { useUIStore } from '../stores/uiStore';
+import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
- * 
- * Uses AppState.connectDialog composable directly (Vue refs).
- * No more bidirectional sync with Knockout observables.
+/**
+ * Uses Pinia stores and composables directly.
+ * No more AppState compatibility layer.
  */
 
-// Inject AppState (from main app)
-const appState = inject('appState');
 const config = inject('config', { connectDialog: {} });
 const translate = inject('translate');
+const auth = inject('auth');
+const settings = inject('settings');
+
+// Pinia stores
+const audioStore = useAudioStore();
+const voiceStore = useVoiceStore();
+const userStore = useUserStore();
+
+// Composables
+const connectDialog = useConnectionDialog();
+const connectionLogic = useConnectionLogic({ auth, settings });
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = ref(null);
@@ -140,31 +154,30 @@ const microphoneContainer = ref(null);
 /** @type {import('vue').Ref<HTMLButtonElement | null>} */
 const pianoButton = ref(null);
 
-// Direct refs to AppState.connectDialog (no local copies, no sync needed)
-const dialog = computed(() => appState?.connectDialog);
+// Direct access to composable refs (already reactive)
 const visible = computed({
-  get: () => dialog.value?.visible.value ?? false,
-  set: (val) => { if (dialog.value) dialog.value.visible.value = val; }
+  get: () => connectDialog.visible.value,
+  set: (val) => { connectDialog.visible.value = val; }
 });
 const isTestActive = computed({
-  get: () => dialog.value?.isTestActive.value ?? false,
-  set: (val) => { if (dialog.value) dialog.value.isTestActive.value = val; }
+  get: () => connectDialog.isTestActive.value,
+  set: (val) => { connectDialog.isTestActive.value = val; }
 });
 const address = computed({
-  get: () => dialog.value?.address.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.address.value = val; }
+  get: () => connectDialog.address.value,
+  set: (val) => { connectDialog.address.value = val; }
 });
 const port = computed({
-  get: () => dialog.value?.port.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.port.value = val; }
+  get: () => connectDialog.port.value,
+  set: (val) => { connectDialog.port.value = val; }
 });
 const username = computed({
-  get: () => dialog.value?.username.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.username.value = val; }
+  get: () => connectDialog.username.value,
+  set: (val) => { connectDialog.username.value = val; }
 });
 const password = computed({
-  get: () => dialog.value?.password.value ?? '',
-  set: (val) => { if (dialog.value) dialog.value.password.value = val; }
+  get: () => connectDialog.password.value,
+  set: (val) => { connectDialog.password.value = val; }
 });
 
 // Watch visible and sync with native dialog open/close
@@ -179,15 +192,15 @@ watch(visible, async (val) => {
   }
 });
 
-// Computed state from AppState
-const connected = computed(() => appState?.connected() ?? false);
-const isBeeping = computed(() => appState?.isBeeping?.value ?? false);
+// Computed state from Pinia stores (values are auto-unwrapped by Pinia)
+const connected = computed(() => userStore.thisUser != null);
+const isBeeping = computed(() => audioStore.isBeeping ?? false);
 
-// Computed properties from Vue refs in AppState
-const beeperReady = computed(() => appState?.beeperReady?.value ?? false);
-const voiceHandlerReady = computed(() => appState?.voiceHandlerReady?.value ?? false);
-const isLoopbackMode = computed(() => appState?.isLoopbackMode?.value ?? false);
-const dominantFrequency = computed(() => appState?.loopbackDominantFrequency?.value ?? 0);
+// Computed properties from Pinia store state
+const beeperReady = computed(() => audioStore.beeperReady ?? false);
+const voiceHandlerReady = computed(() => voiceStore.voiceHandlerReady ?? false);
+const isLoopbackMode = computed(() => voiceStore.isLoopbackMode ?? false);
+const dominantFrequency = computed(() => voiceStore.loopbackDominantFrequency ?? 0);
 
 // Subscribe to Knockout observables
 onMounted(() => {
@@ -223,38 +236,43 @@ onUnmounted(() => {
 async function handleConnect() {
   console.log('[ConnectDialog Vue] handleConnect() called');
   
-  // Call AppState.connect() or handle exit test mode
-  if (appState?.connect) {
-    console.log('[ConnectDialog Vue] Calling appState.connect()');
+  // If in test mode and connected: exit test mode and switch to normal mode
+  if (isTestActive.value && connected.value) {
+    console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
+    isTestActive.value = false;
+    voiceStore.isLoopbackMode = false;
     
-    // If in test mode and connected: exit test mode and switch to normal mode
-    if (isTestActive.value && connected.value) {
-      console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
-      isTestActive.value = false;
-      appState.isLoopbackMode.value = false;
-      appState._updateVoiceHandler();
+    // Update voice handler to switch from loopback (target=31) to normal (target=0)
+    connectionLogic.updateVoiceHandler();
+    
+    // Setup and show Guacamole frame when exiting test mode
+    const uiStore = useUIStore();
+    if (uiStore.guacamoleFrame) {
+      // Get user roles to determine Guacamole access
+      const user_roles = (auth?.currentUser()?.app_metadata?.roles) || [];
+      const guac_login = connectionLogic.getGuacamoleLogin(user_roles);
       
-      // Show Guacamole desktop if credentials exist
-      if (appState._guacLogin && appState.guacamoleFrame?.start) {
-        appState.guacamoleFrame.start(appState._guacLogin, appState._guacPassword);
-        if (appState.guacamoleFrame.show) appState.guacamoleFrame.show();
+      if (guac_login) {
+        console.log('[ConnectDialog Vue] Starting and showing Guacamole frame');
+        uiStore.guacamoleFrame.start(guac_login, password.value);
+        uiStore.guacamoleFrame.show();
+      } else {
+        alert('For visual access please ask your administrator.');
       }
-      
-      // Close dialog when switching from test to normal mode
-      visible.value = false;
-      return;
     }
     
-    // Normal connection flow (not in test mode)
-    if (!isTestActive.value) {
-      // Hide dialog before connecting
-      visible.value = false;
-      
-      console.log('[ConnectDialog Vue] Connecting in normal mode');
-      await appState.connect(address.value, port.value, username.value, password.value);
-    }
-  } else {
-    console.error('[ConnectDialog Vue] appState.connect not available!');
+    // Close dialog when switching from test to normal mode
+    visible.value = false;
+    return;
+  }
+  
+  // Normal connection flow (not in test mode)
+  if (!isTestActive.value) {
+    // Hide dialog before connecting
+    visible.value = false;
+    
+    console.log('[ConnectDialog Vue] Connecting in normal mode');
+    await connectionLogic.connect(address.value, port.value, username.value, password.value);
   }
 }
 
@@ -271,12 +289,9 @@ async function handleToggleLoopback() {
     return;
   }
   
-  // Call AppState.connectLoopback()
-  if (appState?.connectLoopback) {
-    console.log('[ConnectDialog Vue] Activating test mode');
-    isTestActive.value = true;
-    await appState.connectLoopback(address.value, port.value, username.value, password.value);
-  }
+  console.log('[ConnectDialog Vue] Activating test mode');
+  isTestActive.value = true;
+  await connectionLogic.connectLoopback(address.value, port.value, username.value, password.value);
 }
 
 /**
@@ -294,11 +309,11 @@ async function handleExitTest() {
  */
 function startBeep() {
   console.log('[ConnectDialog Vue] startBeep() called');
-  if (appState?.startBeep) {
-    console.log('[ConnectDialog Vue] Calling appState.startBeep()');
-    appState.startBeep();
+  if (audioStore?.startBeep) {
+    console.log('[ConnectDialog Vue] Calling audioStore.startBeep()');
+    audioStore.startBeep();
   } else {
-    console.error('[ConnectDialog Vue] appState.startBeep not available');
+    console.error('[ConnectDialog Vue] audioStore.startBeep not available');
   }
 }
 
@@ -307,8 +322,8 @@ function startBeep() {
  */
 function stopBeep() {
   console.log('[ConnectDialog Vue] stopBeep() called');
-  if (appState?.stopBeep) {
-    appState.stopBeep();
+  if (audioStore?.stopBeep) {
+    audioStore.stopBeep();
   }
 }
 

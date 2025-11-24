@@ -15,11 +15,13 @@
 
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'node:events';
+import { createPinia, setActivePinia } from 'pinia';
+import { safeStoreToRefs } from '../../app/utils/safeStoreToRefs.js';
 
 describe('Server-State Synchronization - Critical Integration Test', () => {
   let User;
   let Client;
-  let useUserState;
+  let useUserStore;
   let audioStateMock;
   let voiceStateMock;
 
@@ -33,13 +35,17 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
   // Helper to setup user state with initial values
   function setupUserState(initialMute = false, initialDeaf = false) {
-    const { selfMute, selfDeaf, registerUser } = useUserState(audioStateMock, voiceStateMock);
+    const store = useUserStore();
+    const { selfMute, selfDeaf } = safeStoreToRefs(store);
+    const { registerUser } = store;
+    
     selfMute.value = initialMute;
     selfDeaf.value = initialDeaf;
     return { selfMute, selfDeaf, registerUser };
   }
 
   beforeEach(async () => {
+    setActivePinia(createPinia());
     // Mock dependencies - inline mocks for ES modules
     jest.unstable_mockModule('../../app/audio/buffer-queue-node.js', () => ({
       default: class BufferQueueNodeMock {
@@ -70,13 +76,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       debugLog: jest.fn()
     }));
 
-    // Import after mocks
-    User = (await import('../../app/mumble-client/user.js')).default;
-    Client = (await import('../../app/mumble-client/client.js')).default;
-    const userStateModule = await import('../../app/composables/useUserState.js');
-    useUserState = userStateModule.useUserState;
-
-    // Mock audio/voice state
+    // Mock audio/voice stores
     audioStateMock = {
       getAudioContext: () => ({
         createGain: () => ({ gain: { value: 1 }, connect: jest.fn() }),
@@ -87,14 +87,28 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
     voiceStateMock = {
       updateLoopbackFrequency: jest.fn(),
-      isLoopbackMode: { value: false }
+      isLoopbackMode: false // Store state is unwrapped
     };
+
+    jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
+      useAudioStore: () => audioStateMock
+    }));
+
+    jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
+      useVoiceStore: () => voiceStateMock
+    }));
+
+    // Import after mocks
+    User = (await import('../../app/mumble-client/user.js')).default;
+    Client = (await import('../../app/mumble-client/client.js')).default;
+    const userStoreModule = await import('../../app/stores/userStore.js');
+    useUserStore = userStoreModule.useUserStore;
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     // Clean up any registered event listeners
-    // useUserState creates fresh instances per test via setupUserState()
+    // useUserStore creates fresh instances per test via setupUserState()
   });
 
   describe('GUARANTEE: UI always matches server state', () => {
