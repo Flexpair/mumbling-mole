@@ -203,7 +203,8 @@ export const useUserStore = defineStore('user', () => {
   const handleVoiceStream = async (user, ui, stream) => {
     debugLog('[VOICE]', 'Voice stream received for user:', user.username, 'session:', user.session);
     
-    const streamId = `${user.session || 'unknown'}_${Date.now()}_${Math.random()}`;
+    const randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
+    const streamId = `${user.session || 'unknown'}_${Date.now()}_${randomValue}`;
     
     _cleanupVoiceStream(user.session);
     
