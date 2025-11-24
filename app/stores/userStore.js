@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, watch, markRaw } from 'vue';
+import { ref, watch, markRaw, shallowRef } from 'vue';
 import { useAudioStore } from './audioStore';
 import { useVoiceStore } from './voiceStore';
 import { useConnectionStore } from './connectionStore';
@@ -30,10 +30,13 @@ export const useUserStore = defineStore('user', () => {
   // CLEANUP-TRACKING: Voice stream resource manager
   const _streamManager = createVoiceStreamManager();
 
-  // Settings injection
-  const settings = ref(null);
+  // Settings injection - use shallowRef to track reference without double-wrapping reactive object
+  const settings = shallowRef(null);
   let jitterBufferWatchStop = null;
   let jitterBufferModeWatchStop = null;
+  
+  // Cleanup tracking for thisUser watcher
+  let userWatchCleanup = null;
   
   // Helper: Recalculate jitter buffer based on current mode and stats
   const recalculateJitterBuffer = () => {
@@ -77,16 +80,18 @@ export const useUserStore = defineStore('user', () => {
   };
   
   // Auto-adjust jitter buffer based on latency
-  watch(thisUser, (newUser, oldUser, onCleanup) => {
+  watch(thisUser, (newUser) => {
+    // Clean up previous watcher resources
+    if (userWatchCleanup) {
+      userWatchCleanup();
+      userWatchCleanup = null;
+    }
+    
     if (newUser?.model?._client) {
       const client = newUser.model._client;
       
       // Set up interval to check stats
       const interval = setInterval(recalculateJitterBuffer, 1000);
-      
-      onCleanup(() => {
-        clearInterval(interval);
-      });
       
       debugLog('[VOICE]', 'Jitter buffer auto-adjust enabled for user', newUser.name);
       
@@ -95,10 +100,12 @@ export const useUserStore = defineStore('user', () => {
       
       // Initialize buffer immediately
       recalculateJitterBuffer();
-
-      onCleanup(() => {
+      
+      // Store cleanup function
+      userWatchCleanup = () => {
+        clearInterval(interval);
         client.off('dataPing', recalculateJitterBuffer);
-      });
+      };
     } else {
         debugLog('[VOICE]', 'Jitter buffer auto-adjust disabled (no client)');
     }
