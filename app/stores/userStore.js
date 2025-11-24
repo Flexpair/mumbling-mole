@@ -394,6 +394,12 @@ export const useUserStore = defineStore('user', () => {
     selfDeaf.value = false;
   }
 
+  // Set up cross-store reactive subscription: selfMute → voice.setMute
+  // Previously handled by AppState._setupSubscriptions()
+  watch(selfMute, (mute) => {
+    voiceStore.setMute(mute);
+  });
+
   return {
     // State
     thisUser,

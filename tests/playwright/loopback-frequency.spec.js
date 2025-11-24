@@ -206,17 +206,15 @@ test.describe('Loopback Frequency Test', () => {
             console.log('[TEST-CHECK] Test mode not active');
           }
 
-          const beeperReady = ui.beeperReady?.value === true;
-          if (!beeperReady) {
-            console.log('[TEST-CHECK] Beeper not ready');
-          }
-
-          const voiceReady = ui.voiceHandlerReady?.value === true;
+          const voiceReady = ui.voiceHandlerReady === true;
           if (!voiceReady) {
             console.log('[TEST-CHECK] Voice handler not ready');
           }
 
-          const allReady = audioContextReady && testModeReady && beeperReady && voiceReady;
+          // REMOVED: beeperReady check - beeper initializes asynchronously via onAudioMixerReady callback
+          // after voice handler is ready. Piano button handles beeper not ready state gracefully.
+
+          const allReady = audioContextReady && testModeReady && voiceReady;
           if (allReady) {
             console.log('[TEST-CHECK] ✅ All components ready!');
           }
@@ -251,7 +249,7 @@ test.describe('Loopback Frequency Test', () => {
 
       while (Date.now() - startWait < TEST_CONFIG.BEEPER_MAX_WAIT) {
         const freq = await page.evaluate(() => {
-          return window.mumbleUi?.loopbackDominantFrequency?.value || 0;
+          return window.mumbleUi?.loopbackDominantFrequency || 0;
         });
 
         if (freq > 0) {
@@ -270,20 +268,20 @@ test.describe('Loopback Frequency Test', () => {
       const frequencies = [];
 
       const analysisState = await page.evaluate(() => {
-        const thisUser = window.mumbleUi.thisUser?.value;
+        const thisUser = window.mumbleUi.thisUser;
         return {
           hasThisUser: !!thisUser,
-          selfMute: window.mumbleUi.selfMute?.value,
-          selfDeaf: window.mumbleUi.selfDeaf?.value,
-          isLoopbackMode: window.mumbleUi.isLoopbackMode?.value,
-          loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency?.value
+          selfMute: window.mumbleUi.selfMute,
+          selfDeaf: window.mumbleUi.selfDeaf,
+          isLoopbackMode: window.mumbleUi.isLoopbackMode,
+          loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency
         };
       });
       console.log('   Analysis state before averaging:', JSON.stringify(analysisState, null, 2));
 
       for (let i = 0; i < TEST_CONFIG.FREQUENCY_READINGS; i++) {
         const freq = await page.evaluate(() => {
-          return window.mumbleUi?.loopbackDominantFrequency?.value || 0;
+          return window.mumbleUi?.loopbackDominantFrequency || 0;
         });
         frequencies.push(freq);
         console.log(`   Reading ${i + 1}/${TEST_CONFIG.FREQUENCY_READINGS}: ${freq} Hz`);
@@ -344,7 +342,7 @@ test.describe('Loopback Frequency Test', () => {
       let preMuteFreq = 0;
       while (Date.now() - startWaitPreMute < TEST_CONFIG.BEEPER_MAX_WAIT) {
         preMuteFreq = await page.evaluate(() => {
-          return window.mumbleUi?.loopbackDominantFrequency?.value || 0;
+          return window.mumbleUi?.loopbackDominantFrequency || 0;
         });
         console.log('   Pre-mute frequency reading:', preMuteFreq);
         if (preMuteFreq > 0) {
@@ -358,7 +356,7 @@ test.describe('Loopback Frequency Test', () => {
       console.log('   Programmatically muting via mumbleUi.requestMute while dialog remains open...');
       await page.evaluate(() => {
         const ui = window.mumbleUi;
-        const thisUser = ui?.thisUser?.value;
+        const thisUser = ui?.thisUser;
         if (ui?.requestMute && thisUser) {
           ui.requestMute(thisUser);
         }
@@ -366,16 +364,16 @@ test.describe('Loopback Frequency Test', () => {
 
       // Wait until selfMute flips to true so the audio gate can take effect
       await page.waitForFunction(() => {
-        return window.mumbleUi.selfMute?.value === true;
+        return window.mumbleUi.selfMute === true;
       }, { timeout: 2000 });
 
       await page.waitForTimeout(500);
 
       const muteAnalysisState = await page.evaluate(() => {
         return {
-          selfMute: window.mumbleUi.selfMute?.value,
-          selfDeaf: window.mumbleUi.selfDeaf?.value,
-          loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency?.value || 0,
+          selfMute: window.mumbleUi.selfMute,
+          selfDeaf: window.mumbleUi.selfDeaf,
+          loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency || 0,
           displayText: document.querySelector('.loopback-frequency-display')?.textContent || ''
         };
       });
