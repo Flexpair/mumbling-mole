@@ -54,7 +54,7 @@
     "stream-chunker": "1.2.8",
     "through2": "^4.0.2",
     "to-arraybuffer": "1.0.1",
-    "vue": "^3.5.24",
+    "vue": "^3.5.25",
     "websocket-stream": "^5.5.2",
     "ws": "^8.18.3"
   },
