@@ -33,7 +33,37 @@
     <!-- Preload LCP image to reduce render delay -->
     <link rel="preload" as="image" href="AdobeStock_74031703-HCZ3WC3P.png" />
 
-    <!-- HtmlWebpackPlugin: static stylesheet reference (MiniCssExtractPlugin emits theme.css) -->
+    <!-- Critical CSS: inline styles for initial paint (above-the-fold) -->
+    <style>
+      html, body {
+        background-color: #eee;
+        color: #000;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        overflow: hidden;
+        height: 100%;
+      }
+      #app { height: 100%; }
+      #container { height: 100%; position: relative; }
+      .guacamole-placeholder {
+        display: block;
+        float: left;
+        margin: 0;
+        width: 100%;
+        height: calc(100% - 36px);
+        background-image: url("AdobeStock_74031703-HCZ3WC3P.png");
+        background-repeat: no-repeat;
+        background-position: bottom;
+        background-size: cover;
+      }
+      .toolbar-horizontal {
+        display: flex;
+        flex-flow: row nowrap;
+        width: 100%;
+      }
+    </style>
+
+    <!-- Non-critical CSS: loaded after initial paint -->
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="index.css" />
 
