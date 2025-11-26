@@ -175,6 +175,7 @@ const buildConfig = {
     '.txt': 'text',
     '.proto': 'text', // Load .proto files as text for fs-mock
     '.png': 'file',
+    '.webp': 'file',
     '.jpg': 'file',
     '.jpeg': 'file',
     '.gif': 'file',
@@ -228,6 +229,9 @@ try {
   // Theme assets - copy SVG and images
   copyDir('themes/MetroMumbleLight/svg', 'svg');
   copyDir('themes/MetroMumbleLight/img', 'img');
+  
+  // Copy LCP image to root for preload/critical CSS (without content hash)
+  copyFile('themes/MetroMumbleLight/img/AdobeStock_74031703.webp', 'AdobeStock_74031703.webp');
   
   // AudioWorklet processors (MUST NOT be bundled!)
   // These run in AudioWorklet context and cannot use imports
