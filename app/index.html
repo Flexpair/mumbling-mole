@@ -37,11 +37,13 @@
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="index.css" />
 
-    <!-- Script order preserved manually (inject:false) -->
+    <!-- Critical config scripts (must execute synchronously before app) -->
     <script src="config.js"></script>
     <script src="config.local.js"></script>
-  <script src="theme.js"></script>
-  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+
+    <!-- Non-critical scripts: defer to avoid render-blocking -->
+    <script defer src="theme.js"></script>
+    <script async src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>  <body>
     <!-- Vue.js root component (replaces all Knockout UI) -->
     <div id="app"></div>
