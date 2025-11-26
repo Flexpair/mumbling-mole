@@ -76,20 +76,6 @@ export const useConnectionStore = defineStore('connection', () => {
   }
   
   /**
-   * Reset connection state
-   */
-  function reset() {
-    disconnect();
-  }
-
-  /**
-   * Reset client (alias for reset for backward compatibility)
-   */
-  function resetClient() {
-    reset();
-  }
-  
-  /**
    * Register channel with UI state
    * @param {object} channel - Channel object from mumble-client
    */
@@ -119,8 +105,6 @@ export const useConnectionStore = defineStore('connection', () => {
     getClient,
     connect,
     disconnect,
-    reset,
-    resetClient,
     registerChannel,
   };
 });

@@ -112,9 +112,7 @@ export const useUserStore = defineStore('user', () => {
   });
 
   function setSettings(s) {
-    console.log('[userStore.setSettings] Called with:', s);
     settings.value = s;
-    console.log('[userStore.setSettings] settings.value is now:', settings.value);
     
     // Clean up existing watchers
     if (jitterBufferWatchStop) {
@@ -181,7 +179,7 @@ export const useUserStore = defineStore('user', () => {
    * @param {object} actor - Actor who triggered update
    * @param {object} properties - Updated properties
    */
-  const handleUserUpdate = (user, ui, actor, properties) => {
+  const handleUserUpdate = (user, ui, properties) => {
     if ('channel' in properties) {
       const newChannel = user.channel?.__ui;
       ui.channel.value = newChannel;
@@ -337,12 +335,12 @@ export const useUserStore = defineStore('user', () => {
       talking: ref('off'),
     }));
     
-    user.on('update', (actor, properties) => handleUserUpdate(user, ui, actor, properties));
+    user.on('update', (actor, properties) => handleUserUpdate(user, ui, properties));
 
     user.on('voice', (stream) => handleVoiceStream(user, ui, stream));
   }
   
-  function requestMute(user, onAudioLocked) {
+  function requestMute(user) {
     if (user === undefined || user === thisUser.value) {
       selfMute.value = true;
       if (thisUser.value) {
@@ -366,7 +364,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function requestUnmute(user, onAudioLocked) {
+  function requestUnmute(user) {
     if (audioStore.audioLockActive) {
       audioStore.notifyAudioLock();
       return;
@@ -382,7 +380,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function requestUndeaf(user, onAudioLocked) {
+  function requestUndeaf(user) {
     if (audioStore.audioLockActive) {
       audioStore.notifyAudioLock();
       return;
