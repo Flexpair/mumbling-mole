@@ -117,6 +117,7 @@
 
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
@@ -192,15 +193,12 @@ watch(visible, async (val) => {
   }
 });
 
-// Computed state from Pinia stores (values are auto-unwrapped by Pinia)
-const connected = computed(() => userStore.thisUser != null);
-const isBeeping = computed(() => audioStore.isBeeping ?? false);
+// Reactive refs from Pinia stores (storeToRefs preserves reactivity)
+const { isBeeping, beeperReady } = storeToRefs(audioStore);
+const { voiceHandlerReady, isLoopbackMode, loopbackDominantFrequency: dominantFrequency } = storeToRefs(voiceStore);
 
-// Computed properties from Pinia store state
-const beeperReady = computed(() => audioStore.beeperReady ?? false);
-const voiceHandlerReady = computed(() => voiceStore.voiceHandlerReady ?? false);
-const isLoopbackMode = computed(() => voiceStore.isLoopbackMode ?? false);
-const dominantFrequency = computed(() => voiceStore.loopbackDominantFrequency ?? 0);
+// Computed for derived state (requires logic)
+const connected = computed(() => userStore.thisUser != null);
 
 // Subscribe to Knockout observables
 onMounted(() => {
