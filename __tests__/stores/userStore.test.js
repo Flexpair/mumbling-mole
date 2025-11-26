@@ -102,7 +102,7 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer', () => ({
   createFrequencyAnalyzer: () => ({})
 }));
 
-jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
+jest.unstable_mockModule('../../app/utils/debug-utils', () => ({
   debugLog: (...args) => console.log(...args)
 }));
 

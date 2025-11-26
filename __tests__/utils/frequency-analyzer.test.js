@@ -8,7 +8,7 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 
 // Mock debug-utils
-jest.unstable_mockModule('../../app/composables/debug-utils.js', () => ({
+jest.unstable_mockModule('../../app/utils/debug-utils.js', () => ({
   debugLog: jest.fn()
 }));
 

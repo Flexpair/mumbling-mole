@@ -9,7 +9,7 @@ import {
   onAudioMixerReady,
 } from '../audio/voice';
 import { translate } from '../localize';
-import { debugLog } from '../composables/debug-utils';
+import { debugLog } from '../utils/debug-utils';
 
 export const useVoiceStore = defineStore('voice', () => {
   const audioStore = useAudioStore();

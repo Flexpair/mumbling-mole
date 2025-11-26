@@ -135,7 +135,7 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer', () => ({
 }));
 
 // Mock debug-utils before importing useUserStore
-jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
+jest.unstable_mockModule('../../app/utils/debug-utils', () => ({
   debugLog: jest.fn()
 }));
 

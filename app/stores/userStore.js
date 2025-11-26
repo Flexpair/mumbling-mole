@@ -4,7 +4,7 @@ import { useAudioStore } from './audioStore';
 import { useVoiceStore } from './voiceStore';
 import { useConnectionStore } from './connectionStore';
 import BufferQueueNode from '../audio/buffer-queue-node';
-import { debugLog } from '../composables/debug-utils';
+import { debugLog } from '../utils/debug-utils';
 import { createVoiceStreamManager } from '../utils/voice-stream-manager';
 import { createFrequencyAnalyzer } from '../utils/frequency-analyzer';
 

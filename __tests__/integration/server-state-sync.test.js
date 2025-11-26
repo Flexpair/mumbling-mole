@@ -72,7 +72,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       })
     }));
 
-    jest.unstable_mockModule('../../app/composables/debug-utils.js', () => ({
+    jest.unstable_mockModule('../../app/utils/debug-utils.js', () => ({
       debugLog: jest.fn()
     }));
 
