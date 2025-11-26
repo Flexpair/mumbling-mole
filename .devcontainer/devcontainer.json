@@ -5,7 +5,7 @@
   "workspaceFolder": "/home/node",
   "remoteUser": "node",
   "overrideCommand": true,
-  "postCreateCommand": "bash -lc 'cd /home/node && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true'",
+  "postCreateCommand": "bash -lc 'cd /home/node && echo \"🔧 Fixing murmur data permissions...\" && chmod 777 .devcontainer/murmur_data && docker restart murmur 2>/dev/null || true && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true'",
   // postStartCommand removed - start dev server manually to avoid system overload and allow inspection
   // To start manually: ./start-dev-server.sh
   "postStartCommand": "",

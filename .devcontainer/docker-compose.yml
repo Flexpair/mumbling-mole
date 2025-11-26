@@ -78,6 +78,7 @@ services:
 
   murmur:
     image: mumblevoip/mumble-server:v1.4.230-5
+    restart: unless-stopped
     networks:
       guacamole_net:
         ipv4_address: 172.18.0.5
