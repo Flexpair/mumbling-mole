@@ -214,6 +214,7 @@ import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useUserStore } from '../stores/userStore';
 import { useConnectionInfoStore } from '../stores/connectionInfoStore';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const t = inject('translate');
 
@@ -234,8 +235,8 @@ const copyButtonTitle = computed(() =>
 
 const copyCommitHash = () => copyToClipboard(commitHash);
 
-// Injected dependencies and stores
-const settings = inject('settings');
+// Pinia stores
+const settingsStore = useSettingsStore();
 const uiStore = useUIStore();
 const connectionStore = useConnectionStore();
 const userStore = useUserStore();
@@ -253,53 +254,32 @@ const serverVersion = ref(null);
 const latencyMs = ref(Number.NaN);
 const latencyDeviation = ref(Number.NaN);
 
-// Settings: use storeToRefs pattern for two-way binding with settings refs
-const voiceMode = computed({
-  get: () => settings.voiceMode.value,
-  set: (val) => { settings.voiceMode.value = val; }
-});
-
-const pttKeyDisplay = computed({
-  get: () => settings.pttKeyDisplay.value,
-  set: (val) => { settings.pttKeyDisplay.value = val; }
-});
-
-const audioBitrate = computed({
-  get: () => settings.audioBitrate.value,
-  set: (val) => { settings.audioBitrate.value = val; }
-});
-
-const samplesPerPacket = computed({
-  get: () => settings.samplesPerPacket.value,
-  set: (val) => { settings.samplesPerPacket.value = val; }
-});
-
-const jitterBufferSize = computed({
-  get: () => settings.jitterBufferSize.value,
-  set: (val) => { settings.jitterBufferSize.value = val; }
-});
-
-const jitterBufferMode = computed({
-  get: () => settings.jitterBufferMode.value,
-  set: (val) => { settings.jitterBufferMode.value = val; }
-});
+// Settings: use storeToRefs for direct two-way binding
+const { 
+  voiceMode, 
+  pttKeyDisplay, 
+  audioBitrate, 
+  samplesPerPacket, 
+  jitterBufferSize, 
+  jitterBufferMode,
+  totalBandwidth,
+  overheadBandwidth
+} = storeToRefs(settingsStore);
 
 const MS_PER_PACKET = 20;
 const MIN_AUDIO_BITRATE = 8000;
 const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
-const overheadBandwidth = computed(() => settings.overheadBandwidth.value);
-
 const grossBandwidth = computed({
-  get: () => settings.totalBandwidth.value,
+  get: () => totalBandwidth.value,
   set: (val) => {
     // Clamp to max allowed
     if (val > maxAllowedBandwidth.value) val = maxAllowedBandwidth.value;
     
-    const overhead = settings.overheadBandwidth.value;
+    const overhead = overheadBandwidth.value;
     let newNet = val - overhead;
     if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
-    settings.audioBitrate.value = newNet;
+    audioBitrate.value = newNet;
   }
 });
 
@@ -447,7 +427,7 @@ const netBadgeStyle = computed(() => {
 const minGrossBandwidth = computed(() => {
   // Opus minimum useful bitrate is ~8 kbps
   // We allow the slider to go exactly down to this limit + overhead
-  return MIN_AUDIO_BITRATE + settings.overheadBandwidth.value;
+  return MIN_AUDIO_BITRATE + overheadBandwidth.value;
 });
 
 const maxAllowedBandwidth = computed(() => {
@@ -488,7 +468,7 @@ function updateStats() {
     latencyDeviation.value = Number.NaN;
   }
   
-  const spp = settings.samplesPerPacket.value;
+  const spp = samplesPerPacket.value;
   if (client && spp) {
     const maxBandwidthValue = client.maxBandwidth;
     const maxBitrateValue = maxBandwidthValue === null || maxBandwidthValue === undefined 
@@ -521,7 +501,7 @@ watch(visible, (val) => {
 });
 
 const recordPttKey = () => {
-  settings.recordPttKey(keyboardjs);
+  settingsStore.recordPttKey(keyboardjs);
 };
 
 const handleHide = () => {

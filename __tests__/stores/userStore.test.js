@@ -120,12 +120,22 @@ const mockVoiceState = {
   updateVoiceHandler: jest.fn()
 };
 
+// Mock SettingsStore - the state that userStore reads from
+const mockSettingsStore = {
+  jitterBufferSize: 3,
+  jitterBufferMode: 'balanced'
+};
+
 jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
   useAudioStore: () => mockAudioState
 }));
 
 jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
   useVoiceStore: () => mockVoiceState
+}));
+
+jest.unstable_mockModule('../../app/stores/settingsStore.js', () => ({
+  useSettingsStore: () => mockSettingsStore
 }));
 
 // Import the store under test
@@ -157,7 +167,6 @@ describe('useUserStore Jitter Buffer Calculation', () => {
   let mockClient;
   let mockUser;
   let mockUIUser;
-  let mockSettings;
 
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -169,10 +178,9 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     mockVoiceState.setMute.mockClear();
     mockVoiceState.updateVoiceHandler.mockClear();
 
-    mockSettings = {
-      jitterBufferSize: ref(3),
-      jitterBufferMode: ref('balanced')
-    };
+    // Reset settings store mock
+    mockSettingsStore.jitterBufferSize = 3;
+    mockSettingsStore.jitterBufferMode = 'balanced';
 
     mockClient = new MockClient();
     mockUser = new MockUser(mockClient);
@@ -188,7 +196,6 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     };
 
     userStore = useUserStore();
-    userStore.setSettings(mockSettings);
   });
 
 
@@ -217,6 +224,6 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     // TargetMs = 200 + 4 * 5 = 220ms
     // TargetPackets = ceil(220 / 20) = 11
     
-    expect(mockSettings.jitterBufferSize.value).toBe(11);
+    expect(mockSettingsStore.jitterBufferSize).toBe(11);
   });
 });

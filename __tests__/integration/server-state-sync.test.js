@@ -98,6 +98,13 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       useVoiceStore: () => voiceStateMock
     }));
 
+    jest.unstable_mockModule('../../app/stores/settingsStore.js', () => ({
+      useSettingsStore: () => ({
+        jitterBufferSize: 3,
+        jitterBufferMode: 'balanced'
+      })
+    }));
+
     // Import after mocks
     User = (await import('../../app/mumble-client/user.js')).default;
     Client = (await import('../../app/mumble-client/client.js')).default;

@@ -92,14 +92,12 @@ import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
-const settings = inject('settings');
-
 // Pinia stores
 const connectErrorDialogStore = useConnectErrorDialogStore();
 const connectionDialogStore = useConnectionDialogStore();
 
 // Composables (for connection logic only)
-const connectionLogic = useConnectionLogic({ auth, settings });
+const connectionLogic = useConnectionLogic({ auth });
 
 // Use storeToRefs for reactive destructuring (eliminates computed wrappers)
 const { visible, type, reason } = storeToRefs(connectErrorDialogStore);

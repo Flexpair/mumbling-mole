@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia';
-import { ref, watch, onWatcherCleanup, markRaw, shallowRef } from 'vue';
+import { ref, watch, onWatcherCleanup, markRaw } from 'vue';
 import { useAudioStore } from './audioStore';
 import { useVoiceStore } from './voiceStore';
 import { useConnectionStore } from './connectionStore';
+import { useSettingsStore } from './settingsStore';
 import BufferQueueNode from '../audio/buffer-queue-node';
 import { debugLog } from '../utils/debug-utils';
 import { createVoiceStreamManager } from '../utils/voice-stream-manager';
@@ -19,6 +20,7 @@ export const useUserStore = defineStore('user', () => {
   const audioStore = useAudioStore();
   const voiceStore = useVoiceStore();
   const connectionStore = useConnectionStore();
+  const settingsStore = useSettingsStore();
   
   // Current user
   const thisUser = ref(null);
@@ -29,20 +31,11 @@ export const useUserStore = defineStore('user', () => {
   
   // CLEANUP-TRACKING: Voice stream resource manager
   const _streamManager = createVoiceStreamManager();
-
-  // Settings injection - use shallowRef to track reference without double-wrapping reactive object
-  const settings = shallowRef(null);
-  let jitterBufferWatchStop = null;
-  let jitterBufferModeWatchStop = null;
   
   // Helper: Recalculate jitter buffer based on current mode and stats
   const recalculateJitterBuffer = () => {
-    if (!settings.value?.jitterBufferSize) {
-        return;
-    }
-
     // Determine parameters based on mode
-    const mode = settings.value.jitterBufferMode ? settings.value.jitterBufferMode.value : 'balanced';
+    const mode = settingsStore.jitterBufferMode || 'balanced';
     const config = JITTER_BUFFER_MODES[mode] || JITTER_BUFFER_MODES['balanced'];
     const { factor, minPackets } = config;
 
@@ -58,9 +51,9 @@ export const useUserStore = defineStore('user', () => {
             const targetMs = latency + (factor * deviation);
             const targetPackets = Math.max(minPackets, Math.ceil(targetMs / 20));
             
-            if (settings.value.jitterBufferSize.value !== targetPackets) {
+            if (settingsStore.jitterBufferSize !== targetPackets) {
                debugLog('[VOICE]', `Auto-adjusting jitter buffer (${mode}): ${latency.toFixed(1)}ms + ${factor}*${deviation.toFixed(1)}ms = ${targetMs.toFixed(1)}ms -> ${targetPackets} packets`);
-               settings.value.jitterBufferSize.value = targetPackets;
+               settingsStore.jitterBufferSize = targetPackets;
             }
             return;
         } else {
@@ -70,9 +63,9 @@ export const useUserStore = defineStore('user', () => {
         debugLog('[VOICE]', `Skipping jitter buffer calc: No dataStats on client`);
     }
     
-    if (settings.value.jitterBufferSize.value !== minPackets) {
+    if (settingsStore.jitterBufferSize !== minPackets) {
         debugLog('[VOICE]', `Setting default jitter buffer for ${mode}: ${minPackets} packets`);
-        settings.value.jitterBufferSize.value = minPackets;
+        settingsStore.jitterBufferSize = minPackets;
     }
   };
   
@@ -104,46 +97,26 @@ export const useUserStore = defineStore('user', () => {
     });
   });
 
-  function setSettings(s) {
-    settings.value = s;
-    
-    // Clean up existing watchers
-    if (jitterBufferWatchStop) {
-      jitterBufferWatchStop();
-      jitterBufferWatchStop = null;
+  // Watch jitter buffer size changes to update AudioWorklets
+  watch(
+    () => settingsStore.jitterBufferSize,
+    (newSize) => {
+      debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
+      _streamManager.forEach((resources) => {
+        if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
+          resources.userNode.setJitterBufferSize(newSize);
+        }
+      });
     }
-    if (jitterBufferModeWatchStop) {
-      jitterBufferModeWatchStop();
-      jitterBufferModeWatchStop = null;
-    }
+  );
 
-    if (settings.value) {
-      // Watch buffer size changes to update AudioWorklets
-      if (settings.value.jitterBufferSize) {
-        jitterBufferWatchStop = watch(
-          () => settings.value.jitterBufferSize.value,
-          (newSize) => {
-            debugLog('[VOICE]', 'Updating jitter buffer size to:', newSize);
-            _streamManager.forEach((resources) => {
-              if (resources.userNode && typeof resources.userNode.setJitterBufferSize === 'function') {
-                resources.userNode.setJitterBufferSize(newSize);
-              }
-            });
-          }
-        );
-      }
-
-      // Watch mode changes to trigger recalculation immediately
-      if (settings.value.jitterBufferMode) {
-        jitterBufferModeWatchStop = watch(
-          () => settings.value.jitterBufferMode.value,
-          () => {
-            recalculateJitterBuffer();
-          }
-        );
-      }
+  // Watch mode changes to trigger recalculation immediately
+  watch(
+    () => settingsStore.jitterBufferMode,
+    () => {
+      recalculateJitterBuffer();
     }
-  }
+  );
 
   /**
    * Clean up voice stream resources (intervals, watchers, audio nodes)
@@ -208,8 +181,8 @@ export const useUserStore = defineStore('user', () => {
       await userNode.initialize();
       debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
       
-      if (settings.value?.jitterBufferSize) {
-         userNode.setJitterBufferSize(settings.value.jitterBufferSize.value);
+      if (settingsStore.jitterBufferSize) {
+         userNode.setJitterBufferSize(settingsStore.jitterBufferSize);
       }
     } catch (err) {
       console.error('[VOICE] ❌ Failed to initialize BufferQueueNode:', err);
@@ -411,8 +384,6 @@ export const useUserStore = defineStore('user', () => {
     requestDeaf,
     requestUnmute,
     requestUndeaf,
-    reset,
-    setSettings,
-    settings
+    reset
   };
 });

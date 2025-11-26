@@ -48,12 +48,11 @@ import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
-const settings = inject('settings');
 
 // Pinia stores and composables
 const uiStore = useUIStore();
 const sampleRateWarningDialogStore = useSampleRateWarningDialogStore();
-const connectionLogic = useConnectionLogic({ auth, settings });
+const connectionLogic = useConnectionLogic({ auth });
 
 // Use storeToRefs for reactive destructuring (eliminates computed wrappers)
 const { visible, mode, sampleRate } = storeToRefs(sampleRateWarningDialogStore);

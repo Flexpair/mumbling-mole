@@ -8,6 +8,7 @@ import { useAudioStore } from "./stores/audioStore";
 import { useVoiceStore } from "./stores/voiceStore";
 import { useUIStore } from "./stores/uiStore";
 import { useConnectionDialogStore } from "./stores/connectionDialogStore";
+import { useSettingsStore } from "./stores/settingsStore";
 
 import {
   enumMicrophones,
@@ -47,23 +48,23 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-import { useSettings, vTooltip } from "./composables/index.js";
+import { vTooltip } from "./composables/index.js";
 
 // Initialize Pinia with debug plugin (only active when ?debug-audio is in URL)
 const pinia = createPinia();
 pinia.use(createPiniaDebugPlugin());
 setActivePinia(pinia);
 
-// Initialize stores and composables
+// Initialize stores
 const userStore = useUserStore();
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const uiStore = useUIStore();
 const connectionDialogStore = useConnectionDialogStore();
-const settings = useSettings(globalThis.mumbleWebConfig.settings);
+const settingsStore = useSettingsStore();
 
-// Inject settings into userStore
-userStore.setSettings(settings);
+// Initialize settings with config defaults
+settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 
 // Initialize auth
 let authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
@@ -93,7 +94,7 @@ const unwrapRef = (val) => {
 
 globalThis.mumbleUi = { 
   auth, 
-  settings, 
+  settings: settingsStore, 
   user: userStore,
   audio: audioStore,
   voice: voiceStore,
@@ -233,7 +234,8 @@ async function main() {
     vueApp.provide('config', globalThis.mumbleWebConfig);
     vueApp.provide('translate', translate);
     vueApp.provide('auth', auth);
-    vueApp.provide('settings', settings);
+    // Note: settings is now a Pinia store (useSettingsStore), no need to provide
+    // Components can import it directly via: import { useSettingsStore } from '../stores/settingsStore'
     
     const mountedApp = vueApp.mount('#app');
     

@@ -17,6 +17,8 @@ const mockBufferQueueNode = jest.fn().mockImplementation(function(config) {
     connect: jest.fn(),
     disconnect: jest.fn(),
     dispose: jest.fn(),
+    setJitterBufferSize: jest.fn(),
+    write: jest.fn(),
     config,
     node: {
       connect: jest.fn(),
@@ -106,12 +108,21 @@ const mockVoiceState = {
   isLoopbackMode: false // Store state is unwrapped
 };
 
+const mockSettingsStore = {
+  jitterBufferSize: 3,
+  jitterBufferMode: 'balanced'
+};
+
 jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
   useAudioStore: () => mockAudioState
 }));
 
 jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
   useVoiceStore: () => mockVoiceState
+}));
+
+jest.unstable_mockModule('../../app/stores/settingsStore.js', () => ({
+  useSettingsStore: () => mockSettingsStore
 }));
 
 // Import after mocks
@@ -199,7 +210,7 @@ describe('Multi-Stream Voice Handling', () => {
         return new Promise(resolve => {
           user.emit('voice', streams[i]);
           // Wait for async initialize to complete
-          setTimeout(resolve, 10);
+          setTimeout(resolve, 50);
         });
       })
     );

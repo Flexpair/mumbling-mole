@@ -3,6 +3,7 @@ import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUserStore } from '../stores/userStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { useConnectErrorDialogStore } from '../stores/connectErrorDialogStore';
 import { useSampleRateWarningDialogStore } from '../stores/sampleRateWarningDialogStore';
 import { translate } from '../localize';
@@ -25,15 +26,15 @@ function getGuacamoleLogin(roles = []) {
  * 
  * @param {Object} options - Injected dependencies
  * @param {Object} options.auth - Auth provider instance
- * @param {Object} options.settings - Settings composable
  * @returns {Object} Connection logic methods
  */
-export function useConnectionLogic({ auth, settings } = {}) {
+export function useConnectionLogic({ auth } = {}) {
   const connectionStore = useConnectionStore();
   const audioStore = useAudioStore();
   const voiceStore = useVoiceStore();
   const uiStore = useUIStore();
   const userStore = useUserStore();
+  const settingsStore = useSettingsStore();
   
   const sampleRateWarningDialogStore = useSampleRateWarningDialogStore();
   const connectErrorDialogStore = useConnectErrorDialogStore();
@@ -263,14 +264,12 @@ export function useConnectionLogic({ auth, settings } = {}) {
     _setupClientHandlers(client);
     
     // CRITICAL: Set audio quality BEFORE creating voice handler
-    if (settings) {
-        const samplesPerPacket = settings.samplesPerPacket?.value || 960;
-        const audioBitrate = settings.audioBitrate?.value || 40000;
-        
-        console.log('[DEBUG] setAudioQuality called with:', { audioBitrate, samplesPerPacket });
-        
-        client.setAudioQuality(audioBitrate, samplesPerPacket);
-    }
+    const samplesPerPacket = settingsStore.samplesPerPacket || 960;
+    const audioBitrate = settingsStore.audioBitrate || 40000;
+    
+    console.log('[DEBUG] setAudioQuality called with:', { audioBitrate, samplesPerPacket });
+    
+    client.setAudioQuality(audioBitrate, samplesPerPacket);
 
     // Initialize voice handler
     updateVoiceHandler();
@@ -320,14 +319,8 @@ export function useConnectionLogic({ auth, settings } = {}) {
    * Update voice handler
    */
   function updateVoiceHandler() {
-    if (!settings) {
-      console.error('[updateVoiceHandler] settings not available');
-      return;
-    }
-
     voiceStore.updateVoiceHandler(
       connectionStore.getClient(),
-      settings,
       () => {
         if (userStore.thisUser) {
           userStore.thisUser.talking.value = 'on';
@@ -350,10 +343,10 @@ export function useConnectionLogic({ auth, settings } = {}) {
     }
 
     const client = connectionStore.getClient();
-    if (client && settings) {
+    if (client) {
       client.setAudioQuality(
-        settings.audioBitrate.value,
-        settings.samplesPerPacket.value
+        settingsStore.audioBitrate,
+        settingsStore.samplesPerPacket
       );
     }
   }

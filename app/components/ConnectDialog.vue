@@ -135,7 +135,6 @@ import { useConnectionLogic } from '../composables/useConnectionLogic';
 const config = inject('config', { connectDialog: {} });
 const translate = inject('translate');
 const auth = inject('auth');
-const settings = inject('settings');
 
 // Pinia stores
 const audioStore = useAudioStore();
@@ -144,7 +143,7 @@ const userStore = useUserStore();
 const connectionDialogStore = useConnectionDialogStore();
 
 // Composables (for connection logic only)
-const connectionLogic = useConnectionLogic({ auth, settings });
+const connectionLogic = useConnectionLogic({ auth });
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
 const dialogElement = useTemplateRef('dialogElement');

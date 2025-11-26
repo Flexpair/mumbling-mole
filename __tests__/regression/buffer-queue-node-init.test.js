@@ -34,6 +34,7 @@ const MockBufferQueueNode = jest.fn(function(options) {
     
     connect: jest.fn(),
     write: jest.fn(),
+    setJitterBufferSize: jest.fn(),
     
     on: jest.fn((event, callback) => {
       if (!instance._listeners[event]) {
@@ -117,12 +118,22 @@ const mockVoiceState = {
   loopbackDominantFrequency: 0
 };
 
+// Mock SettingsStore
+const mockSettingsStore = {
+  jitterBufferSize: 3,
+  jitterBufferMode: 'balanced'
+};
+
 jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
   useAudioStore: () => mockAudioState
 }));
 
 jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
   useVoiceStore: () => mockVoiceState
+}));
+
+jest.unstable_mockModule('../../app/stores/settingsStore.js', () => ({
+  useSettingsStore: () => mockSettingsStore
 }));
 
 // Import useUserStore
