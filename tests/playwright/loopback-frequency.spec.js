@@ -119,7 +119,7 @@ test.describe('Loopback Frequency Test', () => {
       console.log('✅ Test toggle clicked');
 
       const isTestActive = await page.evaluate(() => {
-        return window.mumbleUi?.connectDialog?.isTestActive?.value || false;
+        return window.mumbleUi?.connectDialog?.isTestActive || false;
       });
       expect(isTestActive).toBe(true);
       console.log('✅ Test mode activated');
@@ -201,7 +201,7 @@ test.describe('Loopback Frequency Test', () => {
             console.log('[TEST-CHECK] AudioContext not running:', ui.audio?.audioContext?.state);
           }
 
-          const testModeReady = ui.connectDialog?.isTestActive?.value === true;
+          const testModeReady = ui.connectDialog?.isTestActive === true;
           if (!testModeReady) {
             console.log('[TEST-CHECK] Test mode not active');
           }
@@ -395,8 +395,8 @@ test.describe('Loopback Frequency Test', () => {
 
       await page.evaluate(() => {
         const ui = window.mumbleUi;
-        if (ui?.connectDialog?.visible) {
-          ui.connectDialog.visible.value = true;
+        if (ui?.connectDialog) {
+          ui.connectDialog.visible = true;
         }
       });
 

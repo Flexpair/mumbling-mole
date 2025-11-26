@@ -205,13 +205,15 @@
 
 <script setup>
 import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef } from 'vue';
+import { storeToRefs } from 'pinia';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
-import { useClipboard, useConnectionInfo } from '../composables';
+import { useClipboard } from '../composables';
 import keyboardjs from 'keyboardjs';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useUserStore } from '../stores/userStore';
+import { useConnectionInfoStore } from '../stores/connectionInfoStore';
 
 const t = inject('translate');
 
@@ -237,7 +239,7 @@ const settings = inject('settings');
 const uiStore = useUIStore();
 const connectionStore = useConnectionStore();
 const userStore = useUserStore();
-const connectionInfo = useConnectionInfo();
+const connectionInfoStore = useConnectionInfoStore();
 
 const visible = computed({
   get: () => uiStore.currentOpenModal === 'connectionInfo' || uiStore.currentOpenModal === 'settings',
@@ -251,7 +253,7 @@ const serverVersion = ref(null);
 const latencyMs = ref(Number.NaN);
 const latencyDeviation = ref(Number.NaN);
 
-// Settings (direct access to injected settings refs)
+// Settings: use storeToRefs pattern for two-way binding with settings refs
 const voiceMode = computed({
   get: () => settings.voiceMode.value,
   set: (val) => { settings.voiceMode.value = val; }
@@ -495,10 +497,10 @@ function updateStats() {
     const actualBitrate = client.getActualBitrate(spp, false);
     const actualBandwidth = MumbleClient.calcEnforcableBandwidth(actualBitrate, spp, false);
     
-    connectionInfo.maxBitrate.value = maxBitrateValue;
-    connectionInfo.currentBitrate.value = actualBitrate;
-    connectionInfo.maxBandwidth.value = maxBandwidthValue;
-    connectionInfo.currentBandwidth.value = actualBandwidth;
+    connectionInfoStore.maxBitrate = maxBitrateValue;
+    connectionInfoStore.currentBitrate = actualBitrate;
+    connectionInfoStore.maxBandwidth = maxBandwidthValue;
+    connectionInfoStore.currentBandwidth = actualBandwidth;
   }
 }
 

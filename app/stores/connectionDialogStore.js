@@ -1,10 +1,11 @@
+import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 /**
- * Connection Dialog State Composable (SINGLETON)
+ * Connection Dialog Store
  * 
  * Manages the state of the connection dialog (address, port, credentials, visibility).
- * Replaces the Knockout adapter object pattern from index.js.
+ * Replaces the singleton composable useConnectionDialog.js
  * 
  * Properties:
  * - address: Server address
@@ -13,17 +14,8 @@ import { ref } from 'vue';
  * - password: Server password
  * - visible: Dialog visibility state
  * - isTestActive: Whether audio test (loopback) mode is active
- * 
- * IMPORTANT: This is a SINGLETON pattern - all calls return the same instance.
- * This ensures AppState and ConnectDialog.vue share the same state.
  */
-
-// Singleton instance (created once, reused everywhere)
-let instance = null;
-
-export function useConnectionDialog() {
-  if (instance) return instance;
-  
+export const useConnectionDialogStore = defineStore('connectionDialog', () => {
   // Connection parameters
   const address = ref('');
   const port = ref('');
@@ -34,25 +26,25 @@ export function useConnectionDialog() {
   const visible = ref(false);
   const isTestActive = ref(false);
   
-  // Helper methods
-  const show = () => {
+  // Actions
+  function show() {
     visible.value = true;
-  };
+  }
   
-  const hide = () => {
+  function hide() {
     visible.value = false;
-  };
+  }
   
-  const reset = () => {
+  function reset() {
     address.value = '';
     port.value = '';
     username.value = '';
     password.value = '';
     visible.value = false;
     isTestActive.value = false;
-  };
+  }
   
-  instance = {
+  return {
     // State
     address,
     port,
@@ -61,11 +53,9 @@ export function useConnectionDialog() {
     visible,
     isTestActive,
     
-    // Methods
+    // Actions
     show,
     hide,
     reset,
   };
-  
-  return instance;
-}
+});

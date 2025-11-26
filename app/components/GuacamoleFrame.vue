@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, useTemplateRef } from 'vue';
+import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup } from 'vue';
 
 /**
  * GuacamoleFrame Component
@@ -80,7 +80,10 @@ function focusIframe() {
 watch(visible, (isVisible) => {
   if (isVisible) {
     // Delay focus slightly to ensure iframe is rendered
-    setTimeout(() => focusIframe(), 100);
+    const timeoutId = setTimeout(() => focusIframe(), 100);
+    
+    // Cleanup timeout if watch re-runs before timeout fires (Vue 3.5+)
+    onWatcherCleanup(() => clearTimeout(timeoutId));
   }
 });
 

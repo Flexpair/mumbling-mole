@@ -7,7 +7,7 @@ import { useUserStore } from "./stores/userStore";
 import { useAudioStore } from "./stores/audioStore";
 import { useVoiceStore } from "./stores/voiceStore";
 import { useUIStore } from "./stores/uiStore";
-import { useConnectionDialog } from "./composables/useConnectionDialog";
+import { useConnectionDialogStore } from "./stores/connectionDialogStore";
 
 import {
   enumMicrophones,
@@ -59,7 +59,7 @@ const userStore = useUserStore();
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const uiStore = useUIStore();
-const connectDialog = useConnectionDialog();
+const connectionDialogStore = useConnectionDialogStore();
 const settings = useSettings(globalThis.mumbleWebConfig.settings);
 
 // Inject settings into userStore
@@ -98,7 +98,7 @@ globalThis.mumbleUi = {
   audio: audioStore,
   voice: voiceStore,
   ui: uiStore,
-  connectDialog, 
+  connectDialog: connectionDialogStore, 
   connected,
   // Legacy mutation helpers used by automation and remaining AppState clients
   requestMute: (...args) => userStore.requestMute(...args),
@@ -126,13 +126,13 @@ function applyQueryParamsToConnectDialog() {
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   
   if (queryParams.address) {
-    connectDialog.address.value = queryParams.address;
+    connectionDialogStore.address = queryParams.address;
   }
   if (queryParams.port) {
-    connectDialog.port.value = queryParams.port;
+    connectionDialogStore.port = queryParams.port;
   }
   if (queryParams.password) {
-    connectDialog.password.value = queryParams.password;
+    connectionDialogStore.password = queryParams.password;
   }
 }
 
@@ -142,20 +142,20 @@ function applyQueryParamsToConnectDialog() {
 function handleAuthLogin(user) {
   const username = getUsernameFromMetadata(user);
   if (username) {
-    connectDialog.username.value = username;
+    connectionDialogStore.username = username;
   }
   auth.close();
   // Show connect dialog after successful authentication
-  connectDialog.visible.value = true;
+  connectionDialogStore.visible = true;
 }
 
 /**
  * Handle auth modal close event
  */
 function handleAuthClose() {
-  if (connectDialog.username.value) {
+  if (connectionDialogStore.username) {
     // Show connect dialog when auth modal is closed and user is authenticated
-    connectDialog.visible.value = true;
+    connectionDialogStore.visible = true;
   } else {
     auth.open("login"); // open the modal to the login tab
   }
@@ -167,7 +167,7 @@ function handleAuthClose() {
 function handleAuthError(err) {
   console.warn("[Auth] Authentication error:", err);
   // Show connect dialog even if auth fails to allow retry
-  connectDialog.visible.value = true;
+  connectionDialogStore.visible = true;
 }
 
 /**
@@ -189,15 +189,15 @@ async function initializeAuth() {
 
   if (user == null) {
     // Hide connect dialog when showing authentication modal
-    connectDialog.visible.value = false;
+    connectionDialogStore.visible = false;
     auth.open("signup"); // open the modal to the signup tab
   } else {
     const username = getUsernameFromMetadata(user);
     if (username) {
-      connectDialog.username.value = username;
+      connectionDialogStore.username = username;
     }
     // User is already authenticated, show connect dialog
-    connectDialog.visible.value = true;
+    connectionDialogStore.visible = true;
   }
 }
 

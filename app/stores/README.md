@@ -1,17 +1,18 @@
 # Architecture Diagrams
-
 ## Pinia Migration Status
 
 - **Zielbild**: Die bisherigen Zustandsmodule (Connection/Audio/Voice/UI/User) werden vollständig von **Pinia-Stores** unter `app/stores/` getragen.
 - **Aktueller Stand**:
-  - Alle fünf Kernmodule sind als Pinia‑Stores implementiert (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`).
+  - Alle **acht** Kernmodule sind als Pinia-Stores implementiert:
+    - Core: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`
+    - Dialog: `connectionDialogStore`, `connectErrorDialogStore`, `connectionInfoStore`
   - `AppState` in `app/stores/AppState.js` bleibt als zentraler **Koordinator** und **Kompatibilitätslayer** bestehen und exponiert `window.mumbleUi` für ältere Tests und Übergangscode.
-  - Die Diagramme in diesem Dokument beschreiben weiterhin die logischen Module; technisch werden sie inzwischen von Pinia‑Stores umgesetzt.
+  - Vue-Komponenten verwenden `storeToRefs()` für reaktive Store-Destrukturierung.
+  - Vue 3.5+ Features im Einsatz: `onWatcherCleanup()`, `useTemplateRef()`.
+  - Die Diagramme in diesem Dokument beschreiben weiterhin die logischen Module; technisch werden sie inzwischen von Pinia-Stores umgesetzt.
 - **Noch ausstehend**:
-  - Schrittweise Migration aller verbleibenden Aufrufer von `window.mumbleUi` bzw. `AppState` auf direkte Pinia‑Nutzung (z.B. via `useConnectionStore()`, `useUserStore()` usw.).
-  - Sobald keine Legacy‑Abhängigkeiten mehr existieren, Vereinfachung oder Entfernung des `AppState`‑Kompatibilitätslayers und Aktualisierung der Diagramme auf Store‑Terminologie (z.B. „ConnectionStore“ statt „ConnectionState“).
-
-## Module Dependency Graph
+  - Schrittweise Migration aller verbleibenden Aufrufer von `window.mumbleUi` bzw. `AppState` auf direkte Pinia-Nutzung (z.B. via `useConnectionStore()`, `useUserStore()` usw.).
+  - Sobald keine Legacy-Abhängigkeiten mehr existieren, Vereinfachung oder Entfernung des `AppState`-Kompatibilitätslayers und Aktualisierung der Diagramme auf Store-Terminologie (z.B. "ConnectionStore" statt "ConnectionState").
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

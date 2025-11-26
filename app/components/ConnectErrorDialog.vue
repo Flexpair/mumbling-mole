@@ -84,46 +84,28 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject } from 'vue';
-import { useConnectErrorDialog } from '../composables/useConnectErrorDialog';
-import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { Teleport, Transition, inject } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useConnectErrorDialogStore } from '../stores/connectErrorDialogStore';
+import { useConnectionDialogStore } from '../stores/connectionDialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
 const settings = inject('settings');
 
-// Composables
-const connectErrorDialog = useConnectErrorDialog();
-const connectDialog = useConnectionDialog();
+// Pinia stores
+const connectErrorDialogStore = useConnectErrorDialogStore();
+const connectionDialogStore = useConnectionDialogStore();
+
+// Composables (for connection logic only)
 const connectionLogic = useConnectionLogic({ auth, settings });
 
-// Direct access to composable refs
-const visible = computed({
-  get: () => connectErrorDialog.visible.value,
-  set: (val) => { connectErrorDialog.visible.value = val; }
-});
+// Use storeToRefs for reactive destructuring (eliminates computed wrappers)
+const { visible, type, reason } = storeToRefs(connectErrorDialogStore);
 
-const type = computed({
-  get: () => connectErrorDialog.type.value,
-  set: (val) => { connectErrorDialog.type.value = val; }
-});
-
-const reason = computed({
-  get: () => connectErrorDialog.reason.value,
-  set: (val) => { connectErrorDialog.reason.value = val; }
-});
-
-// Username and password are shared with connectDialog
-const username = computed({
-  get: () => connectDialog.username.value,
-  set: (val) => { connectDialog.username.value = val; }
-});
-
-const password = computed({
-  get: () => connectDialog.password.value,
-  set: (val) => { connectDialog.password.value = val; }
-});
+// Username and password from connection dialog store
+const { username, password, address, port } = storeToRefs(connectionDialogStore);
 
 // Methods
 const hide = () => {
@@ -133,8 +115,8 @@ const hide = () => {
 const handleConnect = () => {
   hide();
   connectionLogic.connect(
-    connectDialog.address.value,
-    connectDialog.port.value,
+    address.value,
+    port.value,
     username.value,
     password.value
   );

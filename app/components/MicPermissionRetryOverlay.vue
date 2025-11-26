@@ -12,16 +12,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 
 const audioStore = useAudioStore();
 
-// Computed properties that directly track audio store state
-// NOTE: Pinia setup stores expose plain values on the store instance,
-// so we intentionally DO NOT access `.value` here.
-const visible = computed(() => audioStore.micPermissionDenied || false);
-const errorMessage = computed(() => audioStore.micPermissionErrorMessage || '');
+// Use storeToRefs for reactive destructuring of store state
+const { micPermissionDenied: visible, micPermissionErrorMessage: errorMessage } = storeToRefs(audioStore);
 
 // Methods
 const handleRetry = () => {

@@ -3,14 +3,15 @@
  * 
  * Central export point for all Vue composables.
  * These replace Knockout state modules with Vue reactive primitives.
+ * 
+ * NOTE: Many composables have been migrated to Pinia stores in app/stores/:
+ * - useConnectionDialog → useConnectionDialogStore
+ * - useConnectErrorDialog → useConnectErrorDialogStore
+ * - useConnectionInfo → useConnectionInfoStore
  */
 
-// State composables (core application state)
-// Note: Core state is now managed directly via Pinia stores in app/stores/
-export { useConnectionDialog } from './useConnectionDialog.js';
-export { useConnectErrorDialog } from './useConnectErrorDialog.js';
+// State composables (remaining non-store state)
 export { useSampleRateWarningDialog } from './useSampleRateWarningDialog.js';
-export { useConnectionInfo } from './useConnectionInfo.js';
 export { useSettings } from './useSettings.js';
 
 // Utility composables (reusable UI helpers)

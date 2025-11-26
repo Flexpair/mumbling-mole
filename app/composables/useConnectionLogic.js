@@ -3,7 +3,8 @@ import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUserStore } from '../stores/userStore';
-import { useSampleRateWarningDialog, useConnectErrorDialog } from './index';
+import { useConnectErrorDialogStore } from '../stores/connectErrorDialogStore';
+import { useSampleRateWarningDialog } from './index';
 import { translate } from '../localize';
 
 /**
@@ -35,7 +36,7 @@ export function useConnectionLogic({ auth, settings } = {}) {
   const userStore = useUserStore();
   
   const sampleRateWarningDialog = useSampleRateWarningDialog();
-  const connectErrorDialog = useConnectErrorDialog();
+  const connectErrorDialogStore = useConnectErrorDialogStore();
   
   // External dependencies
   const config = globalThis.mumbleWebConfig || {};
@@ -201,8 +202,8 @@ export function useConnectionLogic({ auth, settings } = {}) {
       await _establishClientConnection(host, port, username, password, tokens);
     } catch (err) {
       console.error('Connection failed:', err);
-      if (connectErrorDialog) {
-         connectErrorDialog.show(err, connectionParams);
+      if (connectErrorDialogStore) {
+         connectErrorDialogStore.show(err, connectionParams);
       } else {
          alert('Connection failed: ' + err.message);
       }

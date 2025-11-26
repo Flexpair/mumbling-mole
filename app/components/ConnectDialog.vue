@@ -122,14 +122,14 @@ import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
 import { useUIStore } from '../stores/uiStore';
-import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { useConnectionDialogStore } from '../stores/connectionDialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
 /**
- * Uses Pinia stores and composables directly.
- * No more AppState compatibility layer.
+ * Uses Pinia stores directly.
+ * No more AppState compatibility layer or singleton composables.
  */
 
 const config = inject('config', { connectDialog: {} });
@@ -141,9 +141,9 @@ const settings = inject('settings');
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const userStore = useUserStore();
+const connectionDialogStore = useConnectionDialogStore();
 
-// Composables
-const connectDialog = useConnectionDialog();
+// Composables (for connection logic only)
 const connectionLogic = useConnectionLogic({ auth, settings });
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
@@ -155,31 +155,8 @@ const microphoneContainer = useTemplateRef('microphoneContainer');
 /** @type {import('vue').Ref<HTMLButtonElement | null>} */
 const pianoButton = useTemplateRef('pianoButton');
 
-// Direct access to composable refs (already reactive)
-const visible = computed({
-  get: () => connectDialog.visible.value,
-  set: (val) => { connectDialog.visible.value = val; }
-});
-const isTestActive = computed({
-  get: () => connectDialog.isTestActive.value,
-  set: (val) => { connectDialog.isTestActive.value = val; }
-});
-const address = computed({
-  get: () => connectDialog.address.value,
-  set: (val) => { connectDialog.address.value = val; }
-});
-const port = computed({
-  get: () => connectDialog.port.value,
-  set: (val) => { connectDialog.port.value = val; }
-});
-const username = computed({
-  get: () => connectDialog.username.value,
-  set: (val) => { connectDialog.username.value = val; }
-});
-const password = computed({
-  get: () => connectDialog.password.value,
-  set: (val) => { connectDialog.password.value = val; }
-});
+// Use storeToRefs for connection dialog state (eliminates computed wrappers)
+const { visible, isTestActive, address, port, username, password } = storeToRefs(connectionDialogStore);
 
 // Watch visible and sync with native dialog open/close
 watch(visible, async (val) => {

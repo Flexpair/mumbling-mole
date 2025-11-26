@@ -1,15 +1,14 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+
 /**
- * useConnectionInfo - Vue Composable for Connection Info Dialog
+ * Connection Info Store
  * 
  * Manages state for the connection statistics modal that shows
  * server version, latency, bandwidth, bitrate, and codec info.
- * 
- * Replaced Knockout ConnectionInfo class (index.js) in Phase 5 Step 4.
+ * Replaces the singleton composable useConnectionInfo.js
  */
-
-import { ref } from 'vue';
-
-export function useConnectionInfo() {
+export const useConnectionInfoStore = defineStore('connectionInfo', () => {
   const visible = ref(false);
   const serverVersion = ref(null);
   const latencyMs = ref(Number.NaN);
@@ -22,15 +21,16 @@ export function useConnectionInfo() {
   const currentBandwidth = ref(Number.NaN);
   const codec = ref('Unknown');
 
-  const show = () => {
+  // Actions
+  function show() {
     visible.value = true;
-  };
+  }
 
-  const hide = () => {
+  function hide() {
     visible.value = false;
-  };
+  }
 
-  const reset = () => {
+  function reset() {
     visible.value = false;
     serverVersion.value = null;
     latencyMs.value = Number.NaN;
@@ -42,7 +42,7 @@ export function useConnectionInfo() {
     maxBandwidth.value = Number.NaN;
     currentBandwidth.value = Number.NaN;
     codec.value = 'Unknown';
-  };
+  }
 
   return {
     visible,
@@ -60,4 +60,4 @@ export function useConnectionInfo() {
     hide,
     reset
   };
-}
+});
