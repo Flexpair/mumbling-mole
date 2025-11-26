@@ -40,6 +40,7 @@ npm run validate:markdown              # README structure validation
 ```
 
 ## 🏗️ Architecture Overview
+
 Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket tunneling. **NOT WebRTC** - uses websockify to bridge WebSocket (browser) ↔ TCP (Mumble protocol). Audio capture via AudioWorklet (48 kHz, 960-sample frames), encoding in Web Workers (Opus via libopus.js WASM).
 
 **Key architectural constraint**: 48 kHz sample rate, 960-sample frames (20ms @ 48kHz) throughout entire pipeline for **SENDING ONLY**. Receiver can handle variable frame sizes (480-2880 samples). Settings UI disables packet size slider (commit e073892) because changing sender frame size requires coordinated updates across AudioWorklet processor, worker resampler, Opus codec configuration.
@@ -48,12 +49,11 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 - **Capture (send)**: Strict real-time, MUST be 960 samples. AudioWorklet (`recorder-worker.js`) runs in high-priority audio thread, accumulates 128-sample blocks → posts 960-sample frames. No buffering possible, <3ms execution budget. Web Worker (`encode-worker.js`) handles Opus encoding (libopus.js WASM, 1-5ms, non-blocking).
 - **Playback (receive)**: Jitter-tolerant via unbounded queue. Decoder handles variable frame sizes (Opus flexible). `buffer-queue-node.js` queues decoded packets, `playback-buffer-processor.js` (AudioWorklet) dequeues at constant rate, fills silence if empty. ⚠️ **Known issues**: Queue has no size limit (memory leak #201), no configurable jitter buffer (#202), no Opus PLC for packet loss (#203).
 
-**🚧 Pinia Migration** (Branch: `feature/pinia-migration-test-fixes`, Nov 2025)
-- **COMPLETED**: All 5 core modules migrated to Pinia stores (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`)
-- **State pattern**: Vue components use `const store = useXStore()` directly (Composition API setup syntax)
-- **AppState**: Compatibility layer composing Pinia stores, exposes `window.mumbleUi` for legacy tests
-- **Migration TODO**: Gradually migrate `window.mumbleUi` consumers to direct Pinia usage; remove compatibility layer when complete
-- **Build**: `esbuild-plugin-vue3` compiles SFCs; Pinia initialized before AppState in `app/index.js`
+**State Management (Pinia - COMPLETED Nov 2025):**
+- All 5 core modules are Pinia stores (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`)
+- Vue components use `const store = useXStore()` directly (Composition API setup syntax)
+- `AppState` is compatibility layer exposing `window.mumbleUi` for legacy tests - gradually migrate consumers to direct Pinia usage
+- Build: `esbuild-plugin-vue3` compiles SFCs; Pinia initialized before AppState in `app/index.js`
 
 **Docker Environment**: Dev happens INSIDE `mumble` container. Murmur runs in SEPARATE container at `murmur:64738`. Cannot restart murmur from dev container - restart entire Codespace if connection fails.
 
