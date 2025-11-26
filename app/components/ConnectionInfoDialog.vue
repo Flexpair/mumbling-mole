@@ -550,21 +550,28 @@ onMounted(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 700px;
-  height: 500px;
+  width: 100%;
+  max-width: min(700px, calc(100vw - 40px));
+  height: auto;
+  max-height: calc(100vh - 40px);
+  min-height: 300px;
   background: #1e1e1e;
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   display: flex;
+  flex-direction: row;
   overflow: hidden;
   z-index: 1000;
   color: #fff;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
 }
 
 /* Sidebar */
 .dialog-sidebar {
   width: 220px;
+  min-width: 180px;
+  flex-shrink: 0;
   background: #252526;
   display: flex;
   flex-direction: column;
@@ -968,5 +975,160 @@ onMounted(() => {
   background: #666;
   display: block;
   z-index: 25;
+}
+
+/* Mobile responsive layout */
+@media only screen and (max-width: 768px) {
+  .dialog-container {
+    flex-direction: column;
+    max-height: calc(100vh - 20px);
+    max-width: calc(100vw - 20px);
+  }
+  
+  .dialog-sidebar {
+    width: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid #333;
+  }
+  
+  .sidebar-header {
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+  
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0;
+    gap: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .nav-item {
+    flex-shrink: 0;
+    padding: 10px 16px;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  
+  .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: #00ffff;
+  }
+  
+  .sidebar-footer {
+    display: none;
+  }
+  
+  .dialog-main {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  
+  .content-panel {
+    padding: 20px 16px;
+  }
+  
+  .panel-title {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .stat-card {
+    padding: 16px;
+  }
+  
+  .stat-value-large {
+    font-size: 28px;
+  }
+  
+  /* Hide complex slider badges on mobile for cleaner UI */
+  .floating-badge {
+    display: none;
+  }
+}
+
+/* Small mobile adjustments */
+@media only screen and (max-width: 480px) {
+  .dialog-container {
+    border-radius: 8px;
+  }
+  
+  .sidebar-header {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .content-panel {
+    padding: 16px 12px;
+  }
+  
+  .panel-title {
+    font-size: 18px;
+  }
+  
+  .setting-group {
+    margin-bottom: 20px;
+  }
+}
+
+/* Landscape mobile - reduce vertical spacing */
+@media only screen and (max-height: 500px) and (orientation: landscape) {
+  .dialog-container {
+    flex-direction: row;
+    max-height: calc(100vh - 20px);
+  }
+  
+  .dialog-sidebar {
+    width: 160px;
+    min-width: 140px;
+    border-right: 1px solid #333;
+    border-bottom: none;
+  }
+  
+  .sidebar-header {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  
+  .sidebar-nav {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+  
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    border-bottom: none;
+  }
+  
+  .nav-item.active {
+    border-left-color: #00ffff;
+    border-bottom-color: transparent;
+  }
+  
+  .sidebar-footer {
+    display: block;
+    padding: 10px;
+  }
+  
+  .content-panel {
+    padding: 16px;
+  }
+  
+  .panel-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
 }
 </style>
