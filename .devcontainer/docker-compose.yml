@@ -77,7 +77,7 @@ services:
     command: /bin/bash -c "nginx -g 'daemon off;'"
 
   murmur:
-    image: mumblevoip/mumble-server:v1.4.230-5
+    image: mumblevoip/mumble-server:v1.5.857-0
     restart: unless-stopped
     networks:
       guacamole_net:
