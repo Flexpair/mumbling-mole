@@ -116,13 +116,13 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef } from 'vue';
+import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef, toRefs } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
 import { useUIStore } from '../stores/uiStore';
-import { useConnectionDialogStore } from '../stores/connectionDialogStore';
+import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 /**
@@ -140,7 +140,7 @@ const auth = inject('auth');
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const userStore = useUserStore();
-const connectionDialogStore = useConnectionDialogStore();
+const dialogStore = useDialogStore();
 
 // Composables (for connection logic only)
 const connectionLogic = useConnectionLogic({ auth });
@@ -154,8 +154,8 @@ const microphoneContainer = useTemplateRef('microphoneContainer');
 /** @type {import('vue').Ref<HTMLButtonElement | null>} */
 const pianoButton = useTemplateRef('pianoButton');
 
-// Use storeToRefs for connection dialog state (eliminates computed wrappers)
-const { visible, isTestActive, address, port, username, password } = storeToRefs(connectionDialogStore);
+// Use toRefs to get reactive refs from nested dialog store object
+const { visible, isTestActive, address, port, username, password } = toRefs(dialogStore.connectDialog);
 
 // Watch visible and sync with native dialog open/close
 watch(visible, async (val) => {

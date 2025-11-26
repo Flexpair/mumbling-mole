@@ -1,18 +1,21 @@
 /**
  * Pinia Dialog Stores - Unit Tests
  * 
- * Tests für die neuen Dialog-Stores, die aus Composables migriert wurden.
- * Diese Tests hätten die Referenzfehler früher aufgedeckt.
+ * Tests für den konsolidierten Dialog-Store sowie die Backward-Compatibility-Aliases.
+ * Ursprünglich 4 separate Stores, jetzt 1 konsolidierter Store.
  */
 
 import { describe, test, expect, beforeEach } from '@jest/globals';
 import { setActivePinia, createPinia } from 'pinia';
 
-// Import stores
-import { useConnectionDialogStore } from '../../app/stores/connectionDialogStore.js';
-import { useConnectErrorDialogStore } from '../../app/stores/connectErrorDialogStore.js';
-import { useConnectionInfoStore } from '../../app/stores/connectionInfoStore.js';
-import { useSampleRateWarningDialogStore } from '../../app/stores/sampleRateWarningDialogStore.js';
+// Import consolidated store and backward-compatible aliases
+import { 
+  useDialogStore,
+  useConnectionDialogStore, 
+  useConnectErrorDialogStore, 
+  useConnectionInfoStore, 
+  useSampleRateWarningDialogStore 
+} from '../../app/stores/dialogStore.js';
 
 describe('Dialog Stores', () => {
   beforeEach(() => {
@@ -208,6 +211,62 @@ describe('Dialog Stores', () => {
       expect(store.visible).toBe(true);
       
       // NOT: store.visible.value = true (that would fail)
+    });
+  });
+
+  describe('useDialogStore (consolidated)', () => {
+    test('contains all dialog namespaces', () => {
+      const store = useDialogStore();
+      
+      expect(store.connectDialog).toBeDefined();
+      expect(store.errorDialog).toBeDefined();
+      expect(store.infoDialog).toBeDefined();
+      expect(store.sampleRateDialog).toBeDefined();
+    });
+
+    test('connectDialog namespace works correctly', () => {
+      const store = useDialogStore();
+      
+      // Pinia auto-unwraps refs in nested objects, so no .value needed
+      store.connectDialog.username = 'TestUser';
+      store.connectDialog.visible = true;
+      
+      expect(store.connectDialog.username).toBe('TestUser');
+      expect(store.connectDialog.visible).toBe(true);
+    });
+
+    test('resetAll() clears all dialogs', () => {
+      const store = useDialogStore();
+      
+      // No .value needed - Pinia auto-unwraps
+      store.connectDialog.visible = true;
+      store.errorDialog.visible = true;
+      store.infoDialog.visible = true;
+      store.sampleRateDialog.visible = true;
+      
+      store.resetAll();
+      
+      expect(store.connectDialog.visible).toBe(false);
+      expect(store.errorDialog.visible).toBe(false);
+      expect(store.infoDialog.visible).toBe(false);
+      expect(store.sampleRateDialog.visible).toBe(false);
+    });
+
+    test('backward-compatible aliases share state with consolidated store', () => {
+      const dialogStore = useDialogStore();
+      const connectionDialogStore = useConnectionDialogStore();
+      
+      // Set via consolidated store (no .value needed - Pinia unwraps)
+      dialogStore.connectDialog.username = 'SharedUser';
+      
+      // Read via alias
+      expect(connectionDialogStore.username).toBe('SharedUser');
+      
+      // Set via alias
+      connectionDialogStore.password = 'SharedPass';
+      
+      // Read via consolidated store (no .value needed)
+      expect(dialogStore.connectDialog.password).toBe('SharedPass');
     });
   });
 });

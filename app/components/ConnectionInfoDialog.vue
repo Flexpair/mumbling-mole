@@ -204,7 +204,7 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs } from 'vue';
 import { storeToRefs } from 'pinia';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
@@ -213,7 +213,7 @@ import keyboardjs from 'keyboardjs';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useUserStore } from '../stores/userStore';
-import { useConnectionInfoStore } from '../stores/connectionInfoStore';
+import { useDialogStore } from '../stores/dialogStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
 const t = inject('translate');
@@ -240,7 +240,10 @@ const settingsStore = useSettingsStore();
 const uiStore = useUIStore();
 const connectionStore = useConnectionStore();
 const userStore = useUserStore();
-const connectionInfoStore = useConnectionInfoStore();
+const dialogStore = useDialogStore();
+
+// Use toRefs to get reactive refs from nested dialog store object
+const infoDialog = toRefs(dialogStore.infoDialog);
 
 const visible = computed({
   get: () => uiStore.currentOpenModal === 'connectionInfo' || uiStore.currentOpenModal === 'settings',
@@ -477,10 +480,10 @@ function updateStats() {
     const actualBitrate = client.getActualBitrate(spp, false);
     const actualBandwidth = MumbleClient.calcEnforcableBandwidth(actualBitrate, spp, false);
     
-    connectionInfoStore.maxBitrate = maxBitrateValue;
-    connectionInfoStore.currentBitrate = actualBitrate;
-    connectionInfoStore.maxBandwidth = maxBandwidthValue;
-    connectionInfoStore.currentBandwidth = actualBandwidth;
+    infoDialog.maxBitrate.value = maxBitrateValue;
+    infoDialog.currentBitrate.value = actualBitrate;
+    infoDialog.maxBandwidth.value = maxBandwidthValue;
+    infoDialog.currentBandwidth.value = actualBandwidth;
   }
 }
 

@@ -40,10 +40,10 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject } from 'vue';
+import { Teleport, Transition, computed, inject, toRefs } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useUIStore } from '../stores/uiStore';
-import { useSampleRateWarningDialogStore } from '../stores/sampleRateWarningDialogStore';
+import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
@@ -51,11 +51,11 @@ const auth = inject('auth');
 
 // Pinia stores and composables
 const uiStore = useUIStore();
-const sampleRateWarningDialogStore = useSampleRateWarningDialogStore();
+const dialogStore = useDialogStore();
 const connectionLogic = useConnectionLogic({ auth });
 
-// Use storeToRefs for reactive destructuring (eliminates computed wrappers)
-const { visible, mode, sampleRate } = storeToRefs(sampleRateWarningDialogStore);
+// Use toRefs to get reactive refs from nested dialog store object
+const { visible, mode, sampleRate } = toRefs(dialogStore.sampleRateDialog);
 
 let pendingConnection = null;
 

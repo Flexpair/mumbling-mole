@@ -7,7 +7,7 @@ import { useUserStore } from "./stores/userStore";
 import { useAudioStore } from "./stores/audioStore";
 import { useVoiceStore } from "./stores/voiceStore";
 import { useUIStore } from "./stores/uiStore";
-import { useConnectionDialogStore } from "./stores/connectionDialogStore";
+import { useConnectionDialogStore } from "./stores/dialogStore";
 import { useSettingsStore } from "./stores/settingsStore";
 
 import {

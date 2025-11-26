@@ -84,26 +84,23 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, inject } from 'vue';
-import { storeToRefs } from 'pinia';
-import { useConnectErrorDialogStore } from '../stores/connectErrorDialogStore';
-import { useConnectionDialogStore } from '../stores/connectionDialogStore';
+import { Teleport, Transition, inject, toRefs } from 'vue';
+import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
 // Pinia stores
-const connectErrorDialogStore = useConnectErrorDialogStore();
-const connectionDialogStore = useConnectionDialogStore();
+const dialogStore = useDialogStore();
 
 // Composables (for connection logic only)
 const connectionLogic = useConnectionLogic({ auth });
 
-// Use storeToRefs for reactive destructuring (eliminates computed wrappers)
-const { visible, type, reason } = storeToRefs(connectErrorDialogStore);
+// Use toRefs to get reactive refs from nested dialog store objects
+const { visible, type, reason } = toRefs(dialogStore.errorDialog);
 
 // Username and password from connection dialog store
-const { username, password, address, port } = storeToRefs(connectionDialogStore);
+const { username, password, address, port } = toRefs(dialogStore.connectDialog);
 
 // Methods
 const hide = () => {

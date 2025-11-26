@@ -4,8 +4,7 @@ import { useVoiceStore } from '../stores/voiceStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUserStore } from '../stores/userStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import { useConnectErrorDialogStore } from '../stores/connectErrorDialogStore';
-import { useSampleRateWarningDialogStore } from '../stores/sampleRateWarningDialogStore';
+import { useConnectErrorDialogStore, useSampleRateWarningDialogStore } from '../stores/dialogStore';
 import { translate } from '../localize';
 
 /**
