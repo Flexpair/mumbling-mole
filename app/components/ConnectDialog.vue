@@ -72,7 +72,7 @@
         <!-- Fixed height container to prevent layout shifts -->
         <div style="min-height: 40px; margin-top: 8px;">
           <div v-if="isTestActive" style="display: flex; align-items: center; gap: 10px;">
-            <!-- Piano Button (Beeper) -->
+            <!-- Piano Button (Beeper) - disabled until audio pipeline is ready -->
             <button
               ref="pianoButton"
               type="button"
@@ -80,11 +80,13 @@
               @mousedown="startBeep"
               @mouseup="stopBeep"
               @mouseleave="stopBeep"
-              :class="{ active: isBeeping }"
+              :disabled="!pianoButtonReady"
+              :class="{ active: isBeeping, disabled: !pianoButtonReady }"
               :aria-pressed="isBeeping ? 'true' : 'false'"
+              :title="pianoButtonReady ? 'Hold to play a 440 Hz test tone' : 'Waiting for audio system...'"
               style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
             >
-              <span style="font-size: 1.2em;">🎹</span> Play an A (440 Hz)
+              <span style="font-size: 1.2em;">🎹</span> {{ pianoButtonReady ? 'Play an A (440 Hz)' : 'Initializing...' }}
             </button>
 
             <!-- Frequency Display with fixed width -->
@@ -175,6 +177,9 @@ const { voiceHandlerReady, isLoopbackMode, loopbackDominantFrequency: dominantFr
 
 // Computed for derived state (requires logic)
 const connected = computed(() => userStore.thisUser != null);
+
+// Piano button is ready when voice handler AND beeper are both initialized
+const pianoButtonReady = computed(() => voiceHandlerReady.value && beeperReady.value);
 
 // Subscribe to Knockout observables
 onMounted(() => {
@@ -280,9 +285,17 @@ async function handleExitTest() {
 
 /**
  * Start beep (Piano button pressed)
+ * Guard: Only starts beep if audio pipeline is fully ready (voiceHandler + beeper initialized)
  */
 function startBeep() {
-  console.log('[ConnectDialog Vue] startBeep() called');
+  console.log('[ConnectDialog Vue] startBeep() called, pianoButtonReady:', pianoButtonReady.value);
+  
+  // Guard: Prevent beep if audio pipeline not ready
+  if (!pianoButtonReady.value) {
+    console.log('[ConnectDialog Vue] Piano button not ready, ignoring beep request');
+    return;
+  }
+  
   if (audioStore?.startBeep) {
     console.log('[ConnectDialog Vue] Calling audioStore.startBeep()');
     audioStore.startBeep();
@@ -327,5 +340,13 @@ function handleHide() {
 /* Dialog backdrop (dark overlay) */
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* Piano button disabled state while audio initializing */
+.beep-test-button.disabled,
+.beep-test-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #ccc !important;
 }
 </style>

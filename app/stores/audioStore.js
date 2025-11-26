@@ -256,50 +256,48 @@ export const useAudioStore = defineStore('audio', () => {
 
   /**
    * Start beeping
+   * 
+   * GUARD: Only starts if beeper is ready. No fallback initialization - UI should
+   * ensure pianoButtonReady is true before allowing startBeep() calls.
    */
   async function startBeep() {
-    debugLog('[BEEP]', 'Start beep requested');
+    debugLog('[BEEP]', 'Start beep requested, beeperReady:', beeperReady.value);
     
-    if (_persistentBeeper) {
-      try {
-        const beeper = _persistentBeeper;
-        const ac = beeper.gain.context;
-        
-        // AUTOPLAY-POLICY: Resume AudioContext if suspended (Piano button = user gesture)
-        if (ac.state === 'suspended') {
-          debugLog('[BEEP]', 'Resuming suspended AudioContext...');
-          await ac.resume();
-          debugLog('[BEEP]', 'AudioContext resumed:', { state: ac.state });
-        }
-        
-        const currentTime = ac.currentTime;
-        const attackTime = 0.005;
-        
-        beeper.gain.gain.cancelScheduledValues(currentTime);
-        beeper.gain.gain.setValueAtTime(0, currentTime);
-        beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
-        
-        beeper.localGain.gain.cancelScheduledValues(currentTime);
-        beeper.localGain.gain.setValueAtTime(0, currentTime);
-        beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime);
-        
-        beeper.isPlaying = true;
-        isBeeping.value = true;
-        
-        debugLog('[BEEP]', 'DUAL beep activated');
-        return;
-      } catch (err) {
-        console.error('[BEEP] Error starting instant beep:', err);
-      }
+    // Guard: Beeper must be initialized before starting
+    if (!_persistentBeeper) {
+      debugLog('[BEEP]', 'Beeper not ready, ignoring startBeep - UI should disable button');
+      return;
     }
     
-    // Fallback: initialize and retry
-    debugLog('[BEEP]', 'Beeper not ready, initializing...');
-    initializePersistentBeeper().then(() => {
-      if (_persistentBeeper) {
-        startBeep();
+    try {
+      const beeper = _persistentBeeper;
+      const ac = beeper.gain.context;
+      
+      // AUTOPLAY-POLICY: Resume AudioContext if suspended (Piano button = user gesture)
+      if (ac.state === 'suspended') {
+        debugLog('[BEEP]', 'Resuming suspended AudioContext...');
+        await ac.resume();
+        debugLog('[BEEP]', 'AudioContext resumed:', { state: ac.state });
       }
-    });
+      
+      const currentTime = ac.currentTime;
+      const attackTime = 0.005;
+      
+      beeper.gain.gain.cancelScheduledValues(currentTime);
+      beeper.gain.gain.setValueAtTime(0, currentTime);
+      beeper.gain.gain.linearRampToValueAtTime(0.4, currentTime + attackTime);
+      
+      beeper.localGain.gain.cancelScheduledValues(currentTime);
+      beeper.localGain.gain.setValueAtTime(0, currentTime);
+      beeper.localGain.gain.linearRampToValueAtTime(0.3, currentTime + attackTime);
+      
+      beeper.isPlaying = true;
+      isBeeping.value = true;
+      
+      debugLog('[BEEP]', 'DUAL beep activated');
+    } catch (err) {
+      console.error('[BEEP] Error starting beep:', err);
+    }
   }
 
   /**
