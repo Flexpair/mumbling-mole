@@ -140,12 +140,13 @@ const buildConfig = {
     // Vue 3 Single File Components (.vue files)
     vuePlugin(),
     
-    // Custom alias for Vue with runtime compiler
+    // Custom alias for Vue runtime-only build (no template compiler needed - all templates pre-compiled in .vue SFCs)
+    // Saves ~40KB by excluding runtime template compiler
     {
       name: 'vue-runtime-alias',
       setup(build) {
         build.onResolve({ filter: /^vue$/ }, args => ({
-          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js')
+          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.runtime.esm-bundler.js')
         }));
       }
     },
