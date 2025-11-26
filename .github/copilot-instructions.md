@@ -124,7 +124,6 @@ const { ContinuousVoiceHandler } = await import('../../app/audio/voice.js');
 ```
 Requires `--experimental-vm-modules` flag in test commands. Classic `jest.mock()` doesn't work with ES modules.  
 **Analysis**: `npm run analyze` → `dist/bundle-report.html`; `npm run check:deps` flags unused modules  
-**Test server**: `npm run test:server:up` starts Murmur in docker-compose; `test:server:down` stops it; `test:server:logs` tails logs  
 **Markdown validation**: `npm run validate:markdown` enforces one README.md per folder (except `.github/copilot-instructions.md`); runs in git pre-commit hook via `./scripts/setup-git-hooks.sh`
 
 ## Implementation conventions

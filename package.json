@@ -17,10 +17,6 @@
     "test:loopback": "playwright test loopback-frequency.spec.js",
     "test:loopback:headed": "playwright test loopback-frequency.spec.js --headed",
     "test:loopback:debug": "playwright test loopback-frequency.spec.js --debug",
-    "test:loopback:ui": "playwright test loopback-frequency.spec.js --ui",
-    "test:server:up": "cd .devcontainer && docker-compose up -d murmur",
-    "test:server:down": "cd .devcontainer && docker-compose stop murmur",
-    "test:server:logs": "cd .devcontainer && docker-compose logs -f murmur",
     "validate:markdown": "./scripts/validate-markdown-structure.sh",
     "check:deps": "npx depcheck --config .depcheckrc"
   },

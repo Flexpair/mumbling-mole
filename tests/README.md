@@ -61,11 +61,7 @@ npm run audit:ci
 | `npm run test:loopback` | Automated UI loopback test (headless) |
 | `npm run test:loopback:headed` | Same test with visible browser |
 | `npm run test:loopback:debug` | Step-through debugging mode |
-| `npm run test:loopback:ui` | Playwright UI mode |
 | `npm run audit:ci` | Dependency vulnerability check |
-| `npm run test:server:up` | Start Murmur test server |
-| `npm run test:server:down` | Stop Murmur test server |
-| `npm run test:server:logs` | Display server logs |
 
 ---
 
@@ -98,49 +94,6 @@ npm run audit:ci
 - 📖 See `tests/playwright/README.md` for full details
 - 🏗️ Architecture: `app/audio/README.md`
 - 🎯 Configuration: `playwright.config.js`
-
----
-
-## 🖥️ Test Server Management
-
-The Playwright tests require a running Murmur server (Mumble protocol server).
-
-### Start Test Server
-
-```bash
-npm run test:server:up
-```
-
-This starts the Murmur container in docker-compose. The server is available at `murmur:64738` from inside the dev container.
-
-### Stop Test Server
-
-```bash
-npm run test:server:down
-```
-
-### View Server Logs
-
-```bash
-npm run test:server:logs
-```
-
-### Check Server Status
-
-```bash
-# From inside the dev container
-curl -v --connect-timeout 2 telnet://murmur:64738 2>&1 | grep -E "Connected|refused"
-```
-
-**Expected output if running:**
-```
-* Connected to murmur (172.x.x.x) port 64738 (#0)
-```
-
-**If server is not running:**
-```
-* Failed to connect to murmur port 64738: Connection refused
-```
 
 ---
 
