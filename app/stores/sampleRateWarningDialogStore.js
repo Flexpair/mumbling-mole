@@ -1,39 +1,42 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+
 /**
- * useSampleRateWarningDialog - Vue Composable for Sample Rate Warning Dialog
+ * Sample Rate Warning Dialog Store
  * 
  * Manages state for the modal that warns users when browser sample rate
  * doesn't match Mumble server's expected 48kHz.
- * 
- * Replaced Knockout observable adapter (index.js) in Phase 5 Step 3.
+ * Replaces the composable useSampleRateWarningDialog.js
  */
-
-import { ref } from 'vue';
-
-export function useSampleRateWarningDialog() {
+export const useSampleRateWarningDialogStore = defineStore('sampleRateWarningDialog', () => {
   const visible = ref(false);
   const mode = ref('confirm'); // 'confirm' or other future modes
   const sampleRate = ref(null);
 
-  const show = () => {
+  // Actions
+  function show() {
     visible.value = true;
-  };
+  }
 
-  const hide = () => {
+  function hide() {
     visible.value = false;
-  };
+  }
 
-  const reset = () => {
+  function reset() {
     visible.value = false;
     mode.value = 'confirm';
     sampleRate.value = null;
-  };
+  }
 
   return {
+    // State
     visible,
     mode,
     sampleRate,
+    
+    // Actions
     show,
     hide,
     reset
   };
-}
+});

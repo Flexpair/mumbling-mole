@@ -41,34 +41,22 @@
 
 <script setup>
 import { Teleport, Transition, computed, inject } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useUIStore } from '../stores/uiStore';
-import { useSampleRateWarningDialog } from '../composables/useSampleRateWarningDialog';
+import { useSampleRateWarningDialogStore } from '../stores/sampleRateWarningDialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
 const settings = inject('settings');
 
-// Pinia store and composables
+// Pinia stores and composables
 const uiStore = useUIStore();
-const sampleRateWarningDialog = useSampleRateWarningDialog();
+const sampleRateWarningDialogStore = useSampleRateWarningDialogStore();
 const connectionLogic = useConnectionLogic({ auth, settings });
 
-// Direct access to composable refs
-const visible = computed({
-  get: () => sampleRateWarningDialog.visible.value,
-  set: (val) => { sampleRateWarningDialog.visible.value = val; }
-});
-
-const mode = computed({
-  get: () => sampleRateWarningDialog.mode.value,
-  set: (val) => { sampleRateWarningDialog.mode.value = val; }
-});
-
-const sampleRate = computed({
-  get: () => sampleRateWarningDialog.sampleRate.value,
-  set: (val) => { sampleRateWarningDialog.sampleRate.value = val; }
-});
+// Use storeToRefs for reactive destructuring (eliminates computed wrappers)
+const { visible, mode, sampleRate } = storeToRefs(sampleRateWarningDialogStore);
 
 let pendingConnection = null;
 
@@ -161,12 +149,8 @@ const cancel = () => {
   hide();
 };
 
-// Expose methods to composable for backward compatibility with AppState
-sampleRateWarningDialog.show = show;
-sampleRateWarningDialog.showInfo = showInfo;
-sampleRateWarningDialog.hide = hide;
-sampleRateWarningDialog.joinWithoutAudio = joinWithoutAudio;
-sampleRateWarningDialog.cancel = cancel;
+// Methods are now available directly on the Pinia store (sampleRateWarningDialogStore)
+// No need for backward compatibility exports - store actions handle this
 </script>
 
 <style scoped>

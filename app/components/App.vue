@@ -56,7 +56,7 @@ const preloaderLoaded = ref(false);
 const containerVisible = ref(true);
 
 // Ref to GuacamoleFrame component instance
-const guacamoleFrameRef = useTemplateRef('guacamoleFrame');
+const guacamoleFrameRef = useTemplateRef('guacamoleFrameRef');
 
 // Handle preloader removal on window load
 onMounted(() => {

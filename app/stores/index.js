@@ -6,3 +6,4 @@ export * from './userStore';
 export * from './connectionDialogStore';
 export * from './connectErrorDialogStore';
 export * from './connectionInfoStore';
+export * from './sampleRateWarningDialogStore';

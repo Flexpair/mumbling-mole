@@ -3,9 +3,9 @@
 
 - **Zielbild**: Die bisherigen Zustandsmodule (Connection/Audio/Voice/UI/User) werden vollständig von **Pinia-Stores** unter `app/stores/` getragen.
 - **Aktueller Stand**:
-  - Alle **acht** Kernmodule sind als Pinia-Stores implementiert:
+  - Alle **neun** Kernmodule sind als Pinia-Stores implementiert:
     - Core: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`
-    - Dialog: `connectionDialogStore`, `connectErrorDialogStore`, `connectionInfoStore`
+    - Dialog: `connectionDialogStore`, `connectErrorDialogStore`, `connectionInfoStore`, `sampleRateWarningDialogStore`
   - `AppState` in `app/stores/AppState.js` bleibt als zentraler **Koordinator** und **Kompatibilitätslayer** bestehen und exponiert `window.mumbleUi` für ältere Tests und Übergangscode.
   - Vue-Komponenten verwenden `storeToRefs()` für reaktive Store-Destrukturierung.
   - Vue 3.5+ Features im Einsatz: `onWatcherCleanup()`, `useTemplateRef()`.

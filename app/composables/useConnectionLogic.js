@@ -4,7 +4,7 @@ import { useVoiceStore } from '../stores/voiceStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUserStore } from '../stores/userStore';
 import { useConnectErrorDialogStore } from '../stores/connectErrorDialogStore';
-import { useSampleRateWarningDialog } from './index';
+import { useSampleRateWarningDialogStore } from '../stores/sampleRateWarningDialogStore';
 import { translate } from '../localize';
 
 /**
@@ -35,7 +35,7 @@ export function useConnectionLogic({ auth, settings } = {}) {
   const uiStore = useUIStore();
   const userStore = useUserStore();
   
-  const sampleRateWarningDialog = useSampleRateWarningDialog();
+  const sampleRateWarningDialogStore = useSampleRateWarningDialogStore();
   const connectErrorDialogStore = useConnectErrorDialogStore();
   
   // External dependencies
@@ -125,7 +125,8 @@ export function useConnectionLogic({ auth, settings } = {}) {
       
       if (!audioCompatible) {
         const connectionParams = { host, port, username, password, tokens };
-        sampleRateWarningDialog.show(currentSampleRate, connectionParams);
+        sampleRateWarningDialogStore.sampleRate = currentSampleRate;
+        sampleRateWarningDialogStore.show();
         return;
       }
     }
