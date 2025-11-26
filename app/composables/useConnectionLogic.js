@@ -126,6 +126,7 @@ export function useConnectionLogic({ auth } = {}) {
       if (!audioCompatible) {
         const connectionParams = { host, port, username, password, tokens };
         sampleRateWarningDialogStore.sampleRate = currentSampleRate;
+        sampleRateWarningDialogStore.connectionParams = connectionParams;
         sampleRateWarningDialogStore.show();
         return;
       }

@@ -55,9 +55,7 @@ const dialogStore = useDialogStore();
 const connectionLogic = useConnectionLogic({ auth });
 
 // Use toRefs to get reactive refs from nested dialog store object
-const { visible, mode, sampleRate } = toRefs(dialogStore.sampleRateDialog);
-
-let pendingConnection = null;
+const { visible, mode, sampleRate, connectionParams } = toRefs(dialogStore.sampleRateDialog);
 
 // Computed properties
 const isConfirm = computed(() => mode.value === 'confirm');
@@ -108,7 +106,7 @@ const show = (sr, params) => {
   }
   mode.value = 'confirm';
   sampleRate.value = sr || null;
-  pendingConnection = params || null;
+  connectionParams.value = params || null;
   visible.value = true;
   uiStore.currentOpenModal = 'sampleRateWarning';
 };
@@ -119,7 +117,7 @@ const showInfo = (sr) => {
   }
   mode.value = 'info';
   sampleRate.value = sr || null;
-  pendingConnection = null;
+  connectionParams.value = null;
   visible.value = true;
   uiStore.currentOpenModal = 'sampleRateWarning';
 };
@@ -129,11 +127,11 @@ const hide = () => {
   if (uiStore.currentOpenModal === 'sampleRateWarning') {
     uiStore.currentOpenModal = null;
   }
-  pendingConnection = null;
+  connectionParams.value = null;
 };
 
 const joinWithoutAudio = () => {
-  const params = pendingConnection;
+  const params = connectionParams.value;
   const sr = sampleRate.value;
   hide();
   if (params) {

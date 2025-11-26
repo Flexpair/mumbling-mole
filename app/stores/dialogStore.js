@@ -61,6 +61,7 @@ export const useDialogStore = defineStore('dialog', () => {
     visible: false,
     mode: 'confirm',
     sampleRate: null,
+    connectionParams: null,
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -141,6 +142,7 @@ export const useDialogStore = defineStore('dialog', () => {
     sampleRateDialog.visible = false;
     sampleRateDialog.mode = 'confirm';
     sampleRateDialog.sampleRate = null;
+    sampleRateDialog.connectionParams = null;
   }
 
   // Global reset
@@ -294,6 +296,8 @@ export function useSampleRateWarningDialogStore() {
     set mode(v) { dialogStore.sampleRateDialog.mode = v; },
     get sampleRate() { return dialogStore.sampleRateDialog.sampleRate; },
     set sampleRate(v) { dialogStore.sampleRateDialog.sampleRate = v; },
+    get connectionParams() { return dialogStore.sampleRateDialog.connectionParams; },
+    set connectionParams(v) { dialogStore.sampleRateDialog.connectionParams = v; },
     
     show: () => dialogStore.showSampleRateDialog(),
     hide: () => dialogStore.hideSampleRateDialog(),

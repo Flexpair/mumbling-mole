@@ -158,6 +158,7 @@ describe('Dialog Stores', () => {
       expect(store.visible).toBe(false);
       expect(store.mode).toBe('confirm');
       expect(store.sampleRate).toBeNull();
+      expect(store.connectionParams).toBeNull();
     });
 
     test('show() sets visible to true', () => {
@@ -166,14 +167,16 @@ describe('Dialog Stores', () => {
       expect(store.visible).toBe(true);
     });
 
-    test('sampleRate can be set before show()', () => {
+    test('sampleRate and connectionParams can be set before show()', () => {
       const store = useSampleRateWarningDialogStore();
       
       // This is how useConnectionLogic.js uses it
       store.sampleRate = 44100;
+      store.connectionParams = { host: 'test', port: 64738 };
       store.show();
       
       expect(store.sampleRate).toBe(44100);
+      expect(store.connectionParams).toEqual({ host: 'test', port: 64738 });
       expect(store.visible).toBe(true);
     });
 
@@ -183,12 +186,14 @@ describe('Dialog Stores', () => {
       store.visible = true;
       store.mode = 'info';
       store.sampleRate = 44100;
+      store.connectionParams = { host: 'test' };
       
       store.reset();
       
       expect(store.visible).toBe(false);
       expect(store.mode).toBe('confirm');
       expect(store.sampleRate).toBeNull();
+      expect(store.connectionParams).toBeNull();
     });
   });
 

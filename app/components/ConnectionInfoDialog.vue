@@ -509,7 +509,7 @@ const recordPttKey = () => {
 
 const handleHide = () => {
   visible.value = false;
-  // Settings are auto-saved via useLocalStorage - no manual save needed
+  // Settings are auto-saved via settingsStore watch() - no manual save needed
 };
 
 // Watch for modal opening to reset tab

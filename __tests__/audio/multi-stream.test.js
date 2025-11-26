@@ -209,8 +209,8 @@ describe('Multi-Stream Voice Handling', () => {
       users.map((user, i) => {
         return new Promise(resolve => {
           user.emit('voice', streams[i]);
-          // Wait for async initialize to complete
-          setTimeout(resolve, 50);
+          // Wait for async BufferQueueNode initialization (includes worklet loading)
+          setTimeout(resolve, 20);
         });
       })
     );
