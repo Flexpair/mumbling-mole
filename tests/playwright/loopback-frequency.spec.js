@@ -466,6 +466,53 @@ test.describe('Loopback Frequency Test', () => {
     console.log('   ✅ Mode switching works (test → normal)');
     console.log('   ✅ Message sending works with cyan checkmark');
 
+    await test.step('Verify Guacamole frame loads (expected 404 in test environment)', async () => {
+      console.log('\n🖥️  Step 14: Verifying Guacamole frame loads...');
+      
+      // In the test environment, Guacamole server is not running, so we expect a 404 error.
+      // The key is that the placeholder image is hidden and the iframe attempts to load.
+      // This proves the full connection flow completed and triggered Guacamole initialization.
+      
+      // Check that the Guacamole section is visible (not the placeholder)
+      const guacamoleSection = page.locator('section.guacamole');
+      await expect(guacamoleSection).toBeVisible({ timeout: 5000 });
+      console.log('   ✅ Guacamole section is visible');
+      
+      // Check that the placeholder is hidden
+      const placeholder = page.locator('.guacamole-placeholder');
+      await expect(placeholder).toBeHidden({ timeout: 2000 });
+      console.log('   ✅ Placeholder is hidden');
+      
+      // Check the iframe exists and has a src (even if it 404s)
+      const guacamoleIframe = page.locator('#guacframe');
+      await expect(guacamoleIframe).toBeVisible();
+      
+      const iframeSrc = await guacamoleIframe.getAttribute('src');
+      console.log(`   Iframe src: ${iframeSrc}`);
+      
+      // The src should contain guacamole path (not about:blank)
+      expect(iframeSrc).not.toBe('about:blank');
+      expect(iframeSrc).toContain('guacamole');
+      console.log('   ✅ Guacamole iframe has correct src');
+      
+      // Optionally check iframe content for expected 404 error message
+      // This is tricky because of cross-origin restrictions, but we can check the frame
+      try {
+        const iframeContent = guacamoleIframe.contentFrame();
+        if (iframeContent) {
+          const errorText = await iframeContent.locator('body').textContent({ timeout: 2000 });
+          if (errorText && errorText.includes('404')) {
+            console.log('   ✅ Expected 404 error in iframe (Guacamole server not running in test env)');
+          }
+        }
+      } catch (e) {
+        // Cross-origin or other issue - that's fine, the src check is sufficient
+        console.log('   ℹ️  Could not read iframe content (cross-origin), but src is correct');
+      }
+      
+      console.log('✅ Guacamole frame initialization verified');
+    });
+
     console.log('\n🧹 Cleaning up resources...');
     await page.evaluate(() => {
       if (window.mumbleUi?.isBeeping?.value) {
@@ -479,6 +526,11 @@ test.describe('Loopback Frequency Test', () => {
     await page.waitForTimeout(500);
     console.log('✅ Resources cleaned up');
 
-    console.log('\n✅ TEST PASSED: All scenarios validated successfully!\n');
+    console.log('\n✅ TEST PASSED: All scenarios validated successfully!');
+    console.log('   ✅ Piano button and 440 Hz frequency detection');
+    console.log('   ✅ Mute/deaf state affects frequency analyzer');
+    console.log('   ✅ Mode switching (loopback → normal)');
+    console.log('   ✅ Message sending with confirmation');
+    console.log('   ✅ Guacamole frame initialization\n');
   });
 });
