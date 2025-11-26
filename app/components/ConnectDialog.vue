@@ -116,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
@@ -147,13 +147,13 @@ const connectDialog = useConnectionDialog();
 const connectionLogic = useConnectionLogic({ auth, settings });
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
-const dialogElement = ref(null);
+const dialogElement = useTemplateRef('dialogElement');
 
 /** @type {import('vue').Ref<HTMLDivElement | null>} */
-const microphoneContainer = ref(null);
+const microphoneContainer = useTemplateRef('microphoneContainer');
 
 /** @type {import('vue').Ref<HTMLButtonElement | null>} */
-const pianoButton = ref(null);
+const pianoButton = useTemplateRef('pianoButton');
 
 // Direct access to composable refs (already reactive)
 const visible = computed({

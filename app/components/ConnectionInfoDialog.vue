@@ -204,7 +204,7 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef } from 'vue';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 import { useClipboard, useConnectionInfo } from '../composables';
@@ -302,7 +302,7 @@ const grossBandwidth = computed({
 });
 
 // Custom Slider Logic
-const sliderTrack = ref(null);
+const sliderTrack = useTemplateRef('sliderTrack');
 const isDragging = ref(false);
 
 const onDragStart = (event) => {

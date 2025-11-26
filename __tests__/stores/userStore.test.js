@@ -70,6 +70,7 @@ jest.unstable_mockModule('vue', () => {
       const { get, set } = factory(() => {}, () => {});
       return { get value() { return get(); }, set value(v) { set(v); }, __v_isRef: true };
     },
+    onWatcherCleanup: () => {},
   };
 });
 

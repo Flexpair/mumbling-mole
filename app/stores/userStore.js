@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, watch, markRaw, shallowRef } from 'vue';
+import { ref, watch, onWatcherCleanup, markRaw, shallowRef } from 'vue';
 import { useAudioStore } from './audioStore';
 import { useVoiceStore } from './voiceStore';
 import { useConnectionStore } from './connectionStore';
@@ -34,9 +34,6 @@ export const useUserStore = defineStore('user', () => {
   const settings = shallowRef(null);
   let jitterBufferWatchStop = null;
   let jitterBufferModeWatchStop = null;
-  
-  // Cleanup tracking for thisUser watcher
-  let userWatchCleanup = null;
   
   // Helper: Recalculate jitter buffer based on current mode and stats
   const recalculateJitterBuffer = () => {
@@ -80,35 +77,31 @@ export const useUserStore = defineStore('user', () => {
   };
   
   // Auto-adjust jitter buffer based on latency
+  // Uses onWatcherCleanup (Vue 3.5+) for automatic cleanup on re-run or unmount
   watch(thisUser, (newUser) => {
-    // Clean up previous watcher resources
-    if (userWatchCleanup) {
-      userWatchCleanup();
-      userWatchCleanup = null;
+    if (!newUser?.model?._client) {
+      debugLog('[VOICE]', 'Jitter buffer auto-adjust disabled (no client)');
+      return;
     }
     
-    if (newUser?.model?._client) {
-      const client = newUser.model._client;
-      
-      // Set up interval to check stats
-      const interval = setInterval(recalculateJitterBuffer, 1000);
-      
-      debugLog('[VOICE]', 'Jitter buffer auto-adjust enabled for user', newUser.name);
-      
-      // Listen for dataPing to update stats-based calculation
-      client.on('dataPing', recalculateJitterBuffer);
-      
-      // Initialize buffer immediately
-      recalculateJitterBuffer();
-      
-      // Store cleanup function
-      userWatchCleanup = () => {
-        clearInterval(interval);
-        client.off('dataPing', recalculateJitterBuffer);
-      };
-    } else {
-        debugLog('[VOICE]', 'Jitter buffer auto-adjust disabled (no client)');
-    }
+    const client = newUser.model._client;
+    
+    // Set up interval to check stats
+    const interval = setInterval(recalculateJitterBuffer, 1000);
+    
+    debugLog('[VOICE]', 'Jitter buffer auto-adjust enabled for user', newUser.name);
+    
+    // Listen for dataPing to update stats-based calculation
+    client.on('dataPing', recalculateJitterBuffer);
+    
+    // Initialize buffer immediately
+    recalculateJitterBuffer();
+    
+    // Cleanup runs automatically when watch re-runs or component unmounts
+    onWatcherCleanup(() => {
+      clearInterval(interval);
+      client.off('dataPing', recalculateJitterBuffer);
+    });
   });
 
   function setSettings(s) {

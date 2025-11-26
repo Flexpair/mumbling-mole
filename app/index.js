@@ -1,6 +1,7 @@
 import AuthFactory from "./auth/AuthFactory";
 import { createApp } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
+import { createPiniaDebugPlugin } from './plugins/pinia-debug';
 import AppVue from "./components/App.vue";
 import { useUserStore } from "./stores/userStore";
 import { useAudioStore } from "./stores/audioStore";
@@ -48,8 +49,9 @@ function getUsernameFromMetadata(user) {
 
 import { useSettings, vTooltip } from "./composables/index.js";
 
-// Initialize Pinia
+// Initialize Pinia with debug plugin (only active when ?debug-audio is in URL)
 const pinia = createPinia();
+pinia.use(createPiniaDebugPlugin());
 setActivePinia(pinia);
 
 // Initialize stores and composables
