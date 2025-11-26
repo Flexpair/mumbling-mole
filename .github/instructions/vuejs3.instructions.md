@@ -56,6 +56,101 @@ Instructions for building high-quality VueJS 3 applications with the Composition
 - Use actions in Pinia stores for asynchronous logic
 - Leverage store plugins for persistence or debugging
 
+### Pinia Store Patterns (Critical)
+
+**Nested Objects in Stores:**
+When using nested objects in Pinia stores, use `reactive()` instead of plain objects with `ref()`:
+
+```javascript
+// ❌ BAD: Plain objects with ref() cause inconsistent behavior
+const dialogState = {
+  visible: ref(false),
+  username: ref('')
+};
+// Problem: Pinia doesn't auto-unwrap refs in plain objects
+// - Internal access: dialogState.visible.value (works)
+// - External access via store: store.dialogState.visible returns raw ref object
+// - Setting via store: store.dialogState.visible = true REPLACES the ref with primitive!
+
+// ✅ GOOD: Use reactive() for nested objects
+const dialogState = reactive({
+  visible: false,
+  username: ''
+});
+// - Internal access: dialogState.visible (direct)
+// - External access: store.dialogState.visible (direct)
+// - Setting: store.dialogState.visible = true (reactive)
+```
+
+**Accessing Nested Reactive Objects in Components:**
+Use `toRefs()` from Vue (not `storeToRefs()` from Pinia) for nested reactive objects:
+
+```javascript
+// In component <script setup>
+import { toRefs } from 'vue';
+import { useDialogStore } from '../stores/dialogStore';
+
+const dialogStore = useDialogStore();
+
+// ✅ CORRECT: toRefs() works with reactive objects
+const { visible, username } = toRefs(dialogStore.connectDialog);
+
+// ❌ WRONG: storeToRefs() only works on the store root, not nested objects
+// const { visible } = storeToRefs(dialogStore.connectDialog); // Fails!
+
+// Now use in template with v-model or direct binding
+// <input v-model="username" />
+// <div v-if="visible">...</div>
+```
+
+**Store Consolidation Pattern:**
+Consolidate related stores into namespaced sections for better organization:
+
+```javascript
+// dialogStore.js - consolidated store with namespaces
+export const useDialogStore = defineStore('dialog', () => {
+  // Namespaced sections using reactive()
+  const connectDialog = reactive({
+    visible: false,
+    username: '',
+    password: ''
+  });
+
+  const errorDialog = reactive({
+    visible: false,
+    message: ''
+  });
+
+  // Actions access properties directly (no .value)
+  function showConnectDialog() {
+    connectDialog.visible = true;
+  }
+
+  return {
+    connectDialog,
+    errorDialog,
+    showConnectDialog
+  };
+});
+
+// Backward-compatible wrapper for gradual migration
+export function useConnectionDialogStore() {
+  const dialogStore = useDialogStore();
+  return {
+    get visible() { return dialogStore.connectDialog.visible; },
+    set visible(v) { dialogStore.connectDialog.visible = v; },
+    show: () => dialogStore.showConnectDialog()
+  };
+}
+```
+
+**Key Rules:**
+1. Use `reactive()` for nested state objects in Pinia stores
+2. Use `toRefs()` (Vue) not `storeToRefs()` (Pinia) for nested reactive objects
+3. No `.value` needed when accessing reactive object properties
+4. Actions inside the store access reactive properties directly
+5. Provide backward-compatible wrappers during migration
+
 ### Composition API Patterns
 - Create reusable composables for shared logic, e.g., `useFetch`, `useAuth`
 - Use `watch` and `watchEffect` with precise dependency lists
