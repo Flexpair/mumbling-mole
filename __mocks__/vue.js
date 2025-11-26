@@ -110,6 +110,12 @@ export function watch(source, callback, options) {
   return () => {};
 }
 
+// onWatcherCleanup for Vue 3.5+ - registers cleanup callback inside watch
+// In tests, this is a no-op since watches don't actually run reactively
+export function onWatcherCleanup(cleanupFn) {
+  // No-op in tests - cleanup function is registered but not called
+}
+
 // WatchEffect implementation for tests
 export function watchEffect(effect, options) {
   // Run effect once immediately
@@ -199,12 +205,18 @@ export function shallowRef(value) {
   return ref(value);
 }
 
+// useTemplateRef for Vue 3.5+ - returns a ref that will be filled with template element
+export function useTemplateRef(key) {
+  return ref(null);
+}
+
 // Default export
 export default {
   ref,
   reactive,
   computed,
   watch,
+  onWatcherCleanup,
   watchEffect,
   onMounted,
   onBeforeMount,
@@ -229,4 +241,5 @@ export default {
   hasInjectionContext,
   isReactive,
   shallowRef,
+  useTemplateRef,
 };

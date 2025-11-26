@@ -84,46 +84,23 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject } from 'vue';
-import { useConnectErrorDialog } from '../composables/useConnectErrorDialog';
-import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { Teleport, Transition, inject, toRefs } from 'vue';
+import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
-const settings = inject('settings');
+// Pinia stores
+const dialogStore = useDialogStore();
 
-// Composables
-const connectErrorDialog = useConnectErrorDialog();
-const connectDialog = useConnectionDialog();
-const connectionLogic = useConnectionLogic({ auth, settings });
+// Composables (for connection logic only)
+const connectionLogic = useConnectionLogic({ auth });
 
-// Direct access to composable refs
-const visible = computed({
-  get: () => connectErrorDialog.visible.value,
-  set: (val) => { connectErrorDialog.visible.value = val; }
-});
+// Use toRefs to get reactive refs from nested dialog store objects
+const { visible, type, reason } = toRefs(dialogStore.errorDialog);
 
-const type = computed({
-  get: () => connectErrorDialog.type.value,
-  set: (val) => { connectErrorDialog.type.value = val; }
-});
-
-const reason = computed({
-  get: () => connectErrorDialog.reason.value,
-  set: (val) => { connectErrorDialog.reason.value = val; }
-});
-
-// Username and password are shared with connectDialog
-const username = computed({
-  get: () => connectDialog.username.value,
-  set: (val) => { connectDialog.username.value = val; }
-});
-
-const password = computed({
-  get: () => connectDialog.password.value,
-  set: (val) => { connectDialog.password.value = val; }
-});
+// Username and password from connection dialog store
+const { username, password, address, port } = toRefs(dialogStore.connectDialog);
 
 // Methods
 const hide = () => {
@@ -133,8 +110,8 @@ const hide = () => {
 const handleConnect = () => {
   hide();
   connectionLogic.connect(
-    connectDialog.address.value,
-    connectDialog.port.value,
+    address.value,
+    port.value,
     username.value,
     password.value
   );

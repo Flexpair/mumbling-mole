@@ -2,8 +2,8 @@ import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
 import audioContextManager, { ensureAudioContext } from '../audio/audio-context-manager';
 import { getCurrentMixer } from '../audio/voice';
-import { debugLog } from '../composables/debug-utils';
-import { createCachedInitWithCheck } from '../composables/promise-cache-utils';
+import { debugLog } from '../utils/debug-utils';
+import { createCachedInitWithCheck } from '../utils/promise-cache-utils';
 import { createMicrophonePermissionManager } from '../utils/microphone-permission';
 
 export const useAudioStore = defineStore('audio', () => {

@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { Transition, ref, onMounted, inject } from 'vue';
+import { Transition, ref, onMounted, inject, useTemplateRef } from 'vue';
 import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)
@@ -56,7 +56,7 @@ const preloaderLoaded = ref(false);
 const containerVisible = ref(true);
 
 // Ref to GuacamoleFrame component instance
-const guacamoleFrameRef = ref(null);
+const guacamoleFrameRef = useTemplateRef('guacamoleFrameRef');
 
 // Handle preloader removal on window load
 onMounted(() => {

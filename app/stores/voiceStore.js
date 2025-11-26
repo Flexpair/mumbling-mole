@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
 import { useAudioStore } from './audioStore';
 import { useConnectionStore } from './connectionStore';
+import { useSettingsStore } from './settingsStore';
 import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
@@ -9,11 +10,12 @@ import {
   onAudioMixerReady,
 } from '../audio/voice';
 import { translate } from '../localize';
-import { debugLog } from '../composables/debug-utils';
+import { debugLog } from '../utils/debug-utils';
 
 export const useVoiceStore = defineStore('voice', () => {
   const audioStore = useAudioStore();
   const connectionStore = useConnectionStore();
+  const settingsStore = useSettingsStore();
 
   // Voice handler instance (reactive ref)
   const voiceHandler = shallowRef(null);
@@ -86,11 +88,10 @@ export const useVoiceStore = defineStore('voice', () => {
    * Update/recreate voice handler based on settings
    * RACE-SAFE: Ensures previous handler cleanup completes before creating new one
    * @param {object} client - Mumble client instance
-   * @param {object} settings - Settings object with voiceMode, etc.
    * @param {Function} onStartedTalking - Callback when user starts talking
    * @param {Function} onStoppedTalking - Callback when user stops talking
    */
-  function updateVoiceHandler(client, settings, onStartedTalking, onStoppedTalking) {
+  function updateVoiceHandler(client, onStartedTalking, onStoppedTalking) {
     if (!client) {
       return;
     }
@@ -110,7 +111,7 @@ export const useVoiceStore = defineStore('voice', () => {
     voiceHandlerReady.value = false;
     debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
     
-    let mode = settings.voiceMode.value;
+    let mode = settingsStore.voiceMode;
     
     // Determine voice routing target
     // target=31 routes to server loopback for echo testing
@@ -120,9 +121,9 @@ export const useVoiceStore = defineStore('voice', () => {
     // Create appropriate handler based on voice activation mode
     let newHandler;
     if (mode === 'cont') {
-      newHandler = new ContinuousVoiceHandler(client, settings, target);
+      newHandler = new ContinuousVoiceHandler(client, settingsStore, target);
     } else if (mode === 'ptt') {
-      newHandler = new PushToTalkVoiceHandler(client, settings, target);
+      newHandler = new PushToTalkVoiceHandler(client, settingsStore, target);
     } else {
       console.error(translate('logentry.unknown_voice_mode'), mode);
       return;

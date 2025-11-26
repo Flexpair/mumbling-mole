@@ -3,6 +3,17 @@ import keyboardjs from "keyboardjs";
 import DropStream from "../utils/drop-stream.js";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
 
+// Helper to get settings value - works with both old ref-style ({value: x}) and new Pinia store (direct access)
+const getSettingsValue = (settings, key, defaultValue) => {
+  if (!settings) return defaultValue;
+  const value = settings[key];
+  // If it's a Vue ref (has .value property), unwrap it
+  if (value && typeof value === 'object' && 'value' in value) {
+    return value.value ?? defaultValue;
+  }
+  return value ?? defaultValue;
+};
+
 // VOICE-HANDLER: Base class for voice transmission handling
 // Manages outbound audio streams and routing to different targets (channels, users, or loopback)
 class VoiceHandler extends Writable {
@@ -40,7 +51,7 @@ class VoiceHandler extends Writable {
       // VOICE-STREAM-CREATION: Create voice stream with specified target
       // samplesPerPacket controls frame size (default 960 samples = 20ms @ 48kHz)
       // target parameter routes voice to different destinations
-      const samplesPerPacket = this._settings.samplesPerPacket?.value || 960;
+      const samplesPerPacket = getSettingsValue(this._settings, 'samplesPerPacket', 960);
       this._outbound = this._client.createVoiceStream(
         samplesPerPacket,
         this._target
@@ -97,7 +108,7 @@ export class PushToTalkVoiceHandler extends VoiceHandler {
   // LOOPBACK-FEATURE: Pass target parameter to base class for routing
   constructor(client, settings, target = 0) {
     super(client, settings, target);
-    this._key = settings.pttKey.value;
+    this._key = getSettingsValue(settings, 'pttKey', 'ctrl + shift');
     this._pushed = false;
     this._keydown_handler = () => (this._pushed = true);
     this._keyup_handler = () => {

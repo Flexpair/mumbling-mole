@@ -2,16 +2,13 @@
  * Composables Index
  * 
  * Central export point for all Vue composables.
- * These replace Knockout state modules with Vue reactive primitives.
+ * These are reusable UI utilities, NOT global state.
+ * 
+ * NOTE: All state is now managed by Pinia stores in app/stores/:
+ * - useSettingsStore (audio settings, persisted to localStorage)
+ * - useConnectionStore, useAudioStore, useVoiceStore, etc.
+ * - Dialog stores: connectionDialogStore, connectErrorDialogStore, etc.
  */
-
-// State composables (core application state)
-// Note: Core state is now managed directly via Pinia stores in app/stores/
-export { useConnectionDialog } from './useConnectionDialog.js';
-export { useConnectErrorDialog } from './useConnectErrorDialog.js';
-export { useSampleRateWarningDialog } from './useSampleRateWarningDialog.js';
-export { useConnectionInfo } from './useConnectionInfo.js';
-export { useSettings } from './useSettings.js';
 
 // Utility composables (reusable UI helpers)
 export { useLocalStorage } from './useLocalStorage.js';

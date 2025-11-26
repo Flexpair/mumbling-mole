@@ -116,69 +116,46 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef, toRefs } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
 import { useUIStore } from '../stores/uiStore';
-import { useConnectionDialog } from '../composables/useConnectionDialog';
+import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
 /**
- * Uses Pinia stores and composables directly.
- * No more AppState compatibility layer.
+ * Uses Pinia stores directly.
+ * No more AppState compatibility layer or singleton composables.
  */
 
 const config = inject('config', { connectDialog: {} });
 const translate = inject('translate');
 const auth = inject('auth');
-const settings = inject('settings');
 
 // Pinia stores
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const userStore = useUserStore();
+const dialogStore = useDialogStore();
 
-// Composables
-const connectDialog = useConnectionDialog();
-const connectionLogic = useConnectionLogic({ auth, settings });
+// Composables (for connection logic only)
+const connectionLogic = useConnectionLogic({ auth });
 
 /** @type {import('vue').Ref<HTMLDialogElement | null>} */
-const dialogElement = ref(null);
+const dialogElement = useTemplateRef('dialogElement');
 
 /** @type {import('vue').Ref<HTMLDivElement | null>} */
-const microphoneContainer = ref(null);
+const microphoneContainer = useTemplateRef('microphoneContainer');
 
 /** @type {import('vue').Ref<HTMLButtonElement | null>} */
-const pianoButton = ref(null);
+const pianoButton = useTemplateRef('pianoButton');
 
-// Direct access to composable refs (already reactive)
-const visible = computed({
-  get: () => connectDialog.visible.value,
-  set: (val) => { connectDialog.visible.value = val; }
-});
-const isTestActive = computed({
-  get: () => connectDialog.isTestActive.value,
-  set: (val) => { connectDialog.isTestActive.value = val; }
-});
-const address = computed({
-  get: () => connectDialog.address.value,
-  set: (val) => { connectDialog.address.value = val; }
-});
-const port = computed({
-  get: () => connectDialog.port.value,
-  set: (val) => { connectDialog.port.value = val; }
-});
-const username = computed({
-  get: () => connectDialog.username.value,
-  set: (val) => { connectDialog.username.value = val; }
-});
-const password = computed({
-  get: () => connectDialog.password.value,
-  set: (val) => { connectDialog.password.value = val; }
-});
+// Use toRefs to get reactive refs from nested dialog store object
+const { visible, isTestActive, address, port, username, password } = toRefs(dialogStore.connectDialog);
 
 // Watch visible and sync with native dialog open/close
 watch(visible, async (val) => {
@@ -192,15 +169,12 @@ watch(visible, async (val) => {
   }
 });
 
-// Computed state from Pinia stores (values are auto-unwrapped by Pinia)
-const connected = computed(() => userStore.thisUser != null);
-const isBeeping = computed(() => audioStore.isBeeping ?? false);
+// Reactive refs from Pinia stores (storeToRefs preserves reactivity)
+const { isBeeping, beeperReady } = storeToRefs(audioStore);
+const { voiceHandlerReady, isLoopbackMode, loopbackDominantFrequency: dominantFrequency } = storeToRefs(voiceStore);
 
-// Computed properties from Pinia store state
-const beeperReady = computed(() => audioStore.beeperReady ?? false);
-const voiceHandlerReady = computed(() => voiceStore.voiceHandlerReady ?? false);
-const isLoopbackMode = computed(() => voiceStore.isLoopbackMode ?? false);
-const dominantFrequency = computed(() => voiceStore.loopbackDominantFrequency ?? 0);
+// Computed for derived state (requires logic)
+const connected = computed(() => userStore.thisUser != null);
 
 // Subscribe to Knockout observables
 onMounted(() => {

@@ -204,14 +204,17 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs } from 'vue';
+import { storeToRefs } from 'pinia';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
-import { useClipboard, useConnectionInfo } from '../composables';
+import { useClipboard } from '../composables';
 import keyboardjs from 'keyboardjs';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useUserStore } from '../stores/userStore';
+import { useDialogStore } from '../stores/dialogStore';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const t = inject('translate');
 
@@ -232,12 +235,15 @@ const copyButtonTitle = computed(() =>
 
 const copyCommitHash = () => copyToClipboard(commitHash);
 
-// Injected dependencies and stores
-const settings = inject('settings');
+// Pinia stores
+const settingsStore = useSettingsStore();
 const uiStore = useUIStore();
 const connectionStore = useConnectionStore();
 const userStore = useUserStore();
-const connectionInfo = useConnectionInfo();
+const dialogStore = useDialogStore();
+
+// Use toRefs to get reactive refs from nested dialog store object
+const infoDialog = toRefs(dialogStore.infoDialog);
 
 const visible = computed({
   get: () => uiStore.currentOpenModal === 'connectionInfo' || uiStore.currentOpenModal === 'settings',
@@ -251,58 +257,37 @@ const serverVersion = ref(null);
 const latencyMs = ref(Number.NaN);
 const latencyDeviation = ref(Number.NaN);
 
-// Settings (direct access to injected settings refs)
-const voiceMode = computed({
-  get: () => settings.voiceMode.value,
-  set: (val) => { settings.voiceMode.value = val; }
-});
-
-const pttKeyDisplay = computed({
-  get: () => settings.pttKeyDisplay.value,
-  set: (val) => { settings.pttKeyDisplay.value = val; }
-});
-
-const audioBitrate = computed({
-  get: () => settings.audioBitrate.value,
-  set: (val) => { settings.audioBitrate.value = val; }
-});
-
-const samplesPerPacket = computed({
-  get: () => settings.samplesPerPacket.value,
-  set: (val) => { settings.samplesPerPacket.value = val; }
-});
-
-const jitterBufferSize = computed({
-  get: () => settings.jitterBufferSize.value,
-  set: (val) => { settings.jitterBufferSize.value = val; }
-});
-
-const jitterBufferMode = computed({
-  get: () => settings.jitterBufferMode.value,
-  set: (val) => { settings.jitterBufferMode.value = val; }
-});
+// Settings: use storeToRefs for direct two-way binding
+const { 
+  voiceMode, 
+  pttKeyDisplay, 
+  audioBitrate, 
+  samplesPerPacket, 
+  jitterBufferSize, 
+  jitterBufferMode,
+  totalBandwidth,
+  overheadBandwidth
+} = storeToRefs(settingsStore);
 
 const MS_PER_PACKET = 20;
 const MIN_AUDIO_BITRATE = 8000;
 const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
-const overheadBandwidth = computed(() => settings.overheadBandwidth.value);
-
 const grossBandwidth = computed({
-  get: () => settings.totalBandwidth.value,
+  get: () => totalBandwidth.value,
   set: (val) => {
     // Clamp to max allowed
     if (val > maxAllowedBandwidth.value) val = maxAllowedBandwidth.value;
     
-    const overhead = settings.overheadBandwidth.value;
+    const overhead = overheadBandwidth.value;
     let newNet = val - overhead;
     if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
-    settings.audioBitrate.value = newNet;
+    audioBitrate.value = newNet;
   }
 });
 
 // Custom Slider Logic
-const sliderTrack = ref(null);
+const sliderTrack = useTemplateRef('sliderTrack');
 const isDragging = ref(false);
 
 const onDragStart = (event) => {
@@ -445,7 +430,7 @@ const netBadgeStyle = computed(() => {
 const minGrossBandwidth = computed(() => {
   // Opus minimum useful bitrate is ~8 kbps
   // We allow the slider to go exactly down to this limit + overhead
-  return MIN_AUDIO_BITRATE + settings.overheadBandwidth.value;
+  return MIN_AUDIO_BITRATE + overheadBandwidth.value;
 });
 
 const maxAllowedBandwidth = computed(() => {
@@ -486,7 +471,7 @@ function updateStats() {
     latencyDeviation.value = Number.NaN;
   }
   
-  const spp = settings.samplesPerPacket.value;
+  const spp = samplesPerPacket.value;
   if (client && spp) {
     const maxBandwidthValue = client.maxBandwidth;
     const maxBitrateValue = maxBandwidthValue === null || maxBandwidthValue === undefined 
@@ -495,10 +480,10 @@ function updateStats() {
     const actualBitrate = client.getActualBitrate(spp, false);
     const actualBandwidth = MumbleClient.calcEnforcableBandwidth(actualBitrate, spp, false);
     
-    connectionInfo.maxBitrate.value = maxBitrateValue;
-    connectionInfo.currentBitrate.value = actualBitrate;
-    connectionInfo.maxBandwidth.value = maxBandwidthValue;
-    connectionInfo.currentBandwidth.value = actualBandwidth;
+    infoDialog.maxBitrate.value = maxBitrateValue;
+    infoDialog.currentBitrate.value = actualBitrate;
+    infoDialog.maxBandwidth.value = maxBandwidthValue;
+    infoDialog.currentBandwidth.value = actualBandwidth;
   }
 }
 
@@ -519,12 +504,12 @@ watch(visible, (val) => {
 });
 
 const recordPttKey = () => {
-  settings.recordPttKey(keyboardjs);
+  settingsStore.recordPttKey(keyboardjs);
 };
 
 const handleHide = () => {
   visible.value = false;
-  settings.save(); // Auto-save on close
+  // Settings are auto-saved via settingsStore watch() - no manual save needed
 };
 
 // Watch for modal opening to reset tab

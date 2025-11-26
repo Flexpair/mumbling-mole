@@ -77,6 +77,7 @@ jest.unstable_mockModule('vue', () => ({
       const { get, set } = factory(() => {}, () => {});
       return { get value() { return get(); }, set value(v) { set(v); }, __v_isRef: true };
     },
+    onWatcherCleanup: () => {},
 }));
 
 // Import Vue (mocked)
@@ -106,15 +107,14 @@ const mockConnectionState = {
   getClient: jest.fn()
 };
 
-// Mock settings
-const mockSettings = {
-  jitterBufferSize: ref(3),
-  jitterBufferMode: ref('balanced'),
-  jitterBufferTarget: ref(3)
+// Mock settings as a Pinia store (settingsStore)
+const mockSettingsStore = {
+  jitterBufferSize: 3,
+  jitterBufferMode: 'balanced'
 };
 
-jest.unstable_mockModule('../../app/composables/useSettings', () => ({
-  useSettings: () => mockSettings
+jest.unstable_mockModule('../../app/stores/settingsStore', () => ({
+  useSettingsStore: () => mockSettingsStore
 }));
 
 jest.unstable_mockModule('../../app/utils/voice-stream-manager', () => ({
@@ -134,7 +134,7 @@ jest.unstable_mockModule('../../app/utils/frequency-analyzer', () => ({
 }));
 
 // Mock debug-utils before importing useUserStore
-jest.unstable_mockModule('../../app/composables/debug-utils', () => ({
+jest.unstable_mockModule('../../app/utils/debug-utils', () => ({
   debugLog: jest.fn()
 }));
 
@@ -160,6 +160,10 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     setActivePinia(createPinia());
     // Reset watchers
     watchers.clear();
+    
+    // Reset settings store mock
+    mockSettingsStore.jitterBufferSize = 3;
+    mockSettingsStore.jitterBufferMode = 'balanced';
     
     mockClient = {
       self: { id: 1 },
@@ -189,7 +193,6 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     mockConnectionState.getClient.mockReturnValue(mockClient);
     
     userStore = useUserStore();
-    userStore.setSettings(mockSettings);
   });
 
   test('should calculate correct jitter buffer for 143ms latency', async () => {
@@ -216,7 +219,7 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     dataPingCallback();
 
     // Check if jitterBufferSize updated
-    expect(mockSettings.jitterBufferSize.value).toBe(8);
+    expect(mockSettingsStore.jitterBufferSize).toBe(8);
   });
 
   test('should handle stats.n = 0 correctly (skip calculation)', async () => {
@@ -224,7 +227,7 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     thisUser.value = mockUser.__ui;
     await nextTick();
 
-    mockSettings.jitterBufferSize.value = 5; // Set to non-default
+    mockSettingsStore.jitterBufferSize = 5; // Set to non-default
 
     mockClient.dataStats = {
       mean: 143,
@@ -235,6 +238,6 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     dataPingCallback();
 
     // Should fall back to default (3) because stats are invalid
-    expect(mockSettings.jitterBufferSize.value).toBe(3);
+    expect(mockSettingsStore.jitterBufferSize).toBe(3);
   });
 });

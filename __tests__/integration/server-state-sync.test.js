@@ -72,7 +72,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       })
     }));
 
-    jest.unstable_mockModule('../../app/composables/debug-utils.js', () => ({
+    jest.unstable_mockModule('../../app/utils/debug-utils.js', () => ({
       debugLog: jest.fn()
     }));
 
@@ -96,6 +96,13 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
     jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
       useVoiceStore: () => voiceStateMock
+    }));
+
+    jest.unstable_mockModule('../../app/stores/settingsStore.js', () => ({
+      useSettingsStore: () => ({
+        jitterBufferSize: 3,
+        jitterBufferMode: 'balanced'
+      })
     }));
 
     // Import after mocks

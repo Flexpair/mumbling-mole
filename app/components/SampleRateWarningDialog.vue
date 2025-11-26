@@ -40,37 +40,22 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject } from 'vue';
+import { Teleport, Transition, computed, inject, toRefs } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useUIStore } from '../stores/uiStore';
-import { useSampleRateWarningDialog } from '../composables/useSampleRateWarningDialog';
+import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
-const settings = inject('settings');
 
-// Pinia store and composables
+// Pinia stores and composables
 const uiStore = useUIStore();
-const sampleRateWarningDialog = useSampleRateWarningDialog();
-const connectionLogic = useConnectionLogic({ auth, settings });
+const dialogStore = useDialogStore();
+const connectionLogic = useConnectionLogic({ auth });
 
-// Direct access to composable refs
-const visible = computed({
-  get: () => sampleRateWarningDialog.visible.value,
-  set: (val) => { sampleRateWarningDialog.visible.value = val; }
-});
-
-const mode = computed({
-  get: () => sampleRateWarningDialog.mode.value,
-  set: (val) => { sampleRateWarningDialog.mode.value = val; }
-});
-
-const sampleRate = computed({
-  get: () => sampleRateWarningDialog.sampleRate.value,
-  set: (val) => { sampleRateWarningDialog.sampleRate.value = val; }
-});
-
-let pendingConnection = null;
+// Use toRefs to get reactive refs from nested dialog store object
+const { visible, mode, sampleRate, connectionParams } = toRefs(dialogStore.sampleRateDialog);
 
 // Computed properties
 const isConfirm = computed(() => mode.value === 'confirm');
@@ -121,7 +106,7 @@ const show = (sr, params) => {
   }
   mode.value = 'confirm';
   sampleRate.value = sr || null;
-  pendingConnection = params || null;
+  connectionParams.value = params || null;
   visible.value = true;
   uiStore.currentOpenModal = 'sampleRateWarning';
 };
@@ -132,7 +117,7 @@ const showInfo = (sr) => {
   }
   mode.value = 'info';
   sampleRate.value = sr || null;
-  pendingConnection = null;
+  connectionParams.value = null;
   visible.value = true;
   uiStore.currentOpenModal = 'sampleRateWarning';
 };
@@ -142,11 +127,11 @@ const hide = () => {
   if (uiStore.currentOpenModal === 'sampleRateWarning') {
     uiStore.currentOpenModal = null;
   }
-  pendingConnection = null;
+  connectionParams.value = null;
 };
 
 const joinWithoutAudio = () => {
-  const params = pendingConnection;
+  const params = connectionParams.value;
   const sr = sampleRate.value;
   hide();
   if (params) {
@@ -161,12 +146,8 @@ const cancel = () => {
   hide();
 };
 
-// Expose methods to composable for backward compatibility with AppState
-sampleRateWarningDialog.show = show;
-sampleRateWarningDialog.showInfo = showInfo;
-sampleRateWarningDialog.hide = hide;
-sampleRateWarningDialog.joinWithoutAudio = joinWithoutAudio;
-sampleRateWarningDialog.cancel = cancel;
+// Methods are now available directly on the Pinia store (sampleRateWarningDialogStore)
+// No need for backward compatibility exports - store actions handle this
 </script>
 
 <style scoped>

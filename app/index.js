@@ -1,12 +1,14 @@
 import AuthFactory from "./auth/AuthFactory";
 import { createApp } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
+import { createPiniaDebugPlugin } from './plugins/pinia-debug';
 import AppVue from "./components/App.vue";
 import { useUserStore } from "./stores/userStore";
 import { useAudioStore } from "./stores/audioStore";
 import { useVoiceStore } from "./stores/voiceStore";
 import { useUIStore } from "./stores/uiStore";
-import { useConnectionDialog } from "./composables/useConnectionDialog";
+import { useDialogStore } from "./stores/dialogStore";
+import { useSettingsStore } from "./stores/settingsStore";
 
 import {
   enumMicrophones,
@@ -46,22 +48,23 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-import { useSettings, vTooltip } from "./composables/index.js";
+import { vTooltip } from "./composables/index.js";
 
-// Initialize Pinia
+// Initialize Pinia with debug plugin (only active when ?debug-audio is in URL)
 const pinia = createPinia();
+pinia.use(createPiniaDebugPlugin());
 setActivePinia(pinia);
 
-// Initialize stores and composables
+// Initialize stores
 const userStore = useUserStore();
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const uiStore = useUIStore();
-const connectDialog = useConnectionDialog();
-const settings = useSettings(globalThis.mumbleWebConfig.settings);
+const dialogStore = useDialogStore();
+const settingsStore = useSettingsStore();
 
-// Inject settings into userStore
-userStore.setSettings(settings);
+// Initialize settings with config defaults
+settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 
 // Initialize auth
 let authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
@@ -91,12 +94,12 @@ const unwrapRef = (val) => {
 
 globalThis.mumbleUi = { 
   auth, 
-  settings, 
+  settings: settingsStore, 
   user: userStore,
   audio: audioStore,
   voice: voiceStore,
   ui: uiStore,
-  connectDialog, 
+  connectDialog: dialogStore.connectDialog, 
   connected,
   // Legacy mutation helpers used by automation and remaining AppState clients
   requestMute: (...args) => userStore.requestMute(...args),
@@ -124,13 +127,13 @@ function applyQueryParamsToConnectDialog() {
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   
   if (queryParams.address) {
-    connectDialog.address.value = queryParams.address;
+    dialogStore.connectDialog.address = queryParams.address;
   }
   if (queryParams.port) {
-    connectDialog.port.value = queryParams.port;
+    dialogStore.connectDialog.port = queryParams.port;
   }
   if (queryParams.password) {
-    connectDialog.password.value = queryParams.password;
+    dialogStore.connectDialog.password = queryParams.password;
   }
 }
 
@@ -140,20 +143,20 @@ function applyQueryParamsToConnectDialog() {
 function handleAuthLogin(user) {
   const username = getUsernameFromMetadata(user);
   if (username) {
-    connectDialog.username.value = username;
+    dialogStore.connectDialog.username = username;
   }
   auth.close();
   // Show connect dialog after successful authentication
-  connectDialog.visible.value = true;
+  dialogStore.connectDialog.visible = true;
 }
 
 /**
  * Handle auth modal close event
  */
 function handleAuthClose() {
-  if (connectDialog.username.value) {
+  if (dialogStore.connectDialog.username) {
     // Show connect dialog when auth modal is closed and user is authenticated
-    connectDialog.visible.value = true;
+    dialogStore.connectDialog.visible = true;
   } else {
     auth.open("login"); // open the modal to the login tab
   }
@@ -165,7 +168,7 @@ function handleAuthClose() {
 function handleAuthError(err) {
   console.warn("[Auth] Authentication error:", err);
   // Show connect dialog even if auth fails to allow retry
-  connectDialog.visible.value = true;
+  dialogStore.connectDialog.visible = true;
 }
 
 /**
@@ -187,15 +190,15 @@ async function initializeAuth() {
 
   if (user == null) {
     // Hide connect dialog when showing authentication modal
-    connectDialog.visible.value = false;
+    dialogStore.connectDialog.visible = false;
     auth.open("signup"); // open the modal to the signup tab
   } else {
     const username = getUsernameFromMetadata(user);
     if (username) {
-      connectDialog.username.value = username;
+      dialogStore.connectDialog.username = username;
     }
     // User is already authenticated, show connect dialog
-    connectDialog.visible.value = true;
+    dialogStore.connectDialog.visible = true;
   }
 }
 
@@ -231,7 +234,8 @@ async function main() {
     vueApp.provide('config', globalThis.mumbleWebConfig);
     vueApp.provide('translate', translate);
     vueApp.provide('auth', auth);
-    vueApp.provide('settings', settings);
+    // Note: settings is now a Pinia store (useSettingsStore), no need to provide
+    // Components can import it directly via: import { useSettingsStore } from '../stores/settingsStore'
     
     const mountedApp = vueApp.mount('#app');
     

@@ -26,7 +26,7 @@
 
       <!-- iframe with lazy loading and clipboard permissions -->
       <iframe
-        ref="iframeRef"
+        ref="guacamoleIframe"
         id="guacframe"
         :src="guacSource || 'about:blank'"
         @load="handleLoad"
@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup } from 'vue';
 
 /**
  * GuacamoleFrame Component
@@ -48,7 +48,7 @@ import { ref, watch, onMounted } from 'vue';
  */
 
 /** @type {import('vue').Ref<HTMLIFrameElement | null>} */
-const iframeRef = ref(null);
+const iframeRef = useTemplateRef('guacamoleIframe');
 
 /** @type {import('vue').Ref<string | null>} */
 const guacSource = ref(null);
@@ -80,7 +80,10 @@ function focusIframe() {
 watch(visible, (isVisible) => {
   if (isVisible) {
     // Delay focus slightly to ensure iframe is rendered
-    setTimeout(() => focusIframe(), 100);
+    const timeoutId = setTimeout(() => focusIframe(), 100);
+    
+    // Cleanup timeout if watch re-runs before timeout fires (Vue 3.5+)
+    onWatcherCleanup(() => clearTimeout(timeoutId));
   }
 });
 

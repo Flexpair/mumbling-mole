@@ -3,7 +3,7 @@
  * Detects dominant frequency from voice streams for latency testing
  */
 
-import { debugLog as sharedDebugLog } from '../composables/debug-utils';
+import { debugLog as sharedDebugLog } from './debug-utils';
 
 /**
  * Creates a frequency analyzer that monitors an AnalyserNode

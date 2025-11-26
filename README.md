@@ -388,9 +388,6 @@ Create custom themes by extending existing ones in `themes/` directory.
 | `npm run test:loopback` | Playwright loopback test (headless) |
 | `npm run test:loopback:headed` | Playwright loopback test (visible browser) |
 | `npm run test:loopback:debug` | Step-through debugging mode |
-| `npm run test:server:up` | Start Murmur test server (docker-compose) |
-| `npm run test:server:down` | Stop Murmur test server |
-| `npm run test:server:logs` | View test server logs |
 | `npm run audit:ci` | Dependency vulnerability check |
 
 > **📘 Note:** This project uses **Jest unit tests** (1395 tests) + **Playwright E2E tests** for automated audio pipeline validation. See **[tests/README.md](./tests/README.md)** for comprehensive testing documentation.

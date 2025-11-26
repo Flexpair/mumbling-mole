@@ -93,6 +93,7 @@
 
 <script setup>
 import { computed, inject } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useUserStore } from '../stores/userStore';
 import { useAudioStore } from '../stores/audioStore';
 import { useUIStore } from '../stores/uiStore';
@@ -109,10 +110,9 @@ const voiceStore = useVoiceStore();
 // Inject auth for logout
 const auth = inject('auth');
 
-// Computed properties - Pinia refs are already reactive, no .value needed here
-const selfMute = computed(() => userStore.selfMute);
-const selfDeaf = computed(() => userStore.selfDeaf);
-const audioLockActive = computed(() => audioStore.audioLockActive);
+// Reactive refs from Pinia stores (storeToRefs preserves reactivity)
+const { selfMute, selfDeaf } = storeToRefs(userStore);
+const { audioLockActive } = storeToRefs(audioStore);
 
 // Writable computed for 2-way binding with messageBox
 const messageBox = computed({
