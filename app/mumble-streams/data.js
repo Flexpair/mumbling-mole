@@ -1,6 +1,7 @@
-import protobufjs from 'protobufjs';
+// Use pre-compiled static protobuf definitions (protobufjs/minimal) instead of dynamic parsing
+// This saves ~200KB by avoiding the full protobufjs parser
+import { MumbleProto } from './mumble-proto-minimal.js';
 import { Transform } from 'node:stream';
-import mumbleProtoContent from './Mumble.proto';
 
 const nameById = {
     0: 'Version',
@@ -35,16 +36,18 @@ for (const id in nameById) {
 	idByName[nameById[id]] = id;
 }
 
-const root = protobufjs.parse(mumbleProtoContent, { alternateCommentMode: true }).root;
-const mumbleNamespace = root.lookup('MumbleProto');
-if (!mumbleNamespace) {
-  throw new Error('Failed to load MumbleProto definitions');
-}
+// Use pre-compiled message types from static module
 const typeByName = {};
 for (const key of Object.keys(nameById)) {
   const name = nameById[key];
-  typeByName[name] = mumbleNamespace.lookupType(name);
-};
+  // UDPTunnel is handled specially (raw bytes) in encode/decode, but include
+  // a placeholder in typeByName for API compatibility
+  if (name === 'UDPTunnel') {
+    typeByName[name] = { name: 'UDPTunnel', _isRawBytes: true };
+  } else {
+    typeByName[name] = MumbleProto[name];
+  }
+}
 
 function encode(name, payload) {
   const type = typeByName[name];
@@ -52,10 +55,7 @@ function encode(name, payload) {
     throw new Error('Unknown message: ' + name);
   }
   const data = payload || {};
-  const err = type.verify(data);
-  if (err) {
-    throw new Error(err);
-  }
+  // Static module doesn't have verify(), create message directly
   const message = type.create(data);
   const buffer = type.encode(message).finish();
   return Buffer.from(buffer);

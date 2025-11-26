@@ -1,14 +1,28 @@
 import { defineStore } from 'pinia';
 import { ref, shallowRef, computed } from 'vue';
-import WorkerBasedMumbleConnector from '../worker-client';
 import { translate } from '../localize';
 import { buildWebSocketUrl } from '../utils/websocket-url';
 
 export const useConnectionStore = defineStore('connection', () => {
   const logger = globalThis.mumbleLog || console.log;
   
-  const connector = new WorkerBasedMumbleConnector();
+  // Lazy-loaded connector - only created when first connection is made
+  let _connector = null;
+  const connector = shallowRef(null);
   const client = shallowRef(null);
+  
+  /**
+   * Get or create the WorkerBasedMumbleConnector (lazy initialization)
+   * This delays loading the 1.2MB worker.js until actually needed
+   */
+  async function getConnector() {
+    if (!_connector) {
+      const { default: WorkerBasedMumbleConnector } = await import('../worker-client');
+      _connector = new WorkerBasedMumbleConnector();
+      connector.value = _connector;
+    }
+    return _connector;
+  }
   
   // Connection parameters (reactive)
   const remoteHost = ref(null);
@@ -45,8 +59,11 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       const wsUrl = buildWebSocketUrl(host, port);
+      
+      // Lazy-load connector on first connection
+      const conn = await getConnector();
 
-      const newClient = await connector.connect(wsUrl, {
+      const newClient = await conn.connect(wsUrl, {
         username: username,
         password: password,
         tokens: tokens,

@@ -140,12 +140,13 @@ const buildConfig = {
     // Vue 3 Single File Components (.vue files)
     vuePlugin(),
     
-    // Custom alias for Vue with runtime compiler
+    // Custom alias for Vue runtime-only build (no template compiler needed - all templates pre-compiled in .vue SFCs)
+    // Saves ~40KB by excluding runtime template compiler
     {
       name: 'vue-runtime-alias',
       setup(build) {
         build.onResolve({ filter: /^vue$/ }, args => ({
-          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js')
+          path: path.resolve(__dirname, 'node_modules/vue/dist/vue.runtime.esm-bundler.js')
         }));
       }
     },
@@ -174,6 +175,7 @@ const buildConfig = {
     '.txt': 'text',
     '.proto': 'text', // Load .proto files as text for fs-mock
     '.png': 'file',
+    '.webp': 'file',
     '.jpg': 'file',
     '.jpeg': 'file',
     '.gif': 'file',
@@ -227,6 +229,9 @@ try {
   // Theme assets - copy SVG and images
   copyDir('themes/MetroMumbleLight/svg', 'svg');
   copyDir('themes/MetroMumbleLight/img', 'img');
+  
+  // Copy LCP image to root for preload/critical CSS (without content hash)
+  copyFile('themes/MetroMumbleLight/img/AdobeStock_74031703.webp', 'AdobeStock_74031703.webp');
   
   // AudioWorklet processors (MUST NOT be bundled!)
   // These run in AudioWorklet context and cannot use imports
