@@ -1,225 +1,186 @@
 /**
- * Pinia Dialog Stores - Unit Tests
+ * Pinia Dialog Store - Unit Tests
  * 
- * Tests für den konsolidierten Dialog-Store sowie die Backward-Compatibility-Aliases.
- * Ursprünglich 4 separate Stores, jetzt 1 konsolidierter Store.
+ * Tests für den konsolidierten Dialog-Store.
  */
 
 import { describe, test, expect, beforeEach } from '@jest/globals';
 import { setActivePinia, createPinia } from 'pinia';
 
-// Import consolidated store and backward-compatible aliases
-import { 
-  useDialogStore,
-  useConnectionDialogStore, 
-  useConnectErrorDialogStore, 
-  useConnectionInfoStore, 
-  useSampleRateWarningDialogStore 
-} from '../../app/stores/dialogStore.js';
+import { useDialogStore } from '../../app/stores/dialogStore.js';
 
-describe('Dialog Stores', () => {
+describe('useDialogStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
-  describe('useConnectionDialogStore', () => {
+  describe('connectDialog', () => {
     test('initializes with default values', () => {
-      const store = useConnectionDialogStore();
+      const store = useDialogStore();
       
-      expect(store.visible).toBe(false);
-      expect(store.username).toBe('');
-      expect(store.password).toBe('');
-      expect(store.address).toBeDefined();
-      expect(store.port).toBeDefined();
-      expect(store.isTestActive).toBe(false);
+      expect(store.connectDialog.visible).toBe(false);
+      expect(store.connectDialog.username).toBe('');
+      expect(store.connectDialog.password).toBe('');
+      expect(store.connectDialog.address).toBe('');
+      expect(store.connectDialog.port).toBe('');
+      expect(store.connectDialog.isTestActive).toBe(false);
     });
 
-    test('show() sets visible to true', () => {
-      const store = useConnectionDialogStore();
-      store.show();
-      expect(store.visible).toBe(true);
+    test('showConnectDialog() sets visible to true', () => {
+      const store = useDialogStore();
+      store.showConnectDialog();
+      expect(store.connectDialog.visible).toBe(true);
     });
 
-    test('hide() sets visible to false', () => {
-      const store = useConnectionDialogStore();
-      store.visible = true;
-      store.hide();
-      expect(store.visible).toBe(false);
-    });
-
-    test('properties can be set directly (Pinia pattern)', () => {
-      const store = useConnectionDialogStore();
-      
-      // Pinia stores allow direct assignment (no .value needed)
-      store.username = 'TestUser';
-      store.password = 'TestPass';
-      store.isTestActive = true;
-      
-      expect(store.username).toBe('TestUser');
-      expect(store.password).toBe('TestPass');
-      expect(store.isTestActive).toBe(true);
-    });
-  });
-
-  describe('useConnectErrorDialogStore', () => {
-    test('initializes with default values', () => {
-      const store = useConnectErrorDialogStore();
-      
-      expect(store.visible).toBe(false);
-      expect(store.type).toBe(0);
-      expect(store.reason).toBe('');
-    });
-
-    test('show() accepts error object and sets state', () => {
-      const store = useConnectErrorDialogStore();
-      
-      const error = { type: 2, reason: 'Username rejected' };
-      store.show(error);
-      
-      expect(store.visible).toBe(true);
-      expect(store.type).toBe(2);
-      expect(store.reason).toBe('Username rejected');
-    });
-
-    test('show() handles error with message instead of reason', () => {
-      const store = useConnectErrorDialogStore();
-      
-      const error = { message: 'Connection failed' };
-      store.show(error);
-      
-      expect(store.visible).toBe(true);
-      expect(store.reason).toBe('Connection failed');
-    });
-
-    test('reset() clears all state', () => {
-      const store = useConnectErrorDialogStore();
-      
-      store.type = 5;
-      store.reason = 'Some error';
-      store.visible = true;
-      
-      store.reset();
-      
-      expect(store.visible).toBe(false);
-      expect(store.type).toBe(0);
-      expect(store.reason).toBe('');
-    });
-  });
-
-  describe('useConnectionInfoStore', () => {
-    test('initializes with default values', () => {
-      const store = useConnectionInfoStore();
-      
-      // Numeric stats use NaN to indicate "no value yet" (not 0)
-      expect(store.maxBitrate).toBeNaN();
-      expect(store.currentBitrate).toBeNaN();
-      expect(store.maxBandwidth).toBeNaN();
-      expect(store.currentBandwidth).toBeNaN();
-      expect(store.latencyMs).toBeNaN();
-      expect(store.latencyDeviation).toBeNaN();
-      expect(store.visible).toBe(false);
-      expect(store.serverVersion).toBeNull();
-      expect(store.codec).toBe('Unknown');
+    test('hideConnectDialog() sets visible to false', () => {
+      const store = useDialogStore();
+      store.connectDialog.visible = true;
+      store.hideConnectDialog();
+      expect(store.connectDialog.visible).toBe(false);
     });
 
     test('properties can be set directly', () => {
-      const store = useConnectionInfoStore();
+      const store = useDialogStore();
       
-      // This is how ConnectionInfoDialog.vue uses it
-      store.maxBitrate = 64000;
-      store.currentBitrate = 55600;
-      store.maxBandwidth = 100000;
-      store.currentBandwidth = 80000;
+      store.connectDialog.username = 'TestUser';
+      store.connectDialog.password = 'TestPass';
+      store.connectDialog.isTestActive = true;
       
-      expect(store.maxBitrate).toBe(64000);
-      expect(store.currentBitrate).toBe(55600);
-      expect(store.maxBandwidth).toBe(100000);
-      expect(store.currentBandwidth).toBe(80000);
-    });
-
-    test('reset() clears all values', () => {
-      const store = useConnectionInfoStore();
-      
-      store.maxBitrate = 64000;
-      store.currentBitrate = 55600;
-      
-      store.reset();
-      
-      // After reset, values should return to NaN (not 0)
-      expect(store.maxBitrate).toBeNaN();
-      expect(store.currentBitrate).toBeNaN();
+      expect(store.connectDialog.username).toBe('TestUser');
+      expect(store.connectDialog.password).toBe('TestPass');
+      expect(store.connectDialog.isTestActive).toBe(true);
     });
   });
 
-  describe('useSampleRateWarningDialogStore', () => {
+  describe('errorDialog', () => {
     test('initializes with default values', () => {
-      const store = useSampleRateWarningDialogStore();
+      const store = useDialogStore();
       
-      expect(store.visible).toBe(false);
-      expect(store.mode).toBe('confirm');
-      expect(store.sampleRate).toBeNull();
-      expect(store.connectionParams).toBeNull();
+      expect(store.errorDialog.visible).toBe(false);
+      expect(store.errorDialog.type).toBe(0);
+      expect(store.errorDialog.reason).toBe('');
     });
 
-    test('show() sets visible to true', () => {
-      const store = useSampleRateWarningDialogStore();
-      store.show();
-      expect(store.visible).toBe(true);
+    test('showErrorDialog() accepts error object and sets state', () => {
+      const store = useDialogStore();
+      
+      const error = { type: 2, reason: 'Username rejected' };
+      store.showErrorDialog(error);
+      
+      expect(store.errorDialog.visible).toBe(true);
+      expect(store.errorDialog.type).toBe(2);
+      expect(store.errorDialog.reason).toBe('Username rejected');
+    });
+
+    test('showErrorDialog() handles error with message instead of reason', () => {
+      const store = useDialogStore();
+      
+      const error = { message: 'Connection failed' };
+      store.showErrorDialog(error);
+      
+      expect(store.errorDialog.visible).toBe(true);
+      expect(store.errorDialog.reason).toBe('Connection failed');
+    });
+
+    test('resetErrorDialog() clears all state', () => {
+      const store = useDialogStore();
+      
+      store.errorDialog.type = 5;
+      store.errorDialog.reason = 'Some error';
+      store.errorDialog.visible = true;
+      
+      store.resetErrorDialog();
+      
+      expect(store.errorDialog.visible).toBe(false);
+      expect(store.errorDialog.type).toBe(0);
+      expect(store.errorDialog.reason).toBe('');
+    });
+  });
+
+  describe('infoDialog', () => {
+    test('initializes with default values', () => {
+      const store = useDialogStore();
+      
+      expect(store.infoDialog.maxBitrate).toBeNaN();
+      expect(store.infoDialog.currentBitrate).toBeNaN();
+      expect(store.infoDialog.maxBandwidth).toBeNaN();
+      expect(store.infoDialog.currentBandwidth).toBeNaN();
+      expect(store.infoDialog.latencyMs).toBeNaN();
+      expect(store.infoDialog.latencyDeviation).toBeNaN();
+      expect(store.infoDialog.visible).toBe(false);
+      expect(store.infoDialog.serverVersion).toBeNull();
+      expect(store.infoDialog.codec).toBe('Unknown');
+    });
+
+    test('properties can be set directly', () => {
+      const store = useDialogStore();
+      
+      store.infoDialog.maxBitrate = 64000;
+      store.infoDialog.currentBitrate = 55600;
+      
+      expect(store.infoDialog.maxBitrate).toBe(64000);
+      expect(store.infoDialog.currentBitrate).toBe(55600);
+    });
+
+    test('resetInfoDialog() clears all values', () => {
+      const store = useDialogStore();
+      
+      store.infoDialog.maxBitrate = 64000;
+      store.infoDialog.currentBitrate = 55600;
+      
+      store.resetInfoDialog();
+      
+      expect(store.infoDialog.maxBitrate).toBeNaN();
+      expect(store.infoDialog.currentBitrate).toBeNaN();
+    });
+  });
+
+  describe('sampleRateDialog', () => {
+    test('initializes with default values', () => {
+      const store = useDialogStore();
+      
+      expect(store.sampleRateDialog.visible).toBe(false);
+      expect(store.sampleRateDialog.mode).toBe('confirm');
+      expect(store.sampleRateDialog.sampleRate).toBeNull();
+      expect(store.sampleRateDialog.connectionParams).toBeNull();
+    });
+
+    test('showSampleRateDialog() sets visible to true', () => {
+      const store = useDialogStore();
+      store.showSampleRateDialog();
+      expect(store.sampleRateDialog.visible).toBe(true);
     });
 
     test('sampleRate and connectionParams can be set before show()', () => {
-      const store = useSampleRateWarningDialogStore();
+      const store = useDialogStore();
       
-      // This is how useConnectionLogic.js uses it
-      store.sampleRate = 44100;
-      store.connectionParams = { host: 'test', port: 64738 };
-      store.show();
+      store.sampleRateDialog.sampleRate = 44100;
+      store.sampleRateDialog.connectionParams = { host: 'test', port: 64738 };
+      store.showSampleRateDialog();
       
-      expect(store.sampleRate).toBe(44100);
-      expect(store.connectionParams).toEqual({ host: 'test', port: 64738 });
-      expect(store.visible).toBe(true);
+      expect(store.sampleRateDialog.sampleRate).toBe(44100);
+      expect(store.sampleRateDialog.connectionParams).toEqual({ host: 'test', port: 64738 });
+      expect(store.sampleRateDialog.visible).toBe(true);
     });
 
-    test('reset() clears all state', () => {
-      const store = useSampleRateWarningDialogStore();
+    test('resetSampleRateDialog() clears all state', () => {
+      const store = useDialogStore();
       
-      store.visible = true;
-      store.mode = 'info';
-      store.sampleRate = 44100;
-      store.connectionParams = { host: 'test' };
+      store.sampleRateDialog.visible = true;
+      store.sampleRateDialog.mode = 'info';
+      store.sampleRateDialog.sampleRate = 44100;
+      store.sampleRateDialog.connectionParams = { host: 'test' };
       
-      store.reset();
+      store.resetSampleRateDialog();
       
-      expect(store.visible).toBe(false);
-      expect(store.mode).toBe('confirm');
-      expect(store.sampleRate).toBeNull();
-      expect(store.connectionParams).toBeNull();
-    });
-  });
-
-  describe('Pinia Store Pattern Validation', () => {
-    test('stores are singletons within same Pinia instance', () => {
-      const store1 = useConnectionDialogStore();
-      const store2 = useConnectionDialogStore();
-      
-      store1.username = 'TestUser';
-      
-      // Same instance
-      expect(store2.username).toBe('TestUser');
-    });
-
-    test('stores can be accessed without .value (unlike raw refs)', () => {
-      const store = useConnectionDialogStore();
-      
-      // Direct assignment works (Pinia unwraps refs)
-      store.visible = true;
-      expect(store.visible).toBe(true);
-      
-      // NOT: store.visible.value = true (that would fail)
+      expect(store.sampleRateDialog.visible).toBe(false);
+      expect(store.sampleRateDialog.mode).toBe('confirm');
+      expect(store.sampleRateDialog.sampleRate).toBeNull();
+      expect(store.sampleRateDialog.connectionParams).toBeNull();
     });
   });
 
-  describe('useDialogStore (consolidated)', () => {
+  describe('Global Actions', () => {
     test('contains all dialog namespaces', () => {
       const store = useDialogStore();
       
@@ -229,21 +190,9 @@ describe('Dialog Stores', () => {
       expect(store.sampleRateDialog).toBeDefined();
     });
 
-    test('connectDialog namespace works correctly', () => {
-      const store = useDialogStore();
-      
-      // Pinia auto-unwraps refs in nested objects, so no .value needed
-      store.connectDialog.username = 'TestUser';
-      store.connectDialog.visible = true;
-      
-      expect(store.connectDialog.username).toBe('TestUser');
-      expect(store.connectDialog.visible).toBe(true);
-    });
-
     test('resetAll() clears all dialogs', () => {
       const store = useDialogStore();
       
-      // No .value needed - Pinia auto-unwraps
       store.connectDialog.visible = true;
       store.errorDialog.visible = true;
       store.infoDialog.visible = true;
@@ -257,21 +206,13 @@ describe('Dialog Stores', () => {
       expect(store.sampleRateDialog.visible).toBe(false);
     });
 
-    test('backward-compatible aliases share state with consolidated store', () => {
-      const dialogStore = useDialogStore();
-      const connectionDialogStore = useConnectionDialogStore();
+    test('store is singleton within same Pinia instance', () => {
+      const store1 = useDialogStore();
+      const store2 = useDialogStore();
       
-      // Set via consolidated store (no .value needed - Pinia unwraps)
-      dialogStore.connectDialog.username = 'SharedUser';
+      store1.connectDialog.username = 'TestUser';
       
-      // Read via alias
-      expect(connectionDialogStore.username).toBe('SharedUser');
-      
-      // Set via alias
-      connectionDialogStore.password = 'SharedPass';
-      
-      // Read via consolidated store (no .value needed)
-      expect(dialogStore.connectDialog.password).toBe('SharedPass');
+      expect(store2.connectDialog.username).toBe('TestUser');
     });
   });
 });
