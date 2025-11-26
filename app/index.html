@@ -29,6 +29,13 @@
     <!-- Preconnect to external domains for faster resource loading -->
     <link rel="preconnect" href="https://welcome.flexpair.com" />
     <link rel="preconnect" href="https://identity.netlify.com" />
+    
+    <!-- DNS Prefetch for domains that may be used later -->
+    <link rel="dns-prefetch" href="https://welcome.flexpair.com" />
+    <link rel="dns-prefetch" href="https://identity.netlify.com" />
+
+    <!-- Module Preload: Start loading main bundle early -->
+    <link rel="modulepreload" href="index.js" />
 
     <!-- Preload LCP image to reduce render delay -->
     <link rel="preload" as="image" href="AdobeStock_74031703.webp" type="image/webp" />
