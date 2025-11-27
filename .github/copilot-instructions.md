@@ -111,7 +111,7 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
   - `npm run test:loopback:headed` = same test with visible browser (debugging)
   - `npm run test:loopback:debug` = step-through debugging mode
   - `npm run audit:ci` = dependency vulnerability check
-**Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses MockAuth adapter for automated login; tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
+**Playwright tests**: Chromium automation (headless in CI); auto-detects GitHub Codespaces public URLs; uses real Netlify Identity login (credentials from `.env.test`); tests complete audio pipeline (Beeper → Encoder → Server → Loopback → Decoder → Analyser → UI)  
 **Jest unit tests**: ES modules with jsdom environment; mocks for Web Audio API, AudioWorkletNode, localStorage; characterization tests document current behavior for regression protection during refactoring  
 **ES Module mocking pattern**: Use `jest.unstable_mockModule()` **before** imports due to ES modules (`"type": "module"`). Pattern:
 ```javascript
@@ -295,7 +295,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 **Unit tests** (Jest 30.2.0): 1477 tests, ES modules with jsdom environment.
 - **Excellent coverage** (>90%): AudioState (93.6%), ConnectionState (100%), UIState (100%), UserState (94.47%), VoiceState (97.82%), worker-client.js (92.92%), voice.js (96.02%), encoder-stream (94.11%)
 - **Good coverage** (>80%): AppState (78.46%), decoder-stream (82.53%), buffer-queue-node (81.08%)
-- **Auth modules**: AuthProvider (100%), MockAuthAdapter (98.92%), NetlifyIdentityAdapter (100%), AuthFactory (100%)
+- **Auth modules**: AuthProvider (100%), NetlifyIdentityAdapter (100%), AuthFactory (100%)
 - **Needs coverage** (<50%): worker.js (19.81%), mumble-client (47.79%), mumble-streams (67.06%)
 - **Test patterns**: Use `jest.unstable_mockModule()` before imports for ES module mocking (not `jest.mock()`); requires `--experimental-vm-modules` flag and dynamic `await import()`. Characterization tests document behavior for regression protection
 - **Running tests**: `npm run test:unit` (all tests), `npm run test:unit:watch` (TDD mode), `npm run test:unit:coverage` (with reports)

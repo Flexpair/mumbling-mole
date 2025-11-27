@@ -16,7 +16,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
   constructor() {
     super();
     
-    // Will be set in init() - either real widget or fallback mock
+    // Will be set in init() after widget loads
     this.netlifyIdentity = null;
     this._initialized = false;
     // Queue event handlers registered before init()
