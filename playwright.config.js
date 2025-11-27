@@ -17,6 +17,10 @@
  */
 
 import { defineConfig, devices } from '@playwright/test';
+import { config } from 'dotenv';
+
+// Load test credentials from .env.test
+config({ path: '.env.test' });
 
 // Auto-detect GitHub Codespaces public URL
 const getBaseURL = () => {

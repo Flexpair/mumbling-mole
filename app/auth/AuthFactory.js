@@ -1,5 +1,4 @@
 import NetlifyIdentityAdapter from './NetlifyIdentityAdapter.js';
-import MockAuthAdapter from './MockAuthAdapter.js';
 
 /**
  * Authentication Provider Factory
@@ -37,16 +36,11 @@ class AuthFactory {
     }
 
     const provider = authConfig.provider || 'netlify';
-    // Provider-specific options (e.g., config.auth.netlify, config.auth.mock)
-    const providerOptions = authConfig[provider.toLowerCase()] || {};
 
     switch (provider.toLowerCase()) {
       case 'netlify':
       case 'netlify-identity':
         return new NetlifyIdentityAdapter();
-
-      case 'mock':
-        return new MockAuthAdapter(providerOptions);
 
       default:
         throw new Error(`Unknown auth provider: ${provider}. Supported: ${AuthFactory.getSupportedProviders().join(', ')}`);
@@ -58,7 +52,7 @@ class AuthFactory {
    * @returns {Array<string>}
    */
   static getSupportedProviders() {
-    return ['netlify', 'mock'];
+    return ['netlify'];
   }
 
   /**

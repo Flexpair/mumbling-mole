@@ -45,40 +45,44 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('Constructor', () => {
-    test('uses globalThis.netlifyIdentity when available', () => {
+    test('starts with null netlifyIdentity before init', () => {
       adapter = new NetlifyIdentityAdapter();
-      expect(adapter.netlifyIdentity).toBe(mockNetlifyIdentity);
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
-    });
-
-    test('creates fallback mock when globalThis.netlifyIdentity is unavailable', () => {
-      delete globalThis.netlifyIdentity;
-      adapter = new NetlifyIdentityAdapter();
-      
-      expect(adapter.netlifyIdentity).toBeDefined();
-      expect(adapter.netlifyIdentity).not.toBe(mockNetlifyIdentity);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Netlify Identity widget not found, using fallback mock'
-      );
-    });
-
-    test('creates fallback mock when init function is missing', () => {
-      globalThis.netlifyIdentity = { ...mockNetlifyIdentity };
-      delete globalThis.netlifyIdentity.init;
-      
-      adapter = new NetlifyIdentityAdapter();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Netlify Identity widget not found, using fallback mock'
-      );
+      expect(adapter.netlifyIdentity).toBeNull();
+      expect(adapter._initialized).toBe(false);
     });
   });
 
   describe('init()', () => {
-    beforeEach(() => {
+    test('uses globalThis.netlifyIdentity when available', async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
+      
+      expect(adapter.netlifyIdentity).toBe(mockNetlifyIdentity);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
 
+    test('throws error when globalThis.netlifyIdentity is unavailable', async () => {
+      delete globalThis.netlifyIdentity;
+      adapter = new NetlifyIdentityAdapter();
+      
+      await expect(adapter.init()).rejects.toThrow(
+        'Netlify Identity widget failed to load. Authentication is required.'
+      );
+    }, 10000);
+
+    test('throws error when init function is missing', async () => {
+      globalThis.netlifyIdentity = { ...mockNetlifyIdentity };
+      delete globalThis.netlifyIdentity.init;
+      
+      adapter = new NetlifyIdentityAdapter();
+      
+      await expect(adapter.init()).rejects.toThrow(
+        'Netlify Identity widget failed to load. Authentication is required.'
+      );
+    }, 10000);
+
     test('calls netlifyIdentity.init with config', async () => {
+      adapter = new NetlifyIdentityAdapter();
       const config = { container: '#widget' };
       await adapter.init(config);
       
@@ -86,27 +90,26 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('calls netlifyIdentity.init with empty config by default', async () => {
+      adapter = new NetlifyIdentityAdapter();
       await adapter.init();
       
       expect(adapter.netlifyIdentity.init).toHaveBeenCalledWith({});
     });
 
-    test('resolves immediately after calling init', async () => {
-      const result = await adapter.init();
-      expect(result).toBeUndefined();
-    });
-
-    test('handles missing init function gracefully', async () => {
-      adapter.netlifyIdentity.init = undefined;
-      await expect(adapter.init()).resolves.toBeUndefined();
+    test('only initializes once', async () => {
+      adapter = new NetlifyIdentityAdapter();
+      await adapter.init({ first: true });
+      await adapter.init({ second: true });
+      
+      expect(adapter.netlifyIdentity.init).toHaveBeenCalledTimes(1);
+      expect(adapter.netlifyIdentity.init).toHaveBeenCalledWith({ first: true });
     });
   });
 
   describe('getCurrentUser()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
-      // Reconnect to the actual mock after instantiation
-      adapter.netlifyIdentity.currentUser.mockClear();
+      await adapter.init();
     });
 
     test('returns user from netlifyIdentity.currentUser', async () => {
@@ -127,8 +130,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('currentUser() - sync version', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('returns user synchronously', () => {
@@ -148,8 +152,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('openAuth()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('opens login view by default', async () => {
@@ -169,8 +174,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('open() - backward compatibility', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('opens login view by default', () => {
@@ -185,8 +191,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('closeAuth()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('closes the modal', async () => {
@@ -201,8 +208,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('close() - backward compatibility', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('closes the modal', () => {
@@ -212,8 +220,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('signup()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('opens signup modal', async () => {
@@ -288,8 +297,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('login()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('opens login modal', async () => {
@@ -363,8 +373,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('logout()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('calls netlifyIdentity.logout', async () => {
@@ -379,8 +390,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('updateUser()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('logs warning about limited functionality', async () => {
@@ -413,8 +425,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('requestPasswordReset()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('opens recover modal', async () => {
@@ -429,8 +442,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('refreshToken()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('calls netlifyIdentity.refresh', async () => {
@@ -454,8 +468,9 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('Event handling', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     describe('on()', () => {
@@ -497,104 +512,10 @@ describe('NetlifyIdentityAdapter', () => {
     });
   });
 
-  describe('_createFallbackMock()', () => {
-    beforeEach(() => {
-      delete globalThis.netlifyIdentity;
-      adapter = new NetlifyIdentityAdapter();
-    });
-
-    test('creates mock with required methods', () => {
-      expect(adapter.netlifyIdentity.init).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.open).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.close).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.currentUser).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.logout).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.refresh).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.on).toBeInstanceOf(Function);
-      expect(adapter.netlifyIdentity.off).toBeInstanceOf(Function);
-    });
-
-    test('currentUser returns null', () => {
-      expect(adapter.netlifyIdentity.currentUser()).toBeNull();
-    });
-
-    test('refresh returns Promise resolving to null', async () => {
-      const result = await adapter.netlifyIdentity.refresh();
-      expect(result).toBeNull();
-    });
-
-    test('open logs warning', () => {
-      consoleWarnSpy.mockClear();
-      adapter.netlifyIdentity.open('login');
-      
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Netlify Identity mock: open called with',
-        'login'
-      );
-    });
-
-    test('close logs warning', () => {
-      consoleWarnSpy.mockClear();
-      adapter.netlifyIdentity.close();
-      
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Netlify Identity mock: close called'
-      );
-    });
-
-    test('logout logs warning', () => {
-      consoleWarnSpy.mockClear();
-      adapter.netlifyIdentity.logout();
-      
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Netlify Identity mock: logout called'
-      );
-    });
-
-    test('on() registers listeners', () => {
-      const callback1 = jest.fn();
-      const callback2 = jest.fn();
-      
-      adapter.netlifyIdentity.on('login', callback1);
-      adapter.netlifyIdentity.on('login', callback2);
-      
-      // Both callbacks should be registered
-      expect(callback1).not.toHaveBeenCalled();
-      expect(callback2).not.toHaveBeenCalled();
-    });
-
-    test('off() removes specific callback', () => {
-      const callback1 = jest.fn();
-      const callback2 = jest.fn();
-      
-      adapter.netlifyIdentity.on('login', callback1);
-      adapter.netlifyIdentity.on('login', callback2);
-      adapter.netlifyIdentity.off('login', callback1);
-      
-      // callback1 should be removed, callback2 should remain
-    });
-
-    test('off() removes all callbacks when no callback specified', () => {
-      const callback1 = jest.fn();
-      const callback2 = jest.fn();
-      
-      adapter.netlifyIdentity.on('login', callback1);
-      adapter.netlifyIdentity.on('login', callback2);
-      adapter.netlifyIdentity.off('login');
-      
-      // Both callbacks should be removed
-    });
-
-    test('off() handles non-existent event gracefully', () => {
-      expect(() => {
-        adapter.netlifyIdentity.off('nonexistent');
-      }).not.toThrow();
-    });
-  });
-
   describe('getProviderName()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       adapter = new NetlifyIdentityAdapter();
+      await adapter.init();
     });
 
     test('returns correct provider name', () => {

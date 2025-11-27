@@ -79,7 +79,7 @@ npm run audit:ci
 - Event-based beeper initialization
 
 **Test Flow:**
-1. Navigate to app with `?mock-auth&debug-audio`
+1. Navigate to app with `?debug-audio` and login via Netlify Identity
 2. Activate loopback mode (Audio Test toggle)
 3. Connect to Mumble server
 4. Wait for beeper initialization

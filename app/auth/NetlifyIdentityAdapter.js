@@ -16,14 +16,48 @@ class NetlifyIdentityAdapter extends AuthProvider {
   constructor() {
     super();
     
-    // Check if Netlify Identity widget is available
-    if (globalThis.netlifyIdentity?.init) {
-      this.netlifyIdentity = globalThis.netlifyIdentity;
-    } else {
-      // Fallback mock for testing or when widget fails to load
-      console.warn('Netlify Identity widget not found, using fallback mock');
-      this.netlifyIdentity = this._createFallbackMock();
+    // Will be set in init() after widget loads
+    this.netlifyIdentity = null;
+    this._initialized = false;
+    // Queue event handlers registered before init()
+    this._pendingHandlers = [];
+    // Promise cache for _waitForWidget to prevent race conditions
+    this._waitPromise = null;
+  }
+
+  /**
+   * Wait for Netlify Identity widget to load (max 5 seconds)
+   * Uses promise caching to prevent race conditions if called concurrently
+   * @private
+   * @returns {Promise<Object>}
+   * @throws {Error} If widget doesn't load within timeout
+   */
+  _waitForWidget(timeout = 5000) {
+    // Return cached promise if already waiting (prevents race conditions)
+    if (this._waitPromise !== null) {
+      return this._waitPromise;
     }
+
+    this._waitPromise = new Promise((resolve, reject) => {
+      // Already available
+      if (globalThis.netlifyIdentity?.init) {
+        resolve(globalThis.netlifyIdentity);
+        return;
+      }
+
+      const startTime = Date.now();
+      const checkInterval = setInterval(() => {
+        if (globalThis.netlifyIdentity?.init) {
+          clearInterval(checkInterval);
+          resolve(globalThis.netlifyIdentity);
+        } else if (Date.now() - startTime >= timeout) {
+          clearInterval(checkInterval);
+          reject(new Error('Netlify Identity widget failed to load. Authentication is required.'));
+        }
+      }, 50);
+    });
+
+    return this._waitPromise;
   }
 
   /**
@@ -32,13 +66,21 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async init(config = {}) {
-    return new Promise((resolve) => {
-      if (this.netlifyIdentity.init) {
-        this.netlifyIdentity.init(config);
-      }
-      // Netlify Identity init is synchronous, resolve immediately
-      resolve();
-    });
+    if (this._initialized) {
+      return;
+    }
+
+    // Wait for widget to load - throws if unavailable (no fallback for security)
+    this.netlifyIdentity = await this._waitForWidget();
+    this.netlifyIdentity.init(config);
+    
+    // Register any event handlers that were queued before init()
+    for (const { event, callback } of this._pendingHandlers) {
+      this.netlifyIdentity.on(event, callback);
+    }
+    this._pendingHandlers = [];
+    
+    this._initialized = true;
   }
 
   /**
@@ -187,11 +229,17 @@ class NetlifyIdentityAdapter extends AuthProvider {
 
   /**
    * Register event listener
+   * Can be called before init() - handlers will be queued and registered after init
    * @param {string} event
    * @param {Function} callback
    */
   on(event, callback) {
-    this.netlifyIdentity.on(event, callback);
+    if (this.netlifyIdentity) {
+      this.netlifyIdentity.on(event, callback);
+    } else {
+      // Queue for later registration after init()
+      this._pendingHandlers.push({ event, callback });
+    }
   }
 
   /**
@@ -200,39 +248,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @param {Function} callback
    */
   off(event, callback) {
-    this.netlifyIdentity.off(event, callback);
-  }
-
-  /**
-   * Create fallback mock when Netlify Identity is unavailable
-   * @private
-   * @returns {Object}
-   */
-  _createFallbackMock() {
-    const listeners = {};
-    
-    return {
-      init: () => {},
-      open: (tab) => console.warn('Netlify Identity mock: open called with', tab),
-      close: () => console.warn('Netlify Identity mock: close called'),
-      currentUser: () => null,
-      logout: () => console.warn('Netlify Identity mock: logout called'),
-      refresh: () => Promise.resolve(null),
-      on: (event, callback) => {
-        if (!listeners[event]) {
-          listeners[event] = [];
-        }
-        listeners[event].push(callback);
-      },
-      off: (event, callback) => {
-        if (!listeners[event]) return;
-        if (callback) {
-          listeners[event] = listeners[event].filter(cb => cb !== callback);
-        } else {
-          listeners[event] = [];
-        }
-      }
-    };
+    if (this.netlifyIdentity) {
+      this.netlifyIdentity.off(event, callback);
+    } else {
+      // Remove from pending handlers if exists
+      this._pendingHandlers = this._pendingHandlers.filter(
+        h => !(h.event === event && h.callback === callback)
+      );
+    }
   }
 
   /**

@@ -16,4 +16,3 @@
 export { default as AuthProvider } from './AuthProvider.js';
 export { default as AuthFactory } from './AuthFactory.js';
 export { default as NetlifyIdentityAdapter } from './NetlifyIdentityAdapter.js';
-export { default as MockAuthAdapter } from './MockAuthAdapter.js';

@@ -230,7 +230,7 @@ try {
   copyDir('themes/MetroMumbleLight/svg', 'svg');
   copyDir('themes/MetroMumbleLight/img', 'img');
   
-  // Copy LCP image to root for preload/critical CSS (without content hash)
+  // Copy placeholder image to root for critical CSS background-image
   copyFile('themes/MetroMumbleLight/img/AdobeStock_74031703.webp', 'AdobeStock_74031703.webp');
   
   // AudioWorklet processors (MUST NOT be bundled!)
