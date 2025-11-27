@@ -20,7 +20,6 @@ import {
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
 const isDebugAudio = urlParams.has('debug-audio');
-const isMockAuth = urlParams.has('mock-auth');
 
 // Global debug flag for general logging; enable by ?debug in URL
 const isDebug = urlParams.has('debug') || !!globalThis.mumbleWebConfig?.debug;
@@ -66,18 +65,8 @@ const settingsStore = useSettingsStore();
 // Initialize settings with config defaults
 settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 
-// Initialize auth
-let authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
-
-// Override with mock auth if requested via URL (used for automated tests)
-if (isMockAuth) {
-  console.log('[Auth] Using MockAuthAdapter via ?mock-auth parameter');
-  authConfig = { 
-    provider: 'mock',
-    mock: { autoLogin: true }
-  };
-}
-
+// Initialize auth - always use Netlify Identity in production
+const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 const auth = AuthFactory.create(authConfig);
 
 // Legacy global exports for Playwright tests (will be removed)

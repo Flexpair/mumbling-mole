@@ -63,11 +63,10 @@ test.describe('Loopback Frequency Test', () => {
       console.error(`[NETWORK FAIL] ${request.url()} - ${request.failure().errorText}`);
     });
     
-    // Navigate to app with mock-auth parameter to bypass Netlify Identity
-    // Also enable debug-audio for detailed audio pipeline logging during tests
+    // Navigate to app with debug-audio for detailed audio pipeline logging
     console.log('🌐 Navigating to application...');
     
-    await page.goto('/?mock-auth&debug-audio', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('/?debug-audio', { waitUntil: 'networkidle', timeout: 30000 });
     
     // Handle GitHub Codespaces "Continue" button if present
     console.log('🔍 Checking for GitHub Codespaces interstitial page...');
@@ -82,9 +81,77 @@ test.describe('Loopback Frequency Test', () => {
       console.log('ℹ️  No Codespaces interstitial page');
     }
     
-    // Note: When running without mock-auth, Netlify Identity login is handled manually
-    // or by being already logged in. MockAuth bypasses this entirely in automated tests.
-    console.log('ℹ️  Netlify Identity login (if required) should be handled manually or via existing session');
+    // Handle Netlify Identity login
+    console.log('🔐 Checking for Netlify Identity login...');
+    const testEmail = process.env.PLAYWRIGHT_TEST_EMAIL;
+    const testPassword = process.env.PLAYWRIGHT_TEST_PASSWORD;
+    
+    if (!testEmail || !testPassword) {
+      throw new Error('PLAYWRIGHT_TEST_EMAIL and PLAYWRIGHT_TEST_PASSWORD environment variables are required');
+    }
+    
+    // Wait for Netlify Identity widget iframe to appear
+    try {
+      // The Netlify Identity widget creates an iframe with title="Netlify identity widget"
+      // There may be multiple iframes with this title - use the one that has content
+      const iframeSelector = 'iframe[title="Netlify identity widget"]';
+      // Use 'attached' instead of 'visible' since iframe visibility can be tricky
+      await page.waitForSelector(iframeSelector, { state: 'attached', timeout: 10000 });
+      console.log('✅ Found Netlify Identity iframe');
+      
+      // Try the last iframe first (the one with actual content)
+      let loginFrame = page.frameLocator(iframeSelector).last();
+      let loginTab = loginFrame.getByRole('button', { name: 'Log in' }).first();
+      
+      console.log('⏳ Waiting for Netlify Identity iframe content...');
+      try {
+        await expect(loginTab).toBeVisible({ timeout: 5000 });
+      } catch {
+        // If last() doesn't work, try first()
+        console.log('⏳ Trying first iframe instead...');
+        loginFrame = page.frameLocator(iframeSelector).first();
+        loginTab = loginFrame.getByRole('button', { name: 'Log in' }).first();
+        await expect(loginTab).toBeVisible({ timeout: 10000 });
+      }
+      console.log('✅ Found Netlify Identity iframe with content');
+      
+      // Click "Log in" tab (it shows Sign up by default)
+      await loginTab.click();
+      console.log('📋 Clicked Log in tab');
+      
+      // Wait for form to switch to login mode
+      await page.waitForTimeout(300);
+      
+      // Fill email - the input with placeholder "Email"
+      const emailInput = loginFrame.getByPlaceholder('Email');
+      await expect(emailInput).toBeVisible({ timeout: 5000 });
+      
+      console.log('📧 Entering test credentials...');
+      await emailInput.fill(testEmail);
+      
+      // Fill password
+      const passwordInput = loginFrame.getByPlaceholder('Password');
+      await passwordInput.fill(testPassword);
+      
+      // Click the Log in submit button (use last() as there are two "Log in" buttons)
+      const submitButton = loginFrame.getByRole('button', { name: 'Log in' }).last();
+      await submitButton.click();
+      console.log('🔑 Clicked Log in button');
+      
+      console.log('⏳ Waiting for login to complete...');
+      // Wait for the dialog inside iframe to disappear (successful login)
+      await expect(loginFrame.locator('dialog')).toBeHidden({ timeout: 15000 });
+      console.log('✅ Netlify Identity login successful');
+    } catch (e) {
+      console.log('⚠️  Login flow issue:', e.message);
+      // Check if we're already past login (connect dialog visible)
+      const connectDialog = page.locator('dialog.connect-dialog[open]');
+      if (await connectDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log('ℹ️  User already authenticated, connect dialog visible');
+      } else {
+        throw new Error(`Login failed: ${e.message}`);
+      }
+    }
     
     // Wait for app initialization (window.mumbleUi should be defined)
     console.log('⏳ Waiting for UI initialization...');
@@ -106,7 +173,7 @@ test.describe('Loopback Frequency Test', () => {
     let pianoButton;
 
     await test.step('Open connect dialog and enable Audio Test', async () => {
-      // STEP 1: Wait for connect dialog to appear (should show after mock login)
+      // STEP 1: Wait for connect dialog to appear (should show after login)
       console.log('🔄 Step 1: Waiting for connect dialog...');
       await page.waitForSelector('dialog.connect-dialog[open]', { state: 'attached', timeout: 10000 });
       console.log('✅ Connect dialog visible');

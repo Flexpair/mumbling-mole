@@ -42,7 +42,6 @@ After evaluation, **Supabase Auth** has been chosen as the migration target:
 ### Phase 1: Auth Abstraction Layer ✅ COMPLETE
 - ✅ `AuthProvider` base class defining unified interface
 - ✅ `NetlifyIdentityAdapter` wrapping current provider
-- ✅ `MockAuthAdapter` for testing
 - ✅ `AuthFactory` for config-based provider selection
 - ✅ Comprehensive test suite
 
@@ -97,25 +96,6 @@ Wraps the existing Netlify Identity widget.
 - User metadata management
 - Backward compatible with legacy code
 
-### MockAuthAdapter (Testing)
-
-Fake authentication for testing without real backend.
-
-**Status**: Testing only  
-**Config**:
-```javascript
-{
-  provider: 'mock'
-}
-```
-
-**Features**:
-- Pre-loaded test users
-- Simulated delays
-- Event system testing
-- Error simulation
-- No backend required
-
 ## 📚 Usage Guide
 
 ### Basic Setup
@@ -157,7 +137,7 @@ In `app/config.js`:
 window.mumbleWebConfig = {
   // ... other config
   auth: {
-    provider: 'netlify', // 'netlify', 'mock', or 'supabase' (future)
+    provider: 'netlify', // 'netlify' or 'supabase' (future)
     netlify: {
       APIUrl: 'https://welcome.flexpair.com/identity-proxy',
       locale: 'en',
@@ -181,8 +161,8 @@ The auth abstraction is integrated in `app/index.js`:
 try {
   this.auth = AuthFactory.create(window.mumbleWebConfig.auth || { provider: 'netlify' });
 } catch (error) {
-  console.warn('[Auth] Failed to initialize:', error);
-  this.auth = AuthFactory.create({ provider: 'mock' });
+  console.error('[Auth] Failed to initialize:', error);
+  throw error; // Authentication is required - no fallback
 }
 
 // Backward compatibility
@@ -247,23 +227,6 @@ bash scripts/test-auth-abstraction.sh
 3. Open browser console
 4. Check auth initialization: `window.mumbleUi.auth`
 5. Test authentication flows through UI
-
-### Testing with MockAuthAdapter
-
-```javascript
-import MockAuthAdapter from './auth/MockAuthAdapter.js';
-
-const auth = new MockAuthAdapter();
-await auth.init();
-
-// Pre-loaded test users
-await auth.login({ email: 'test@example.com', password: 'test123' });
-await auth.login({ email: 'admin@example.com', password: 'admin123' });
-
-// Test helpers
-auth.reset(); // Reset to initial state
-auth.simulateError('Test error'); // Trigger error event
-```
 
 ## 🔄 Adding a New Provider (e.g., Supabase)
 
@@ -356,15 +319,13 @@ class AuthFactory {
         return new SupabaseAuthAdapter();
       case 'netlify':
         return new NetlifyIdentityAdapter();
-      case 'mock':
-        return new MockAuthAdapter();
       default:
         throw new Error(`Unknown auth provider: ${provider}`);
     }
   }
   
   static getSupportedProviders() {
-    return ['netlify', 'mock', 'supabase'];
+    return ['netlify', 'supabase'];
   }
 }
 ```
@@ -398,7 +359,6 @@ app/auth/
 ├── AuthProvider.js              # Base class (155 lines)
 ├── AuthFactory.js               # Provider factory (105 lines)
 ├── NetlifyIdentityAdapter.js    # Netlify implementation (250 lines)
-├── MockAuthAdapter.js           # Testing implementation (334 lines)
 └── index.js                     # Central exports (18 lines)
 
 Related files:
@@ -508,13 +468,12 @@ Created a complete authentication abstraction layer that allows switching betwee
 app/auth/
 ├── AuthProvider.js              (Abstract base class - defines interface)
 ├── NetlifyIdentityAdapter.js    (Wraps current Netlify Identity)
-├── MockAuthAdapter.js           (Testing adapter - no real auth)
 ├── AuthFactory.js               (Creates auth provider from config)
 ├── index.js                     (Central exports)
 └── README.md                    (Complete documentation)
 ```
 
-**Total:** 1,141 lines of code
+**Total:** ~800 lines of code
 
 ---
 
@@ -562,13 +521,7 @@ auth.on('login', user => console.log('Logged in!'));
 - [x] **NetlifyIdentityAdapter.js** - Wraps current Netlify Identity
   - Maintains backward compatibility
   - Implements full AuthProvider interface
-  - Fallback mock when widget unavailable
-
-- [x] **MockAuthAdapter.js** - Testing adapter
-  - No real authentication needed
-  - Pre-loaded test users
-  - Simulates network delays
-  - Perfect for automated tests
+  - Throws error when widget unavailable (authentication required)
 
 - [x] **AuthFactory.js** - Provider factory
   - Config-based provider selection
@@ -663,31 +616,7 @@ class SupabaseAuthAdapter extends AuthProvider {
 
 ## 🧪 Testing the Abstraction
 
-### Test with Mock Adapter
-
-```javascript
-// Create a test file: test/auth-test.js
-import MockAuthAdapter from '../app/auth/MockAuthAdapter.js';
-
-async function testAuth() {
-  const auth = new MockAuthAdapter({ autoLogin: false });
-  await auth.init();
-  
-  // Test login
-  const user = await auth.login('test@example.com', 'password123');
-  console.log('Logged in:', user.email);
-  
-  // Test events
-  auth.on('logout', () => console.log('User logged out'));
-  
-  // Test logout
-  await auth.logout();
-}
-
-testAuth();
-```
-
-### Test with Current Netlify Identity
+### Test Authentication
 
 ```javascript
 // In browser console or test file
@@ -718,9 +647,9 @@ console.log('Current user:', user);
 - Easy to understand codebase
 
 ### ✅ Testability
-- Mock adapter for unit tests
-- No need for real auth backend in tests
-- Fast, deterministic testing
+- Real authentication required
+- Playwright tests use actual Netlify Identity login
+- Credentials stored in `.env.test` (not committed)
 
 ### ✅ Future-Proof
 - Not locked into any provider
@@ -817,7 +746,6 @@ Look at these for inspiration:
 **What you have now:**
 - ✅ Complete auth abstraction layer
 - ✅ Current Netlify Identity wrapped in adapter
-- ✅ Mock adapter for testing
 - ✅ Config-based provider switching
 - ✅ Complete documentation
 
