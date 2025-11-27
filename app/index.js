@@ -67,7 +67,14 @@ settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 
 // Initialize auth - always use Netlify Identity in production
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
-const auth = AuthFactory.create(authConfig);
+let auth;
+try {
+  auth = AuthFactory.create(authConfig);
+} catch (error) {
+  console.error('[Auth] Failed to initialize authentication:', error);
+  uiStore.showMessageBox('Authentication system failed to initialize. Please refresh the page.', 'error');
+  throw error;
+}
 
 // Legacy global exports for Playwright tests (will be removed)
 const connected = () => userStore.thisUser != null;

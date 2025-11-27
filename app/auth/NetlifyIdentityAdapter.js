@@ -21,16 +21,24 @@ class NetlifyIdentityAdapter extends AuthProvider {
     this._initialized = false;
     // Queue event handlers registered before init()
     this._pendingHandlers = [];
+    // Promise cache for _waitForWidget to prevent race conditions
+    this._waitPromise = null;
   }
 
   /**
    * Wait for Netlify Identity widget to load (max 5 seconds)
+   * Uses promise caching to prevent race conditions if called concurrently
    * @private
    * @returns {Promise<Object>}
    * @throws {Error} If widget doesn't load within timeout
    */
   _waitForWidget(timeout = 5000) {
-    return new Promise((resolve, reject) => {
+    // Return cached promise if already waiting (prevents race conditions)
+    if (this._waitPromise !== null) {
+      return this._waitPromise;
+    }
+
+    this._waitPromise = new Promise((resolve, reject) => {
       // Already available
       if (globalThis.netlifyIdentity?.init) {
         resolve(globalThis.netlifyIdentity);
@@ -48,6 +56,8 @@ class NetlifyIdentityAdapter extends AuthProvider {
         }
       }, 50);
     });
+
+    return this._waitPromise;
   }
 
   /**
@@ -238,7 +248,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @param {Function} callback
    */
   off(event, callback) {
-    this.netlifyIdentity.off(event, callback);
+    if (this.netlifyIdentity) {
+      this.netlifyIdentity.off(event, callback);
+    } else {
+      // Remove from pending handlers if exists
+      this._pendingHandlers = this._pendingHandlers.filter(
+        h => !(h.event === event && h.callback === callback)
+      );
+    }
   }
 
   /**

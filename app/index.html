@@ -81,7 +81,7 @@
     <!-- Vue.js root component (replaces all Knockout UI) -->
     <div id="app"></div>
   </body>
-  <!-- Netlify Identity must load BEFORE app to avoid race condition -->
-  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <!-- Netlify Identity loads with defer; _waitForWidget() handles race condition -->
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script src="index.js"></script>
 </html>

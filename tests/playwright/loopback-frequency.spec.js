@@ -119,10 +119,8 @@ test.describe('Loopback Frequency Test', () => {
       await loginTab.click();
       console.log('📋 Clicked Log in tab');
       
-      // Wait for form to switch to login mode
-      await page.waitForTimeout(300);
-      
-      // Fill email - the input with placeholder "Email"
+      // Wait for email input to be visible (form switched to login mode)
+      // Note: Netlify Identity widget uses placeholders instead of labels (accessibility issue upstream)
       const emailInput = loginFrame.getByPlaceholder('Email');
       await expect(emailInput).toBeVisible({ timeout: 5000 });
       
