@@ -17,7 +17,7 @@ jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
   }))
 }));
 
-jest.unstable_mockModule('to-arraybuffer', () => ({
+jest.unstable_mockModule('../app/utils/to-arraybuffer-lite.js', () => ({
   default: jest.fn((buf) => {
     if (buf instanceof ArrayBuffer) return buf;
     return new ArrayBuffer(buf.length || 0);

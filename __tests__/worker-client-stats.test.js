@@ -5,7 +5,7 @@ jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
   default: jest.fn(() => ({ maxBandwidth: 0 }))
 }));
 
-jest.unstable_mockModule('to-arraybuffer', () => ({
+jest.unstable_mockModule('../app/utils/to-arraybuffer-lite.js', () => ({
   default: (buf) => buf instanceof ArrayBuffer ? buf : new ArrayBuffer(0)
 }));
 
