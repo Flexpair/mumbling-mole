@@ -51,8 +51,7 @@
       <p id="headphones-recommendation" style="margin: 0.5em 0;">We recommend using headphones for the best audio experience.</p>
 
       <!-- Loopback Test Section (clear both floats) -->
-      <div class="loopback-test-section" style="clear: both;" role="group" aria-labelledby="audio-test-heading">
-        <h3 id="audio-test-heading" class="visually-hidden">Audio Test Controls</h3>
+      <div class="loopback-test-section" style="clear: both;" role="group">
         <div class="test-toggle-container">
           <button 
             type="button"
@@ -100,7 +99,6 @@
               style="padding: 6px 12px; background-color: rgba(21, 120, 120, 0.1); border: 1px solid rgba(21, 120, 120, 0.3); border-radius: 4px; flex-shrink: 0; min-width: 120px; text-align: center;"
               role="status"
               aria-live="polite"
-              aria-label="Detected frequency"
             >
               <span style="font-weight: bold; color: #157878;" aria-hidden="true">📊</span>
               <span style="font-size: 1.1em; font-weight: bold; color: #157878; margin-left: 4px; font-variant-numeric: tabular-nums;">
