@@ -47,6 +47,9 @@ export default function duplexer(writable, readable, options = {}) {
 
   readable.on('end', () => {
     duplex.push(null);
+    if (!duplex.writableEnded) {
+      duplex.end();
+    }
   });
 
   readable.on('error', (err) => {

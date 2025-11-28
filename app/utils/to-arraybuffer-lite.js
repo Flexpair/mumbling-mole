@@ -7,6 +7,7 @@
  * Converts a Buffer or Uint8Array to an ArrayBuffer
  * @param {Buffer|Uint8Array} buf - Input buffer
  * @returns {ArrayBuffer} - The underlying or copied ArrayBuffer
+ * @throws {Error} If the argument is not a Buffer or Uint8Array
  */
 export default function toArrayBuffer(buf) {
   // Fast path for Uint8Array (includes Buffer in modern Node.js)

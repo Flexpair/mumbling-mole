@@ -70,10 +70,10 @@
       }
     </style>
 
-    <!-- Non-critical CSS: loaded asynchronously after initial paint -->
-    <link rel="stylesheet" href="theme.css" media="print" onload="this.media='all'" />
+    <!-- Non-critical CSS: preload then apply as stylesheet -->
+    <link rel="preload" as="style" href="theme.css" onload="this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="theme.css" /></noscript>
-    <link rel="stylesheet" href="index.css" media="print" onload="this.media='all'" />
+    <link rel="preload" as="style" href="index.css" onload="this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="index.css" /></noscript>
 
     <!-- Critical config scripts (must execute synchronously before app) -->

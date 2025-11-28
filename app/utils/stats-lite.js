@@ -1,7 +1,7 @@
 /**
  * Lightweight incremental statistics calculator
  * Replaces stats-incremental (~50KB) with ~1KB implementation
- * Uses Welford's online algorithm for numerically stable variance calculation
+ * Uses Welford's method (an online algorithm) for numerically stable variance calculation
  */
 export default class Stats {
   constructor() {

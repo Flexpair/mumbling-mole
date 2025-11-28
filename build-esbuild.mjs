@@ -157,8 +157,8 @@ const buildConfig = {
       name: 'exclude-vue-devtools',
       setup(build) {
         if (!isDev) {
-          // Replace devtools imports with empty module
-          build.onResolve({ filter: /@vue\/devtools/ }, args => ({
+          // Match @vue/devtools and any @vue/devtools-* variant (e.g., -api, -kit)
+          build.onResolve({ filter: /@vue\/devtools(-\w+)?/ }, args => ({
             path: args.path,
             namespace: 'vue-devtools-stub'
           }));

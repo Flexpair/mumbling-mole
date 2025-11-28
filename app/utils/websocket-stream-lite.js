@@ -34,7 +34,8 @@ export default function websocketStream(target, protocols, options) {
     read() {},
     write(chunk, encoding, callback) {
       if (socket.readyState !== WebSocket.OPEN) {
-        callback(new Error('WebSocket is not open'));
+        const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+        callback(new Error(`WebSocket is not open (state: ${states[socket.readyState]})`));
         return;
       }
       
@@ -61,8 +62,9 @@ export default function websocketStream(target, protocols, options) {
     stream.push(data);
   };
 
-  socket.onerror = (err) => {
-    stream.destroy(err);
+  socket.onerror = (event) => {
+    // Wrap the event in a proper Error object for consistent error handling
+    stream.destroy(new Error('WebSocket error'));
   };
 
   socket.onclose = () => {
