@@ -115,7 +115,7 @@ main {
   float: left;
   margin: 0;
   width: 100%;
-  height: calc(100% - 36px);
+  height: 100%; // Full height of parent (main already accounts for toolbar)
   background: white; // White background for Guacamole iframe
 }
 
@@ -124,7 +124,7 @@ main {
   float: left;
   margin: 0;
   width: 100%;
-  height: calc(100% - 36px);
+  height: 100%; // Full height of parent (main already accounts for toolbar)
   background-image: url("img/AdobeStock_74031703.webp");
   background-repeat: no-repeat;
   background-position: bottom;
