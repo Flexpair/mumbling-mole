@@ -635,6 +635,7 @@ onMounted(() => {
 
 .content-panel {
   padding: 30px;
+  min-height: 400px; /* Prevent height flickering when switching tabs */
 }
 
 .panel-title {

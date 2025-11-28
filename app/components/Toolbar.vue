@@ -233,8 +233,8 @@ const handleLogoutClick = () => {
   background: none;
   border: 1px solid transparent;
   border-radius: 3px;
-  padding: 0;
-  margin: 0;
+  padding: 2px;
+  margin: 0 2px; /* Horizontal margin prevents focus outline overlap between adjacent buttons */
   cursor: pointer;
   display: inline-flex;
   align-items: center;

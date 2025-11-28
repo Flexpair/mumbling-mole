@@ -166,7 +166,7 @@ iframe {
   border: 1px solid transparent;
   border-radius: 3px;
   padding: 2px;
-  margin: 0;
+  margin: 0 2px; // Add horizontal margin to prevent focus outline overlap
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -174,7 +174,7 @@ iframe {
   
   &:focus-visible {
     outline: 3px solid $corporate-teal;
-    outline-offset: 2px;
+    outline-offset: -2px; // Inset outline to prevent overlap with neighbors
   }
 }
 
