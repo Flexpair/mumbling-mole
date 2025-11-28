@@ -71,6 +71,10 @@ is_allowed_special_file() {
     if [[ "$file" =~ ^\./\.github/agents/.*\.agent\.md$ ]]; then
         return 0
     fi
+    # Allow *.prompt.md files in .github/prompts/
+    if [[ "$file" =~ ^\./\.github/prompts/.*\.prompt\.md$ ]]; then
+        return 0
+    fi
     return 1
 }
 

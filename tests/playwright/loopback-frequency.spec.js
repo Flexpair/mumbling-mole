@@ -173,12 +173,14 @@ test.describe('Loopback Frequency Test', () => {
     await test.step('Open connect dialog and enable Audio Test', async () => {
       // STEP 1: Wait for connect dialog to appear (should show after login)
       console.log('🔄 Step 1: Waiting for connect dialog...');
-      await page.waitForSelector('dialog.connect-dialog[open]', { state: 'attached', timeout: 10000 });
+      // Use role with fallback to CSS selector (dialog may not have accessible name)
+      const connectDialog = page.getByRole('dialog').or(page.locator('dialog.connect-dialog[open]'));
+      await expect(connectDialog).toBeVisible({ timeout: 10000 });
       console.log('✅ Connect dialog visible');
 
       // STEP 2: Activate test mode via toggle
       console.log('🔄 Step 2: Clicking Audio Test toggle...');
-      const testToggle = page.locator('.test-toggle-label');
+      const testToggle = page.getByRole('button', { name: 'Audio Test' });
       await expect(testToggle).toBeVisible({ timeout: 5000 });
       await testToggle.click();
       console.log('✅ Test toggle clicked');
@@ -293,7 +295,7 @@ test.describe('Loopback Frequency Test', () => {
 
       // STEP 5: Wait for piano button to appear
       console.log('🎹 Step 5: Waiting for piano button to appear...');
-      pianoButton = page.locator('.beep-test-button');
+      pianoButton = page.getByRole('button', { name: /piano|beep|🎹/i });
       await expect(pianoButton).toBeVisible({ timeout: 10000 });
       console.log('✅ Piano button visible');
     });
@@ -378,13 +380,13 @@ test.describe('Loopback Frequency Test', () => {
 
       // STEP 9: Verify frequency display is visible in UI
       console.log('👁️  Step 9: Verifying frequency display...');
+      // Use specific class to avoid matching the piano button title which also contains "Hz"
       const frequencyDisplay = page.locator('.loopback-frequency-display');
       await expect(frequencyDisplay).toBeVisible();
 
-      const displayText = await frequencyDisplay.textContent();
-      console.log(`   Display text: "${displayText}"`);
-      expect(displayText).toContain('Hz');
-      expect(displayText).not.toContain('--- Hz');
+      // Use web-first assertion for text content
+      await expect(frequencyDisplay).toContainText('Hz');
+      await expect(frequencyDisplay).not.toContainText('--- Hz');
       console.log('✅ Frequency display visible with numeric Hz value');
 
       // Release button so we can start a fresh tone for the mute test
@@ -465,32 +467,31 @@ test.describe('Loopback Frequency Test', () => {
         }
       });
 
-      await page.waitForSelector('dialog.connect-dialog[open]', { state: 'visible', timeout: 5000 });
+      // Use role with fallback (dialog may not have accessible name matching "connect")
+      const connectDialogForSwitch = page.getByRole('dialog').or(page.locator('dialog.connect-dialog[open]'));
+      await expect(connectDialogForSwitch).toBeVisible({ timeout: 5000 });
 
-      const connectButton = page.locator('input.connect-dialog-submit[type="submit"]');
+      const connectButton = page.getByRole('button', { name: /^connect$/i });
       await expect(connectButton).toBeVisible();
       await connectButton.click();
       console.log('✅ Connect button clicked');
 
-      await page.waitForTimeout(500);
-      const dialogClosed = await page.evaluate(() => {
-        return !window.mumbleUi?.connectDialog?.visible?.value;
-      });
-      expect(dialogClosed).toBe(true);
+      // Use web-first assertion instead of waitForTimeout + evaluate
+      await expect(connectDialogForSwitch).toBeHidden({ timeout: 2000 });
       console.log('✅ Dialog closed - switched to normal mode');
     });
 
     await test.step('Send chat message and verify confirmation animation', async () => {
       // STEP 12 & 13: Send a message and verify confirmation animation
       console.log('\n💬 Step 12: Sending a test message...');
-      const messageBox = page.locator('input#message-box');
+      const messageBox = page.getByRole('textbox', { name: /message/i });
       await expect(messageBox).toBeVisible();
 
       const testMessage = 'Test message from Playwright automation';
       await messageBox.fill(testMessage);
       console.log(`   Message entered: "${testMessage}"`);
 
-      const sendButton = page.locator('button.message-confirmation');
+      const sendButton = page.getByRole('button', { name: /send|confirm|✓/i });
       await expect(sendButton).toBeVisible();
       await sendButton.click();
       console.log('✅ Send button clicked');
@@ -539,17 +540,17 @@ test.describe('Loopback Frequency Test', () => {
       // This proves the full connection flow completed and triggered Guacamole initialization.
       
       // Check that the Guacamole section is visible (not the placeholder)
-      const guacamoleSection = page.locator('section.guacamole');
+      const guacamoleSection = page.getByRole('region', { name: /guacamole|remote/i }).or(page.locator('section.guacamole'));
       await expect(guacamoleSection).toBeVisible({ timeout: 5000 });
       console.log('   ✅ Guacamole section is visible');
       
       // Check that the placeholder is hidden
-      const placeholder = page.locator('.guacamole-placeholder');
+      const placeholder = page.getByRole('img', { name: /placeholder/i }).or(page.locator('.guacamole-placeholder'));
       await expect(placeholder).toBeHidden({ timeout: 2000 });
       console.log('   ✅ Placeholder is hidden');
       
       // Check the iframe exists and has a src (even if it 404s)
-      const guacamoleIframe = page.locator('#guacframe');
+      const guacamoleIframe = page.locator('iframe#guacframe');
       await expect(guacamoleIframe).toBeVisible();
       
       const iframeSrc = await guacamoleIframe.getAttribute('src');
