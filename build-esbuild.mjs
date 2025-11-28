@@ -151,6 +151,25 @@ const buildConfig = {
       }
     },
     
+    // Tree-shake Vue DevTools in production builds (~600KB savings)
+    // DevTools are included by default but we exclude them for production
+    {
+      name: 'exclude-vue-devtools',
+      setup(build) {
+        if (!isDev) {
+          // Replace devtools imports with empty module
+          build.onResolve({ filter: /@vue\/devtools/ }, args => ({
+            path: args.path,
+            namespace: 'vue-devtools-stub'
+          }));
+          build.onLoad({ filter: /.*/, namespace: 'vue-devtools-stub' }, () => ({
+            contents: 'export default {}; export const devtools = {}; export const setupDevtoolsPlugin = () => {};',
+            loader: 'js'
+          }));
+        }
+      }
+    },
+    
     // Custom plugin to alias fs to our mock
     {
       name: 'fs-mock',

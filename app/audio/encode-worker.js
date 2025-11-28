@@ -1,5 +1,5 @@
 import { Encoder as OpusEncoder, libopus } from "libopus.js";
-import toArrayBuffer from "to-arraybuffer";
+import toArrayBuffer from "../utils/to-arraybuffer-lite.js";
 
 const MUMBLE_SAMPLE_RATE = 48000;
 

@@ -1,7 +1,7 @@
 import MumbleClient from "./mumble-client/index.js";
 import EventEmitter from "node:events";
 import { Writable, PassThrough } from "node:stream";
-import toArrayBuffer from "to-arraybuffer";
+import toArrayBuffer from "./utils/to-arraybuffer-lite.js";
 
 function createWorker() {
   try {

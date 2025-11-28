@@ -85,11 +85,11 @@ jest.unstable_mockModule("stream", () => ({
   PassThrough: MockPassThrough,
 }));
 
-jest.unstable_mockModule("to-arraybuffer", () => ({
+jest.unstable_mockModule("../app/utils/to-arraybuffer-lite.js", () => ({
   default: jest.fn((buf) => buf),
 }));
 
-jest.unstable_mockModule("stream-chunker", () => ({
+jest.unstable_mockModule("../app/utils/chunker-lite.js", () => ({
   default: jest.fn(() => ({
     pipe: jest.fn((dest) => dest),
     write: jest.fn(),

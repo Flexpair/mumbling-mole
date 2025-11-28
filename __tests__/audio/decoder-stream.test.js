@@ -34,8 +34,8 @@ jest.unstable_mockModule('reuse-pool', () => ({
   default: jest.fn(() => mockPool)
 }));
 
-// Mock to-arraybuffer
-jest.unstable_mockModule('to-arraybuffer', () => ({
+// Mock to-arraybuffer-lite (our local implementation)
+jest.unstable_mockModule('../../app/utils/to-arraybuffer-lite.js', () => ({
   default: jest.fn((buf) => {
     if (buf instanceof ArrayBuffer) return buf;
     if (buf.buffer instanceof ArrayBuffer) return buf.buffer;

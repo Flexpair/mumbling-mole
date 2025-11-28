@@ -34,6 +34,9 @@
     <link rel="dns-prefetch" href="https://welcome.flexpair.com" />
     <link rel="dns-prefetch" href="https://identity.netlify.com" />
 
+    <!-- Preload LCP image for faster discovery (critical for performance) -->
+    <link rel="preload" as="image" href="AdobeStock_74031703-V53V3LYA.webp" fetchpriority="high" />
+
     <!-- Module Preload: Start loading main bundle early -->
     <link rel="modulepreload" href="index.js" />
 
@@ -67,9 +70,11 @@
       }
     </style>
 
-    <!-- Non-critical CSS: loaded after initial paint -->
-    <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="index.css" />
+    <!-- Non-critical CSS: loaded asynchronously after initial paint -->
+    <link rel="stylesheet" href="theme.css" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="theme.css" /></noscript>
+    <link rel="stylesheet" href="index.css" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="index.css" /></noscript>
 
     <!-- Critical config scripts (must execute synchronously before app) -->
     <script src="config.js"></script>

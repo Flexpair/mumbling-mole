@@ -28,6 +28,20 @@ $dialog-input-border-color: $darkgray !default;
 $dialog-input-bg-color: $white !default;
 $dialog-input-color: $dialog-color !default;
 
+/* Accessibility: Screen-reader only content (visually hidden but accessible) */
+.visually-hidden,
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 html,
 body {
   background-color: $bg-color;
@@ -434,7 +448,7 @@ select {
   }
 }
 
-/* Mobile view */
+/* Mobile view - stack labels above inputs for narrow screens */
 
 @media only screen and (max-width: 600px) {
   .dialog {
@@ -445,22 +459,39 @@ select {
   
   .connect-dialog {
     padding: 16px;
-    min-width: min(350px, calc(100vw - 20px));
+    min-width: min(320px, calc(100vw - 20px));
     max-width: calc(100vw - 20px);
+  }
+  
+  .connect-dialog table {
+    display: block;
+  }
+  
+  .connect-dialog tbody {
+    display: block;
+  }
+  
+  .connect-dialog tr {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+  }
+  
+  .connect-dialog th {
+    text-align: left;
+    padding: 0 0 4px 0;
+    width: 100%;
+  }
+  
+  .connect-dialog td {
+    padding: 0;
+    width: 100%;
   }
   
   .connect-dialog .dialog-header {
     font-size: 1.1em;
     margin-bottom: 16px;
     padding-bottom: 10px;
-  }
-  
-  .connect-dialog th {
-    padding: 8px 12px 8px 0;
-  }
-  
-  .connect-dialog td {
-    padding: 8px 0;
   }
 }
 
@@ -474,11 +505,12 @@ select {
 /* Corporate branding and UI enhancements */
 
 /* Vue.js ConnectDialog enhancements */
+/* Optimized for remote desktop app - landscape/horizontal layout */
 .connect-dialog {
-  padding: 24px;
+  padding: 24px 32px;
   width: 100%;
-  min-width: min(420px, calc(100vw - 40px));
-  max-width: min(420px, calc(100vw - 40px));
+  min-width: min(560px, calc(100vw - 40px));
+  max-width: min(600px, calc(100vw - 40px));
   box-sizing: border-box;
 }
 
@@ -501,7 +533,8 @@ select {
   padding: 10px 16px 10px 0;
   font-weight: 500;
   vertical-align: middle;
-  width: 35%;
+  width: 25%;
+  white-space: nowrap;
 }
 
 .connect-dialog td {
