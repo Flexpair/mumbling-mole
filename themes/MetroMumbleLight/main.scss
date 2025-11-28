@@ -110,14 +110,25 @@ main {
   height: calc(100% - 36px); // Full height minus toolbar
 }
 
-.guacamole,
+.guacamole {
+  display: block;
+  float: left;
+  margin: 0;
+  width: 100%;
+  height: calc(100% - 36px);
+  background: white; // White background for Guacamole iframe
+}
+
 .guacamole-placeholder {
   display: block;
   float: left;
-  margin: 2px 0;
+  margin: 0;
   width: 100%;
-  height: calc(100% - 4px); // Full height minus margins
-  background: white; // White background for Guacamole area
+  height: calc(100% - 36px);
+  background-image: url("img/AdobeStock_74031703.webp");
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: cover;
 }
 
 .guacamole-placeholder img {
