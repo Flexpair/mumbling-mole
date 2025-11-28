@@ -33,7 +33,7 @@ describe('mumble-websocket', () => {
     };
 
     // Setup module mocks
-    await jest.unstable_mockModule('websocket-stream', () => ({
+    await jest.unstable_mockModule('../app/utils/websocket-stream-lite.js', () => ({
       default: mockWebsocketStream
     }));
 

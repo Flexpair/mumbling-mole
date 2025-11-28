@@ -1,4 +1,4 @@
-import websocketStream from "websocket-stream";
+import websocketStream from "./utils/websocket-stream-lite.js";
 import MumbleClient from "./mumble-client/index.js";
 
 async function connect(address, options) {

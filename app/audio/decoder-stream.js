@@ -1,6 +1,6 @@
 import { Transform } from "node:stream";
 import createPool from "reuse-pool";
-import toArrayBuffer from "to-arraybuffer";
+import toArrayBuffer from "../utils/to-arraybuffer-lite.js";
 
 // Native Worker factory function (esbuild compatible)
 function newWorker () {
