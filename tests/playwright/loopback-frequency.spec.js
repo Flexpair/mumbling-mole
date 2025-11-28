@@ -550,7 +550,7 @@ test.describe('Loopback Frequency Test', () => {
       console.log('   ✅ Placeholder is hidden');
       
       // Check the iframe exists and has a src (even if it 404s)
-      const guacamoleIframe = page.frameLocator('#guacframe').owner().or(page.locator('#guacframe'));
+      const guacamoleIframe = page.locator('iframe#guacframe');
       await expect(guacamoleIframe).toBeVisible();
       
       const iframeSrc = await guacamoleIframe.getAttribute('src');

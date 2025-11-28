@@ -64,7 +64,7 @@ This builds assets, starts websockify tunnel, and serves UI at `http://local.fle
 ├─────────────────────────────────────────────────────────────┤
 │  Main Thread (UI)              │    Web Worker              │
 │  • Vue.js 3 Components         │    • Mumble protocol       │
-│  • Pinia Stores (5 modules)    │    • Audio resampling      │
+│  • Pinia Stores (7 modules)    │    • Audio resampling      │
 │  • AppState (coordinator)      │    • Opus encoding         │
 └────────────────────────────────┴────────────────────────────┘
               │                              │
@@ -299,7 +299,7 @@ mumbling-mole/
 ├── app/                           # Application source
 │   ├── index.js                   # Entry point (Pinia + Vue mount)
 │   ├── components/                # Vue.js components
-│   ├── stores/                    # Pinia stores (5 modules)
+│   ├── stores/                    # Pinia stores (7 modules)
 │   ├── audio/                     # Audio processing pipeline
 │   ├── worker.js                  # Web Worker
 │   ├── worker-client.js           # Worker bridge
