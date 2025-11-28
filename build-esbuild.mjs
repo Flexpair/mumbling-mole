@@ -248,9 +248,7 @@ try {
   // Theme assets - copy SVG and images
   copyDir('themes/MetroMumbleLight/svg', 'svg');
   copyDir('themes/MetroMumbleLight/img', 'img');
-  
-  // Copy placeholder image to root for critical CSS background-image
-  copyFile('themes/MetroMumbleLight/img/AdobeStock_74031703.webp', 'AdobeStock_74031703.webp');
+  // Note: Background image is in img/ folder, referenced by both critical CSS and theme.css
   
   // AudioWorklet processors (MUST NOT be bundled!)
   // These run in AudioWorklet context and cannot use imports

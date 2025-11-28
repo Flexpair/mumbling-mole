@@ -6,17 +6,23 @@
         class="connection-info-dialog dialog-container"
         role="dialog"
         aria-labelledby="dialog-title"
+        aria-modal="true"
       >
         <!-- Sidebar Navigation -->
         <div class="dialog-sidebar">
-          <div class="sidebar-header" id="dialog-title">
+          <h2 class="sidebar-header" id="dialog-title">
             Settings
-          </div>
-          <nav class="sidebar-nav" role="tablist">
+          </h2>
+          <nav class="sidebar-nav" role="tablist" aria-label="Settings sections">
             <button 
               :class="['nav-item', { active: activeTab === 'latency' }]"
               @click="activeTab = 'latency'"
               type="button"
+              role="tab"
+              :aria-selected="activeTab === 'latency'"
+              aria-controls="latency-panel"
+              :tabindex="activeTab === 'latency' ? 0 : -1"
+              @keydown="handleTabKeydown"
             >
               <span>Audio Delay</span>
             </button>
@@ -24,6 +30,11 @@
               :class="['nav-item', { active: activeTab === 'bandwidth' }]"
               @click="activeTab = 'bandwidth'"
               type="button"
+              role="tab"
+              :aria-selected="activeTab === 'bandwidth'"
+              aria-controls="bandwidth-panel"
+              :tabindex="activeTab === 'bandwidth' ? 0 : -1"
+              @keydown="handleTabKeydown"
             >
               <span>Bandwidth</span>
             </button>
@@ -31,6 +42,11 @@
               :class="['nav-item', { active: activeTab === 'client' }]"
               @click="activeTab = 'client'"
               type="button"
+              role="tab"
+              :aria-selected="activeTab === 'client'"
+              aria-controls="client-panel"
+              :tabindex="activeTab === 'client' ? 0 : -1"
+              @keydown="handleTabKeydown"
             >
               <span>Client</span>
             </button>
@@ -38,15 +54,15 @@
               :class="['nav-item', { active: activeTab === 'server' }]"
               @click="activeTab = 'server'"
               type="button"
+              role="tab"
+              :aria-selected="activeTab === 'server'"
+              aria-controls="server-panel"
+              :tabindex="activeTab === 'server' ? 0 : -1"
+              @keydown="handleTabKeydown"
             >
               <span>Server</span>
             </button>
           </nav>
-          <div class="sidebar-footer">
-            <button class="close-button" @click="handleHide">
-              {{ t('settingsdialog.close') }}
-            </button>
-          </div>
         </div>
 
         <!-- Main Content Area -->
@@ -197,6 +213,13 @@
             </div>
 
           </Transition>
+          
+          <!-- Close button at end of tab order -->
+          <div class="dialog-close-footer">
+            <button class="close-button-main" @click="handleHide" aria-label="Close settings dialog">
+              {{ t('settingsdialog.close') }}
+            </button>
+          </div>
         </div>
       </div>
     </Transition>
@@ -204,7 +227,7 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
@@ -489,17 +512,33 @@ function updateStats() {
 
 let statsInterval = null;
 
+// Global escape key handler for closing dialog
+const handleGlobalKeydown = (event) => {
+  if (event.key === 'Escape' && visible.value) {
+    handleHide();
+  }
+};
+
 watch(visible, (val) => {
   if (val) {
     // Reset to first tab when dialog opens
     activeTab.value = 'latency';
     updateStats();
     statsInterval = setInterval(updateStats, 1000);
+    // Add global escape key listener
+    document.addEventListener('keydown', handleGlobalKeydown);
+    // Focus the first tab when dialog opens (for keyboard accessibility)
+    nextTick(() => {
+      const firstTab = document.querySelector('.connection-info-dialog [role="tab"]');
+      if (firstTab) firstTab.focus();
+    });
   } else {
     if (statsInterval) {
       clearInterval(statsInterval);
       statsInterval = null;
     }
+    // Remove global escape key listener
+    document.removeEventListener('keydown', handleGlobalKeydown);
   }
 });
 
@@ -510,6 +549,45 @@ const recordPttKey = () => {
 const handleHide = () => {
   visible.value = false;
   // Settings are auto-saved via settingsStore watch() - no manual save needed
+};
+
+/**
+ * Handle keyboard navigation for tabs (Arrow keys)
+ */
+const tabs = ['latency', 'bandwidth', 'client', 'server'];
+const handleTabKeydown = (event) => {
+  const currentIndex = tabs.indexOf(activeTab.value);
+  let newIndex = currentIndex;
+  
+  switch (event.key) {
+    case 'ArrowDown':
+    case 'ArrowRight':
+      event.preventDefault();
+      newIndex = (currentIndex + 1) % tabs.length;
+      break;
+    case 'ArrowUp':
+    case 'ArrowLeft':
+      event.preventDefault();
+      newIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      break;
+    case 'Home':
+      event.preventDefault();
+      newIndex = 0;
+      break;
+    case 'End':
+      event.preventDefault();
+      newIndex = tabs.length - 1;
+      break;
+    default:
+      return;
+  }
+  
+  activeTab.value = tabs[newIndex];
+  // Focus the newly selected tab
+  nextTick(() => {
+    const newTab = document.querySelector(`[aria-controls="${tabs[newIndex]}-panel"]`);
+    if (newTab) newTab.focus();
+  });
 };
 
 // Watch for modal opening to reset tab
@@ -605,12 +683,24 @@ onMounted(() => {
   border-left-color: #00ffff;
 }
 
-.sidebar-footer {
-  padding: 20px;
-  border-top: 1px solid #333;
+/* Main Content */
+.dialog-main {
+  flex: 1;
+  background: #1e1e1e;
+  position: relative;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.close-button {
+/* Close button footer in main content area (end of tab order) */
+.dialog-close-footer {
+  padding: 20px 30px;
+  border-top: 1px solid #333;
+  margin-top: auto;
+}
+
+.close-button-main {
   width: 100%;
   padding: 10px;
   background: #333;
@@ -621,20 +711,19 @@ onMounted(() => {
   transition: background 0.2s;
 }
 
-.close-button:hover {
+.close-button-main:hover {
   background: #444;
 }
 
-/* Main Content */
-.dialog-main {
-  flex: 1;
-  background: #1e1e1e;
-  position: relative;
-  overflow-y: auto;
+.close-button-main:focus {
+  outline: 2px solid #00ffff;
+  outline-offset: 2px;
 }
 
 .content-panel {
   padding: 30px;
+  min-height: 320px; /* Prevent height fluctuation when switching tabs */
+  flex: 1;
 }
 
 .panel-title {
@@ -832,19 +921,12 @@ onMounted(() => {
 
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
+.fade-slide-enter-from,
 .fade-slide-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
-  position: absolute;
-  width: 100%;
 }
 
 /* Custom Slider */
@@ -1004,10 +1086,6 @@ onMounted(() => {
     border-bottom-color: #00ffff;
   }
   
-  .sidebar-footer {
-    display: none;
-  }
-  
   .dialog-main {
     flex: 1;
     overflow-y: auto;
@@ -1100,11 +1178,6 @@ onMounted(() => {
   .nav-item.active {
     border-left-color: #00ffff;
     border-bottom-color: transparent;
-  }
-  
-  .sidebar-footer {
-    display: block;
-    padding: 10px;
   }
   
   .content-panel {
