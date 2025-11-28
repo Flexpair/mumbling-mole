@@ -210,6 +210,57 @@ function initializeUI() {
   initializeAuth();
 }
 
+/**
+ * Initialize keyboard shortcuts for accessibility
+ * Provides keyboard access to common actions without mouse
+ */
+function initializeKeyboardShortcuts() {
+  document.addEventListener('keydown', (event) => {
+    // Ignore if user is typing in an input field
+    const target = event.target;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+    
+    // Ctrl+M: Toggle mute
+    if (event.ctrlKey && event.key === 'm') {
+      event.preventDefault();
+      if (userStore.selfMute) {
+        userStore.requestUnmute(userStore.thisUser);
+        announceToScreenReader('Microphone unmuted');
+      } else {
+        userStore.requestMute(userStore.thisUser);
+        announceToScreenReader('Microphone muted');
+      }
+    }
+    
+    // Ctrl+D: Toggle deaf
+    if (event.ctrlKey && event.key === 'd') {
+      event.preventDefault();
+      if (userStore.selfDeaf) {
+        userStore.requestUndeaf(userStore.thisUser);
+        announceToScreenReader('Audio enabled');
+      } else {
+        userStore.requestDeaf(userStore.thisUser, voiceStore.isLoopbackMode);
+        announceToScreenReader('Audio disabled');
+      }
+    }
+    
+    // Escape: Close current modal/dialog (handled by individual components)
+  });
+}
+
+/**
+ * Announce message to screen readers via live region
+ */
+function announceToScreenReader(message) {
+  const announcer = document.getElementById('a11y-announcer');
+  if (announcer) {
+    announcer.textContent = message;
+    setTimeout(() => { announcer.textContent = ''; }, 1000);
+  }
+}
+
 // Backwards-compatible log export used by some modules
 globalThis.mumbleLog = log;
 
@@ -217,6 +268,7 @@ async function main() {
   document.title = globalThis.location.hostname;
   
   initializeUI();
+  initializeKeyboardShortcuts();
   
   // Mount Vue.js App component (single root that contains all UI)
   try {

@@ -14,3 +14,10 @@
 export { useLocalStorage } from './useLocalStorage.js';
 export { vTooltip } from './useTooltip.js';
 export { useClipboard } from './useClipboard.js';
+
+// Accessibility composables
+export { 
+  announceToScreenReader, 
+  useFocusTrap, 
+  useRovingTabindex 
+} from './useAccessibility.js';

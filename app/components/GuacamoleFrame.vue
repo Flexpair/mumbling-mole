@@ -4,9 +4,9 @@
   <div 
     v-show="!visible" 
     class="guacamole-placeholder"
-    style="float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
+    aria-hidden="true"
   >
-    <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="Flexpair logo" />
+    <img src="https://welcome.flexpair.com/images/corporate-design/logo.svg" alt="" />
   </div>
 
   <!-- Guacamole iframe container -->
@@ -14,15 +14,20 @@
   <section
     v-show="visible"
     class="guacamole"
-    style="float: left; margin-top: 2px; margin-bottom: 2px; width: 100%; height: calc(99% - 38px);"
-    aria-label="Guacamole Remote Desktop Container"
+    aria-label="Remote Desktop Session"
     @mouseenter="focusIframe"
   >
       <!-- Loading state -->
-      <div v-if="loading" class="guac-loading">Loading remote desktop…</div>
+      <div v-if="loading" class="guac-loading" role="status" aria-live="polite">
+        <span class="sr-only">Loading remote desktop connection...</span>
+        Loading remote desktop…
+      </div>
 
       <!-- Error state -->
-      <div v-if="error" class="guac-error">{{ error }}</div>
+      <div v-if="error" class="guac-error" role="alert">
+        <span class="sr-only">Error:</span>
+        {{ error }}
+      </div>
 
       <!-- iframe with lazy loading and clipboard permissions -->
       <iframe
@@ -30,9 +35,10 @@
         id="guacframe"
         :src="guacSource || 'about:blank'"
         @load="handleLoad"
-        title="Guacamole Remote Desktop"
+        title="Remote Desktop - Interactive session"
         loading="lazy"
         allow="clipboard-read; clipboard-write"
+        :aria-hidden="loading || !!error"
       ></iframe>
   </section>
 </template>
