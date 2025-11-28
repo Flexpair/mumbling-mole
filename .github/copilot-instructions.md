@@ -13,6 +13,7 @@ Browser-based Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 7. **Event synchronization** - update BOTH `_dispatchEvent` (worker-client.js) AND `registerEventProxy` (worker.js)
 8. **ES Module mocking** - use `jest.unstable_mockModule()` BEFORE imports (not `jest.mock()`)
 9. **Always rebuild before testing** - run `npm run build:local` (or `./rebuild-and-restart.sh`) before any test execution. Plain `npm run build` does NOT restart the server!
+10. **Playwright locators** - use role-based locators (`getByRole`, `getByLabel`) with `.or()` fallbacks for resilience; avoid CSS-only selectors
 
 ## 🎯 Quick Start Commands
 
@@ -50,7 +51,7 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 - **Playback (receive)**: Jitter-tolerant via unbounded queue. Decoder handles variable frame sizes (Opus flexible). `buffer-queue-node.js` queues decoded packets, `playback-buffer-processor.js` (AudioWorklet) dequeues at constant rate, fills silence if empty. ⚠️ **Known issues**: Queue has no size limit (memory leak #201), no configurable jitter buffer (#202), no Opus PLC for packet loss (#203).
 
 **State Management (Pinia - COMPLETED Nov 2025):**
-- All 5 core modules are Pinia stores (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`)
+- **7 Pinia stores** in `app/stores/`: Core stores (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`) + UI stores (`settingsStore`, `dialogStore`)
 - Vue components use `const store = useXStore()` directly (Composition API setup syntax)
 - `AppState` is compatibility layer exposing `window.mumbleUi` for legacy tests - gradually migrate consumers to direct Pinia usage
 - Build: `esbuild-plugin-vue3` compiles SFCs; Pinia initialized before AppState in `app/index.js`
@@ -60,13 +61,13 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 ## Getting started reading code
 **Entry points by use case:**
 - **UI/UX flow**: `app/index.html` (single Vue mount point) → `app/index.js` (Pinia init, AppState setup, Vue mount, auth) → `app/components/App.vue` (root component) → individual Vue components
-- **State management**: `app/stores/AppState.js` (coordinator + compatibility layer) → individual Pinia stores in `app/stores/` (`connectionStore.js`, `audioStore.js`, `voiceStore.js`, `uiStore.js`, `userStore.js`) + UI composables in `app/composables/`
+- **State management**: `app/stores/AppState.js` (coordinator + compatibility layer) → individual Pinia stores in `app/stores/` (`connectionStore.js`, `audioStore.js`, `voiceStore.js`, `uiStore.js`, `userStore.js`, `settingsStore.js`, `dialogStore.js`) + UI composables in `app/composables/`
 - **Audio pipeline**: `app/audio/voice.js` (capture) → `app/audio/recorder-worker.js` (AudioWorklet) → `app/worker.js` (Opus encoding)
 - **Network protocol**: `app/worker-client.js` (main thread proxy) ↔ `app/worker.js` (worker thread) → `app/mumble-websocket.js` (protocol)
 - **Build system**: `build-esbuild.mjs` (esbuild config with Vue + Pinia plugins, clean builds)
 
 **State organization (Pinia migration)**:
-- **Pinia stores** (`app/stores/`): 5 core stores using `defineStore()` with Composition API - `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`
+- **Pinia stores** (`app/stores/`): 7 stores using `defineStore()` with Composition API - 5 core (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`) + 2 UI (`settingsStore`, `dialogStore`)
 - **UI composables** (`app/composables/`): Dialog helpers, settings, clipboard, tooltip, localStorage, debug utils
 - **AppState** (`app/stores/AppState.js`): Compatibility layer that composes Pinia stores, exposes legacy `window.mumbleUi` API
 
@@ -74,7 +75,7 @@ Browser-first Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 
 ## Architecture & threading
 **Main thread** (`app/index.js`): Initializes Pinia via `createPinia()` → bootstraps `AppState` (coordinator that composes Pinia stores) → mounts Vue app → handles auth, Guacamole iframe  
-**State architecture**: Uses **Pinia stores** (`app/stores/`) with `defineStore()` + Composition API setup syntax. Five core stores: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`. All state uses Vue 3 reactive primitives (ref, computed, watch). `AppState` acts as compatibility layer exposing `window.mumbleUi` for legacy code. Channel registration handled directly in AppState (single-channel mode). See `app/stores/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) removed Oct 2024  
+**State architecture**: Uses **Pinia stores** (`app/stores/`) with `defineStore()` + Composition API setup syntax. Seven stores: 5 core (`connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`) + 2 UI (`settingsStore`, `dialogStore`). All state uses Vue 3 reactive primitives (ref, computed, watch). `AppState` acts as compatibility layer exposing `window.mumbleUi` for legacy code. Channel registration handled directly in AppState (single-channel mode). See `app/stores/README.md` for detailed architecture diagrams. Legacy `GlobalBindings` (1190-line god object) removed Oct 2024  
 **Worker thread** (`app/worker.js`): Manages `mumble-websocket.js` connection, mirrors channel/user trees via serialized IDs (never objects), owns Opus resampling in `setupOutboundVoice`  
 **Audio path**: `audio-context-manager` maintains single shared `AudioContext`; `voice.js` chooses continuous/PTT handlers; `recorder-worker.js` streams 48 kHz mono 960-sample packets to worker  
 **WebSocket tunneling**: `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**. This is how browser clients connect to standard Mumble servers without native TCP sockets - websockify proxies the Mumble TCP protocol over WebSocket connections that browsers can handle  
@@ -284,7 +285,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 
 ## Key file map
 **UI/session**: `app/index.js` (Pinia init + AppState setup + Vue mount + auth), `app/index.html` (single Vue mount point), `app/localize.js` (i18n), `app/components/App.vue` (root), `app/components/ConnectDialog.vue` (connection dialog)  
-**Pinia stores**: `app/stores/AppState.js` (coordinator + compatibility layer + channel registration), `app/stores/connectionStore.js` (WebSocket/client), `app/stores/audioStore.js` (AudioContext singleton), `app/stores/voiceStore.js` (voice handler/loopback), `app/stores/uiStore.js` (modals/messageBox), `app/stores/userStore.js` (thisUser/mute/deaf)  
+**Pinia stores**: `app/stores/AppState.js` (coordinator + compatibility layer + channel registration), `app/stores/connectionStore.js` (WebSocket/client), `app/stores/audioStore.js` (AudioContext singleton), `app/stores/voiceStore.js` (voice handler/loopback), `app/stores/uiStore.js` (modals/messageBox), `app/stores/userStore.js` (thisUser/mute/deaf), `app/stores/settingsStore.js` (persistent user settings), `app/stores/dialogStore.js` (consolidated dialog states)  
 **Worker bridge**: `app/worker.js` (worker entry + registerEventProxy), `app/worker-client.js` (proxy + user migration + _dispatchEvent/_setProp), `app/mumble-websocket.js` (WebSocket → MumbleClient adapter)  
 **Audio stack**: `app/audio/audio-context-manager.js` (singleton + autoplay handling), `app/audio/voice.js` (PTT/continuous + target param), `app/audio/recorder-worker.js` (AudioWorklet processor), `app/audio/decoder-stream.js` (worker pool), `app/audio/encode-worker.js` + `app/audio/decode-worker.js` (Opus codec workers), `app/audio/buffer-queue-node.js` (replaces deprecated ScriptProcessorNode)  
 **Build/runtime**: `build-esbuild.mjs` (esbuild config with Vue + Pinia plugins + validation), `start-dev-server.sh`, `docker-entrypoint.sh` (websockify launcher)  
