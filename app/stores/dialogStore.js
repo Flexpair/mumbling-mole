@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, reactive } from 'vue';
+import { reactive } from 'vue';
 
 /**
  * Consolidated Dialog Store

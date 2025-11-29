@@ -133,7 +133,7 @@ class Decoder extends Transform {
       }
 
       const typeName = nameById[type];
-      const data = this._buffer.slice(6, 6 + size);
+      const data = this._buffer.subarray(6, 6 + size);
       let message;
       if (typeName === 'UDPTunnel') {
         message = Buffer.from(data);

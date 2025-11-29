@@ -152,28 +152,6 @@ export const useAudioStore = defineStore('audio', () => {
   }
 
   /**
-   * Attempt to get microphone permission
-   */
-  function attemptMicrophonePermission() {
-    // Lazy-initialize permission manager
-    if (!_micPermissionManager) {
-      _micPermissionManager = createMicrophonePermissionManager({
-        onGranted: () => {
-          micPermissionDenied.value = false;
-          micPermissionErrorMessage.value = '';
-        },
-        onDenied: (errorMessage) => {
-          micPermissionErrorMessage.value = errorMessage;
-        },
-        maxRetryCount: 3,
-        retryDelayMs: 1000
-      });
-    }
-    
-    _micPermissionManager.attemptPermission();
-  }
-
-  /**
    * Retry microphone permission request
    */
   function retryMicrophonePermission() {
@@ -339,15 +317,6 @@ export const useAudioStore = defineStore('audio', () => {
     } catch (err) {
       console.error('[BEEP] Error stopping beep:', err);
     }
-  }
-
-  /**
-   * Reset beeper state
-   */
-  function resetBeeper() {
-    stopBeep();
-    beeperReady.value = false;
-    // Note: we don't destroy _persistentBeeper, it can be reused
   }
 
   /**

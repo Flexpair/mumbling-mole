@@ -29,10 +29,10 @@ export function createPiniaDebugPlugin() {
       
       after((result) => {
         const duration = (performance.now() - startTime).toFixed(1);
-        if (result !== undefined) {
-          console.log(`[PINIA:${storeId}] ✓ ${name} (${duration}ms)`, result);
-        } else {
+        if (result === undefined) {
           console.log(`[PINIA:${storeId}] ✓ ${name} (${duration}ms)`);
+        } else {
+          console.log(`[PINIA:${storeId}] ✓ ${name} (${duration}ms)`, result);
         }
       });
       
