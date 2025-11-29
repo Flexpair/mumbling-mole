@@ -183,22 +183,20 @@ class MumbleClient extends EventEmitter {
 
   _send (msg) {
     const isTextMessage = msg.name === 'TextMessage';
-    const needsDrainHandling = !this._data.write(msg);
+    const writeSucceeded = this._data.write(msg);
     
     if (isTextMessage) {
-      // Emit event immediately if stream didn't return false (not buffering)
-      if (!needsDrainHandling) {
+      // Emit event immediately if stream returned true (not buffering)
+      // Only register drain listener if not already waiting
+      // This prevents memory leak from accumulating listeners during rapid sends
+      if (!writeSucceeded && !this._waitingForDrain) {
+        this._waitingForDrain = true;
+        this._data.once('drain', () => {
+          this._waitingForDrain = false;
+          this.emit('messageSent', msg.payload.message);
+        });
+      } else if (writeSucceeded) {
         this.emit('messageSent', msg.payload.message);
-      } else {
-        // Only register drain listener if not already waiting
-        // This prevents memory leak from accumulating listeners during rapid sends
-        if (!this._waitingForDrain) {
-          this._waitingForDrain = true;
-          this._data.once('drain', () => {
-            this._waitingForDrain = false;
-            this.emit('messageSent', msg.payload.message);
-          });
-        }
       }
     }
   }

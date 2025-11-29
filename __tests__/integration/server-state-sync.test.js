@@ -20,7 +20,6 @@ import { safeStoreToRefs } from '../../app/utils/safeStoreToRefs.js';
 
 describe('Server-State Synchronization - Critical Integration Test', () => {
   let User;
-  let Client;
   let useUserStore;
   let audioStateMock;
   let voiceStateMock;
@@ -48,11 +47,9 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
     setActivePinia(createPinia());
     // Mock dependencies - inline mocks for ES modules
     jest.unstable_mockModule('../../app/audio/buffer-queue-node.js', () => ({
-      default: class BufferQueueNodeMock {
-        constructor() {
-          this.connect = jest.fn();
-        }
-      }
+      default: jest.fn().mockImplementation(() => ({
+        connect: jest.fn()
+      }))
     }));
 
     jest.unstable_mockModule('../../app/utils/voice-stream-manager.js', () => ({
@@ -107,7 +104,6 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
 
     // Import after mocks
     User = (await import('../../app/mumble-client/user.js')).default;
-    Client = (await import('../../app/mumble-client/client.js')).default;
     const userStoreModule = await import('../../app/stores/userStore.js');
     useUserStore = userStoreModule.useUserStore;
   });

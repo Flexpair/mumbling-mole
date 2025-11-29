@@ -998,7 +998,7 @@ describe('mumble-client Client', () => {
       test('should send Version message with correct format', () => {
         // Version is sent during connect(), check the format
         const versionPayload = {
-          version: (1 << 16) | (5 << 8) | 0, // 1.5.0
+          version: 66816, // 1.5.0 encoded as (1 << 16) + (5 << 8)
           release: expect.any(String),
           os: expect.any(String),
           osVersion: expect.any(String)

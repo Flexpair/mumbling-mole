@@ -207,9 +207,12 @@ describe('Proto Structure Compatibility Tests', () => {
 
       // Timestamp may be Long object depending on protobufjs config
       // Long has .low and .high properties, or can be converted via .toNumber()
-      const decodedTimestamp = typeof decoded.timestamp === 'object' 
-        ? (decoded.timestamp.toNumber ? decoded.timestamp.toNumber() : Number(decoded.timestamp))
-        : Number(decoded.timestamp);
+      let decodedTimestamp;
+      if (typeof decoded.timestamp === 'object') {
+        decodedTimestamp = decoded.timestamp.toNumber ? decoded.timestamp.toNumber() : Number(decoded.timestamp);
+      } else {
+        decodedTimestamp = Number(decoded.timestamp);
+      }
       
       expect(decodedTimestamp).toBe(timestamp);
     });
