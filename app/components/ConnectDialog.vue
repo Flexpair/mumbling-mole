@@ -9,47 +9,33 @@
     >
     <h2 id="connect-dialog_title" class="dialog-header">{{ translate('connectdialog.title') }}</h2>
     <form @submit.prevent="handleConnect">
-      <table role="presentation">
-        <tbody>
-          <tr v-if="config.connectDialog?.username">
-            <th scope="row">
-              <label for="username">{{ translate('connectdialog.username') }}</label>
-            </th>
-            <td>
-              <input
-                id="username"
-                v-model="username"
-                type="text"
-                readonly
-                required
-                aria-readonly="true"
-              />
-            </td>
-          </tr>
-          <tr v-if="config.connectDialog?.password">
-            <th scope="row">
-              <label for="password">{{ translate('connectdialog.password') }}</label>
-            </th>
-            <td>
-              <input
-                id="password"
-                v-model="password"
-                type="password"
-                autocomplete="current-password"
-              />
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">
-              <label for="audioSource">{{ translate('connectdialog.microphone') }}</label>
-            </th>
-            <td>
-              <!-- Placeholder for audioSource select (moved here via script) -->
-              <div ref="microphoneContainer"></div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="form-fields">
+        <div v-if="config.connectDialog?.username" class="form-field">
+          <label for="username">{{ translate('connectdialog.username') }}</label>
+          <input
+            id="username"
+            v-model="username"
+            type="text"
+            readonly
+            required
+            aria-readonly="true"
+          />
+        </div>
+        <div v-if="config.connectDialog?.password" class="form-field">
+          <label for="password">{{ translate('connectdialog.password') }}</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            autocomplete="current-password"
+          />
+        </div>
+        <div class="form-field">
+          <label for="audioSource">{{ translate('connectdialog.microphone') }}</label>
+          <!-- Placeholder for audioSource select (moved here via script) -->
+          <div ref="microphoneContainer"></div>
+        </div>
+      </div>
 
       <p id="headphones-recommendation" style="margin: 0.5em 0;">
         We recommend using headphones <span aria-hidden="true">🎧</span> for the best audio experience.
@@ -106,11 +92,10 @@
             <span v-else id="piano-loading-hint" class="sr-only">Audio system is initializing, please wait</span>
 
             <!-- Frequency Display with fixed width -->
-            <div
+            <output
               v-if="isLoopbackMode"
               class="loopback-frequency-display"
               style="padding: 6px 12px; background-color: rgba(21, 120, 120, 0.1); border: 1px solid rgba(21, 120, 120, 0.3); border-radius: 4px; flex-shrink: 0; min-width: 120px; text-align: center;"
-              role="status"
               aria-live="polite"
               aria-atomic="true"
             >
@@ -121,7 +106,7 @@
               <span class="sr-only">
                 {{ dominantFrequency > 0 ? 'Detected frequency: ' + dominantFrequency + ' Hertz' : 'No frequency detected' }}
               </span>
-            </div>
+            </output>
           </div>
         </div>
       </fieldset>
@@ -141,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef, toRefs } from 'vue';
+import { computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef, toRefs } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
