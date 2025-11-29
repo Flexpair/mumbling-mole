@@ -136,8 +136,75 @@ const messageListenerCall = globalThis.addEventListener.mock.calls.find(
 const messageHandler = messageListenerCall?.[1];
 
 describe("worker.js", () => {
+  // ============ HELPER FUNCTIONS ============
+  /**
+   * Connects to a test server and returns connection info.
+   * Reduces boilerplate across tests.
+   */
+  async function connectClient(reqId = 1, host = "wss://test", args = {}) {
+    await messageHandler({ 
+      data: { 
+        reqId, 
+        method: "_connect", 
+        payload: { host, args } 
+      } 
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    const client = mockClients[mockClients.length - 1];
+    const connectResponse = postMessageCalls.find(call => call.reqId === reqId);
+    const clientId = connectResponse?.result;
+    
+    return { client, clientId, connectResponse };
+  }
+
+  /**
+   * Creates a mock channel with all required properties.
+   */
+  function createMockChannel(overrides = {}) {
+    const channel = new EventEmitter();
+    Object.assign(channel, {
+      id: 0,
+      name: "Root",
+      children: [],
+      links: [],
+      parent: null,
+      position: 0,
+      description: "",
+      ...overrides
+    });
+    return channel;
+  }
+
+  /**
+   * Creates a mock user with all required properties.
+   */
+  function createMockUser(overrides = {}) {
+    const user = new EventEmitter();
+    Object.assign(user, {
+      session: 123,
+      username: "TestUser",
+      setChannel: jest.fn(),
+      sendMessage: jest.fn(),
+      requestMove: jest.fn(),
+      ...overrides
+    });
+    return user;
+  }
+
+  /**
+   * Sets up a connected client with root channel and self.
+   */
+  async function setupConnectedClientWithRoot(reqId = 1) {
+    const { client, clientId } = await connectClient(reqId);
+    const mockRoot = createMockChannel();
+    client.root = mockRoot;
+    client.self = { id: 99 };
+    return { client, clientId, mockRoot };
+  }
+
+  // ============ SETUP / TEARDOWN ============
   beforeEach(() => {
-    // Clear call history and reset state
     jest.clearAllMocks();
     postMessageCalls.length = 0;
     mockClients.length = 0;
@@ -161,64 +228,26 @@ describe("worker.js", () => {
 
   describe("Connection handling", () => {
     test("should handle connect request", async () => {
-      const msg = {
-        reqId: 1,
-        method: "_connect",
-        payload: {
-          host: "wss://example.com",
-          args: { username: "test" }
-        },
-      };
+      const { clientId } = await connectClient(1, "wss://example.com", { username: "test" });
 
-      await messageHandler({ data: msg });
-
-      // Verify mumbleConnect was called
       expect(mumbleConnectMock).toHaveBeenCalledWith(
         "wss://example.com",
         expect.objectContaining({ username: "test" })
       );
-
-      // Verify success response
-      // Note: Promise resolution always happens in a microtask, so we need to wait
-      // for the microtask queue to flush before checking postMessage.
-      await new Promise(resolve => setTimeout(resolve, 0));
-
       expect(globalThis.self.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          reqId: 1,
-          result: expect.any(Number)
-        }),
+        expect.objectContaining({ reqId: 1, result: clientId }),
         undefined
       );
     });
 
     test("should proxy client events", async () => {
-      // Connect first
-      const msg = {
-        reqId: 2,
-        method: "_connect",
-        payload: {
-          host: "wss://example.com",
-          args: {}
-        },
-      };
-      await messageHandler({ data: msg });
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const { client } = await connectClient(2, "wss://example.com");
       
-      const client = mockClients[mockClients.length - 1];
-      
-      // Emit event on client
-      // Note: 'update' is not proxied on the client object itself, only on users/channels.
-      // 'denied' is proxied.
       const denialReason = { type: 1, reason: "Invalid password" };
       client.emit("denied", denialReason);
       
-      // Verify proxied message
       expect(globalThis.self.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "denied",
-          value: [denialReason]
-        }),
+        expect.objectContaining({ event: "denied", value: [denialReason] }),
         undefined
       );
     });
@@ -226,33 +255,11 @@ describe("worker.js", () => {
 
   describe("Voice stream handling", () => {
     test("should handle createVoiceStream message", async () => {
-      // Connect first
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      
-      // Mock createVoiceStream on client
+      const { client, clientId } = await connectClient();
       const mockStream = new EventEmitter();
       client.createVoiceStream.mockReturnValue(mockStream);
 
-      // Get the client ID from the connect response
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      const msg = {
-        clientId: clientId,
-        method: "createVoiceStream",
-        payload: [1, 960], // voiceId, samplesPerPacket
-      };
-
-      messageHandler({ data: msg });
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [1, 960] } });
 
       expect(client.createVoiceStream).toHaveBeenCalled();
     });
@@ -278,31 +285,10 @@ describe("worker.js", () => {
 
   describe("Client method calls", () => {
     test("should handle setSelfMute request", async () => {
-      // Connect first
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      // Mock setSelfMute on client
+      const { client, clientId } = await connectClient();
       client.setSelfMute = jest.fn();
-      
-      // Get the client ID
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
 
-      const msg = {
-        clientId: clientId,
-        method: "setSelfMute",
-        payload: [true],
-      };
-
-      messageHandler({ data: msg });
+      messageHandler({ data: { clientId, method: "setSelfMute", payload: [true] } });
       
       expect(client.setSelfMute).toHaveBeenCalledWith(true);
     });
@@ -310,31 +296,10 @@ describe("worker.js", () => {
 
   describe("Error handling", () => {
     test("should catch message processing errors", async () => {
-      const consoleErrorSpy = jest
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+      const { clientId } = await connectClient();
 
-      // Connect first to get a valid client ID
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      const msg = {
-        clientId: clientId,
-        method: "invalid",
-        payload: {},
-      };
-
-      expect(() => messageHandler({ data: msg })).not.toThrow();
-      
-      // worker.js logs error but doesn't send response for invalid methods
+      expect(() => messageHandler({ data: { clientId, method: "invalid", payload: {} } })).not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();
@@ -395,70 +360,28 @@ describe("worker.js", () => {
 
   describe("Channel and User registration", () => {
     test("should register channel on client", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      
-      // Simulate root channel with all required properties
-      const mockChannel = new EventEmitter();
-      mockChannel.id = 0;
-      mockChannel.name = "Root";
-      mockChannel.children = [];
-      mockChannel.links = [];  // Required by pushProp
-      mockChannel.parent = null;
-      mockChannel.position = 0;
-      mockChannel.description = "";
+      const { client } = await connectClient();
+      const mockChannel = createMockChannel();
       client.root = mockChannel;
-      
-      // Set up self user (required by ClientInitializer.initialize)
       client.self = { id: 1 };
       
-      // The connect response should have already been sent
       globalThis.postMessage.mockClear();
-      
-      // Emit newChannel - this triggers registerEventProxy callback
       client.emit('newChannel', mockChannel);
       
-      // Should proxy the event
       expect(globalThis.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "newChannel"
-        }),
+        expect.objectContaining({ event: "newChannel" }),
         undefined
       );
     });
 
     test("should register user on client", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const { client } = await connectClient();
+      const mockUser = createMockUser();
       
-      const client = mockClients[mockClients.length - 1];
-      
-      // Simulate user
-      const mockUser = new EventEmitter();
-      mockUser.session = 123;
-      mockUser.username = "TestUser";
-      
-      // Emit newUser
       client.emit('newUser', mockUser);
       
       expect(globalThis.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "newUser"
-        }),
+        expect.objectContaining({ event: "newUser" }),
         undefined
       );
     });
@@ -466,28 +389,10 @@ describe("worker.js", () => {
 
   describe("setAudioQuality", () => {
     test("should call setAudioQuality on client", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
+      const { client, clientId } = await connectClient();
       client.setAudioQuality = jest.fn();
-      
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
 
-      messageHandler({ 
-        data: { 
-          clientId, 
-          method: "setAudioQuality", 
-          payload: [40000, 960] 
-        } 
-      });
+      messageHandler({ data: { clientId, method: "setAudioQuality", payload: [40000, 960] } });
       
       expect(client.setAudioQuality).toHaveBeenCalledWith(40000, 960);
     });
@@ -495,27 +400,9 @@ describe("worker.js", () => {
 
   describe("Disconnect handling", () => {
     test("should handle disconnect request", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
+      const { client, clientId } = await connectClient();
 
-      messageHandler({ 
-        data: { 
-          clientId, 
-          method: "disconnect", 
-          payload: [] 
-        } 
-      });
+      messageHandler({ data: { clientId, method: "disconnect", payload: [] } });
       
       expect(client.disconnect).toHaveBeenCalled();
     });
@@ -523,32 +410,15 @@ describe("worker.js", () => {
 
   describe("reject() function branches", () => {
     test("should handle structuredClone failure gracefully", async () => {
-      // Create an object that can't be cloned (has functions)
-      const uncloneable = {
-        message: "Test error",
-        name: "TestError",
-        func: () => {},  // Functions can't be cloned
-      };
-      
+      const uncloneable = { message: "Test error", name: "TestError", func: () => {} };
       mumbleConnectMock.mockRejectedValueOnce(uncloneable);
       
-      await messageHandler({ 
-        data: { 
-          reqId: 98, 
-          method: "_connect", 
-          payload: { host: "wss://test-unclone", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await connectClient(98, "wss://test-unclone");
       
-      // Should fall back to extracting message/name/stack
       expect(globalThis.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           reqId: 98,
-          error: expect.objectContaining({
-            message: "Test error",
-            name: "TestError"
-          })
+          error: expect.objectContaining({ message: "Test error", name: "TestError" })
         }),
         undefined
       );
@@ -557,134 +427,45 @@ describe("worker.js", () => {
 
   describe("pushProp edge cases", () => {
     test("should handle transformed values", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      
-      // Set up client with root for testing
-      const mockChannel = new EventEmitter();
-      mockChannel.id = 1;
-      mockChannel.name = "Root";
-      mockChannel.children = [];
-      mockChannel.links = [];
-      mockChannel.parent = null;
-      mockChannel.position = 0;
-      mockChannel.description = "";
-      client.root = mockChannel;
+      const { client, mockRoot } = await setupConnectedClientWithRoot();
+      mockRoot.id = 1;
       client.self = { id: 42 };
       
-      // Clear previous calls
       globalThis.postMessage.mockClear();
-      
-      // Trigger maxBandwidth event (this uses pushProp internally)
       client.emit('maxBandwidthChange');
       
-      // Should have called postMessage with prop update
       expect(globalThis.postMessage).toHaveBeenCalled();
     });
   });
 
   describe("Voice stream target handling", () => {
     test("should handle different voice targets", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-      
-      // Reset the mock to track calls
+      const { client, clientId } = await connectClient();
       client.createVoiceStream.mockClear();
 
-      // Test createVoiceStream with loopback target (31)
-      messageHandler({
-        data: {
-          clientId,
-          method: "createVoiceStream",
-          payload: [31]  // Loopback target
-        }
-      });
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [31] } });
       
-      // Verify createVoiceStream was called (method exists in mock)
       expect(client.createVoiceStream).toHaveBeenCalled();
     });
   });
 
   describe("User method calls", () => {
     test("should handle user method calls when user exists", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      // Note: In the real implementation, getUserById needs the actual user
-      // Just verify the method dispatch logic works correctly
+      const { clientId } = await connectClient();
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
-      // This will fail because there's no user with id 42, which tests the 
-      // target validation branch
-      messageHandler({
-        data: {
-          clientId,
-          userId: 42,
-          method: "requestMove",
-          payload: [1]
-        }
-      });
+      messageHandler({ data: { clientId, userId: 42, method: "requestMove", payload: [1] } });
       
-      // Should log error about missing target
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
 
     test("should reject disallowed methods", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
+      const { clientId } = await connectClient();
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
-      // Try to call a disallowed method
-      messageHandler({
-        data: {
-          clientId,
-          userId: 42,
-          method: "dangerousMethod",
-          payload: []
-        }
-      });
+      messageHandler({ data: { clientId, userId: 42, method: "dangerousMethod", payload: [] } });
       
-      // Should log error about disallowed method
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
@@ -692,34 +473,11 @@ describe("worker.js", () => {
 
   describe("Channel method calls", () => {
     test("should call allowed channel methods", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      // Setup mock channel
-      const mockChannel = {
-        sendMessage: jest.fn()
-      };
+      const { client, clientId } = await connectClient();
+      const mockChannel = { sendMessage: jest.fn() };
       client.getChannelById = jest.fn(() => mockChannel);
 
-      // Call channel method
-      messageHandler({
-        data: {
-          clientId,
-          channelId: 0,
-          method: "sendMessage",
-          payload: ["Hello"]
-        }
-      });
+      messageHandler({ data: { clientId, channelId: 0, method: "sendMessage", payload: ["Hello"] } });
       
       expect(mockChannel.sendMessage).toHaveBeenCalledWith("Hello");
     });
@@ -727,69 +485,28 @@ describe("worker.js", () => {
 
   describe("Edge cases", () => {
     test("should handle missing target gracefully", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      // Return null for user lookup
+      const { client, clientId } = await connectClient();
       client.getUserById = jest.fn(() => null);
-
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
-      // Try to call method on non-existent user
-      messageHandler({
-        data: {
-          clientId,
-          userId: 999,
-          method: "requestMove",
-          payload: [1]
-        }
-      });
+      messageHandler({ data: { clientId, userId: 999, method: "requestMove", payload: [1] } });
       
-      // Should log error but not crash
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
 
     test("should handle postMessage failure", async () => {
-      // Connect first
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      
-      // Make postMessage throw
+      const { client } = await connectClient();
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
       const throwingMock = jest.fn((msg) => {
-        if (msg.event) {
-          throw new Error('postMessage failed');
-        }
+        if (msg.event) throw new Error('postMessage failed');
         postMessageCalls.push(msg);
       });
       globalThis.postMessage = throwingMock;
       globalThis.self.postMessage = throwingMock;
       
-      // Emit an event that triggers postMessage
-      expect(() => {
-        client.emit('denied', { type: 1, reason: "Test" });
-      }).toThrow('postMessage failed');
+      expect(() => client.emit('denied', { type: 1, reason: "Test" })).toThrow('postMessage failed');
       
-      // Restore
       globalThis.postMessage = jest.fn((msg) => postMessageCalls.push(msg));
       globalThis.self.postMessage = globalThis.postMessage;
       errorSpy.mockRestore();
@@ -798,31 +515,14 @@ describe("worker.js", () => {
 
   describe("Client initialization edge cases", () => {
     test("should handle client with root channel already set", async () => {
-      // Create a client that already has root set
       const clientWithRoot = createMockClient();
-      const mockRoot = new EventEmitter();
-      mockRoot.id = 0;
-      mockRoot.name = "Root";
-      mockRoot.children = [];
-      mockRoot.links = [];
-      mockRoot.parent = null;
-      mockRoot.position = 0;
-      mockRoot.description = "";
+      const mockRoot = createMockChannel();
       clientWithRoot.root = mockRoot;
       clientWithRoot.users = [];
       
       mumbleConnectMock.mockResolvedValueOnce(clientWithRoot);
+      await connectClient(50, "wss://test-with-root");
       
-      await messageHandler({ 
-        data: { 
-          reqId: 50, 
-          method: "_connect", 
-          payload: { host: "wss://test-with-root", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // Should have set up root channel
       const rootPropMessage = postMessageCalls.find(
         call => call.prop === 'root' && call.clientId !== undefined
       );
@@ -830,45 +530,22 @@ describe("worker.js", () => {
     });
 
     test("should handle newChannel event after connection", async () => {
-      // Create client without root
       const clientNoRoot = createMockClient();
       clientNoRoot.root = null;
       clientNoRoot.users = [];
       clientNoRoot.channels = {};
-      clientNoRoot.self = { id: 99 }; // Add self for pushProp
+      clientNoRoot.self = { id: 99 };
       
       mumbleConnectMock.mockResolvedValueOnce(clientNoRoot);
+      await connectClient(51, "wss://test-no-root");
       
-      await messageHandler({ 
-        data: { 
-          reqId: 51, 
-          method: "_connect", 
-          payload: { host: "wss://test-no-root", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // Now emit newChannel event with a root-like channel
-      const mockChannel = new EventEmitter();
-      mockChannel.id = 0;
-      mockChannel.name = "Root";
-      mockChannel.children = [];
-      mockChannel.links = [];
-      mockChannel.parent = null;
-      mockChannel.position = 0;
-      mockChannel.description = "";
-      
-      // Set as root after the fact
+      const mockChannel = createMockChannel();
       clientNoRoot.root = mockChannel;
       clientNoRoot.emit('newChannel', mockChannel);
       
-      // Give time for event processing
       await new Promise(resolve => setTimeout(resolve, 10));
       
-      // Should have processed the channel
-      const channelMessage = postMessageCalls.find(
-        call => call.event === 'newChannel'
-      );
+      const channelMessage = postMessageCalls.find(call => call.event === 'newChannel');
       expect(channelMessage).toBeDefined();
     });
 
@@ -877,110 +554,49 @@ describe("worker.js", () => {
       clientNoRoot.root = null;
       clientNoRoot.users = [];
       clientNoRoot.channels = {};
-      clientNoRoot.self = { id: 99 }; // Add self for pushProp
+      clientNoRoot.self = { id: 99 };
       
       mumbleConnectMock.mockResolvedValueOnce(clientNoRoot);
+      await connectClient(52, "wss://test-connected-event");
       
-      await messageHandler({ 
-        data: { 
-          reqId: 52, 
-          method: "_connect", 
-          payload: { host: "wss://test-connected-event", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // Add root before emitting connected
-      const mockRoot = new EventEmitter();
-      mockRoot.id = 0;
-      mockRoot.name = "Root";
-      mockRoot.children = [];
-      mockRoot.links = [];
-      mockRoot.parent = null;
-      mockRoot.position = 0;
-      mockRoot.description = "";
+      const mockRoot = createMockChannel();
       clientNoRoot.root = mockRoot;
-      
-      // Emit connected event
       clientNoRoot.emit('connected');
       await new Promise(resolve => setTimeout(resolve, 10));
       
-      // Should have initialized from connected event
       expect(postMessageCalls.length).toBeGreaterThan(0);
     });
 
     test("should cleanup on disconnect", async () => {
       const clientWithRoot = createMockClient();
-      const mockRoot = new EventEmitter();
-      mockRoot.id = 0;
-      mockRoot.name = "Root";
-      mockRoot.children = [];
-      mockRoot.links = [];
-      mockRoot.parent = null;
-      mockRoot.position = 0;
-      mockRoot.description = "";
+      const mockRoot = createMockChannel();
       clientWithRoot.root = mockRoot;
       clientWithRoot.users = [];
       
       mumbleConnectMock.mockResolvedValueOnce(clientWithRoot);
+      await connectClient(53, "wss://test-disconnect");
       
-      await messageHandler({ 
-        data: { 
-          reqId: 53, 
-          method: "_connect", 
-          payload: { host: "wss://test-disconnect", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // Emit disconnect - should cleanup without errors
-      expect(() => {
-        clientWithRoot.emit('disconnect');
-      }).not.toThrow();
+      expect(() => clientWithRoot.emit('disconnect')).not.toThrow();
     });
 
     test("should handle dataPing event for stats", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 54, 
-          method: "_connect", 
-          payload: { host: "wss://test-dataping", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
+      const { client } = await connectClient(54, "wss://test-dataping");
       client.dataStats = { ping: 50, jitter: 10 };
       
       globalThis.postMessage.mockClear();
-      
-      // Emit dataPing
       client.emit('dataPing');
       
-      // Should push dataStats prop
       const statsMessage = postMessageCalls.find(call => call.prop === 'dataStats');
       expect(statsMessage).toBeDefined();
     });
 
     test("should handle serverVersion event", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 55, 
-          method: "_connect", 
-          payload: { host: "wss://test-version", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
+      const { client } = await connectClient(55, "wss://test-version");
       client.serverVersion = "1.5.0";
       
       globalThis.postMessage.mockClear();
-      
-      // Emit serverVersion
       client.emit('serverVersion');
       
-      // Should push serverVersion prop
       const versionMessage = postMessageCalls.find(call => call.prop === 'serverVersion');
       expect(versionMessage).toBeDefined();
     });
@@ -988,39 +604,15 @@ describe("worker.js", () => {
 
   describe("User setChannel method", () => {
     test("should transform channel ID to channel object for setChannel", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      // Setup mock user with setChannel
-      const mockUser = {
-        setChannel: jest.fn()
-      };
+      const { client, clientId } = await connectClient();
+      const mockUser = createMockUser();
       const mockChannel = { id: 5, name: "Test Channel" };
       
       client.getUserById = jest.fn(() => mockUser);
-      client.getChannelById = jest.fn((id) => mockChannel);
+      client.getChannelById = jest.fn(() => mockChannel);
 
-      // Call setChannel on user
-      messageHandler({
-        data: {
-          clientId,
-          userId: 42,
-          method: "setChannel",
-          payload: [5]  // Channel ID
-        }
-      });
+      messageHandler({ data: { clientId, userId: 42, method: "setChannel", payload: [5] } });
       
-      // Should have looked up channel and passed object to setChannel
       expect(client.getChannelById).toHaveBeenCalledWith(5);
       expect(mockUser.setChannel).toHaveBeenCalledWith(mockChannel);
     });
@@ -1028,34 +620,14 @@ describe("worker.js", () => {
 
   describe("Voice stream with target", () => {
     test("should pass voice target to stream data", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-      
-      // Mock createVoiceStream to capture what's passed
+      const { client, clientId } = await connectClient();
       let capturedStream = null;
       client.createVoiceStream = jest.fn(() => {
         capturedStream = new MockPassThrough();
         return capturedStream;
       });
 
-      // Create voice stream with loopback target (31)
-      messageHandler({
-        data: {
-          clientId,
-          method: "createVoiceStream",
-          payload: [100, 960, 31]  // voiceId, samplesPerPacket, voiceTarget
-        }
-      });
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [100, 960, 31] } });
       
       expect(client.createVoiceStream).toHaveBeenCalledWith(31);
     });
@@ -1063,51 +635,27 @@ describe("worker.js", () => {
 
   describe("Channel link handling in update events", () => {
     test("should transform links array in channel update", async () => {
-      // Create a client with self properly set
       const clientWithSelf = createMockClient();
       clientWithSelf.self = { id: 99 };
       clientWithSelf.users = [];
       
-      // Set up root channel for initialization
-      const mockChannel = new EventEmitter();
-      mockChannel.id = 1;
-      mockChannel.name = "Test";
-      mockChannel.children = [];
-      mockChannel.links = [];
-      mockChannel.parent = null;
-      mockChannel.position = 0;
-      mockChannel.description = "";
-      
+      const mockChannel = createMockChannel({ id: 1, name: "Test" });
       clientWithSelf.root = mockChannel;
       
       mumbleConnectMock.mockResolvedValueOnce(clientWithSelf);
-      
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await connectClient();
       
       globalThis.postMessage.mockClear();
       postMessageCalls.length = 0;
       
-      // Now emit update with links
       const linkedChannel = { id: 2, name: "Linked" };
-      mockChannel.emit('update', { 
-        name: "Updated",
-        links: [linkedChannel] 
-      });
+      mockChannel.emit('update', { name: "Updated", links: [linkedChannel] });
       
-      // Find the update event message
       const updateMessage = postMessageCalls.find(
         call => call.event === 'update' && call.channelId !== undefined
       );
       
       if (updateMessage) {
-        // Links should be transformed to IDs
         expect(updateMessage.value[0].links).toEqual([2]);
       }
     });
@@ -1116,19 +664,14 @@ describe("worker.js", () => {
   describe("Message validation", () => {
     test("should reject non-object messages", () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
       messageHandler({ data: null });
-      
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('invalid data format'));
       warnSpy.mockRestore();
     });
 
     test("should reject messages with invalid structure", () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      // Object with no recognized properties
       messageHandler({ data: { somethingRandom: 123 } });
-      
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('invalid message structure'),
         expect.any(Object)
@@ -1138,35 +681,10 @@ describe("worker.js", () => {
 
     test("should handle message exceptions gracefully", async () => {
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const { client, clientId } = await connectClient();
+      client.getUserById = jest.fn(() => { throw new Error('Test exception'); });
       
-      // Connect first
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-      
-      // Make client throw on method call
-      const client = mockClients[mockClients.length - 1];
-      client.getUserById = jest.fn(() => {
-        throw new Error('Test exception');
-      });
-      
-      // Should not throw but log error
-      messageHandler({ 
-        data: { 
-          clientId,
-          userId: 42,
-          method: "sendMessage",
-          payload: ["test"]
-        } 
-      });
+      messageHandler({ data: { clientId, userId: 42, method: "sendMessage", payload: ["test"] } });
       
       errorSpy.mockRestore();
     });
@@ -1174,77 +692,23 @@ describe("worker.js", () => {
 
   describe("Voice stream handling", () => {
     test("should handle voice data write", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-      
+      const { client, clientId } = await connectClient();
       const mockStream = new MockPassThrough();
       client.createVoiceStream.mockReturnValue(mockStream);
 
-      // Create voice stream
-      messageHandler({
-        data: {
-          clientId,
-          method: "createVoiceStream",
-          payload: [5, 960, 0]  // voiceId, samplesPerPacket, target
-        }
-      });
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [5, 960, 0] } });
       
-      // Write data to stream
       const voiceData = new ArrayBuffer(960 * 4);
-      messageHandler({
-        data: {
-          voiceId: 5,
-          chunk: voiceData
-        }
-      });
-      
-      // Should have written to stream
-      // (The mock PassThrough will receive data)
+      messageHandler({ data: { voiceId: 5, chunk: voiceData } });
     });
 
     test("should end voice stream when chunk is null", async () => {
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-      
+      const { client, clientId } = await connectClient();
       const mockStream = new MockPassThrough();
       client.createVoiceStream.mockReturnValue(mockStream);
 
-      // Create voice stream
-      messageHandler({
-        data: {
-          clientId,
-          method: "createVoiceStream",
-          payload: [6, 960, 0]
-        }
-      });
-      
-      // End stream with null chunk
-      messageHandler({
-        data: {
-          voiceId: 6,
-          chunk: null
-        }
-      });
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [6, 960, 0] } });
+      messageHandler({ data: { voiceId: 6, chunk: null } });
     });
   });
 });
