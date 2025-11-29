@@ -326,7 +326,7 @@ function fromVarint(b) {
             length = 5;
             break;
         case 0xF8: {
-            const ret = fromVarint(b.slice(1));
+            const ret = fromVarint(b.subarray(1));
             if (!ret) return ret;
             return {
                 value: ~ret.value,
