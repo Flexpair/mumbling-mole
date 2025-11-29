@@ -4,6 +4,7 @@
   "description": "An HTML5 Mumble client.",
   "type": "module",
   "scripts": {
+    "prebuild": "./scripts/generate-proto.sh",
     "build": "node build-esbuild.mjs",
     "build:dev": "BUILD_MODE=development node build-esbuild.mjs",
     "build:local": "./rebuild-and-restart.sh",
