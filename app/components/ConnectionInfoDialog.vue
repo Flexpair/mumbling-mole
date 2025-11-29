@@ -13,7 +13,7 @@
           <div class="sidebar-header" id="dialog-title">
             Settings
           </div>
-          <div 
+          <nav 
             class="sidebar-nav" 
             role="tablist"
             aria-label="Settings sections"
@@ -223,7 +223,7 @@
               </div>
             </div>
         </div>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>
@@ -387,7 +387,6 @@ const handlePanelKeydown = (event) => {
     
     event.preventDefault();
     focusTabList();
-  }
   }
 };
 

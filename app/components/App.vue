@@ -14,7 +14,7 @@
           <div></div>
         </div>
         <span class="sr-only">Loading Mumble Web Client...</span>
-      </div>
+      </output>
     </Transition>
 
     <!-- Main container (shown after preloader) with fade-in transition -->
