@@ -66,7 +66,7 @@ class Encoder extends Transform {
     let offset = 0;
     offset += buffer.writeUInt8(0x20, offset); // Ping packet header
     offset += toVarint(chunk.timestamp).value.copy(buffer, offset);
-    return buffer.slice(0, offset);
+    return buffer.subarray(0, offset);
   }
 
   _encodeOpusFrames(chunk, callback) {
@@ -115,7 +115,7 @@ class Encoder extends Transform {
       offset += buffer.writeFloatBE(chunk.position.z, offset);
     }
     
-    return buffer.slice(0, offset);
+    return buffer.subarray(0, offset);
   }
 
   _transform(chunk, encoding, callback) {
@@ -326,7 +326,7 @@ function fromVarint(b) {
             length = 5;
             break;
         case 0xF8: {
-            const ret = fromVarint(b.slice(1));
+            const ret = fromVarint(b.subarray(1));
             if (!ret) return ret;
             return {
                 value: ~ret.value,

@@ -75,7 +75,7 @@ class UdpCrypt {
       .setAutoPadding(false);
 
     const cipherText = Buffer.alloc(plainText.length + 4);
-    const tag = ocbEncrypt(plainText, cipherText.slice(4), this._encryptIV,
+    const tag = ocbEncrypt(plainText, cipherText.subarray(4), this._encryptIV,
         cipher.update.bind(cipher));
     cipherText[0] = this._encryptIV[0];
     cipherText[1] = tag[0];
@@ -192,8 +192,8 @@ class UdpCrypt {
     const decrypt = crypto.createDecipheriv('AES-128-ECB', this._key, '') // NOSONAR - Protocol requirement
       .setAutoPadding(false);
 
-    const plainText = new Buffer(cipherText.length - 4);
-    const tag = ocbDecrypt(cipherText.slice(4), plainText, this._decryptIV,
+    const plainText = Buffer.alloc(cipherText.length - 4);
+    const tag = ocbDecrypt(cipherText.subarray(4), plainText, this._decryptIV,
         encrypt.update.bind(encrypt), decrypt.update.bind(decrypt));
 
     if (tag.compare(cipherText, 1, 4, 0, 3) !== 0) {
@@ -250,8 +250,8 @@ class UdpCrypt {
 }
 
 function ocbEncrypt(plainText, cipherText, nonce, aesEncrypt) {
-  const checksum = new Buffer(BLOCK_SIZE);
-  let tmp = new Buffer(BLOCK_SIZE);
+  const checksum = Buffer.alloc(BLOCK_SIZE);
+  let tmp = Buffer.alloc(BLOCK_SIZE);
   
   const delta = aesEncrypt(nonce);
   ZERO(checksum);
@@ -287,8 +287,8 @@ function ocbEncrypt(plainText, cipherText, nonce, aesEncrypt) {
 }
 
 function ocbDecrypt(cipherText, plainText, nonce, aesEncrypt, aesDecrypt) {
-  const checksum = new Buffer(BLOCK_SIZE);
-  let tmp = new Buffer(BLOCK_SIZE);
+  const checksum = Buffer.alloc(BLOCK_SIZE);
+  let tmp = Buffer.alloc(BLOCK_SIZE);
   
   // Initialize
   const delta = aesEncrypt(nonce);
