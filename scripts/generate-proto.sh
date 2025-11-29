@@ -35,7 +35,10 @@ for (const m of methods) {
     code = code.replace(new RegExp('\\\\n\\\\s*\\\\w+\\\\.' + m + ' = function ' + m + '\\\\([^)]*\\\\) \\\\{[\\\\s\\\\S]*?\\\\n\\\\s*\\\\};', 'g'), '');
 }
 code = code.replace(/\\n\\s*\\w+\\.prototype\\.toJSON = function toJSON\\(\\) \\{\\n[^}]+\\};/g, '');
-code = code.replace(/\\n{3,}/g, '\\n\\n');
+code = code.replace(/\\.decode = function decode\\(reader, length, error\\)/g, '.decode = function decode(reader, length)');
+code = code.replace(/\\n\\s*if \\(tag === error\\)\\n\\s*break;\\n/g, '\\n');
+code = code.replace(/\\n\\s*\\w+\\.getTypeUrl = function getTypeUrl\\(typeUrlPrefix\\) \\{[\\s\\S]*?\\n\\s*\\};\\n/g, '\\n');
+code = code.replace(/\n{3,}/g, '\n\n');
 fs.writeFileSync('$TEMP_FILE', code);
 "
 

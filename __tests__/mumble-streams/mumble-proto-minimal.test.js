@@ -2,7 +2,7 @@
  * Comprehensive tests for mumble-proto-minimal.js
  * 
  * Tests all Protobuf message types with encode/decode roundtrips,
- * covering all branches for constructor, create, encode, decode, and getTypeUrl methods.
+ * covering all branches for constructor, create, encode, decode methods.
  */
 
 import { MumbleProto } from '../../app/mumble-streams/mumble-proto-minimal.js';
@@ -67,14 +67,6 @@ describe('MumbleProto', () => {
       expect(decoded.version).toBe(300);
     });
 
-    test('getTypeUrl with default prefix', () => {
-      expect(Version.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.Version');
-    });
-
-    test('getTypeUrl with custom prefix', () => {
-      expect(Version.getTypeUrl('custom.prefix')).toBe('custom.prefix/MumbleProto.Version');
-    });
-
     test('handles null properties in constructor', () => {
       const msg = new Version({ version: null, release: 'test' });
       expect(msg.release).toBe('test');
@@ -103,9 +95,6 @@ describe('MumbleProto', () => {
       expect(() => UDPTunnel.decode(emptyBuffer)).toThrow();
     });
 
-    test('getTypeUrl', () => {
-      expect(UDPTunnel.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UDPTunnel');
-    });
   });
 
   describe('Authenticate', () => {
@@ -141,9 +130,6 @@ describe('MumbleProto', () => {
       expect(encoded.length).toBeGreaterThan(0);
     });
 
-    test('getTypeUrl', () => {
-      expect(Authenticate.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.Authenticate');
-    });
   });
 
   describe('Ping', () => {
@@ -183,9 +169,6 @@ describe('MumbleProto', () => {
       expect(decoded.tcpPingAvg).toBeCloseTo(30.0, 1);
     });
 
-    test('getTypeUrl', () => {
-      expect(Ping.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.Ping');
-    });
   });
 
   describe('Reject', () => {
@@ -218,9 +201,6 @@ describe('MumbleProto', () => {
       expect(Reject.RejectType.AuthenticatorFail).toBe(8);
     });
 
-    test('getTypeUrl', () => {
-      expect(Reject.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.Reject');
-    });
   });
 
   describe('ServerSync', () => {
@@ -241,9 +221,6 @@ describe('MumbleProto', () => {
       expect(decoded.welcomeText).toBe('Welcome to the server!');
     });
 
-    test('getTypeUrl', () => {
-      expect(ServerSync.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ServerSync');
-    });
   });
 
   describe('ChannelRemove', () => {
@@ -262,9 +239,6 @@ describe('MumbleProto', () => {
       expect(() => ChannelRemove.decode(emptyBuffer)).toThrow();
     });
 
-    test('getTypeUrl', () => {
-      expect(ChannelRemove.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ChannelRemove');
-    });
   });
 
   describe('ChannelState', () => {
@@ -304,9 +278,6 @@ describe('MumbleProto', () => {
       expect(decoded.maxUsers).toBe(50);
     });
 
-    test('getTypeUrl', () => {
-      expect(ChannelState.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ChannelState');
-    });
   });
 
   describe('UserRemove', () => {
@@ -333,9 +304,6 @@ describe('MumbleProto', () => {
       expect(() => UserRemove.decode(emptyBuffer)).toThrow();
     });
 
-    test('getTypeUrl', () => {
-      expect(UserRemove.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UserRemove');
-    });
   });
 
   describe('UserState', () => {
@@ -373,9 +341,6 @@ describe('MumbleProto', () => {
       expect(decoded.comment).toBe('Hello world');
     });
 
-    test('getTypeUrl', () => {
-      expect(UserState.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UserState');
-    });
   });
 
   describe('BanList', () => {
@@ -429,13 +394,6 @@ describe('MumbleProto', () => {
       expect(() => BanList.BanEntry.decode(emptyBuffer)).toThrow();
     });
 
-    test('BanEntry getTypeUrl', () => {
-      expect(BanList.BanEntry.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.BanList.BanEntry');
-    });
-
-    test('getTypeUrl', () => {
-      expect(BanList.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.BanList');
-    });
   });
 
   describe('TextMessage', () => {
@@ -471,9 +429,6 @@ describe('MumbleProto', () => {
       expect(decoded.message).toBe('test');
     });
 
-    test('getTypeUrl', () => {
-      expect(TextMessage.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.TextMessage');
-    });
   });
 
   describe('PermissionDenied', () => {
@@ -508,9 +463,6 @@ describe('MumbleProto', () => {
       expect(PermissionDenied.DenyType.NestingLimit).toBe(10);
     });
 
-    test('getTypeUrl', () => {
-      expect(PermissionDenied.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.PermissionDenied');
-    });
   });
 
   describe('ACL', () => {
@@ -595,17 +547,6 @@ describe('MumbleProto', () => {
       expect(() => ACL.decode(emptyBuffer)).toThrow();
     });
 
-    test('ChanGroup getTypeUrl', () => {
-      expect(ACL.ChanGroup.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ACL.ChanGroup');
-    });
-
-    test('ChanACL getTypeUrl', () => {
-      expect(ACL.ChanACL.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ACL.ChanACL');
-    });
-
-    test('getTypeUrl', () => {
-      expect(ACL.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ACL');
-    });
   });
 
   describe('QueryUsers', () => {
@@ -629,9 +570,6 @@ describe('MumbleProto', () => {
       expect(decoded.names).toEqual(['user1', 'user2']);
     });
 
-    test('getTypeUrl', () => {
-      expect(QueryUsers.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.QueryUsers');
-    });
   });
 
   describe('CryptSetup', () => {
@@ -649,9 +587,6 @@ describe('MumbleProto', () => {
       expect(new Uint8Array(decoded.key)).toEqual(original.key);
     });
 
-    test('getTypeUrl', () => {
-      expect(CryptSetup.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.CryptSetup');
-    });
   });
 
   describe('ContextActionModify', () => {
@@ -688,9 +623,6 @@ describe('MumbleProto', () => {
       expect(ContextActionModify.Operation.Remove).toBe(1);
     });
 
-    test('getTypeUrl', () => {
-      expect(ContextActionModify.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ContextActionModify');
-    });
   });
 
   describe('ContextAction', () => {
@@ -714,9 +646,6 @@ describe('MumbleProto', () => {
       expect(() => ContextAction.decode(emptyBuffer)).toThrow();
     });
 
-    test('getTypeUrl', () => {
-      expect(ContextAction.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ContextAction');
-    });
   });
 
   describe('UserList', () => {
@@ -761,13 +690,6 @@ describe('MumbleProto', () => {
       expect(() => UserList.User.decode(emptyBuffer)).toThrow();
     });
 
-    test('User getTypeUrl', () => {
-      expect(UserList.User.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UserList.User');
-    });
-
-    test('getTypeUrl', () => {
-      expect(UserList.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UserList');
-    });
   });
 
   describe('VoiceTarget', () => {
@@ -809,13 +731,6 @@ describe('MumbleProto', () => {
       expect(decoded.links).toBe(true);
     });
 
-    test('Target getTypeUrl', () => {
-      expect(VoiceTarget.Target.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.VoiceTarget.Target');
-    });
-
-    test('getTypeUrl', () => {
-      expect(VoiceTarget.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.VoiceTarget');
-    });
   });
 
   describe('PermissionQuery', () => {
@@ -834,9 +749,6 @@ describe('MumbleProto', () => {
       expect(decoded.flush).toBe(true);
     });
 
-    test('getTypeUrl', () => {
-      expect(PermissionQuery.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.PermissionQuery');
-    });
   });
 
   describe('CodecVersion', () => {
@@ -856,9 +768,6 @@ describe('MumbleProto', () => {
       expect(decoded.opus).toBe(true);
     });
 
-    test('getTypeUrl', () => {
-      expect(CodecVersion.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.CodecVersion');
-    });
   });
 
   describe('UserStats', () => {
@@ -918,13 +827,6 @@ describe('MumbleProto', () => {
       expect(decoded.resync).toBe(2);
     });
 
-    test('Stats getTypeUrl', () => {
-      expect(UserStats.Stats.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UserStats.Stats');
-    });
-
-    test('getTypeUrl', () => {
-      expect(UserStats.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.UserStats');
-    });
   });
 
   describe('RequestBlob', () => {
@@ -951,9 +853,6 @@ describe('MumbleProto', () => {
       expect(decoded.channelDescription).toEqual([5, 6]);
     });
 
-    test('getTypeUrl', () => {
-      expect(RequestBlob.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.RequestBlob');
-    });
   });
 
   describe('ServerConfig', () => {
@@ -977,9 +876,6 @@ describe('MumbleProto', () => {
       expect(decoded.maxUsers).toBe(100);
     });
 
-    test('getTypeUrl', () => {
-      expect(ServerConfig.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.ServerConfig');
-    });
   });
 
   describe('SuggestConfig', () => {
@@ -999,9 +895,6 @@ describe('MumbleProto', () => {
       expect(decoded.pushToTalk).toBe(false);
     });
 
-    test('getTypeUrl', () => {
-      expect(SuggestConfig.getTypeUrl()).toBe('type.googleapis.com/MumbleProto.SuggestConfig');
-    });
   });
 
   describe('Edge cases and branch coverage', () => {
@@ -1903,42 +1796,6 @@ describe('MumbleProto', () => {
       expect(decoded.version).toBe(66304);
     });
 
-    // Tests for getTypeUrl with custom prefix
-    test('getTypeUrl with custom prefix for all types', () => {
-      const types = ['Version', 'UDPTunnel', 'Authenticate', 'Ping', 'Reject', 
-        'ServerSync', 'ChannelRemove', 'ChannelState', 'UserRemove', 'UserState',
-        'BanList', 'TextMessage', 'PermissionDenied', 'ACL', 'QueryUsers',
-        'CryptSetup', 'ContextActionModify', 'ContextAction', 'UserList',
-        'VoiceTarget', 'PermissionQuery', 'CodecVersion', 'UserStats',
-        'RequestBlob', 'ServerConfig', 'SuggestConfig'];
-      
-      for (const typeName of types) {
-        const Type = MumbleProto[typeName];
-        const customUrl = Type.getTypeUrl('custom.prefix');
-        expect(customUrl).toBe(`custom.prefix/MumbleProto.${typeName}`);
-      }
-    });
-
-    // Tests for nested types' getTypeUrl with custom prefix
-    test('nested types getTypeUrl with custom prefix', () => {
-      const customUrl1 = MumbleProto.BanList.BanEntry.getTypeUrl('custom');
-      expect(customUrl1).toBe('custom/MumbleProto.BanList.BanEntry');
-      
-      const customUrl2 = MumbleProto.UserStats.Stats.getTypeUrl('custom');
-      expect(customUrl2).toBe('custom/MumbleProto.UserStats.Stats');
-      
-      const customUrl3 = MumbleProto.ACL.ChanGroup.getTypeUrl('custom');
-      expect(customUrl3).toBe('custom/MumbleProto.ACL.ChanGroup');
-      
-      const customUrl4 = MumbleProto.ACL.ChanACL.getTypeUrl('custom');
-      expect(customUrl4).toBe('custom/MumbleProto.ACL.ChanACL');
-      
-      const customUrl5 = MumbleProto.VoiceTarget.Target.getTypeUrl('custom');
-      expect(customUrl5).toBe('custom/MumbleProto.VoiceTarget.Target');
-      
-      const customUrl6 = MumbleProto.UserList.User.getTypeUrl('custom');
-      expect(customUrl6).toBe('custom/MumbleProto.UserList.User');
-    });
 
     // Test non-packed repeated field decoding (non-packed wire type)
     test('non-packed celtVersions field decoding in Authenticate', () => {

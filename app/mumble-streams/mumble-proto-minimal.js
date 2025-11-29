@@ -41,14 +41,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        Version.decode = function decode(reader, length, error) {
+        Version.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Version();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.version = reader.uint32();
@@ -72,13 +70,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        Version.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.Version";
         };
 
         return Version;
@@ -106,14 +97,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        UDPTunnel.decode = function decode(reader, length, error) {
+        UDPTunnel.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UDPTunnel();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.packet = reader.bytes();
@@ -127,13 +116,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("packet"))
                 throw $util.ProtocolError("missing required 'packet'", { instance: message });
             return message;
-        };
-
-        UDPTunnel.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.UDPTunnel";
         };
 
         return UDPTunnel;
@@ -178,14 +160,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        Authenticate.decode = function decode(reader, length, error) {
+        Authenticate.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Authenticate();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.username = reader.string();
@@ -222,13 +202,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        Authenticate.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.Authenticate";
         };
 
         return Authenticate;
@@ -287,14 +260,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        Ping.decode = function decode(reader, length, error) {
+        Ping.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Ping();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.timestamp = reader.uint64();
@@ -348,13 +319,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return message;
         };
 
-        Ping.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.Ping";
-        };
-
         return Ping;
     })();
 
@@ -384,14 +348,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        Reject.decode = function decode(reader, length, error) {
+        Reject.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Reject();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.type = reader.int32();
@@ -407,13 +369,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        Reject.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.Reject";
         };
 
         Reject.RejectType = (function() {
@@ -465,14 +420,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ServerSync.decode = function decode(reader, length, error) {
+        ServerSync.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ServerSync();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.session = reader.uint32();
@@ -496,13 +449,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        ServerSync.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ServerSync";
         };
 
         return ServerSync;
@@ -530,14 +476,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ChannelRemove.decode = function decode(reader, length, error) {
+        ChannelRemove.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ChannelRemove();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.channelId = reader.uint32();
@@ -551,13 +495,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("channelId"))
                 throw $util.ProtocolError("missing required 'channelId'", { instance: message });
             return message;
-        };
-
-        ChannelRemove.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ChannelRemove";
         };
 
         return ChannelRemove;
@@ -622,14 +559,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ChannelState.decode = function decode(reader, length, error) {
+        ChannelState.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ChannelState();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.channelId = reader.uint32();
@@ -704,13 +639,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return message;
         };
 
-        ChannelState.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ChannelState";
-        };
-
         return ChannelState;
     })();
 
@@ -745,14 +673,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        UserRemove.decode = function decode(reader, length, error) {
+        UserRemove.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserRemove();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.session = reader.uint32();
@@ -778,13 +704,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("session"))
                 throw $util.ProtocolError("missing required 'session'", { instance: message });
             return message;
-        };
-
-        UserRemove.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.UserRemove";
         };
 
         return UserRemove;
@@ -867,14 +786,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        UserState.decode = function decode(reader, length, error) {
+        UserState.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserState();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.session = reader.uint32();
@@ -960,13 +877,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return message;
         };
 
-        UserState.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.UserState";
-        };
-
         return UserState;
     })();
 
@@ -998,14 +908,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        BanList.decode = function decode(reader, length, error) {
+        BanList.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.BanList();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         if (!(message.bans && message.bans.length))
@@ -1023,13 +931,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        BanList.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.BanList";
         };
 
         BanList.BanEntry = (function() {
@@ -1071,14 +972,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return writer;
             };
 
-            BanEntry.decode = function decode(reader, length, error) {
+            BanEntry.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
                 let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.BanList.BanEntry();
                 while (reader.pos < end) {
                     let tag = reader.uint32();
-                    if (tag === error)
-                        break;
                     switch (tag >>> 3) {
                     case 1: {
                             message.address = reader.bytes();
@@ -1118,13 +1017,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 if (!message.hasOwnProperty("mask"))
                     throw $util.ProtocolError("missing required 'mask'", { instance: message });
                 return message;
-            };
-
-            BanEntry.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-                if (typeUrlPrefix === undefined) {
-                    typeUrlPrefix = "type.googleapis.com";
-                }
-                return typeUrlPrefix + "/MumbleProto.BanList.BanEntry";
             };
 
             return BanEntry;
@@ -1173,14 +1065,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        TextMessage.decode = function decode(reader, length, error) {
+        TextMessage.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.TextMessage();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.actor = reader.uint32();
@@ -1233,13 +1123,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return message;
         };
 
-        TextMessage.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.TextMessage";
-        };
-
         return TextMessage;
     })();
 
@@ -1281,14 +1164,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        PermissionDenied.decode = function decode(reader, length, error) {
+        PermissionDenied.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.PermissionDenied();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.permission = reader.uint32();
@@ -1320,13 +1201,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        PermissionDenied.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.PermissionDenied";
         };
 
         PermissionDenied.DenyType = (function() {
@@ -1386,14 +1260,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ACL.decode = function decode(reader, length, error) {
+        ACL.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ACL();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.channelId = reader.uint32();
@@ -1427,13 +1299,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("channelId"))
                 throw $util.ProtocolError("missing required 'channelId'", { instance: message });
             return message;
-        };
-
-        ACL.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ACL";
         };
 
         ACL.ChanGroup = (function() {
@@ -1482,14 +1347,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return writer;
             };
 
-            ChanGroup.decode = function decode(reader, length, error) {
+            ChanGroup.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
                 let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ACL.ChanGroup();
                 while (reader.pos < end) {
                     let tag = reader.uint32();
-                    if (tag === error)
-                        break;
                     switch (tag >>> 3) {
                     case 1: {
                             message.name = reader.string();
@@ -1550,13 +1413,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return message;
             };
 
-            ChanGroup.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-                if (typeUrlPrefix === undefined) {
-                    typeUrlPrefix = "type.googleapis.com";
-                }
-                return typeUrlPrefix + "/MumbleProto.ACL.ChanGroup";
-            };
-
             return ChanGroup;
         })();
 
@@ -1601,14 +1457,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return writer;
             };
 
-            ChanACL.decode = function decode(reader, length, error) {
+            ChanACL.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
                 let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ACL.ChanACL();
                 while (reader.pos < end) {
                     let tag = reader.uint32();
-                    if (tag === error)
-                        break;
                     switch (tag >>> 3) {
                     case 1: {
                             message.applyHere = reader.bool();
@@ -1644,13 +1498,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     }
                 }
                 return message;
-            };
-
-            ChanACL.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-                if (typeUrlPrefix === undefined) {
-                    typeUrlPrefix = "type.googleapis.com";
-                }
-                return typeUrlPrefix + "/MumbleProto.ACL.ChanACL";
             };
 
             return ChanACL;
@@ -1689,14 +1536,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        QueryUsers.decode = function decode(reader, length, error) {
+        QueryUsers.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.QueryUsers();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         if (!(message.ids && message.ids.length))
@@ -1721,13 +1566,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        QueryUsers.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.QueryUsers";
         };
 
         return QueryUsers;
@@ -1762,14 +1600,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        CryptSetup.decode = function decode(reader, length, error) {
+        CryptSetup.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.CryptSetup();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.key = reader.bytes();
@@ -1789,13 +1625,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        CryptSetup.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.CryptSetup";
         };
 
         return CryptSetup;
@@ -1832,14 +1661,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ContextActionModify.decode = function decode(reader, length, error) {
+        ContextActionModify.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ContextActionModify();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.action = reader.string();
@@ -1865,13 +1692,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("action"))
                 throw $util.ProtocolError("missing required 'action'", { instance: message });
             return message;
-        };
-
-        ContextActionModify.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ContextActionModify";
         };
 
         ContextActionModify.Context = (function() {
@@ -1920,14 +1740,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ContextAction.decode = function decode(reader, length, error) {
+        ContextAction.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ContextAction();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.session = reader.uint32();
@@ -1949,13 +1767,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("action"))
                 throw $util.ProtocolError("missing required 'action'", { instance: message });
             return message;
-        };
-
-        ContextAction.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ContextAction";
         };
 
         return ContextAction;
@@ -1986,14 +1797,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        UserList.decode = function decode(reader, length, error) {
+        UserList.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserList();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         if (!(message.users && message.users.length))
@@ -2007,13 +1816,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        UserList.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.UserList";
         };
 
         UserList.User = (function() {
@@ -2047,14 +1849,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return writer;
             };
 
-            User.decode = function decode(reader, length, error) {
+            User.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
                 let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserList.User();
                 while (reader.pos < end) {
                     let tag = reader.uint32();
-                    if (tag === error)
-                        break;
                     switch (tag >>> 3) {
                     case 1: {
                             message.userId = reader.uint32();
@@ -2080,13 +1880,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 if (!message.hasOwnProperty("userId"))
                     throw $util.ProtocolError("missing required 'userId'", { instance: message });
                 return message;
-            };
-
-            User.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-                if (typeUrlPrefix === undefined) {
-                    typeUrlPrefix = "type.googleapis.com";
-                }
-                return typeUrlPrefix + "/MumbleProto.UserList.User";
             };
 
             return User;
@@ -2123,14 +1916,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        VoiceTarget.decode = function decode(reader, length, error) {
+        VoiceTarget.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.VoiceTarget();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.id = reader.uint32();
@@ -2148,13 +1939,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        VoiceTarget.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.VoiceTarget";
         };
 
         VoiceTarget.Target = (function() {
@@ -2194,14 +1978,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return writer;
             };
 
-            Target.decode = function decode(reader, length, error) {
+            Target.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
                 let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.VoiceTarget.Target();
                 while (reader.pos < end) {
                     let tag = reader.uint32();
-                    if (tag === error)
-                        break;
                     switch (tag >>> 3) {
                     case 1: {
                             if (!(message.session && message.session.length))
@@ -2236,13 +2018,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     }
                 }
                 return message;
-            };
-
-            Target.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-                if (typeUrlPrefix === undefined) {
-                    typeUrlPrefix = "type.googleapis.com";
-                }
-                return typeUrlPrefix + "/MumbleProto.VoiceTarget.Target";
             };
 
             return Target;
@@ -2280,14 +2055,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        PermissionQuery.decode = function decode(reader, length, error) {
+        PermissionQuery.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.PermissionQuery();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.channelId = reader.uint32();
@@ -2307,13 +2080,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        PermissionQuery.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.PermissionQuery";
         };
 
         return PermissionQuery;
@@ -2348,14 +2114,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        CodecVersion.decode = function decode(reader, length, error) {
+        CodecVersion.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.CodecVersion();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.alpha = reader.int32();
@@ -2385,13 +2149,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("preferAlpha"))
                 throw $util.ProtocolError("missing required 'preferAlpha'", { instance: message });
             return message;
-        };
-
-        CodecVersion.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.CodecVersion";
         };
 
         return CodecVersion;
@@ -2478,14 +2235,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        UserStats.decode = function decode(reader, length, error) {
+        UserStats.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserStats();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.session = reader.uint32();
@@ -2580,13 +2335,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return message;
         };
 
-        UserStats.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.UserStats";
-        };
-
         UserStats.Stats = (function() {
 
             function Stats(properties) {
@@ -2619,14 +2367,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return writer;
             };
 
-            Stats.decode = function decode(reader, length, error) {
+            Stats.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
                 let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserStats.Stats();
                 while (reader.pos < end) {
                     let tag = reader.uint32();
-                    if (tag === error)
-                        break;
                     switch (tag >>> 3) {
                     case 1: {
                             message.good = reader.uint32();
@@ -2650,13 +2396,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     }
                 }
                 return message;
-            };
-
-            Stats.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-                if (typeUrlPrefix === undefined) {
-                    typeUrlPrefix = "type.googleapis.com";
-                }
-                return typeUrlPrefix + "/MumbleProto.UserStats.Stats";
             };
 
             return Stats;
@@ -2700,14 +2439,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        RequestBlob.decode = function decode(reader, length, error) {
+        RequestBlob.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.RequestBlob();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         if (!(message.sessionTexture && message.sessionTexture.length))
@@ -2748,13 +2485,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        RequestBlob.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.RequestBlob";
         };
 
         return RequestBlob;
@@ -2798,14 +2528,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        ServerConfig.decode = function decode(reader, length, error) {
+        ServerConfig.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ServerConfig();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.maxBandwidth = reader.uint32();
@@ -2837,13 +2565,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        ServerConfig.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.ServerConfig";
         };
 
         return ServerConfig;
@@ -2878,14 +2599,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return writer;
         };
 
-        SuggestConfig.decode = function decode(reader, length, error) {
+        SuggestConfig.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
             let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.SuggestConfig();
             while (reader.pos < end) {
                 let tag = reader.uint32();
-                if (tag === error)
-                    break;
                 switch (tag >>> 3) {
                 case 1: {
                         message.version = reader.uint32();
@@ -2905,13 +2624,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 }
             }
             return message;
-        };
-
-        SuggestConfig.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/MumbleProto.SuggestConfig";
         };
 
         return SuggestConfig;
