@@ -1,7 +1,6 @@
 <template>
-  <form 
+  <div 
     class="toolbar-horizontal" 
-    @submit.prevent="handleSubmitMessageBox"
     role="toolbar"
     aria-label="Voice and communication controls"
   >
@@ -57,20 +56,20 @@
       <img src="svg/audio-output-deafened.svg" alt="" aria-hidden="true" />
     </button>
 
-    <!-- Message Input -->
-    <div class="message-box-container">
+    <!-- Message Input Form (separate from toolbar) -->
+    <form class="message-box-container" @submit.prevent="handleSubmitMessageBox">
       <label for="message-box" class="sr-only">{{ messageBoxLabel }}</label>
       <input
         id="message-box"
         type="text"
         :placeholder="messageBoxHint"
         v-model="messageBox"
-        :aria-describedby="messageBox.trim() ? 'message-hint' : undefined"
+        aria-describedby="message-hint"
       />
       <span id="message-hint" class="sr-only">Press Enter to send message</span>
       <!-- Message confirmation (green checkmark) appears inside message box -->
       <MessageConfirmation />
-    </div>
+    </form>
 
     <!-- Send File Link -->
     <a
@@ -125,7 +124,7 @@
     >
       <img src="svg/logout.svg" alt="" aria-hidden="true" />
     </button>
-  </form>
+  </div>
 </template>
 
 <script setup>

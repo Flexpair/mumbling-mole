@@ -6,7 +6,6 @@
     :aria-label="isConfirmed ? 'Message sent successfully' : translate('chat.send_message')"
     :title="isConfirmed ? 'Message sent!' : translate('chat.send_message')"
     type="button"
-    :aria-pressed="isConfirmed"
   >
     <span class="checkmark" aria-hidden="true">✓</span>
     <span class="sr-only">{{ isConfirmed ? 'Message sent' : 'Send message' }}</span>

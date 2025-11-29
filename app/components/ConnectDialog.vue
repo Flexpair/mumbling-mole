@@ -102,8 +102,8 @@
               <span aria-hidden="true" style="font-size: 1.2em;">🎹</span> 
               {{ pianoButtonReady ? 'Play an A (440 Hz)' : 'Initializing...' }}
             </button>
-            <span id="piano-ready-hint" class="sr-only">Hold button or press Space or Enter to play a 440 Hertz test tone</span>
-            <span id="piano-loading-hint" class="sr-only">Audio system is initializing, please wait</span>
+            <span v-if="pianoButtonReady" id="piano-ready-hint" class="sr-only">Hold button or press Space or Enter to play a 440 Hertz test tone</span>
+            <span v-else id="piano-loading-hint" class="sr-only">Audio system is initializing, please wait</span>
 
             <!-- Frequency Display with fixed width -->
             <div
@@ -149,6 +149,7 @@ import { useUserStore } from '../stores/userStore';
 import { useUIStore } from '../stores/uiStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
+import { announceToScreenReader } from '../composables/useAccessibility';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
@@ -202,18 +203,6 @@ watch(visible, async (val) => {
     announceToScreenReader('Dialog closed');
   }
 });
-
-/**
- * Announce message to screen readers via live region
- */
-function announceToScreenReader(message) {
-  const announcer = document.getElementById('a11y-announcer');
-  if (announcer) {
-    announcer.textContent = message;
-    // Clear after announcement to allow repeated messages
-    setTimeout(() => { announcer.textContent = ''; }, 1000);
-  }
-}
 
 // Reactive refs from Pinia stores (storeToRefs preserves reactivity)
 const { isBeeping, beeperReady } = storeToRefs(audioStore);

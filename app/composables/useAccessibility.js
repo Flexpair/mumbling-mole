@@ -45,7 +45,7 @@ export function useFocusTrap() {
     if (!containerRef.value) return [];
     return Array.from(
       containerRef.value.querySelectorAll(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled]), [role="button"]:not([disabled]), [role="link"], summary, audio[controls], video[controls], details'
       )
     ).filter(el => el.offsetParent !== null); // Only visible elements
   };
@@ -117,7 +117,7 @@ export function useRovingTabindex(items, options = {}) {
     const prevKey = isHorizontal ? 'ArrowLeft' : 'ArrowUp';
     const nextKey = isHorizontal ? 'ArrowRight' : 'ArrowDown';
     
-    let newIndex = index;
+    let newIndex;
     
     switch (event.key) {
       case prevKey:

@@ -216,9 +216,9 @@ function initializeUI() {
  */
 function initializeKeyboardShortcuts() {
   document.addEventListener('keydown', (event) => {
-    // Ignore if user is typing in an input field
+    // Ignore if user is typing in an input field or contenteditable region
     const target = event.target;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable || target.closest('[contenteditable="true"]')) {
       return;
     }
     

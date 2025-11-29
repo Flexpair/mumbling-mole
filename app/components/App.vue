@@ -40,7 +40,7 @@
         </main>
         
         <!-- Footer toolbar with controls -->
-        <footer role="contentinfo">
+        <footer>
           <Toolbar />
         </footer>
         
