@@ -198,7 +198,7 @@ iframe {
 }
 
 .toolbar-horizontal .toolbar-button.tb-active {
-  border: 1px solid $toolbar-active-bg-color;
+  box-shadow: inset 0 0 0 1px $toolbar-active-bg-color;
   background-color: $toolbar-active-border-color;
 }
 
@@ -234,7 +234,7 @@ iframe {
   background-color: $toolbar-hover-border-color;
 }
 .toolbar-horizontal > .tb-active {
-  border: 1px solid $toolbar-active-bg-color;
+  box-shadow: inset 0 0 0 1px $toolbar-active-bg-color;
   background-color: $toolbar-active-border-color;
 }
 #message-box {

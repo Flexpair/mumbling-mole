@@ -262,7 +262,7 @@ const handleLogoutClick = () => {
 }
 
 .toolbar-button.tb-active {
-  border: 1px solid #fff;
+  box-shadow: inset 0 0 0 1px #fff; /* Use inset box-shadow instead of border to maintain consistent size */
   background-color: #d3d3d3;
 }
 
