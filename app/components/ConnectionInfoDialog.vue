@@ -1,11 +1,12 @@
 <template>
   <Teleport to="body">
-    <Transition name="dialog-fade">
+    <Transition name="dialog-fade" @after-enter="onDialogShown">
       <div 
         v-if="visible" 
         class="connection-info-dialog dialog-container"
         role="dialog"
         aria-labelledby="dialog-title"
+        aria-modal="true"
         @keydown="handleDialogKeydown"
       >
         <!-- Sidebar Navigation -->
@@ -299,6 +300,11 @@ const focusTabList = () => {
   nextTick(() => {
     tabRefs.value[activeTab.value]?.value?.focus();
   });
+};
+
+// Called after dialog transition completes - reliable focus point
+const onDialogShown = () => {
+  tabRefs.value.latency?.value?.focus();
 };
 
 // Check if focus is in the tab list (sidebar navigation)
