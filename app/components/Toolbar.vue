@@ -231,9 +231,9 @@ const handleLogoutClick = () => {
 /* Toolbar button base styles for accessibility */
 .toolbar-button {
   background: none;
-  border: 1px solid transparent;
+  border: none; /* Removed border to avoid double-outline effect with focus indicator */
   border-radius: 3px;
-  padding: 2px;
+  padding: 3px; /* Slightly increased to compensate for removed border */
   margin: 0 2px; /* Horizontal margin prevents focus outline overlap between adjacent buttons */
   cursor: pointer;
   display: inline-flex;
@@ -246,12 +246,13 @@ const handleLogoutClick = () => {
   height: 28px;
   width: 28px;
   display: block;
+  border: none;
 }
 
 .toolbar-button:hover:not(:disabled),
 .toolbar-link:hover {
-  border: 1px solid #d3d3d3;
   background-color: #a9a9a9;
+  box-shadow: inset 0 0 0 1px #d3d3d3; /* Use inset box-shadow instead of border */
 }
 
 .toolbar-button:disabled {

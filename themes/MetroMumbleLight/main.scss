@@ -163,9 +163,9 @@ iframe {
 .toolbar-horizontal .toolbar-button,
 .toolbar-horizontal .toolbar-link {
   background: none;
-  border: 1px solid transparent;
+  border: none; // Remove border to avoid double-outline effect with focus indicator
   border-radius: 3px;
-  padding: 2px;
+  padding: 3px; // Slightly increase padding to compensate for removed border
   margin: 0 2px; // Add horizontal margin to prevent focus outline overlap
   cursor: pointer;
   display: inline-flex;
@@ -174,7 +174,7 @@ iframe {
   
   &:focus-visible {
     outline: 3px solid $corporate-teal;
-    outline-offset: -2px; // Inset outline to prevent overlap with neighbors
+    outline-offset: -3px; // Inset outline fully within button bounds
   }
 }
 
@@ -187,8 +187,8 @@ iframe {
 
 .toolbar-horizontal .toolbar-button:hover:not(:disabled),
 .toolbar-horizontal .toolbar-link:hover {
-  border: 1px solid $toolbar-hover-bg-color;
   background-color: $toolbar-hover-border-color;
+  box-shadow: inset 0 0 0 1px $toolbar-hover-bg-color; // Use inset box-shadow instead of border
 }
 
 .toolbar-horizontal .toolbar-button:disabled {
@@ -202,28 +202,38 @@ iframe {
   background-color: $toolbar-active-border-color;
 }
 
-/* Legacy img-based toolbar icons (for backwards compatibility) */
-.toolbar-horizontal img {
+/* Images inside toolbar buttons should have NO borders */
+.toolbar-horizontal .toolbar-button img,
+.toolbar-horizontal .toolbar-link img {
+  height: 28px;
+  width: 28px;
+  border: none;
+  border-radius: 0;
+  cursor: inherit;
+}
+
+/* Legacy img-based toolbar icons (direct children only, for backwards compatibility) */
+.toolbar-horizontal > img {
   height: 28px;
   width: 28px;
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
 }
-.toolbar-horizontal img.tb-disabled {
+.toolbar-horizontal > img.tb-disabled {
   filter: grayscale(100%);
   cursor: not-allowed;
   opacity: 0.45;
 }
-.toolbar-horizontal img.tb-disabled:hover {
+.toolbar-horizontal > img.tb-disabled:hover {
   border: 1px solid transparent;
   background-color: transparent;
 }
-.toolbar-horizontal img:hover {
+.toolbar-horizontal > img:hover {
   border: 1px solid $toolbar-hover-bg-color;
   background-color: $toolbar-hover-border-color;
 }
-.toolbar-horizontal .tb-active {
+.toolbar-horizontal > .tb-active {
   border: 1px solid $toolbar-active-bg-color;
   background-color: $toolbar-active-border-color;
 }
