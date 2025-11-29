@@ -18,10 +18,10 @@
     @mouseenter="focusIframe"
   >
       <!-- Loading state -->
-      <div v-if="loading" class="guac-loading" role="status" aria-live="polite">
+      <output v-if="loading" class="guac-loading" aria-live="polite">
         <span class="sr-only">Loading remote desktop connection...</span>
         Loading remote desktop…
-      </div>
+      </output>
 
       <!-- Error state -->
       <div v-if="error" class="guac-error" role="alert">
