@@ -4,7 +4,6 @@ import audioContextManager, { ensureAudioContext } from '../audio/audio-context-
 import { getCurrentMixer } from '../audio/voice';
 import { debugLog } from '../utils/debug-utils';
 import { createCachedInitWithCheck } from '../utils/promise-cache-utils';
-import { createMicrophonePermissionManager } from '../utils/microphone-permission';
 
 export const useAudioStore = defineStore('audio', () => {
   // Audio context (reactive ref)
