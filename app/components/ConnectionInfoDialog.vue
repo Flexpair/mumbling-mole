@@ -13,7 +13,7 @@
           <div class="sidebar-header" id="dialog-title">
             Settings
           </div>
-          <nav 
+          <div 
             class="sidebar-nav" 
             role="tablist"
             aria-label="Settings sections"
@@ -67,7 +67,7 @@
             >
               <span>Server</span>
             </button>
-          </nav>
+          </div>
           <div class="sidebar-footer">
             <button class="close-button" @click="handleHide">
               {{ t('settingsdialog.close') }}
@@ -340,7 +340,6 @@ const handleDialogKeydown = (event) => {
       event.preventDefault();
       visible.value = false;
     }
-    return;
   }
 };
 
@@ -667,11 +666,9 @@ watch(visible, (val) => {
     });
     updateStats();
     statsInterval = setInterval(updateStats, 1000);
-  } else {
-    if (statsInterval) {
-      clearInterval(statsInterval);
-      statsInterval = null;
-    }
+  } else if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
   }
 });
 
