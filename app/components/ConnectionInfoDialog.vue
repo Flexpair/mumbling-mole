@@ -51,10 +51,8 @@
 
         <!-- Main Content Area -->
         <div class="dialog-main">
-          <Transition name="fade-slide" mode="out-in">
-            
             <!-- Client Tab -->
-            <div v-if="activeTab === 'client'" key="client" class="content-panel" role="tabpanel" id="client-panel">
+            <div v-show="activeTab === 'client'" class="content-panel" role="tabpanel" id="client-panel">
               <h2 class="panel-title">Client Settings</h2>
               
               <div class="setting-group">
@@ -85,7 +83,7 @@
             </div>
 
             <!-- Audio Delay Tab -->
-            <div v-else-if="activeTab === 'latency'" key="latency" class="content-panel" role="tabpanel" id="latency-panel">
+            <div v-show="activeTab === 'latency'" class="content-panel" role="tabpanel" id="latency-panel">
               <h2 class="panel-title">Audio Delay</h2>
 
               <div class="stat-card">
@@ -117,7 +115,7 @@
             </div>
 
             <!-- Bandwidth Tab -->
-            <div v-else-if="activeTab === 'bandwidth'" key="bandwidth" class="content-panel" role="tabpanel" id="bandwidth-panel">
+            <div v-show="activeTab === 'bandwidth'" class="content-panel" role="tabpanel" id="bandwidth-panel">
               <h2 class="panel-title">Outgoing Audio Bandwidth</h2>
 
               <div class="setting-group">
@@ -179,7 +177,7 @@
             </div>
 
             <!-- Server Tab -->
-            <div v-else-if="activeTab === 'server'" key="server" class="content-panel" role="tabpanel" id="server-panel">
+            <div v-show="activeTab === 'server'" class="content-panel" role="tabpanel" id="server-panel">
               <h2 class="panel-title">Server Version Info</h2>
 
               <div class="info-section">
@@ -195,8 +193,6 @@
                 </div>
               </div>
             </div>
-
-          </Transition>
         </div>
       </div>
     </Transition>
@@ -829,23 +825,6 @@ onMounted(() => {
 .dialog-fade-leave-to {
   opacity: 0;
   transform: translate(-50%, -48%) scale(0.98);
-}
-
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.2s ease;
-}
-
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-  position: absolute;
-  width: 100%;
 }
 
 /* Custom Slider */
