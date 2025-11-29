@@ -41,27 +41,27 @@ class User extends EventEmitter {
   _update (msg) {
     const changes = {}
     
-    // Simple field updates
+    // Simple field updates (using camelCase field names from protobufjs)
     Object.assign(changes,
       this._updateField(msg, 'name', 'username', '_username'),
-      this._updateField(msg, 'user_id', 'uniqueId', '_uniqueId'),
+      this._updateField(msg, 'userId', 'uniqueId', '_uniqueId'),
       this._updateField(msg, 'mute', 'mute', '_mute'),
       this._updateField(msg, 'deaf', 'deaf', '_deaf'),
       this._updateField(msg, 'suppress', 'suppress', '_suppress'),
-      this._updateField(msg, 'self_mute', 'selfMute', '_selfMute'),
-      this._updateField(msg, 'self_deaf', 'selfDeaf', '_selfDeaf'),
+      this._updateField(msg, 'selfMute', 'selfMute', '_selfMute'),
+      this._updateField(msg, 'selfDeaf', 'selfDeaf', '_selfDeaf'),
       this._updateField(msg, 'texture', 'texture', '_texture'),
       this._updateField(msg, 'comment', 'comment', '_comment'),
-      this._updateField(msg, 'priority_speaker', 'prioritySpeaker', '_prioritySpeaker'),
+      this._updateField(msg, 'prioritySpeaker', 'prioritySpeaker', '_prioritySpeaker'),
       this._updateField(msg, 'recording', 'recording', '_recording'),
       this._updateField(msg, 'hash', 'certHash', '_certHash')
     )
 
     // Hash updates with invalidation
     Object.assign(changes,
-      this._updateWithInvalidation(msg, 'texture_hash', 'textureHash', '_textureHash', 
+      this._updateWithInvalidation(msg, 'textureHash', 'textureHash', '_textureHash', 
         () => { this._haveRequestedTexture = false }),
-      this._updateWithInvalidation(msg, 'comment_hash', 'commentHash', '_commentHash',
+      this._updateWithInvalidation(msg, 'commentHash', 'commentHash', '_commentHash',
         () => { this._haveRequestedComment = false })
     )
 
@@ -76,7 +76,7 @@ class User extends EventEmitter {
     }
 
     // Channel update (special case with side effects)
-    const newChannelId = msg.channelId ?? msg.channel_id;
+    const newChannelId = msg.channelId;
     if (newChannelId != null) {
       if (this.channel) {
         const index = this.channel.users.indexOf(this)
@@ -355,7 +355,7 @@ class User extends EventEmitter {
       name: 'UserState',
       payload: {
         session: this._id,
-        user_id: 0
+        userId: 0
       }
     })
   }
@@ -375,7 +375,7 @@ class User extends EventEmitter {
       name: 'UserState',
       payload: {
         session: this._id,
-        channel_id: channel._id
+        channelId: channel._id
       }
     })
   }

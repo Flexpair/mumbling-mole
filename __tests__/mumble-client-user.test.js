@@ -165,7 +165,7 @@ describe('mumble-client User', () => {
     });
 
     test('should update uniqueId', () => {
-      user._update({ user_id: 12345, actor: 1 });
+      user._update({ userId: 12345, actor: 1 });
       expect(user.uniqueId).toBe(12345);
     });
 
@@ -180,12 +180,12 @@ describe('mumble-client User', () => {
     });
 
     test('should update selfMute status', () => {
-      user._update({ self_mute: true, actor: 1 });
+      user._update({ selfMute: true, actor: 1 });
       expect(user.selfMute).toBe(true);
     });
 
     test('should update selfDeaf status', () => {
-      user._update({ self_deaf: true, actor: 1 });
+      user._update({ selfDeaf: true, actor: 1 });
       expect(user.selfDeaf).toBe(true);
     });
 
@@ -201,7 +201,7 @@ describe('mumble-client User', () => {
 
     test('should update texture hash and reset request flag', () => {
       user._haveRequestedTexture = true;
-      user._update({ texture_hash: 'hash123', actor: 1 });
+      user._update({ textureHash: 'hash123', actor: 1 });
 
       expect(user.textureHash).toBe('hash123');
       expect(user._haveRequestedTexture).toBe(false);
@@ -214,14 +214,14 @@ describe('mumble-client User', () => {
 
     test('should update comment hash and reset request flag', () => {
       user._haveRequestedComment = true;
-      user._update({ comment_hash: 'hash456', actor: 1 });
+      user._update({ commentHash: 'hash456', actor: 1 });
 
       expect(user.commentHash).toBe('hash456');
       expect(user._haveRequestedComment).toBe(false);
     });
 
     test('should update priority speaker status', () => {
-      user._update({ priority_speaker: true, actor: 1 });
+      user._update({ prioritySpeaker: true, actor: 1 });
       expect(user.prioritySpeaker).toBe(true);
     });
 
@@ -236,17 +236,17 @@ describe('mumble-client User', () => {
     });
 
     test('should update channel and adjust user arrays', () => {
-      user._update({ channel_id: 1, actor: 1 });
+      user._update({ channelId: 1, actor: 1 });
       
       expect(user.channel).toBe(channel1);
       expect(channel1.users).toContain(user);
     });
 
     test('should handle channel change', () => {
-      user._update({ channel_id: 1, actor: 1 });
+      user._update({ channelId: 1, actor: 1 });
       expect(channel1.users).toContain(user);
 
-      user._update({ channel_id: 2, actor: 1 });
+      user._update({ channelId: 2, actor: 1 });
       expect(channel1.users).not.toContain(user);
       expect(channel2.users).toContain(user);
     });
@@ -271,7 +271,7 @@ describe('mumble-client User', () => {
         name: 'MultiUser',
         mute: true,
         deaf: true,
-        channel_id: 1,
+        channelId: 1,
         actor: 1
       });
 
@@ -296,7 +296,7 @@ describe('mumble-client User', () => {
     });
 
     test('should remove user from channel', () => {
-      user._update({ channel_id: 1, actor: 1 });
+      user._update({ channelId: 1, actor: 1 });
       expect(channel1.users).toContain(user);
 
       user._remove(null, 'Left', false);
@@ -450,7 +450,7 @@ describe('mumble-client User', () => {
         name: 'UserState',
         payload: {
           session: 31,
-          channel_id: 2
+          channelId: 2
         }
       });
     });
@@ -471,14 +471,14 @@ describe('mumble-client User', () => {
   });
 
   describe('register Method', () => {
-    test('should send UserState message with user_id 0 to register', () => {
+    test('should send UserState message with userId 0 to register', () => {
       user.register();
 
       expect(client._send).toHaveBeenCalledWith({
         name: 'UserState',
         payload: {
           session: 31,
-          user_id: 0
+          userId: 0
         }
       });
     });

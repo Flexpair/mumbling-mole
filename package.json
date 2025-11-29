@@ -18,7 +18,9 @@
     "test:loopback:headed": "playwright test loopback-frequency.spec.js --headed",
     "test:loopback:debug": "playwright test loopback-frequency.spec.js --debug",
     "validate:markdown": "./scripts/validate-markdown-structure.sh",
-    "check:deps": "npx depcheck --config .depcheckrc"
+    "check:deps": "npx depcheck --config .depcheckrc",
+    "generate:proto": "./scripts/generate-proto.sh",
+    "update:proto": "curl -o app/mumble-streams/Mumble.proto https://raw.githubusercontent.com/mumble-voip/mumble/master/src/Mumble.proto && npm run generate:proto"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
   "repository": "Flexpair/mumbling-mole",
@@ -44,6 +46,7 @@
     "keyboardjs": "2.7.0",
     "libopus.js": "0.0.1",
     "protobufjs": "^7.2.6",
+    "protobufjs-cli": "^1.1.3",
     "reuse-pool": "1.0.2",
     "rtimer": "^0.1.0",
     "sass": "^1.94.2",

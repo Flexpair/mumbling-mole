@@ -124,7 +124,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       const { selfMute, registerUser } = setupUserState(false, false);
       
       registerUser(mockClient.self);
-      mockClient.self._update({ self_mute: true });
+      mockClient.self._update({ selfMute: true });
 
       expect(selfMute.value).toBe(true);
     });
@@ -134,7 +134,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       const { selfMute, registerUser } = setupUserState(true, false);
       
       registerUser(mockClient.self);
-      mockClient.self._update({ self_mute: false });
+      mockClient.self._update({ selfMute: false });
 
       expect(selfMute.value).toBe(false);
     });
@@ -144,7 +144,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       const { selfDeaf, registerUser } = setupUserState(false, false);
       
       registerUser(mockClient.self);
-      mockClient.self._update({ self_deaf: true });
+      mockClient.self._update({ selfDeaf: true });
 
       expect(selfDeaf.value).toBe(true);
     });
@@ -154,7 +154,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       const { selfDeaf, registerUser } = setupUserState(false, true);
       
       registerUser(mockClient.self);
-      mockClient.self._update({ self_deaf: false });
+      mockClient.self._update({ selfDeaf: false });
 
       expect(selfDeaf.value).toBe(false);
     });
@@ -166,13 +166,13 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       registerUser(mockClient.self);
 
       // SIMULATE: User undeafens (client sends only selfDeaf=false to server)
-      mockClient.self._update({ self_deaf: false });
+      mockClient.self._update({ selfDeaf: false });
 
       expect(selfDeaf.value).toBe(false);
       expect(selfMute.value).toBe(true); // MUST stay muted
       
       // SIMULATE: Server confirms current state
-      mockClient.self._update({ self_mute: true, self_deaf: false });
+      mockClient.self._update({ selfMute: true, selfDeaf: false });
 
       expect(selfMute.value).toBe(true);
       expect(selfDeaf.value).toBe(false);
@@ -185,7 +185,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       registerUser(mockClient.self);
 
       // SIMULATE: Server sends correction - you ARE muted!
-      mockClient.self._update({ self_mute: true });
+      mockClient.self._update({ selfMute: true });
 
       expect(selfMute.value).toBe(true);
     });
@@ -203,10 +203,10 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       mockClient.self.on('server-state-sync', selfSyncSpy);
       otherUser.on('server-state-sync', otherSyncSpy);
 
-      mockClient.self._update({ self_mute: true });
+      mockClient.self._update({ selfMute: true });
       expect(selfSyncSpy).toHaveBeenCalled();
 
-      otherUser._update({ self_mute: true });
+      otherUser._update({ selfMute: true });
       expect(otherSyncSpy).not.toHaveBeenCalled();
     });
 
@@ -215,7 +215,7 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
       const { selfMute, selfDeaf, registerUser } = setupUserState(false, false);
       
       registerUser(mockClient.self);
-      mockClient.self._update({ self_mute: true, self_deaf: true });
+      mockClient.self._update({ selfMute: true, selfDeaf: true });
 
       expect(selfMute.value).toBe(true);
       expect(selfDeaf.value).toBe(true);
