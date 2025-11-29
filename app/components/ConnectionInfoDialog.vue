@@ -1,47 +1,73 @@
 <template>
   <Teleport to="body">
-    <Transition name="dialog-fade">
-      <div 
+    <Transition name="dialog-fade" @after-enter="onDialogShown">
+      <dialog 
         v-if="visible" 
         class="connection-info-dialog dialog-container"
-        role="dialog"
         aria-labelledby="dialog-title"
+        open
+        @keydown="handleDialogKeydown"
       >
         <!-- Sidebar Navigation -->
         <div class="dialog-sidebar">
           <div class="sidebar-header" id="dialog-title">
             Settings
           </div>
-          <nav class="sidebar-nav" role="tablist">
+          <div 
+            class="sidebar-nav" 
+            role="tablist"
+            aria-label="Settings sections"
+            @keydown="handleTabListKeydown"
+          >
             <button 
+              ref="tabLatency"
               :class="['nav-item', { active: activeTab === 'latency' }]"
-              @click="activeTab = 'latency'"
+              @click="selectTab('latency')"
+              :tabindex="activeTab === 'latency' ? 0 : -1"
+              role="tab"
+              :aria-selected="activeTab === 'latency'"
+              aria-controls="latency-panel"
               type="button"
             >
               <span>Audio Delay</span>
             </button>
             <button 
+              ref="tabBandwidth"
               :class="['nav-item', { active: activeTab === 'bandwidth' }]"
-              @click="activeTab = 'bandwidth'"
+              @click="selectTab('bandwidth')"
+              :tabindex="activeTab === 'bandwidth' ? 0 : -1"
+              role="tab"
+              :aria-selected="activeTab === 'bandwidth'"
+              aria-controls="bandwidth-panel"
               type="button"
             >
               <span>Bandwidth</span>
             </button>
             <button 
+              ref="tabClient"
               :class="['nav-item', { active: activeTab === 'client' }]"
-              @click="activeTab = 'client'"
+              @click="selectTab('client')"
+              :tabindex="activeTab === 'client' ? 0 : -1"
+              role="tab"
+              :aria-selected="activeTab === 'client'"
+              aria-controls="client-panel"
               type="button"
             >
               <span>Client</span>
             </button>
             <button 
+              ref="tabServer"
               :class="['nav-item', { active: activeTab === 'server' }]"
-              @click="activeTab = 'server'"
+              @click="selectTab('server')"
+              :tabindex="activeTab === 'server' ? 0 : -1"
+              role="tab"
+              :aria-selected="activeTab === 'server'"
+              aria-controls="server-panel"
               type="button"
             >
               <span>Server</span>
             </button>
-          </nav>
+          </div>
           <div class="sidebar-footer">
             <button class="close-button" @click="handleHide">
               {{ t('settingsdialog.close') }}
@@ -50,17 +76,15 @@
         </div>
 
         <!-- Main Content Area -->
-        <div class="dialog-main">
-          <Transition name="fade-slide" mode="out-in">
-            
+        <div class="dialog-main" @keydown="handlePanelKeydown">
             <!-- Client Tab -->
-            <div v-if="activeTab === 'client'" key="client" class="content-panel" role="tabpanel" id="client-panel">
+            <div v-show="activeTab === 'client'" class="content-panel" role="tabpanel" id="client-panel" :aria-labelledby="activeTab === 'client' ? 'tab-client' : undefined">
               <h2 class="panel-title">Client Settings</h2>
               
               <div class="setting-group">
-                <label class="setting-label">{{ t('settingsdialog.transmission') }}</label>
+                <label class="setting-label" for="voice-mode-select">{{ t('settingsdialog.transmission') }}</label>
                 <div class="control-wrapper">
-                  <select v-model="voiceMode" class="modern-select">
+                  <select id="voice-mode-select" v-model="voiceMode" class="modern-select">
                     <option value="cont">{{ t('settingsdialog.cont') }}</option>
                     <option value="ptt" disabled>{{ t('settingsdialog.ptt') }} {{ t('settingsdialog.ptt_disabled') }}</option>
                   </select>
@@ -68,16 +92,16 @@
               </div>
 
               <div v-if="voiceMode === 'ptt'" class="setting-group">
-                <label class="setting-label">{{ t('settingsdialog.ptt_key') }}</label>
+                <label class="setting-label" for="ptt-key-button">{{ t('settingsdialog.ptt_key') }}</label>
                 <div class="control-wrapper">
-                  <button class="ptt-record-btn" @click="recordPttKey">
+                  <button id="ptt-key-button" class="ptt-record-btn" @click="recordPttKey">
                     {{ pttKeyDisplay }}
                   </button>
                 </div>
               </div>
 
               <div class="setting-group version-group">
-                <label class="setting-label">Client Version</label>
+                <span class="setting-label">Client Version</span>
                 <button @click="copyCommitHash" class="action-button" :title="copyButtonTitle">
                   {{ copyButtonText }}
                 </button>
@@ -85,7 +109,7 @@
             </div>
 
             <!-- Audio Delay Tab -->
-            <div v-else-if="activeTab === 'latency'" key="latency" class="content-panel" role="tabpanel" id="latency-panel">
+            <div v-show="activeTab === 'latency'" class="content-panel" role="tabpanel" id="latency-panel">
               <h2 class="panel-title">Audio Delay</h2>
 
               <div class="stat-card">
@@ -102,9 +126,9 @@
               </div>
 
               <div class="setting-group">
-                <label class="setting-label">Jitter Buffer Strategy</label>
+                <label class="setting-label" for="jitter-buffer-select">Jitter Buffer Strategy</label>
                 <div class="control-wrapper">
-                  <select v-model="jitterBufferMode" class="modern-select">
+                  <select id="jitter-buffer-select" v-model="jitterBufferMode" class="modern-select">
                     <option value="low-latency">Low Latency</option>
                     <option value="balanced">Balanced</option>
                     <option value="high-quality">High Quality</option>
@@ -117,7 +141,7 @@
             </div>
 
             <!-- Bandwidth Tab -->
-            <div v-else-if="activeTab === 'bandwidth'" key="bandwidth" class="content-panel" role="tabpanel" id="bandwidth-panel">
+            <div v-show="activeTab === 'bandwidth'" class="content-panel" role="tabpanel" id="bandwidth-panel">
               <h2 class="panel-title">Outgoing Audio Bandwidth</h2>
 
               <div class="setting-group">
@@ -145,14 +169,17 @@
                     ref="sliderTrack"
                     @mousedown="onDragStart"
                     @touchstart.prevent="onDragStart"
-                    @keydown="onKeyDown"
-                    tabindex="0"
-                    role="slider"
-                    :aria-valuemin="minGrossBandwidth"
-                    :aria-valuemax="maxAllowedBandwidth"
-                    :aria-valuenow="grossBandwidth"
-                    aria-label="Gross bandwidth slider"
                   >
+                    <input
+                      type="range"
+                      class="slider-input"
+                      :min="minGrossBandwidth"
+                      :max="maxAllowedBandwidth"
+                      :value="grossBandwidth"
+                      @input="grossBandwidth = Number($event.target.value)"
+                      @keydown="onKeyDown"
+                      aria-label="Gross bandwidth slider"
+                    />
                     <!-- Net Bandwidth Fill -->
                     <div class="slider-track-fill" :style="trackFillStyle"></div>
                     
@@ -179,7 +206,7 @@
             </div>
 
             <!-- Server Tab -->
-            <div v-else-if="activeTab === 'server'" key="server" class="content-panel" role="tabpanel" id="server-panel">
+            <div v-show="activeTab === 'server'" class="content-panel" role="tabpanel" id="server-panel">
               <h2 class="panel-title">Server Version Info</h2>
 
               <div class="info-section">
@@ -195,16 +222,14 @@
                 </div>
               </div>
             </div>
-
-          </Transition>
         </div>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs } from 'vue';
+import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
@@ -220,6 +245,149 @@ const t = inject('translate');
 
 // Active tab state - default to first tab (latency)
 const activeTab = ref('latency');
+
+// Tab refs for keyboard navigation
+const tabLatency = ref(null);
+const tabBandwidth = ref(null);
+const tabClient = ref(null);
+const tabServer = ref(null);
+
+// Tab order for navigation
+const tabOrder = ['latency', 'bandwidth', 'client', 'server'];
+const tabRefs = computed(() => ({
+  latency: tabLatency,
+  bandwidth: tabBandwidth,
+  client: tabClient,
+  server: tabServer
+}));
+
+// Select tab and focus it
+const selectTab = (tabName) => {
+  activeTab.value = tabName;
+  nextTick(() => {
+    tabRefs.value[tabName]?.value?.focus();
+  });
+};
+
+// Navigate to previous/next tab
+const navigateTab = (direction) => {
+  const currentIndex = tabOrder.indexOf(activeTab.value);
+  let newIndex;
+  
+  if (direction === 'up' || direction === 'prev') {
+    newIndex = currentIndex <= 0 ? tabOrder.length - 1 : currentIndex - 1;
+  } else {
+    newIndex = currentIndex >= tabOrder.length - 1 ? 0 : currentIndex + 1;
+  }
+  
+  selectTab(tabOrder[newIndex]);
+};
+
+// Focus first focusable element in active panel
+const focusPanel = () => {
+  nextTick(() => {
+    const panelId = `${activeTab.value}-panel`;
+    const panel = document.getElementById(panelId);
+    if (panel) {
+      const focusable = panel.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusable) {
+        focusable.focus();
+      }
+    }
+  });
+};
+
+// Focus current tab in sidebar
+const focusTabList = () => {
+  nextTick(() => {
+    tabRefs.value[activeTab.value]?.value?.focus();
+  });
+};
+
+// Called after dialog transition completes - reliable focus point
+const onDialogShown = () => {
+  tabRefs.value.latency?.value?.focus();
+};
+
+// Check if focus is in the tab list (sidebar navigation)
+const isFocusInTabList = () => {
+  const activeElement = document.activeElement;
+  // Check if it's one of our tab buttons in the sidebar
+  return activeElement?.closest('.sidebar-nav') !== null;
+};
+
+// Check if focus is in the content panel (main area, not sidebar)
+const isFocusInPanel = () => {
+  const activeElement = document.activeElement;
+  // Check if element is inside the main content area (not sidebar)
+  return activeElement?.closest('.dialog-main') !== null;
+};
+
+// Main dialog keyboard handler
+const handleDialogKeydown = (event) => {
+  if (event.key === 'Escape') {
+    // Check where the event originated (event.target, not activeElement)
+    const target = event.target;
+    const isInPanel = target?.closest('.dialog-main') !== null;
+    
+    if (isInPanel) {
+      // In panel: go back to tab list
+      event.preventDefault();
+      event.stopPropagation();
+      focusTabList();
+    } else {
+      // In tab list or elsewhere: close dialog
+      event.preventDefault();
+      visible.value = false;
+    }
+  }
+};
+
+// Handle keyboard navigation in tab list (sidebar)
+const handleTabListKeydown = (event) => {
+  switch (event.key) {
+    case 'ArrowUp':
+      event.preventDefault();
+      navigateTab('up');
+      break;
+    case 'ArrowDown':
+      event.preventDefault();
+      navigateTab('down');
+      break;
+    case 'ArrowRight':
+      event.preventDefault();
+      focusPanel();
+      break;
+    case 'Home':
+      event.preventDefault();
+      selectTab(tabOrder[0]);
+      break;
+    case 'End':
+      event.preventDefault();
+      selectTab(tabOrder[tabOrder.length - 1]);
+      break;
+  }
+};
+
+// Handle keyboard navigation in content panel
+// ArrowLeft returns to tab list only from non-interactive elements
+const handlePanelKeydown = (event) => {
+  if (event.key === 'ArrowLeft') {
+    const activeElement = document.activeElement;
+    const tagName = activeElement?.tagName?.toLowerCase();
+    const role = activeElement?.getAttribute('role');
+    
+    // Skip navigation if focused on elements that use ArrowLeft
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || 
+        role === 'slider' || role === 'spinbutton' || role === 'textbox' ||
+        role === 'combobox' || role === 'listbox') {
+      return;
+    }
+    
+    event.preventDefault();
+    focusTabList();
+  }
+};
 
 // Clipboard composable
 const { copy: copyToClipboard, copied } = useClipboard({ timeout: 2000 });
@@ -293,10 +461,10 @@ const isDragging = ref(false);
 const onDragStart = (event) => {
   isDragging.value = true;
   updateSliderFromEvent(event);
-  window.addEventListener('mousemove', onDragMove);
-  window.addEventListener('mouseup', onDragEnd);
-  window.addEventListener('touchmove', onDragMove);
-  window.addEventListener('touchend', onDragEnd);
+  globalThis.addEventListener('mousemove', onDragMove);
+  globalThis.addEventListener('mouseup', onDragEnd);
+  globalThis.addEventListener('touchmove', onDragMove);
+  globalThis.addEventListener('touchend', onDragEnd);
 };
 
 const onDragMove = (event) => {
@@ -306,10 +474,10 @@ const onDragMove = (event) => {
 
 const onDragEnd = () => {
   isDragging.value = false;
-  window.removeEventListener('mousemove', onDragMove);
-  window.removeEventListener('mouseup', onDragEnd);
-  window.removeEventListener('touchmove', onDragMove);
-  window.removeEventListener('touchend', onDragEnd);
+  globalThis.removeEventListener('mousemove', onDragMove);
+  globalThis.removeEventListener('mouseup', onDragEnd);
+  globalThis.removeEventListener('touchmove', onDragMove);
+  globalThis.removeEventListener('touchend', onDragEnd);
 };
 
 // Keyboard navigation for slider
@@ -345,10 +513,10 @@ const onKeyDown = (event) => {
 
 // Cleanup on unmount
 onUnmounted(() => {
-  window.removeEventListener('mousemove', onDragMove);
-  window.removeEventListener('mouseup', onDragEnd);
-  window.removeEventListener('touchmove', onDragMove);
-  window.removeEventListener('touchend', onDragEnd);
+  globalThis.removeEventListener('mousemove', onDragMove);
+  globalThis.removeEventListener('mouseup', onDragEnd);
+  globalThis.removeEventListener('touchmove', onDragMove);
+  globalThis.removeEventListener('touchend', onDragEnd);
 
   if (statsInterval) {
     clearInterval(statsInterval);
@@ -491,15 +659,16 @@ let statsInterval = null;
 
 watch(visible, (val) => {
   if (val) {
-    // Reset to first tab when dialog opens
+    // Reset to first tab when dialog opens and focus it
     activeTab.value = 'latency';
+    nextTick(() => {
+      tabRefs.value.latency?.value?.focus();
+    });
     updateStats();
     statsInterval = setInterval(updateStats, 1000);
-  } else {
-    if (statsInterval) {
-      clearInterval(statsInterval);
-      statsInterval = null;
-    }
+  } else if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
   }
 });
 
@@ -512,14 +681,15 @@ const handleHide = () => {
   // Settings are auto-saved via settingsStore watch() - no manual save needed
 };
 
-// Watch for modal opening to reset tab
+// Watch for modal opening to reset tab and focus
 watch(() => uiStore.currentOpenModal, (newVal) => {
   if (newVal === 'connectionInfo' || newVal === 'settings') {
     updateStats();
-    // If opening as 'settings', default to latency (or whatever default)
-    // If opening as 'connectionInfo', default to latency
-    // Logic from old appState.openSettings:
     activeTab.value = 'latency';
+    // Focus the first tab after Vue updates the DOM
+    nextTick(() => {
+      tabRefs.value.latency?.value?.focus();
+    });
   }
 });
 
@@ -613,7 +783,7 @@ onMounted(() => {
 .close-button {
   width: 100%;
   padding: 10px;
-  background: #333;
+  background: #444;
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -635,6 +805,7 @@ onMounted(() => {
 
 .content-panel {
   padding: 30px;
+  min-height: 400px; /* Prevent height flickering when switching tabs */
 }
 
 .panel-title {
@@ -828,23 +999,6 @@ onMounted(() => {
 .dialog-fade-leave-to {
   opacity: 0;
   transform: translate(-50%, -48%) scale(0.98);
-}
-
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.2s ease;
-}
-
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-  position: absolute;
-  width: 100%;
 }
 
 /* Custom Slider */

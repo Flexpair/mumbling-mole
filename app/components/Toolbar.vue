@@ -1,94 +1,129 @@
 <template>
-  <form class="toolbar-horizontal" @submit.prevent="handleSubmitMessageBox">
-    <img
+  <fieldset 
+    class="toolbar-horizontal" 
+    aria-label="Voice and communication controls"
+  >
+    <!-- Mute/Unmute Button -->
+    <button
       v-show="!selfMute"
       v-tooltip="'Mute microphone (Ctrl+M)'"
-      class="tb-mute"
-      alt="Mute my microphone"
-      rel="mute"
-      src="svg/audio-input-microphone.svg"
+      class="toolbar-button tb-mute"
+      type="button"
       @click="handleMuteClick"
-    />
-    <img
+      aria-pressed="false"
+      :aria-label="'Mute microphone. Press Control plus M'"
+    >
+      <img src="svg/audio-input-microphone.svg" alt="" aria-hidden="true" />
+    </button>
+    <button
       v-show="selfMute"
       v-tooltip="audioLockActive ? 'Cannot unmute - audio disabled' : 'Unmute microphone (Ctrl+M)'"
-      class="tb-unmute tb-active"
+      class="toolbar-button tb-unmute tb-active"
       :class="{ 'tb-disabled': audioLockActive }"
-      alt="Unmute my microphone"
-      rel="unmute"
-      src="svg/audio-input-microphone-muted.svg"
+      type="button"
       @click="handleUnmuteClick"
-    />
-    <img
+      :disabled="audioLockActive"
+      aria-pressed="true"
+      :aria-label="audioLockActive ? 'Microphone muted. Cannot unmute because audio is disabled' : 'Unmute microphone. Press Control plus M'"
+    >
+      <img src="svg/audio-input-microphone-muted.svg" alt="" aria-hidden="true" />
+    </button>
+
+    <!-- Deaf/Undeaf Button -->
+    <button
       v-show="!selfDeaf"
       v-tooltip="'Deafen (disable all audio)'"
-      class="tb-deaf"
-      alt="Turn off sound"
-      rel="deaf"
-      src="svg/audio-output.svg"
+      class="toolbar-button tb-deaf"
+      type="button"
       @click="handleDeafClick"
-    />
-    <img
+      aria-pressed="false"
+      aria-label="Deafen. Disable all audio output"
+    >
+      <img src="svg/audio-output.svg" alt="" aria-hidden="true" />
+    </button>
+    <button
       v-show="selfDeaf"
       v-tooltip="audioLockActive ? 'Cannot undeafen - audio disabled' : 'Undeafen (enable audio)'"
-      class="tb-undeaf tb-active"
+      class="toolbar-button tb-undeaf tb-active"
       :class="{ 'tb-disabled': audioLockActive }"
-      alt="Turn sound back on"
-      rel="undeaf"
-      src="svg/audio-output-deafened.svg"
+      type="button"
       @click="handleUndeafClick"
-    />
-    <div class="message-box-container">
+      :disabled="audioLockActive"
+      aria-pressed="true"
+      :aria-label="audioLockActive ? 'Audio deafened. Cannot undeafen because audio is disabled' : 'Undeafen. Enable audio output'"
+    >
+      <img src="svg/audio-output-deafened.svg" alt="" aria-hidden="true" />
+    </button>
+
+    <!-- Message Input Form (separate from toolbar) -->
+    <form class="message-box-container" @submit.prevent="handleSubmitMessageBox">
+      <label for="message-box" class="sr-only">{{ messageBoxLabel }}</label>
       <input
         id="message-box"
         type="text"
         :placeholder="messageBoxHint"
         v-model="messageBox"
+        aria-describedby="message-hint"
       />
+      <span id="message-hint" class="sr-only">Press Enter to send message</span>
       <!-- Message confirmation (green checkmark) appears inside message box -->
       <MessageConfirmation />
-    </div>
+    </form>
+
+    <!-- Send File Link -->
     <a
       :href="mailToDesktop"
       v-tooltip="'Send file to remote desktop'"
-      class="mail-link"
+      class="toolbar-link mail-link"
+      aria-label="Send file attachment to remote desktop via email"
     >
-      <img
-        alt="Send mail (attachment) to shared desktop"
-        src="svg/mail-attachment.svg"
-      />
+      <img src="svg/mail-attachment.svg" alt="" aria-hidden="true" />
     </a>
-    <img
+
+    <!-- Settings Button -->
+    <button
       v-tooltip="'Audio Info & Settings'"
-      class="tb-settings"
-      alt="Open audio info and settings dialog"
-      rel="settings"
-      src="svg/config_basic.svg"
+      class="toolbar-button tb-settings"
+      type="button"
       @click="handleSettingsClick"
-    />
-    <img
+      aria-label="Open audio info and settings dialog"
+      aria-haspopup="dialog"
+    >
+      <img src="svg/config_basic.svg" alt="" aria-hidden="true" />
+    </button>
+
+    <!-- Source Code Button -->
+    <button
       v-tooltip="'View source code on GitHub'"
-      class="tb-sourcecode"
-      alt="Navigate to source code on Github"
-      rel="Source Code"
-      src="svg/source-code.svg"
+      class="toolbar-button tb-sourcecode"
+      type="button"
       @click="handleSourceCodeClick"
-    />
+      aria-label="Open source code on GitHub in new tab"
+    >
+      <img src="svg/source-code.svg" alt="" aria-hidden="true" />
+    </button>
+
+    <!-- Support Link -->
     <a
       href="mailto:mail@flexpair.com?subject=Open%20support%20request"
       v-tooltip="'Contact support'"
-      style="text-decoration: none"
+      class="toolbar-link"
+      aria-label="Contact support via email"
     >
-      <img alt="Open a support request" src="svg/system-help.svg" />
+      <img src="svg/system-help.svg" alt="" aria-hidden="true" />
     </a>
-    <img
+
+    <!-- Logout Button -->
+    <button
       v-tooltip="'Logout'"
-      class="tb-logout"
-      alt="Log user out"
-      src="svg/logout.svg"
+      class="toolbar-button tb-logout"
+      type="button"
       @click="handleLogoutClick"
-    />
-  </form>
+      aria-label="Log out of application"
+    >
+      <img src="svg/logout.svg" alt="" aria-hidden="true" />
+    </button>
+  </fieldset>
 </template>
 
 <script setup>
@@ -127,6 +162,13 @@ const messageBoxHint = computed(() => {
   return translate('chat.channel_message_placeholder').replace('%1', user.channel.value.name.value);
 });
 
+// Accessible label for message box
+const messageBoxLabel = computed(() => {
+  const user = userStore.thisUser;
+  if (!user?.channel?.value?.name) return 'Send a message';
+  return `Send a message to ${user.channel.value.name.value}`;
+});
+
 // Mailto link for desktop attachment
 const mailToDesktop = computed(() => 
   `mailto:mail@${globalThis.location.hostname}?subject=Send%20attachment%20to%20desktop`
@@ -162,7 +204,11 @@ const handleSubmitMessageBox = () => {
 };
 
 const handleSettingsClick = () => {
-  uiStore.currentOpenModal = 'settings';
+  if (uiStore.currentOpenModal === 'settings') {
+    uiStore.currentOpenModal = null;
+  } else {
+    uiStore.currentOpenModal = 'settings';
+  }
 };
 
 const handleSourceCodeClick = () => {
@@ -176,8 +222,46 @@ const handleLogoutClick = () => {
 </script>
 
 <style scoped>
-.mail-link {
+.toolbar-link {
   text-decoration: none;
+}
+
+/* Toolbar button base styles for accessibility */
+.toolbar-button {
+  background: none;
+  border: none; /* Removed border to avoid double-outline effect with focus indicator */
+  border-radius: 3px;
+  padding: 3px; /* Slightly increased to compensate for removed border */
+  margin: 0 2px; /* Horizontal margin prevents focus outline overlap between adjacent buttons */
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-button img,
+.toolbar-link img {
+  height: 28px;
+  width: 28px;
+  display: block;
+  border: none;
+}
+
+.toolbar-button:hover:not(:disabled),
+.toolbar-link:hover {
+  background-color: #a9a9a9;
+  box-shadow: inset 0 0 0 1px #d3d3d3; /* Use inset box-shadow instead of border */
+}
+
+.toolbar-button:disabled {
+  filter: grayscale(100%);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.toolbar-button.tb-active {
+  box-shadow: inset 0 0 0 1px #fff; /* Use inset box-shadow instead of border to maintain consistent size */
+  background-color: #d3d3d3;
 }
 
 .toolbar-horizontal {

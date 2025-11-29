@@ -3,11 +3,12 @@
     class="message-confirmation" 
     :class="{ confirmed: isConfirmed }"
     @click="handleClick"
-    :aria-label="translate('chat.send_message')"
-    :title="translate('chat.send_message')"
+    :aria-label="isConfirmed ? 'Message sent successfully' : translate('chat.send_message')"
+    :title="isConfirmed ? 'Message sent!' : translate('chat.send_message')"
     type="button"
   >
     <span class="checkmark" aria-hidden="true">✓</span>
+    <span class="sr-only">{{ isConfirmed ? 'Message sent' : 'Send message' }}</span>
   </button>
 </template>
 

@@ -3,24 +3,47 @@
   <div style="height: 100%;">
     <!-- Preloader (shown during initial load) with fade transition -->
     <Transition name="preloader-fade">
-      <div v-if="showPreloader" class="preloader" :class="{ loaded: preloaderLoaded }">
-        <div class="lds-ripple" :class="{ loaded: preloaderLoaded }">
+      <output 
+        v-if="showPreloader" 
+        class="preloader" 
+        :class="{ loaded: preloaderLoaded }"
+        aria-label="Loading application"
+      >
+        <div class="lds-ripple" :class="{ loaded: preloaderLoaded }" aria-hidden="true">
           <div></div>
           <div></div>
         </div>
-      </div>
+        <span class="sr-only">Loading Mumble Web Client...</span>
+      </output>
     </Transition>
 
     <!-- Main container (shown after preloader) with fade-in transition -->
     <Transition name="container-fade">
       <div v-if="containerVisible" id="container">
-      <!-- Microphone select (shared between components) -->
-      <select id="audioSource" style="display: none; width: 100%; box-sizing: border-box;"></select>
-      
-      <!-- Container components (GuacamoleFrame first, Toolbar at bottom) -->
-      <GuacamoleFrame ref="guacamoleFrameRef" />
-      <Toolbar />
-      <MicPermissionRetryOverlay />
+        <!-- Header with application branding -->
+        <header class="sr-only">
+          <h1>Mumble Web Client - Voice Communication</h1>
+        </header>
+
+        <!-- Microphone select (shared between components) -->
+        <select 
+          id="audioSource" 
+          style="display: none; width: 100%; box-sizing: border-box;"
+          aria-label="Select microphone input device"
+        ></select>
+        
+        <!-- Main content area (target for skip link) -->
+        <main id="main-content">
+          <!-- Container components (GuacamoleFrame first, Toolbar at bottom) -->
+          <GuacamoleFrame ref="guacamoleFrameRef" />
+        </main>
+        
+        <!-- Footer toolbar with controls -->
+        <footer>
+          <Toolbar />
+        </footer>
+        
+        <MicPermissionRetryOverlay />
       </div>
     </Transition>
 
@@ -33,7 +56,7 @@
 </template>
 
 <script setup>
-import { Transition, ref, onMounted, inject, useTemplateRef } from 'vue';
+import { Transition, ref, onMounted, useTemplateRef } from 'vue';
 import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)

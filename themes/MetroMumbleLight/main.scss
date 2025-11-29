@@ -2,7 +2,7 @@ $black: #000 !default;
 $darkgray: #888 !default;
 $gray: #a9a9a9 !default;
 $lightgray: #d3d3d3 !default;
-$bg-color: #eee !default;
+$bg-color: #1a1a1a !default;
 $white: #fff !default;
 
 // Corporate branding colors
@@ -18,7 +18,7 @@ $toolbar-active-bg-color: $white !default;
 $toolbar-active-border-color: $toolbar-hover-bg-color !default;
 $dialog-header-color: $white !default;
 $dialog-header-bg-color: $black !default;
-$dialog-bg-color: $bg-color !default;
+$dialog-bg-color: #eee !default; // Keep dialog light for readable text contrast
 $dialog-border-color: $darkgray !default;
 $dialog-color: $font-color !default;
 $dialog-button-border-color: $darkgray !default;
@@ -42,6 +42,46 @@ $dialog-input-color: $dialog-color !default;
   border: 0 !important;
 }
 
+/* Skip link: visible on focus for keyboard navigation (WCAG 2.4.1) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: $black;
+  color: $white;
+  padding: 12px 24px;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: top 0.2s ease-in-out;
+  
+  &:focus {
+    top: 0;
+    outline: 3px solid $corporate-teal;
+    outline-offset: 2px;
+  }
+}
+
+/* Global focus styles for accessibility (WCAG 2.4.7) */
+:focus-visible {
+  outline: 3px solid $corporate-teal;
+  outline-offset: 2px;
+}
+
+/* Ensure focus is visible on all interactive elements */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid $corporate-teal;
+  outline-offset: 2px;
+}
+
 html,
 body {
   background-color: $bg-color;
@@ -52,6 +92,9 @@ body {
   height: 100%;
 }
 
+// Note: background-image for body is set in index.html critical CSS
+// to avoid esbuild trying to resolve the image path
+
 #app {
   height: 100%;
 }
@@ -61,21 +104,33 @@ body {
   position: relative; /* Make toolbar position: absolute relative to container */
 }
 
-.guacamole,
+#main-content,
+main {
+  display: block;
+  height: calc(100% - 36px); // Full height minus toolbar
+}
+
+.guacamole {
+  display: block;
+  float: left;
+  margin: 0;
+  width: 100%;
+  height: 100%; // Full height of parent (main already accounts for toolbar)
+  background: white; // White background for Guacamole iframe
+}
+
 .guacamole-placeholder {
   display: block;
   float: left;
   margin: 0;
   width: 100%;
-  height: calc(100% - 36px);
-}
-
-.guacamole-placeholder {
+  height: 100%; // Full height of parent (main already accounts for toolbar)
   background-image: url("img/AdobeStock_74031703.webp");
   background-repeat: no-repeat;
   background-position: bottom;
   background-size: cover;
 }
+
 .guacamole-placeholder img {
   padding: 2px;
 }
@@ -98,32 +153,78 @@ iframe {
   display: flex;
   flex-flow: row nowrap;
   width: 100%;
+  background-color: #eee; // Solid background so toolbar is not transparent over background image
 }
 .toolbar-horizontal a {
   text-decoration: none;
 }
-.toolbar-horizontal img {
+
+/* Toolbar button styles for semantic buttons */
+.toolbar-horizontal .toolbar-button,
+.toolbar-horizontal .toolbar-link {
+  background: none;
+  border: none; // Remove border to avoid double-outline effect with focus indicator
+  border-radius: 3px;
+  padding: 3px; // Slightly increase padding to compensate for removed border
+  margin: 0 2px; // Add horizontal margin to prevent focus outline overlap
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:focus-visible {
+    outline: 3px solid $corporate-teal;
+    outline-offset: -3px; // Inset outline fully within button bounds
+  }
+}
+
+.toolbar-horizontal .toolbar-button img,
+.toolbar-horizontal .toolbar-link img {
+  height: 28px;
+  width: 28px;
+  display: block;
+}
+
+.toolbar-horizontal .toolbar-button:hover:not(:disabled),
+.toolbar-horizontal .toolbar-link:hover {
+  background-color: $toolbar-hover-border-color;
+  box-shadow: inset 0 0 0 1px $toolbar-hover-bg-color; // Use inset box-shadow instead of border
+}
+
+.toolbar-horizontal .toolbar-button:disabled {
+  filter: grayscale(100%);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.toolbar-horizontal .toolbar-button.tb-active {
+  box-shadow: inset 0 0 0 1px $toolbar-active-bg-color;
+  background-color: $toolbar-active-border-color;
+}
+
+/* Legacy img-based toolbar icons (direct children only, for backwards compatibility) */
+.toolbar-horizontal > img {
   height: 28px;
   width: 28px;
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
 }
-.toolbar-horizontal img.tb-disabled {
+.toolbar-horizontal > img.tb-disabled {
   filter: grayscale(100%);
   cursor: not-allowed;
   opacity: 0.45;
 }
-.toolbar-horizontal img.tb-disabled:hover {
+.toolbar-horizontal > img.tb-disabled:hover {
   border: 1px solid transparent;
   background-color: transparent;
 }
-.toolbar-horizontal img:hover {
+.toolbar-horizontal > img:hover {
   border: 1px solid $toolbar-hover-bg-color;
   background-color: $toolbar-hover-border-color;
 }
-.toolbar-horizontal .tb-active {
-  border: 1px solid $toolbar-active-bg-color;
+.toolbar-horizontal > .tb-active {
+  box-shadow: inset 0 0 0 1px $toolbar-active-bg-color;
   background-color: $toolbar-active-border-color;
 }
 #message-box {
@@ -138,7 +239,8 @@ iframe {
   box-sizing: border-box;
 }
 #message-box:focus {
-  outline: none;
+  outline: 3px solid $corporate-teal;
+  outline-offset: -1px;
   border-color: $toolbar-active-bg-color;
   background: rgba(255, 255, 255, 0.15);
 }
@@ -184,6 +286,7 @@ form {
   color: $dialog-button-color;
   cursor: pointer;
   transition: all 0.2s ease;
+  -webkit-user-select: none;
   user-select: none;
   
   &:hover:not(:disabled) {
@@ -257,6 +360,7 @@ form {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   padding: 4px 8px;
   border-radius: 4px;
@@ -448,6 +552,45 @@ select {
   }
 }
 
+/* Reduced motion support (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .mic-permission-retry {
+    animation: none;
+  }
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .toolbar-button,
+  .dialog-submit,
+  .dialog-close {
+    border: 2px solid ButtonText;
+  }
+  
+  .toolbar-button.tb-active,
+  .dialog-submit.button-active {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+  
+  .test-toggle-slider {
+    border: 2px solid ButtonText;
+  }
+  
+  .test-toggle-slider.active {
+    background-color: Highlight;
+  }
+}
+
 /* Mobile view - stack labels above inputs for narrow screens */
 
 @media only screen and (max-width: 600px) {
@@ -570,7 +713,8 @@ select {
 .connect-dialog input[type="text"]:focus,
 .connect-dialog input[type="password"]:focus,
 .connect-dialog select:focus {
-  outline: none;
+  outline: 3px solid $corporate-teal;
+  outline-offset: -1px;
   border-color: $corporate-teal;
   box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.1);
 }

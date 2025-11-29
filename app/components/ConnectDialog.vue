@@ -4,54 +4,46 @@
       ref="dialogElement"
       class="connect-dialog dialog"
       aria-labelledby="connect-dialog_title"
+      aria-describedby="headphones-recommendation"
+      @cancel.prevent
     >
-    <div id="connect-dialog_title" class="dialog-header">{{ translate('connectdialog.title') }}</div>
+    <h2 id="connect-dialog_title" class="dialog-header">{{ translate('connectdialog.title') }}</h2>
     <form @submit.prevent="handleConnect">
-      <table>
-        <tbody>
-          <tr v-if="config.connectDialog?.username">
-            <th scope="row">
-              <label for="username">{{ translate('connectdialog.username') }}</label>
-            </th>
-            <td>
-              <input
-                id="username"
-                v-model="username"
-                type="text"
-                readonly
-                required
-              />
-            </td>
-          </tr>
-          <tr v-if="config.connectDialog?.password">
-            <th scope="row">
-              <label for="password">{{ translate('connectdialog.password') }}</label>
-            </th>
-            <td>
-              <input
-                id="password"
-                v-model="password"
-                type="password"
-                autocomplete="off"
-              />
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">
-              <label for="audioSource">{{ translate('connectdialog.microphone') }}</label>
-            </th>
-            <td>
-              <!-- Placeholder for audioSource select (moved here via script) -->
-              <div ref="microphoneContainer"></div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="form-fields">
+        <div v-if="config.connectDialog?.username" class="form-field">
+          <label for="username">{{ translate('connectdialog.username') }}</label>
+          <input
+            id="username"
+            v-model="username"
+            type="text"
+            readonly
+            required
+            aria-readonly="true"
+          />
+        </div>
+        <div v-if="config.connectDialog?.password" class="form-field">
+          <label for="password">{{ translate('connectdialog.password') }}</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            autocomplete="current-password"
+          />
+        </div>
+        <div class="form-field">
+          <label for="audioSource">{{ translate('connectdialog.microphone') }}</label>
+          <!-- Placeholder for audioSource select (moved here via script) -->
+          <div ref="microphoneContainer"></div>
+        </div>
+      </div>
 
-      <p id="headphones-recommendation" style="margin: 0.5em 0;">We recommend using headphones for the best audio experience.</p>
+      <p id="headphones-recommendation" style="margin: 0.5em 0;">
+        We recommend using headphones <span aria-hidden="true">🎧</span> for the best audio experience.
+      </p>
 
       <!-- Loopback Test Section (clear both floats) -->
-      <div class="loopback-test-section" style="clear: both;" role="group">
+      <fieldset class="loopback-test-section" style="clear: both; border: none; padding: 0; margin: 0;">
+        <legend class="sr-only">Audio Test Controls</legend>
         <div class="test-toggle-container">
           <button 
             type="button"
@@ -68,7 +60,7 @@
             ></span>
             <span class="test-toggle-text" style="font-size: 1em; margin-left: 8px;">Audio Test</span>
           </button>
-          <span id="audio-test-description" class="visually-hidden">Toggle audio test mode to verify your microphone and speakers</span>
+          <span id="audio-test-description" class="sr-only">Toggle audio test mode to verify your microphone and speakers</span>
         </div>
 
         <!-- Piano Button and Frequency Display Row -->
@@ -83,38 +75,49 @@
               @mousedown="startBeep"
               @mouseup="stopBeep"
               @mouseleave="stopBeep"
+              @keydown.space.prevent="startBeep"
+              @keyup.space.prevent="stopBeep"
+              @keydown.enter.prevent="startBeep"
+              @keyup.enter.prevent="stopBeep"
               :disabled="!pianoButtonReady"
               :class="{ active: isBeeping, disabled: !pianoButtonReady }"
               :aria-pressed="isBeeping ? 'true' : 'false'"
-              :title="pianoButtonReady ? 'Hold to play a 440 Hz test tone' : 'Waiting for audio system...'"
+              :aria-describedby="pianoButtonReady ? 'piano-ready-hint' : 'piano-loading-hint'"
               style="height: 32px; padding: 4px 8px; white-space: nowrap; flex-shrink: 0; font-size: 1em;"
             >
-              <span style="font-size: 1.2em;">🎹</span> {{ pianoButtonReady ? 'Play an A (440 Hz)' : 'Initializing...' }}
+              <span aria-hidden="true" style="font-size: 1.2em;">🎹</span> 
+              {{ pianoButtonReady ? 'Play an A (440 Hz)' : 'Initializing...' }}
             </button>
+            <span v-if="pianoButtonReady" id="piano-ready-hint" class="sr-only">Hold button or press Space or Enter to play a 440 Hertz test tone</span>
+            <span v-else id="piano-loading-hint" class="sr-only">Audio system is initializing, please wait</span>
 
             <!-- Frequency Display with fixed width -->
-            <div
+            <output
               v-if="isLoopbackMode"
               class="loopback-frequency-display"
               style="padding: 6px 12px; background-color: rgba(21, 120, 120, 0.1); border: 1px solid rgba(21, 120, 120, 0.3); border-radius: 4px; flex-shrink: 0; min-width: 120px; text-align: center;"
-              role="status"
               aria-live="polite"
+              aria-atomic="true"
             >
               <span style="font-weight: bold; color: #157878;" aria-hidden="true">📊</span>
               <span style="font-size: 1.1em; font-weight: bold; color: #157878; margin-left: 4px; font-variant-numeric: tabular-nums;">
                 {{ dominantFrequency > 0 ? dominantFrequency + ' Hz' : '--- Hz' }}
               </span>
-            </div>
+              <span class="sr-only">
+                {{ dominantFrequency > 0 ? 'Detected frequency: ' + dominantFrequency + ' Hertz' : 'No frequency detected' }}
+              </span>
+            </output>
           </div>
         </div>
-      </div>
+      </fieldset>
 
       <!-- Dialog Buttons - completely separate section -->
       <div class="dialog-buttons">
         <input
           type="submit"
           class="connect-dialog-submit"
-          value="Connect"
+          :value="isTestActive && connected ? 'Exit Test & Connect' : 'Connect'"
+          :aria-label="isTestActive && connected ? 'Exit test mode and connect to voice server' : 'Connect to voice server'"
         />
       </div>
     </form>
@@ -123,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef, toRefs } from 'vue';
+import { computed, inject, onMounted, onUnmounted, watch, nextTick, useTemplateRef, toRefs } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
@@ -131,6 +134,7 @@ import { useUserStore } from '../stores/userStore';
 import { useUIStore } from '../stores/uiStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
+import { announceToScreenReader } from '../composables/useAccessibility';
 
 /**
  * Vue 3 ConnectDialog Component (Pure Vue - No Knockout)
@@ -171,8 +175,17 @@ watch(visible, async (val) => {
   await nextTick();
   if (val && !dialogElement.value.open) {
     dialogElement.value.showModal();
+    // Focus first focusable element for accessibility
+    await nextTick();
+    const firstFocusable = dialogElement.value.querySelector('input:not([readonly]), button:not([disabled]), select');
+    if (firstFocusable) {
+      firstFocusable.focus();
+    }
+    // Announce dialog opening to screen readers
+    announceToScreenReader('Connect dialog opened');
   } else if (!val && dialogElement.value.open) {
     dialogElement.value.close();
+    announceToScreenReader('Dialog closed');
   }
 });
 
@@ -325,6 +338,9 @@ function stopBeep() {
 function handleHide() {
   visible.value = false;
 }
+
+// Note: Escape key is intentionally disabled for Connect Dialog
+// User must connect to proceed - dialog cannot be dismissed
 </script>
 
 <style>

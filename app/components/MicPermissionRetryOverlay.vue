@@ -1,10 +1,19 @@
 <template>
-  <div v-if="visible" class="mic-permission-retry">
+  <div 
+    v-if="visible" 
+    class="mic-permission-retry"
+    role="alertdialog"
+    aria-labelledby="mic-permission-title"
+    aria-describedby="mic-permission-desc"
+  >
     <div class="mic-permission-content">
-      <span class="mic-icon">🎤</span>
-      <span>Microphone access denied</span>
-      <p v-if="errorMessage" class="mic-permission-message">{{ errorMessage }}</p>
-      <button @click="handleRetry" class="mic-permission-button">
+      <span class="mic-icon" aria-hidden="true">🎤</span>
+      <span id="mic-permission-title">Microphone access denied</span>
+      <p v-if="errorMessage" id="mic-permission-desc" class="mic-permission-message">{{ errorMessage }}</p>
+      <button 
+        @click="handleRetry" 
+        class="mic-permission-button"
+      >
         Allow Microphone
       </button>
     </div>
