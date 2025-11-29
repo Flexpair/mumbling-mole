@@ -13,7 +13,6 @@
       <button 
         @click="handleRetry" 
         class="mic-permission-button"
-        aria-label="Request microphone permission again"
       >
         Allow Microphone
       </button>

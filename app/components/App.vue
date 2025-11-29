@@ -3,11 +3,10 @@
   <div style="height: 100%;">
     <!-- Preloader (shown during initial load) with fade transition -->
     <Transition name="preloader-fade">
-      <div 
+      <output 
         v-if="showPreloader" 
         class="preloader" 
         :class="{ loaded: preloaderLoaded }"
-        role="status"
         aria-label="Loading application"
       >
         <div class="lds-ripple" :class="{ loaded: preloaderLoaded }" aria-hidden="true">
@@ -57,7 +56,7 @@
 </template>
 
 <script setup>
-import { Transition, ref, onMounted, inject, useTemplateRef } from 'vue';
+import { Transition, ref, onMounted, useTemplateRef } from 'vue';
 import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)

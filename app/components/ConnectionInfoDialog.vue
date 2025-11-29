@@ -1,12 +1,11 @@
 <template>
   <Teleport to="body">
     <Transition name="dialog-fade" @after-enter="onDialogShown">
-      <div 
+      <dialog 
         v-if="visible" 
         class="connection-info-dialog dialog-container"
-        role="dialog"
         aria-labelledby="dialog-title"
-        aria-modal="true"
+        open
         @keydown="handleDialogKeydown"
       >
         <!-- Sidebar Navigation -->
@@ -14,7 +13,7 @@
           <div class="sidebar-header" id="dialog-title">
             Settings
           </div>
-          <nav 
+          <div 
             class="sidebar-nav" 
             role="tablist"
             aria-label="Settings sections"
@@ -83,9 +82,9 @@
               <h2 class="panel-title">Client Settings</h2>
               
               <div class="setting-group">
-                <label class="setting-label">{{ t('settingsdialog.transmission') }}</label>
+                <label class="setting-label" for="voice-mode-select">{{ t('settingsdialog.transmission') }}</label>
                 <div class="control-wrapper">
-                  <select v-model="voiceMode" class="modern-select">
+                  <select id="voice-mode-select" v-model="voiceMode" class="modern-select">
                     <option value="cont">{{ t('settingsdialog.cont') }}</option>
                     <option value="ptt" disabled>{{ t('settingsdialog.ptt') }} {{ t('settingsdialog.ptt_disabled') }}</option>
                   </select>
@@ -93,16 +92,16 @@
               </div>
 
               <div v-if="voiceMode === 'ptt'" class="setting-group">
-                <label class="setting-label">{{ t('settingsdialog.ptt_key') }}</label>
+                <label class="setting-label" for="ptt-key-button">{{ t('settingsdialog.ptt_key') }}</label>
                 <div class="control-wrapper">
-                  <button class="ptt-record-btn" @click="recordPttKey">
+                  <button id="ptt-key-button" class="ptt-record-btn" @click="recordPttKey">
                     {{ pttKeyDisplay }}
                   </button>
                 </div>
               </div>
 
               <div class="setting-group version-group">
-                <label class="setting-label">Client Version</label>
+                <span class="setting-label">Client Version</span>
                 <button @click="copyCommitHash" class="action-button" :title="copyButtonTitle">
                   {{ copyButtonText }}
                 </button>
@@ -127,9 +126,9 @@
               </div>
 
               <div class="setting-group">
-                <label class="setting-label">Jitter Buffer Strategy</label>
+                <label class="setting-label" for="jitter-buffer-select">Jitter Buffer Strategy</label>
                 <div class="control-wrapper">
-                  <select v-model="jitterBufferMode" class="modern-select">
+                  <select id="jitter-buffer-select" v-model="jitterBufferMode" class="modern-select">
                     <option value="low-latency">Low Latency</option>
                     <option value="balanced">Balanced</option>
                     <option value="high-quality">High Quality</option>
@@ -170,14 +169,17 @@
                     ref="sliderTrack"
                     @mousedown="onDragStart"
                     @touchstart.prevent="onDragStart"
-                    @keydown="onKeyDown"
-                    tabindex="0"
-                    role="slider"
-                    :aria-valuemin="minGrossBandwidth"
-                    :aria-valuemax="maxAllowedBandwidth"
-                    :aria-valuenow="grossBandwidth"
-                    aria-label="Gross bandwidth slider"
                   >
+                    <input
+                      type="range"
+                      class="slider-input"
+                      :min="minGrossBandwidth"
+                      :max="maxAllowedBandwidth"
+                      :value="grossBandwidth"
+                      @input="grossBandwidth = Number($event.target.value)"
+                      @keydown="onKeyDown"
+                      aria-label="Gross bandwidth slider"
+                    />
                     <!-- Net Bandwidth Fill -->
                     <div class="slider-track-fill" :style="trackFillStyle"></div>
                     
@@ -386,6 +388,7 @@ const handlePanelKeydown = (event) => {
     event.preventDefault();
     focusTabList();
   }
+  }
 };
 
 // Clipboard composable
@@ -460,10 +463,10 @@ const isDragging = ref(false);
 const onDragStart = (event) => {
   isDragging.value = true;
   updateSliderFromEvent(event);
-  window.addEventListener('mousemove', onDragMove);
-  window.addEventListener('mouseup', onDragEnd);
-  window.addEventListener('touchmove', onDragMove);
-  window.addEventListener('touchend', onDragEnd);
+  globalThis.addEventListener('mousemove', onDragMove);
+  globalThis.addEventListener('mouseup', onDragEnd);
+  globalThis.addEventListener('touchmove', onDragMove);
+  globalThis.addEventListener('touchend', onDragEnd);
 };
 
 const onDragMove = (event) => {
@@ -473,10 +476,10 @@ const onDragMove = (event) => {
 
 const onDragEnd = () => {
   isDragging.value = false;
-  window.removeEventListener('mousemove', onDragMove);
-  window.removeEventListener('mouseup', onDragEnd);
-  window.removeEventListener('touchmove', onDragMove);
-  window.removeEventListener('touchend', onDragEnd);
+  globalThis.removeEventListener('mousemove', onDragMove);
+  globalThis.removeEventListener('mouseup', onDragEnd);
+  globalThis.removeEventListener('touchmove', onDragMove);
+  globalThis.removeEventListener('touchend', onDragEnd);
 };
 
 // Keyboard navigation for slider
@@ -512,10 +515,10 @@ const onKeyDown = (event) => {
 
 // Cleanup on unmount
 onUnmounted(() => {
-  window.removeEventListener('mousemove', onDragMove);
-  window.removeEventListener('mouseup', onDragEnd);
-  window.removeEventListener('touchmove', onDragMove);
-  window.removeEventListener('touchend', onDragEnd);
+  globalThis.removeEventListener('mousemove', onDragMove);
+  globalThis.removeEventListener('mouseup', onDragEnd);
+  globalThis.removeEventListener('touchmove', onDragMove);
+  globalThis.removeEventListener('touchend', onDragEnd);
 
   if (statsInterval) {
     clearInterval(statsInterval);
@@ -784,7 +787,7 @@ onMounted(() => {
 .close-button {
   width: 100%;
   padding: 10px;
-  background: #333;
+  background: #444;
   border: none;
   border-radius: 6px;
   color: #fff;
