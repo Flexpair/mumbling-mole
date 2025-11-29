@@ -5,7 +5,7 @@
  * Uses the global live region (#a11y-announcer) defined in index.html.
  */
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref } from 'vue';
 
 /**
  * Announce a message to screen readers via ARIA live region
@@ -57,7 +57,7 @@ export function useFocusTrap() {
     if (focusable.length === 0) return;
     
     const firstElement = focusable[0];
-    const lastElement = focusable[focusable.length - 1];
+    const lastElement = focusable.at(-1);
     
     if (event.shiftKey && document.activeElement === firstElement) {
       event.preventDefault();
@@ -88,9 +88,7 @@ export function useFocusTrap() {
     }
     
     // Restore focus to previously focused element
-    if (previouslyFocusedElement && previouslyFocusedElement.focus) {
-      previouslyFocusedElement.focus();
-    }
+    previouslyFocusedElement?.focus();
   };
   
   return {

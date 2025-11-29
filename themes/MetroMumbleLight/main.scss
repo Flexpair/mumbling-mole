@@ -202,16 +202,6 @@ iframe {
   background-color: $toolbar-active-border-color;
 }
 
-/* Images inside toolbar buttons should have NO borders */
-.toolbar-horizontal .toolbar-button img,
-.toolbar-horizontal .toolbar-link img {
-  height: 28px;
-  width: 28px;
-  border: none;
-  border-radius: 0;
-  cursor: inherit;
-}
-
 /* Legacy img-based toolbar icons (direct children only, for backwards compatibility) */
 .toolbar-horizontal > img {
   height: 28px;
@@ -296,6 +286,7 @@ form {
   color: $dialog-button-color;
   cursor: pointer;
   transition: all 0.2s ease;
+  -webkit-user-select: none;
   user-select: none;
   
   &:hover:not(:disabled) {
@@ -369,6 +360,7 @@ form {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   padding: 4px 8px;
   border-radius: 4px;
