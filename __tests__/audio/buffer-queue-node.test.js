@@ -17,6 +17,42 @@ const {
   default: BufferQueueNode
 } = await import('../../app/audio/buffer-queue-node.js');
 
+/**
+ * Creates mock AudioContext and AudioWorkletNode for testing.
+ * @returns {{ mockAudioContext: object, mockWorkletNode: object }}
+ */
+function createAudioMocks() {
+  const mockWorkletNode = {
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    port: {
+      postMessage: jest.fn(),
+      onmessage: null
+    }
+  };
+
+  const mockAudioContext = {
+    audioWorklet: {
+      addModule: jest.fn().mockResolvedValue(undefined)
+    },
+    createGain: jest.fn(() => ({
+      connect: jest.fn(),
+      gain: { value: 1 }
+    }))
+  };
+
+  globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+
+  return { mockAudioContext, mockWorkletNode };
+}
+
+/**
+ * Cleans up global AudioWorkletNode mock.
+ */
+function cleanupAudioMocks() {
+  delete globalThis.AudioWorkletNode;
+}
+
 describe('Float32ArrayWrapper', () => {
   test('converts non-interleaved mono to channel data', () => {
     const data = new Float32Array([0.1, 0.2, 0.3, 0.4]);
@@ -155,30 +191,11 @@ describe('BufferQueueNode - Basic Functionality', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      },
-      createGain: jest.fn(() => ({
-        connect: jest.fn(),
-        gain: { value: 1 }
-      }))
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('requires audioContext parameter', () => {
@@ -255,26 +272,11 @@ describe('BufferQueueNode - Audio Connection', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('connect forwards to worklet node', async () => {
@@ -320,26 +322,11 @@ describe('BufferQueueNode - Error Handling', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('emits error on worklet initialization failure', async () => {
@@ -378,26 +365,11 @@ describe('BufferQueueNode - Stream Events', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('sends finish message on stream finish', async () => {
@@ -451,26 +423,11 @@ describe('BufferQueueNode - _write() Method', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('writes Float32Array in object mode', async () => {
@@ -620,26 +577,11 @@ describe('BufferQueueNode - setJitterBufferSize', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('sends setJitterBufferSize message when worklet is ready', async () => {
@@ -698,26 +640,11 @@ describe('BufferQueueNode - end() method', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('emits finish when called without chunk', async () => {
@@ -764,26 +691,11 @@ describe('BufferQueueNode - _handleCallback', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    mockWorkletNode = {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      port: {
-        postMessage: jest.fn(),
-        onmessage: null
-      }
-    };
-
-    mockAudioContext = {
-      audioWorklet: {
-        addModule: jest.fn().mockResolvedValue(undefined)
-      }
-    };
-
-    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
   });
 
   afterEach(() => {
-    delete globalThis.AudioWorkletNode;
+    cleanupAudioMocks();
   });
 
   test('calls callback without args on success', async () => {
