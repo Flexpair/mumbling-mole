@@ -6,6 +6,7 @@
         class="connection-info-dialog dialog-container"
         role="dialog"
         aria-labelledby="dialog-title"
+        @keydown="handleDialogKeydown"
       >
         <!-- Sidebar Navigation -->
         <div class="dialog-sidebar">
@@ -300,6 +301,41 @@ const focusTabList = () => {
   });
 };
 
+// Check if focus is in the tab list (sidebar navigation)
+const isFocusInTabList = () => {
+  const activeElement = document.activeElement;
+  // Check if it's one of our tab buttons in the sidebar
+  return activeElement?.closest('.sidebar-nav') !== null;
+};
+
+// Check if focus is in the content panel (main area, not sidebar)
+const isFocusInPanel = () => {
+  const activeElement = document.activeElement;
+  // Check if element is inside the main content area (not sidebar)
+  return activeElement?.closest('.dialog-main') !== null;
+};
+
+// Main dialog keyboard handler
+const handleDialogKeydown = (event) => {
+  if (event.key === 'Escape') {
+    // Check where the event originated (event.target, not activeElement)
+    const target = event.target;
+    const isInPanel = target?.closest('.dialog-main') !== null;
+    
+    if (isInPanel) {
+      // In panel: go back to tab list
+      event.preventDefault();
+      event.stopPropagation();
+      focusTabList();
+    } else {
+      // In tab list or elsewhere: close dialog
+      event.preventDefault();
+      visible.value = false;
+    }
+    return;
+  }
+};
+
 // Handle keyboard navigation in tab list (sidebar)
 const handleTabListKeydown = (event) => {
   switch (event.key) {
@@ -328,16 +364,7 @@ const handleTabListKeydown = (event) => {
 
 // Handle keyboard navigation in content panel
 // ArrowLeft returns to tab list only from non-interactive elements
-// Escape always returns to tab list (useful when on sliders/inputs that use arrow keys)
 const handlePanelKeydown = (event) => {
-  // Escape always returns to tab list
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    event.stopPropagation(); // Don't close dialog
-    focusTabList();
-    return;
-  }
-  
   if (event.key === 'ArrowLeft') {
     const activeElement = document.activeElement;
     const tagName = activeElement?.tagName?.toLowerCase();
@@ -625,8 +652,11 @@ let statsInterval = null;
 
 watch(visible, (val) => {
   if (val) {
-    // Reset to first tab when dialog opens
+    // Reset to first tab when dialog opens and focus it
     activeTab.value = 'latency';
+    nextTick(() => {
+      tabRefs.value.latency?.value?.focus();
+    });
     updateStats();
     statsInterval = setInterval(updateStats, 1000);
   } else {
@@ -646,14 +676,15 @@ const handleHide = () => {
   // Settings are auto-saved via settingsStore watch() - no manual save needed
 };
 
-// Watch for modal opening to reset tab
+// Watch for modal opening to reset tab and focus
 watch(() => uiStore.currentOpenModal, (newVal) => {
   if (newVal === 'connectionInfo' || newVal === 'settings') {
     updateStats();
-    // If opening as 'settings', default to latency (or whatever default)
-    // If opening as 'connectionInfo', default to latency
-    // Logic from old appState.openSettings:
     activeTab.value = 'latency';
+    // Focus the first tab after Vue updates the DOM
+    nextTick(() => {
+      tabRefs.value.latency?.value?.focus();
+    });
   }
 });
 
