@@ -18,12 +18,6 @@ if [ ! -f "$PROTO_FILE" ]; then
     exit 1
 fi
 
-# protobufjs-cli installieren falls nötig
-if [ ! -f "$PBJS" ]; then
-    echo "   Installing protobufjs-cli..."
-    npm install --save-dev protobufjs-cli --silent
-fi
-
 # Generiere ES6 Modul
 TEMP_FILE=$(mktemp)
 "$PBJS" --target static-module --wrap es6 --es6 --no-comments "$PROTO_FILE" > "$TEMP_FILE"
