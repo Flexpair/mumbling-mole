@@ -48,7 +48,6 @@ export default {
     '!app/audio/playback-buffer-processor.js', // AudioWorklet processor
     '!app/index.js', // Entry point - hard to test in isolation
     '!app/**/index.js', // Barrel exports - just re-export, no logic to test
-    '!app/mumble-streams/mumble-proto-minimal.js', // Auto-generated protobuf definitions
   ],
 
   coverageDirectory: 'coverage',
