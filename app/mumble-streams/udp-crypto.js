@@ -193,7 +193,7 @@ class UdpCrypt {
       .setAutoPadding(false);
 
     const plainText = Buffer.alloc(cipherText.length - 4);
-    const tag = ocbDecrypt(cipherText.slice(4), plainText, this._decryptIV,
+    const tag = ocbDecrypt(cipherText.subarray(4), plainText, this._decryptIV,
         encrypt.update.bind(encrypt), decrypt.update.bind(decrypt));
 
     if (tag.compare(cipherText, 1, 4, 0, 3) !== 0) {
