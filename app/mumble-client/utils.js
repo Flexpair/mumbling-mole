@@ -1,15 +1,8 @@
+// Browser-only implementation (Node.js support removed)
 export function getOSName () {
-  if (typeof window !== 'undefined') {
-    return 'Browser'
-  } else {
-    return 'Node.js'
-  }
+  return 'Browser'
 }
 
 export function getOSVersion () {
-  if (typeof window !== 'undefined') {
-    return navigator.userAgent
-  } else {
-    return process.version
-  }
+  return navigator.userAgent
 }

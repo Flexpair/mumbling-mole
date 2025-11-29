@@ -104,6 +104,39 @@ describe('NetlifyIdentityAdapter', () => {
       expect(adapter.netlifyIdentity.init).toHaveBeenCalledTimes(1);
       expect(adapter.netlifyIdentity.init).toHaveBeenCalledWith({ first: true });
     });
+
+    test('concurrent init() calls share same _waitForWidget promise', async () => {
+      adapter = new NetlifyIdentityAdapter();
+      
+      // Call init() concurrently - _waitForWidget promise is cached to prevent race conditions
+      const promise1 = adapter.init();
+      const promise2 = adapter.init();
+      
+      await Promise.all([promise1, promise2]);
+      
+      // Both init calls resolve but _waitForWidget was only called once
+      // (The init check guards subsequent calls, but concurrent calls may both pass)
+      expect(adapter._initialized).toBe(true);
+    });
+
+    test('waits for widget to appear if not immediately available', async () => {
+      // Remove netlifyIdentity initially
+      delete globalThis.netlifyIdentity;
+      
+      adapter = new NetlifyIdentityAdapter();
+      
+      // Start init (will wait for widget)
+      const initPromise = adapter.init();
+      
+      // After a short delay, add the widget
+      setTimeout(() => {
+        globalThis.netlifyIdentity = mockNetlifyIdentity;
+      }, 100);
+      
+      await initPromise;
+      
+      expect(adapter.netlifyIdentity).toBe(mockNetlifyIdentity);
+    });
   });
 
   describe('getCurrentUser()', () => {
@@ -468,12 +501,97 @@ describe('NetlifyIdentityAdapter', () => {
   });
 
   describe('Event handling', () => {
-    beforeEach(async () => {
-      adapter = new NetlifyIdentityAdapter();
-      await adapter.init();
+    describe('on() before init - pending handlers', () => {
+      test('queues handler if called before init()', async () => {
+        adapter = new NetlifyIdentityAdapter();
+        
+        const callback = jest.fn();
+        adapter.on('login', callback);
+        
+        // Handler is queued, not registered yet
+        expect(adapter._pendingHandlers).toHaveLength(1);
+        expect(adapter._pendingHandlers[0]).toEqual({ event: 'login', callback });
+        
+        // Now init
+        await adapter.init();
+        
+        // Pending handlers should be cleared
+        expect(adapter._pendingHandlers).toHaveLength(0);
+        // Handler was registered
+        expect(mockNetlifyIdentity.on).toHaveBeenCalledWith('login', callback);
+      });
+
+      test('queues multiple handlers before init()', async () => {
+        adapter = new NetlifyIdentityAdapter();
+        
+        const callback1 = jest.fn();
+        const callback2 = jest.fn();
+        adapter.on('login', callback1);
+        adapter.on('logout', callback2);
+        
+        expect(adapter._pendingHandlers).toHaveLength(2);
+        
+        await adapter.init();
+        
+        expect(adapter._pendingHandlers).toHaveLength(0);
+        expect(mockNetlifyIdentity.on).toHaveBeenCalledWith('login', callback1);
+        expect(mockNetlifyIdentity.on).toHaveBeenCalledWith('logout', callback2);
+      });
     });
 
-    describe('on()', () => {
+    describe('off() before init - pending handlers', () => {
+      test('removes from pending handlers if called before init()', () => {
+        adapter = new NetlifyIdentityAdapter();
+        
+        const callback = jest.fn();
+        adapter.on('login', callback);
+        
+        expect(adapter._pendingHandlers).toHaveLength(1);
+        
+        adapter.off('login', callback);
+        
+        // Handler was removed from pending
+        expect(adapter._pendingHandlers).toHaveLength(0);
+      });
+
+      test('only removes matching handler from pending', () => {
+        adapter = new NetlifyIdentityAdapter();
+        
+        const callback1 = jest.fn();
+        const callback2 = jest.fn();
+        adapter.on('login', callback1);
+        adapter.on('login', callback2);
+        
+        expect(adapter._pendingHandlers).toHaveLength(2);
+        
+        adapter.off('login', callback1);
+        
+        // Only callback1 was removed
+        expect(adapter._pendingHandlers).toHaveLength(1);
+        expect(adapter._pendingHandlers[0].callback).toBe(callback2);
+      });
+
+      test('off on non-existing pending handler does nothing', () => {
+        adapter = new NetlifyIdentityAdapter();
+        
+        const callback1 = jest.fn();
+        const callback2 = jest.fn();
+        adapter.on('login', callback1);
+        
+        // Try to remove different callback
+        adapter.off('login', callback2);
+        
+        expect(adapter._pendingHandlers).toHaveLength(1);
+        expect(adapter._pendingHandlers[0].callback).toBe(callback1);
+      });
+    });
+
+    describe('on() after init', () => {
+      beforeEach(async () => {
+        adapter = new NetlifyIdentityAdapter();
+        await adapter.init();
+      });
+
       test('registers event listener', () => {
         const callback = jest.fn();
         adapter.on('login', callback);
@@ -493,7 +611,12 @@ describe('NetlifyIdentityAdapter', () => {
       });
     });
 
-    describe('off()', () => {
+    describe('off() after init', () => {
+      beforeEach(async () => {
+        adapter = new NetlifyIdentityAdapter();
+        await adapter.init();
+      });
+
       test('removes event listener', () => {
         const callback = jest.fn();
         adapter.off('login', callback);

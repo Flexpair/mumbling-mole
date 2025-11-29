@@ -204,6 +204,12 @@ describe('AuthFactory', () => {
       
       delete globalThis.mumbleWebConfig;
     });
+
+    test('uses netlify as default when provider is not specified in config', () => {
+      // Config exists but has no provider property
+      const auth = AuthFactory.create({});
+      expect(auth.constructor.name).toBe('NetlifyIdentityAdapter');
+    });
   });
 
   describe('Supported Providers', () => {

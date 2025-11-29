@@ -37,8 +37,32 @@ jobs:
       - name: Dependency check gate
         run: npm run check:deps
 
-      - name: Run unit tests
-        run: npm run test:unit
+      - name: Run unit tests with coverage
+        run: npm run test:unit:coverage
+
+      - name: Verify coverage thresholds
+        run: |
+          # Jest enforces thresholds defined in jest.config.js
+          # This step logs the current coverage for visibility
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "📊 Coverage Summary:"
+            node -e "
+              const c = require('./coverage/coverage-summary.json').total;
+              console.log('  Statements: ' + c.statements.pct + '%');
+              console.log('  Branches:   ' + c.branches.pct + '%');
+              console.log('  Functions:  ' + c.functions.pct + '%');
+              console.log('  Lines:      ' + c.lines.pct + '%');
+            "
+          fi
+          echo "✅ Coverage thresholds passed (enforced by Jest)"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

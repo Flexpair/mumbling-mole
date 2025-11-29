@@ -160,6 +160,48 @@ describe('mumble-streams Integration Tests', () => {
       expect(decoder.pipe).toBeDefined();
       expect(decoder.on).toBeDefined();
     });
+
+    test('decode should throw for unknown message id', () => {
+      // Test the internal decode function via Decoder transform
+      const decoder = new data.Decoder();
+      
+      // Create a buffer with unknown message type (9999)
+      const unknownTypeBuffer = Buffer.alloc(10);
+      unknownTypeBuffer.writeUInt16BE(9999, 0); // Unknown type ID
+      unknownTypeBuffer.writeUInt32BE(4, 2);     // Message length = 4
+      unknownTypeBuffer.write('test', 6);
+      
+      return new Promise((resolve, reject) => {
+        decoder.on('error', (err) => {
+          expect(err.message).toMatch(/Unknown message id/);
+          resolve();
+        });
+        decoder.on('data', () => {
+          reject(new Error('Should not emit data for unknown message type'));
+        });
+        decoder.write(unknownTypeBuffer);
+      });
+    });
+
+    test('Decoder should handle UDPTunnel message specially', () => {
+      const decoder = new data.Decoder();
+      
+      // UDPTunnel type ID is 1 (from Mumble protocol)
+      const udpTunnelBuffer = Buffer.alloc(14);
+      udpTunnelBuffer.writeUInt16BE(1, 0);       // UDPTunnel type ID
+      udpTunnelBuffer.writeUInt32BE(8, 2);       // Message length = 8
+      udpTunnelBuffer.write('voicedat', 6);      // Voice data payload
+      
+      return new Promise((resolve) => {
+        decoder.on('data', (msg) => {
+          expect(msg.name).toBe('UDPTunnel');
+          // UDPTunnel payload should be raw Buffer, not decoded protobuf
+          expect(Buffer.isBuffer(msg.payload)).toBe(true);
+          resolve();
+        });
+        decoder.write(udpTunnelBuffer);
+      });
+    });
   });
 
   describe('Voice Module', () => {

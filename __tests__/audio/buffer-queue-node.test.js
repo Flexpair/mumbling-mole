@@ -614,3 +614,222 @@ describe('BufferQueueNode - Exported Classes', () => {
     expect(BufferQueueNode.Int16Array).toBe(Int16ArrayWrapper);
   });
 });
+
+describe('BufferQueueNode - setJitterBufferSize', () => {
+  let mockAudioContext;
+  let mockWorkletNode;
+
+  beforeEach(() => {
+    mockWorkletNode = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      port: {
+        postMessage: jest.fn(),
+        onmessage: null
+      }
+    };
+
+    mockAudioContext = {
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+  });
+
+  afterEach(() => {
+    delete globalThis.AudioWorkletNode;
+  });
+
+  test('sends setJitterBufferSize message when worklet is ready', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    node.setJitterBufferSize(25);
+    
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalledWith({
+      type: 'setJitterBufferSize',
+      size: 25
+    });
+  });
+
+  test('queues setJitterBufferSize when initializing', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    
+    // Start initialization but don't await
+    const initPromise = node.initialize();
+    
+    // Mark as initializing
+    node._isInitializing = true;
+    node._workletNode = null; // Clear worklet to trigger queue branch
+    
+    // Set size while initializing - should queue
+    node.setJitterBufferSize(30);
+    
+    // Complete initialization
+    await initPromise;
+    
+    // Now trigger the queued operation
+    node.emit('ready');
+    
+    // Wait for queued operation
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    // Should have been called with the queued size
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'setJitterBufferSize' })
+    );
+  });
+
+  test('ignores setJitterBufferSize when not initializing and not ready', () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    
+    // Do not initialize - node is neither ready nor initializing
+    node.setJitterBufferSize(25);
+    
+    // Should not throw or cause issues - just ignored
+    expect(mockWorkletNode.port.postMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('BufferQueueNode - end() method', () => {
+  let mockAudioContext;
+  let mockWorkletNode;
+
+  beforeEach(() => {
+    mockWorkletNode = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      port: {
+        postMessage: jest.fn(),
+        onmessage: null
+      }
+    };
+
+    mockAudioContext = {
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+  });
+
+  afterEach(() => {
+    delete globalThis.AudioWorkletNode;
+  });
+
+  test('emits finish when called without chunk', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    const finishPromise = new Promise(resolve => node.on('finish', resolve));
+    node.end();
+    
+    await finishPromise;
+  });
+
+  test('calls callback when called without chunk', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    const callback = jest.fn();
+    node.end(undefined, undefined, callback);
+    
+    expect(callback).toHaveBeenCalled();
+  });
+
+  test('writes chunk then emits finish when called with chunk', async () => {
+    const node = new BufferQueueNode({ 
+      audioContext: mockAudioContext,
+      objectMode: true
+    });
+    await node.initialize();
+    
+    const finishPromise = new Promise(resolve => node.on('finish', resolve));
+    const callback = jest.fn();
+    const data = new Float32Array([0.1, 0.2]);
+    
+    node.end(data, null, callback);
+    
+    await finishPromise;
+    expect(callback).toHaveBeenCalled();
+    expect(mockWorkletNode.port.postMessage).toHaveBeenCalled();
+  });
+});
+
+describe('BufferQueueNode - _handleCallback', () => {
+  let mockAudioContext;
+  let mockWorkletNode;
+
+  beforeEach(() => {
+    mockWorkletNode = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      port: {
+        postMessage: jest.fn(),
+        onmessage: null
+      }
+    };
+
+    mockAudioContext = {
+      audioWorklet: {
+        addModule: jest.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    globalThis.AudioWorkletNode = jest.fn(() => mockWorkletNode);
+  });
+
+  afterEach(() => {
+    delete globalThis.AudioWorkletNode;
+  });
+
+  test('calls callback without args on success', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    const callback = jest.fn();
+    node._handleCallback(callback);
+    
+    expect(callback).toHaveBeenCalledWith();
+  });
+
+  test('calls callback with error when present', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    const callback = jest.fn();
+    const error = new Error('test error');
+    node._handleCallback(callback, error);
+    
+    expect(callback).toHaveBeenCalledWith(error);
+  });
+
+  test('emits error when no callback and error present', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    const errorHandler = jest.fn();
+    node.on('error', errorHandler);
+    
+    const error = new Error('test error');
+    node._handleCallback(undefined, error);
+    
+    expect(errorHandler).toHaveBeenCalledWith(error);
+  });
+
+  test('does nothing when no callback and no error', async () => {
+    const node = new BufferQueueNode({ audioContext: mockAudioContext });
+    await node.initialize();
+    
+    const errorHandler = jest.fn();
+    node.on('error', errorHandler);
+    
+    // Should not throw or emit
+    node._handleCallback(undefined, undefined);
+    
+    expect(errorHandler).not.toHaveBeenCalled();
+  });
+});

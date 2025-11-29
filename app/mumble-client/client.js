@@ -7,6 +7,7 @@ import { getOSName, getOSVersion } from './utils.js'
 import User from './user.js'
 import Channel from './channel.js'
 import Stats from '../utils/stats-lite.js'
+import { debugLog } from '../utils/debug-utils.js'
 
 const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
 
@@ -245,11 +246,11 @@ class MumbleClient extends EventEmitter {
     })
   }
 
+  /**
+   * Creates a voice stream for audio transmission.
+   * Note: codecs are always provided in browser environment (set in worker.js)
+   */
   createVoiceStream (target = 0, numberOfChannels = 1) {
-    if (!this._codecs) {
-      return DropStream.obj()
-    }
-
     const transformVoiceChunk = (chunk, encoding, callback) => {
       if (chunk instanceof Buffer) {
         chunk = new Float32Array(
@@ -321,19 +322,13 @@ class MumbleClient extends EventEmitter {
    * Forwards the packet to the source user.
    */
   _onVoice (chunk) {
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-      console.log('[MUMBLE-CLIENT-DEBUG] _onVoice called - source:', chunk.source, 'target:', chunk.target, 'codec:', chunk.codec, 'frames:', chunk.frames?.length);
-    }
+    debugLog('[MUMBLE-CLIENT]', '_onVoice called - source:', chunk.source, 'target:', chunk.target, 'codec:', chunk.codec, 'frames:', chunk.frames?.length)
     const user = this._userById[chunk.source]
     if (!user) {
-      if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-        console.warn('[MUMBLE-CLIENT-DEBUG] WARNING: User not found for source ID:', chunk.source, 'Available users:', Object.keys(this._userById));
-      }
+      debugLog('[MUMBLE-CLIENT]', 'WARNING: User not found for source ID:', chunk.source, 'Available users:', Object.keys(this._userById))
       return;
     }
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-      console.log('[MUMBLE-CLIENT-DEBUG] Found user:', user.name, 'Forwarding voice data');
-    }
+    debugLog('[MUMBLE-CLIENT]', 'Found user:', user.name, 'Forwarding voice data')
     user._onVoice(
       chunk.seqNum,
       chunk.codec,
@@ -361,9 +356,7 @@ class MumbleClient extends EventEmitter {
 
   _onUDPTunnel (payload) {
     // Forward tunneled udp packets to the voice pipeline
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-      console.log('[MUMBLE-CLIENT-DEBUG] UDPTunnel packet received, length:', payload.length);
-    }
+    debugLog('[MUMBLE-CLIENT]', 'UDPTunnel packet received, length:', payload.length)
     this._voiceDecoder.write(payload)
   }
 

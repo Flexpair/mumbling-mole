@@ -1,6 +1,7 @@
 import { Transform } from "node:stream";
 import createPool from "reuse-pool";
 import toArrayBuffer from "../utils/to-arraybuffer-lite.js";
+import { debugLog } from "../utils/debug-utils.js";
 
 // Native Worker factory function (esbuild compatible)
 function newWorker () {
@@ -35,7 +36,7 @@ class DecoderStream extends Transform {
 
     // EOF-GUARD: Prevent push after EOF by checking stream states
     if (this._isStreamEnded()) {
-      this._logDebug('Ignoring message, stream ended');
+      debugLog('[DECODER]', 'Ignoring message, stream ended');
       return;
     }
     
@@ -66,10 +67,10 @@ class DecoderStream extends Transform {
 
   _handleDecodedMessage(data) {
     const pcm = new Float32Array(data.buffer);
-    this._logDebug('Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
+    debugLog('[DECODER]', 'Decoded audio received, PCM length:', pcm.length, 'channels:', data.numberOfChannels, 'target:', data.target);
     
     if (!this._canPushToStream()) {
-      this._logDebug('Skipping push, stream ended (writable:', !this.writableEnded, 'readable:', !this.readableEnded, ')');
+      debugLog('[DECODER]', 'Skipping push, stream ended (writable:', !this.writableEnded, 'readable:', !this.readableEnded, ')');
       return;
     }
 
@@ -88,31 +89,19 @@ class DecoderStream extends Transform {
         numberOfChannels: data.numberOfChannels,
         position: data.position,
       });
-      this._logDebug('Pushed decoded data to stream');
+      debugLog('[DECODER]', 'Pushed decoded data to stream');
     } catch (err) {
       // Silently ignore push errors after stream has ended
       // This can happen in race conditions during stream cleanup
-      this._logDebug('Failed to push (stream ended):', err.message);
-    }
-  }
-
-  _logDebug(...args) {
-    const debugEnabled = globalThis.window?.MUMBLE_DEBUG_AUDIO;
-    if (debugEnabled) {
-      console.log('[DEBUG-DECODER]', ...args);
+      debugLog('[DECODER]', 'Failed to push (stream ended):', err.message);
     }
   }
 
   _transform(chunk, encoding, callback) {
-    const debugEnabled = globalThis.window?.MUMBLE_DEBUG_AUDIO;
-    if (debugEnabled) {
-      console.log('[DEBUG-DECODER] Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length);
-    }
+    debugLog('[DECODER]', 'Transform called, codec:', chunk.codec, 'has frame:', !!chunk.frame, 'frame length:', chunk.frame?.length)
     if (chunk.frame) {
       const buffer = toArrayBuffer(chunk.frame);
-      if (debugEnabled) {
-        console.log('[DEBUG-DECODER] Sending decode request to worker, action:', 'decode' + chunk.codec, 'buffer size:', buffer.byteLength);
-      }
+      debugLog('[DECODER]', 'Sending decode request to worker, action:', 'decode' + chunk.codec, 'buffer size:', buffer.byteLength)
       this._worker.postMessage(
         {
           action: "decode" + chunk.codec,
@@ -123,9 +112,7 @@ class DecoderStream extends Transform {
         [buffer]
       );
     } else {
-      if (debugEnabled) {
-        console.log('[DEBUG-DECODER] Sending null frame (packet loss) to worker');
-      }
+      debugLog('[DECODER]', 'Sending null frame (packet loss) to worker')
       this._worker.postMessage({
         action: "decode" + chunk.codec,
         buffer: null,
@@ -154,7 +141,7 @@ class DecoderStream extends Transform {
       this._worker.postMessage({ id: this._messageId++, action: "reset" });
     } catch (err) {
       // Worker might be terminated already, recycle immediately
-      this._logDebug('Worker postMessage failed (likely terminated):', err.message);
+      debugLog('[DECODER]', 'Worker postMessage failed (likely terminated):', err.message);
       this._finalCallback();
     }
   }

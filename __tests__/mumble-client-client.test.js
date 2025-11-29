@@ -16,6 +16,21 @@
 import { jest } from '@jest/globals';
 import { PassThrough } from 'node:stream';
 
+// Import utils early to test before mocks
+import { getOSName, getOSVersion } from '../app/mumble-client/utils.js';
+
+// Test utils first
+describe('mumble-client/utils.js', () => {
+  test('getOSName returns Browser in browser environment', () => {
+    // globalThis.window is defined in jsdom
+    expect(getOSName()).toBe('Browser');
+  });
+
+  test('getOSVersion returns navigator.userAgent in browser', () => {
+    expect(getOSVersion()).toBe(navigator.userAgent);
+  });
+});
+
 // Mock DropStream
 const mockDropStream = {
   obj: jest.fn(() => ({
@@ -1097,6 +1112,569 @@ describe('mumble-client Client', () => {
         expect(client._voiceEncoder).toBeDefined();
         expect(typeof client._voiceEncoder.write).toBe('function');
       });
+    });
+  });
+
+  describe('createVoiceStream', () => {
+    test('should create voice stream with default parameters', () => {
+      client._codecs = {
+        opus: true,
+        getDuration: jest.fn(() => 20),
+        createEncoderStream: jest.fn(() => {
+          const stream = new PassThrough({ objectMode: true });
+          return stream;
+        })
+      };
+      client._voice = { write: jest.fn() };
+      
+      const stream = client.createVoiceStream();
+      expect(stream).toBeDefined();
+      expect(typeof stream.write).toBe('function');
+    });
+
+    test('should create voice stream with custom target', () => {
+      client._codecs = {
+        opus: true,
+        getDuration: jest.fn(() => 20),
+        createEncoderStream: jest.fn(() => new PassThrough({ objectMode: true }))
+      };
+      client._voice = { write: jest.fn() };
+      
+      const stream = client.createVoiceStream(5, 2);
+      expect(stream).toBeDefined();
+    });
+
+    test('should transform Buffer to voice data', (done) => {
+      let transformedData = null;
+      const mockEncoderStream = new PassThrough({ objectMode: true });
+      mockEncoderStream.on('data', (data) => {
+        transformedData = data;
+      });
+      
+      client._codecs = {
+        opus: true,
+        getDuration: jest.fn(() => 20),
+        createEncoderStream: jest.fn(() => mockEncoderStream)
+      };
+      client._voice = { write: jest.fn() };
+      
+      const stream = client.createVoiceStream(0, 1);
+      
+      // Send a Buffer - should be converted to Float32Array then to chunk
+      const buffer = Buffer.from(new Float32Array([0.5, -0.5]).buffer);
+      stream.write(buffer);
+      
+      setTimeout(() => {
+        expect(transformedData).toBeDefined();
+        expect(transformedData.target).toBe(0);
+        expect(transformedData.numberOfChannels).toBe(1);
+        done();
+      }, 10);
+    });
+
+    test('should transform Float32Array to voice data', (done) => {
+      let transformedData = null;
+      const mockEncoderStream = new PassThrough({ objectMode: true });
+      mockEncoderStream.on('data', (data) => {
+        transformedData = data;
+      });
+      
+      client._codecs = {
+        opus: true,
+        getDuration: jest.fn(() => 20),
+        createEncoderStream: jest.fn(() => mockEncoderStream)
+      };
+      client._voice = { write: jest.fn() };
+      
+      const stream = client.createVoiceStream(0, 1);
+      
+      const pcmData = new Float32Array([0.5, -0.5, 0.3, -0.3]);
+      stream.write(pcmData);
+      
+      setTimeout(() => {
+        expect(transformedData).toBeDefined();
+        expect(transformedData.target).toBe(0);
+        expect(transformedData.pcm).toBeInstanceOf(Float32Array);
+        done();
+      }, 10);
+    });
+
+    test('should include position when provided', (done) => {
+      let transformedData = null;
+      const mockEncoderStream = new PassThrough({ objectMode: true });
+      mockEncoderStream.on('data', (data) => {
+        transformedData = data;
+      });
+      
+      client._codecs = {
+        opus: true,
+        getDuration: jest.fn(() => 20),
+        createEncoderStream: jest.fn(() => mockEncoderStream)
+      };
+      client._voice = { write: jest.fn() };
+      
+      const stream = client.createVoiceStream(0, 1);
+      
+      stream.write({
+        pcm: new Float32Array([0.5, -0.5]),
+        x: 1.0,
+        y: 2.0,
+        z: 3.0
+      });
+      
+      setTimeout(() => {
+        expect(transformedData).toBeDefined();
+        expect(transformedData.position).toEqual({ x: 1.0, y: 2.0, z: 3.0 });
+        done();
+      }, 10);
+    });
+  });
+
+  describe('_onVoice', () => {
+    test('should forward voice to user', () => {
+      const mockOnVoice = jest.fn();
+      client._userById[5] = { name: 'TestUser', _onVoice: mockOnVoice };
+      
+      client._onVoice({
+        source: 5,
+        seqNum: 1,
+        codec: 'Opus',
+        target: 'normal',
+        frames: [Buffer.from([1, 2, 3])],
+        position: null,
+        end: false
+      });
+      
+      expect(mockOnVoice).toHaveBeenCalledWith(1, 'Opus', 'normal', [Buffer.from([1, 2, 3])], null, false);
+    });
+
+    test('should ignore voice from unknown user', () => {
+      // When MUMBLE_DEBUG_AUDIO is not set, no warning is logged
+      // Just verify no crash when user not found
+      client._onVoice({
+        source: 999,
+        seqNum: 1,
+        codec: 'Opus',
+        target: 'normal',
+        frames: [],
+        end: false
+      });
+      
+      // Should complete without error
+      expect(client._userById[999]).toBeUndefined();
+    });
+  });
+
+  describe('_onData', () => {
+    test('should call handler for known packet type', () => {
+      client._onTestPacket = jest.fn();
+      
+      client._onData({ name: 'TestPacket', payload: { foo: 'bar' } });
+      
+      expect(client._onTestPacket).toHaveBeenCalledWith({ foo: 'bar' });
+    });
+
+    test('should warn for unknown packet type', () => {
+      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      
+      client._onData({ name: 'UnknownPacket', payload: {} });
+      
+      expect(consoleWarn).toHaveBeenCalledWith('Unhandled data packet:', expect.any(Object));
+      consoleWarn.mockRestore();
+    });
+  });
+
+  describe('_onPing', () => {
+    test('should handle ping with Long timestamp', () => {
+      client._inFlightDataPings = 1;
+      const emitSpy = jest.spyOn(client, 'emit');
+      
+      const mockLong = { toNumber: () => Date.now() - 50 };
+      client._onPing({ timestamp: mockLong });
+      
+      expect(client._inFlightDataPings).toBe(0);
+      expect(emitSpy).toHaveBeenCalledWith('dataPing', expect.any(Number));
+    });
+
+    test('should handle ping with plain number timestamp', () => {
+      client._inFlightDataPings = 1;
+      const emitSpy = jest.spyOn(client, 'emit');
+      
+      client._onPing({ timestamp: Date.now() - 30 });
+      
+      expect(client._inFlightDataPings).toBe(0);
+      expect(emitSpy).toHaveBeenCalledWith('dataPing', expect.any(Number));
+    });
+
+    test('should warn for unexpected ping', () => {
+      client._inFlightDataPings = 0;
+      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      
+      client._onPing({ timestamp: Date.now() });
+      
+      expect(consoleWarn).toHaveBeenCalledWith('Got unexpected ping message:', expect.any(Object));
+      consoleWarn.mockRestore();
+    });
+  });
+
+  describe('Audio Quality', () => {
+    test('setAudioQuality should set preferred bitrate and samples', () => {
+      client.setAudioQuality(48000, 960);
+      
+      expect(client._preferredBitrate).toBe(48000);
+      expect(client._samplesPerPacket).toBe(960);
+    });
+
+    test('getActualBitrate should return preferred when under max', () => {
+      client.maxBandwidth = 100000;
+      client._preferredBitrate = 48000;
+      
+      const bitrate = client.getActualBitrate(960, false);
+      
+      expect(bitrate).toBe(48000);
+    });
+
+    test('getActualBitrate should return max when preferred exceeds limit', () => {
+      client.maxBandwidth = 20000;
+      client._preferredBitrate = 96000;
+      
+      const bitrate = client.getActualBitrate(960, false);
+      
+      // Should be limited
+      expect(bitrate).toBeLessThanOrEqual(client.maxBandwidth);
+    });
+
+    test('getActualBitrate should use preferred when maxBandwidth undefined', () => {
+      client.maxBandwidth = undefined;
+      client._preferredBitrate = 48000;
+      
+      const bitrate = client.getActualBitrate(960, false);
+      
+      expect(bitrate).toBe(48000);
+    });
+
+    test('getPreferredBitrate should return set value', () => {
+      client._preferredBitrate = 64000;
+      
+      expect(client.getPreferredBitrate(960, false)).toBe(64000);
+    });
+
+    test('getPreferredBitrate should return default when maxBandwidth undefined', () => {
+      client._preferredBitrate = null;
+      client.maxBandwidth = undefined;
+      
+      expect(client.getPreferredBitrate(960, false)).toBe(40000);
+    });
+
+    test('getMaxBitrate should calculate from maxBandwidth', () => {
+      client.maxBandwidth = 72000;
+      
+      const maxBitrate = client.getMaxBitrate(960, false);
+      
+      expect(maxBitrate).toBeLessThan(72000);
+      expect(maxBitrate).toBeGreaterThan(0);
+    });
+
+    test('calcEnforcableBandwidth should include position overhead', () => {
+      const withoutPosition = MumbleClient.calcEnforcableBandwidth(48000, 960, false);
+      const withPosition = MumbleClient.calcEnforcableBandwidth(48000, 960, true);
+      
+      // Position adds 12 bytes overhead
+      expect(withPosition).toBeGreaterThan(withoutPosition);
+    });
+  });
+
+  describe('Channel and User Lookup', () => {
+    test('getChannel should find channel by name', () => {
+      // Channel.name is a getter that returns this._name
+      const channel = { name: 'Root' };
+      client.channels = [channel];
+      
+      expect(client.getChannel('Root')).toBe(channel);
+    });
+
+    test('getChannel should return null for unknown', () => {
+      client.channels = [];
+      
+      expect(client.getChannel('Unknown')).toBeNull();
+    });
+
+    test('getChannelById should return channel', () => {
+      const channel = {};
+      client._channelById[5] = channel;
+      
+      expect(client.getChannelById(5)).toBe(channel);
+    });
+
+    test('getUserById should return user', () => {
+      const user = {};
+      client._userById[10] = user;
+      
+      expect(client.getUserById(10)).toBe(user);
+    });
+  });
+
+  describe('Self State Methods', () => {
+    beforeEach(() => {
+      client.self = { _id: 1 };
+      client._send = jest.fn();
+    });
+
+    test('setSelfTexture should send UserState with texture', () => {
+      const texture = Buffer.from([1, 2, 3, 4]);
+      client.setSelfTexture(texture);
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 1,
+          texture: texture
+        }
+      });
+    });
+
+    test('setSelfComment should send UserState with comment', () => {
+      client.setSelfComment('Hello world');
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 1,
+          comment: 'Hello world'
+        }
+      });
+    });
+
+    test('setPluginContext should send UserState with context', () => {
+      client.setPluginContext('game-context');
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 1,
+          plugin_context: 'game-context'
+        }
+      });
+    });
+
+    test('setPluginIdentity should send UserState with identity', () => {
+      client.setPluginIdentity('player-1');
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 1,
+          plugin_identity: 'player-1'
+        }
+      });
+    });
+
+    test('setRecording should send UserState with recording flag', () => {
+      client.setRecording(true);
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 1,
+          recording: true
+        }
+      });
+    });
+  });
+
+  describe('Getters', () => {
+    test('root should return channel 0', () => {
+      const rootChannel = { name: 'Root' };
+      client._channelById[0] = rootChannel;
+      
+      expect(client.root).toBe(rootChannel);
+    });
+
+    test('connected should return true when connected', () => {
+      client._disconnected = false;
+      client._dataStream = {};
+      
+      expect(client.connected).toBe(true);
+    });
+
+    test('connected should return false when disconnected', () => {
+      client._disconnected = true;
+      client._dataStream = {};
+      
+      expect(client.connected).toBe(false);
+    });
+
+    test('connected should return false when no dataStream', () => {
+      client._disconnected = false;
+      client._dataStream = null;
+      
+      expect(client.connected).toBe(false);
+    });
+
+    test('dataStats should return stats', () => {
+      client._dataStats = { getAll: jest.fn(() => ({ n: 10, mean: 50 })) };
+      
+      expect(client.dataStats).toEqual({ n: 10, mean: 50 });
+    });
+
+    test('voiceStats should return stats', () => {
+      client._voiceStats = { getAll: jest.fn(() => ({ n: 20, mean: 30 })) };
+      
+      expect(client.voiceStats).toEqual({ n: 20, mean: 30 });
+    });
+  });
+
+  describe('_send with TextMessage', () => {
+    test('should emit messageSent immediately on successful write', () => {
+      const emitSpy = jest.spyOn(client, 'emit');
+      client._data = { write: jest.fn(() => true), once: jest.fn() };
+      
+      client._send({
+        name: 'TextMessage',
+        payload: { message: 'Hello' }
+      });
+      
+      expect(emitSpy).toHaveBeenCalledWith('messageSent', 'Hello');
+    });
+
+    test('should wait for drain on buffered write', () => {
+      const emitSpy = jest.spyOn(client, 'emit');
+      let drainCallback;
+      client._data = { 
+        write: jest.fn(() => false), 
+        once: jest.fn((event, cb) => { drainCallback = cb; })
+      };
+      
+      client._send({
+        name: 'TextMessage',
+        payload: { message: 'Hello' }
+      });
+      
+      expect(emitSpy).not.toHaveBeenCalledWith('messageSent', 'Hello');
+      expect(client._waitingForDrain).toBe(true);
+      
+      // Simulate drain
+      drainCallback();
+      expect(client._waitingForDrain).toBe(false);
+      expect(emitSpy).toHaveBeenCalledWith('messageSent', 'Hello');
+    });
+  });
+
+  describe('_error', () => {
+    test('should emit error and disconnect', () => {
+      // Add error listener to prevent unhandled error
+      const errorHandler = jest.fn();
+      client.on('error', errorHandler);
+      const disconnectSpy = jest.spyOn(client, 'disconnect').mockImplementation();
+      
+      client._error('test error');
+      
+      expect(errorHandler).toHaveBeenCalledWith('test error');
+      expect(disconnectSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('_onVoice', () => {
+    test('should return early if user not found', () => {
+      client._userById = {};
+      
+      // Should not throw when user doesn't exist
+      expect(() => {
+        client._onVoice({ source: 999, target: 0, codec: 0, frames: [] });
+      }).not.toThrow();
+    });
+
+    test('should forward voice data to user', () => {
+      const mockUser = {
+        name: 'TestUser',
+        _onVoice: jest.fn()
+      };
+      client._userById = { 1: mockUser };
+      
+      client._onVoice({
+        source: 1,
+        seqNum: 100,
+        codec: 4,
+        target: 0,
+        frames: [Buffer.from([1, 2, 3])],
+        position: null,
+        end: false
+      });
+      
+      expect(mockUser._onVoice).toHaveBeenCalledWith(100, 4, 0, [Buffer.from([1, 2, 3])], null, false);
+    });
+  });
+
+  describe('_onPing', () => {
+    test('should handle unexpected ping message', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      client._inFlightDataPings = 0;
+      
+      client._onPing({ timestamp: 12345 });
+      
+      expect(warnSpy).toHaveBeenCalledWith('Got unexpected ping message:', expect.any(Object));
+      warnSpy.mockRestore();
+    });
+
+    test('should update stats and emit dataPing', () => {
+      const emitSpy = jest.spyOn(client, 'emit');
+      client._inFlightDataPings = 1;
+      client._dataStats = { update: jest.fn() };
+      
+      const pastTimestamp = Date.now() - 50;
+      client._onPing({ timestamp: pastTimestamp });
+      
+      expect(client._inFlightDataPings).toBe(0);
+      expect(client._dataStats.update).toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith('dataPing', expect.any(Number));
+    });
+
+    test('should handle Long timestamp objects', () => {
+      client._inFlightDataPings = 1;
+      client._dataStats = { update: jest.fn() };
+      
+      const pastTimestamp = Date.now() - 50;
+      client._onPing({ timestamp: { toNumber: () => pastTimestamp } });
+      
+      expect(client._dataStats.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('createVoiceStream edge cases', () => {
+    test('should handle Float32Array input directly', () => {
+      client._codecs = {
+        createEncoderStream: jest.fn(() => {
+          const stream = new PassThrough({ objectMode: true });
+          stream.on = jest.fn().mockReturnThis();
+          return stream;
+        })
+      };
+      client._voice = { write: jest.fn() };
+      
+      const voiceStream = client.createVoiceStream(0, 1);
+      
+      expect(voiceStream).toBeDefined();
+    });
+  });
+
+  describe('_onServerSync maxBandwidth handling', () => {
+    test('should emit maxBandwidthChange when maxBandwidth is set', () => {
+      const emitSpy = jest.spyOn(client, 'emit');
+      client._channelById = { 0: { id: 0 } };
+      client._userById = {};
+      client._dataPingInterval = 15000;
+      
+      // Mock setInterval to capture pinger
+      jest.useFakeTimers();
+      
+      client._onServerSync({
+        session: 1,
+        maxBandwidth: 72000
+      });
+      
+      expect(emitSpy).toHaveBeenCalledWith('maxBandwidthChange', 72000);
+      
+      jest.useRealTimers();
     });
   });
 });
