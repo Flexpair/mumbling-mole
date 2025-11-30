@@ -132,13 +132,30 @@ class NetlifyIdentityAdapter extends AuthProvider {
   }
 
   /**
-   * Sign up new user (opens modal to signup tab)
-   * Netlify Identity handles signup via modal, not programmatically
+   * Helper method to create error handler for auth operations
+   * @private
+   * @param {Function} handleLogin - Login success handler
+   * @param {Function} reject - Promise reject function
+   * @returns {Function} Error handler function
+   */
+  _createErrorHandler(handleLogin, reject) {
+    const handleError = (error) => {
+      this.netlifyIdentity.off('login', handleLogin);
+      this.netlifyIdentity.off('error', handleError);
+      reject(error);
+    };
+    return handleError;
+  }
+
+  /**
+   * Helper method to open auth modal and wait for login/error
+   * @private
+   * @param {string} view - 'login' or 'signup'
    * @returns {Promise<Object>}
    */
-  async signup(email, password, metadata = {}) {
+  _openAuthAndWait(view) {
     return new Promise((resolve, reject) => {
-      this.netlifyIdentity.open('signup');
+      this.netlifyIdentity.open(view);
       
       const handleLogin = (user) => {
         this.netlifyIdentity.off('login', handleLogin);
@@ -146,15 +163,20 @@ class NetlifyIdentityAdapter extends AuthProvider {
         resolve(user);
       };
       
-      const handleError = (error) => {
-        this.netlifyIdentity.off('login', handleLogin);
-        this.netlifyIdentity.off('error', handleError);
-        reject(error);
-      };
+      const handleError = this._createErrorHandler(handleLogin, reject);
       
       this.netlifyIdentity.on('login', handleLogin);
       this.netlifyIdentity.on('error', handleError);
     });
+  }
+
+  /**
+   * Sign up new user (opens modal to signup tab)
+   * Netlify Identity handles signup via modal, not programmatically
+   * @returns {Promise<Object>}
+   */
+  async signup(email, password, metadata = {}) {
+    return this._openAuthAndWait('signup');
   }
 
   /**
@@ -163,24 +185,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<Object>}
    */
   async login(email, password) {
-    return new Promise((resolve, reject) => {
-      this.netlifyIdentity.open('login');
-      
-      const handleLogin = (user) => {
-        this.netlifyIdentity.off('login', handleLogin);
-        this.netlifyIdentity.off('error', handleError);
-        resolve(user);
-      };
-      
-      const handleError = (error) => {
-        this.netlifyIdentity.off('login', handleLogin);
-        this.netlifyIdentity.off('error', handleError);
-        reject(error);
-      };
-      
-      this.netlifyIdentity.on('login', handleLogin);
-      this.netlifyIdentity.on('error', handleError);
-    });
+    return this._openAuthAndWait('login');
   }
 
   /**

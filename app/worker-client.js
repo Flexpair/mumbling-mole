@@ -282,7 +282,7 @@ class WorkerBasedMumbleClient extends EventEmitter {
 
   get root() {
     // Root channel ID is always 0, use as default if _rootId not yet set
-    const rootId = this._rootId !== undefined ? this._rootId : 0;
+    const rootId = this._rootId === undefined ? 0 : this._rootId;
     return this._channel(rootId);
   }
 

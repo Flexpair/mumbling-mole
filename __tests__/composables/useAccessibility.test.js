@@ -31,9 +31,7 @@ describe('useAccessibility', () => {
 
     afterEach(() => {
       jest.useRealTimers();
-      if (mockAnnouncer && mockAnnouncer.parentNode) {
-        mockAnnouncer.parentNode.removeChild(mockAnnouncer);
-      }
+      mockAnnouncer?.remove();
     });
 
     it('should set message on announcer element', () => {
@@ -62,7 +60,7 @@ describe('useAccessibility', () => {
     });
 
     it('should warn when announcer element not found', () => {
-      mockAnnouncer.parentNode.removeChild(mockAnnouncer);
+      mockAnnouncer.remove();
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       
       announceToScreenReader('Test message');
@@ -97,9 +95,7 @@ describe('useAccessibility', () => {
     });
 
     afterEach(() => {
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
-      }
+      container?.remove();
     });
 
     it('should return containerRef, activate, and deactivate functions', () => {
@@ -186,7 +182,7 @@ describe('useAccessibility', () => {
       expect(() => activate()).not.toThrow();
       expect(() => deactivate()).not.toThrow();
       
-      emptyContainer.parentNode.removeChild(emptyContainer);
+      emptyContainer.remove();
     });
 
     it('should handle null containerRef gracefully', () => {

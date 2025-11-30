@@ -42,8 +42,9 @@ function reject(reqId, value, transfer) {
   let jsonValue;
   try {
     jsonValue = structuredClone(value);
-  } catch (e) {
-    // Fallback for other non-cloneable objects
+  } catch {
+    // Fallback for other non-cloneable objects (e.g., Error instances, DOM objects)
+    // structuredClone throws DataCloneError for non-serializable values
     jsonValue = {
       message: value.message || 'Unknown error',
       name: value.name || 'Error',
@@ -51,7 +52,7 @@ function reject(reqId, value, transfer) {
     };
   }
 
-  if (jsonValue && jsonValue.$type) {
+  if (jsonValue?.$type) {
     jsonValue.$type = { name: jsonValue.$type.name };
   }
   postMessage(
@@ -481,7 +482,7 @@ function handleClientMessage(data) {
   }
 
   // Call the method
-  const result = target[method](...args);
+  target[method](...args);
   
   // Only send response for query-type methods (those that need return values)
   // Regular calls (like sendMessage) don't need responses

@@ -3,8 +3,6 @@
  * Tests AuthProvider and AuthFactory
  */
 
-import { jest } from '@jest/globals';
-
 // Import AuthProvider (abstract base class)
 const AuthProvider = (await import('../../app/auth/AuthProvider.js')).default;
 
@@ -25,7 +23,7 @@ class TestProvider extends AuthProvider {
   async confirmEmail() { return; }
   async refreshToken() { return; }
   on() { return () => {}; }
-  off() {}
+  off() { /* Intentionally blank for testing */ }
 }
 
 class IncompleteProvider extends AuthProvider {}
@@ -48,10 +46,10 @@ class AuthenticatedTestProvider extends AuthProvider {
     this._currentUser = null;
   }
   async updateUser() { return {}; }
-  async requestPasswordReset() {}
+  async requestPasswordReset() { /* Intentionally empty for test provider */ }
   async refreshToken() { return; }
   on() { return () => {}; }
-  off() {}
+  off() { /* Intentionally empty for test provider */ }
 }
 
 class UndefinedUserProvider extends AuthenticatedTestProvider {
