@@ -12,17 +12,12 @@
 
 import { jest } from '@jest/globals';
 
-// Track mock worker instances for cleanup
-const mockWorkerInstances = [];
-
 // Mock Worker before importing module
 function MockWorker() {
-  const instance = {
+  return {
     onmessage: null,
     postMessage: jest.fn()
   };
-  mockWorkerInstances.push(instance);
-  return instance;
 }
 globalThis.Worker = MockWorker;
 
@@ -49,7 +44,6 @@ const DecoderStream = (await import('../../app/audio/decoder-stream.js')).defaul
 describe('DecoderStream - Initialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
   });
 
   test('creates objectMode Transform stream', () => {
@@ -99,7 +93,6 @@ describe('DecoderStream - Transform', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new DecoderStream();
@@ -202,7 +195,6 @@ describe('DecoderStream - Worker Messages', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new DecoderStream();
@@ -274,7 +266,6 @@ describe('DecoderStream - EOF Guards', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new DecoderStream();
@@ -364,7 +355,6 @@ describe('DecoderStream - Cleanup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new DecoderStream();
@@ -443,7 +433,6 @@ describe('DecoderStream - Cleanup', () => {
 describe('DecoderStream - Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
   });
 
   test('decodes multiple chunks sequentially', () => {
@@ -509,7 +498,6 @@ describe('DecoderStream - Worker Error Handling', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWorkerInstances.length = 0;
     mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     stream = new DecoderStream();

@@ -12,7 +12,7 @@ PBJS="$PROJECT_ROOT/node_modules/.bin/pbjs"
 echo "📦 Proto Generator: Mumble.proto → mumble-proto-minimal.js"
 
 # Proto-Datei prüfen
-if [ ! -f "$PROTO_FILE" ]; then
+if [[ ! -f "$PROTO_FILE" ]]; then
     echo "❌ Fehler: $PROTO_FILE nicht gefunden"
     echo "   Hole mit: npm run update:proto"
     exit 1
