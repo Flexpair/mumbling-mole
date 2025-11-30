@@ -103,9 +103,10 @@ onMounted(() => {
 
 /**
  * Credentials to send via postMessage after iframe loads
- * @type {{ username: string, password: string } | null}
+ * Using ref() for proper Vue reactivity and instance isolation
+ * @type {import('vue').Ref<{ username: string, password: string } | null>}
  */
-let pendingCredentials = null;
+const pendingCredentials = ref(null);
 
 /**
  * Start the Guacamole session with credentials
@@ -141,7 +142,7 @@ function start(guacUser, password) {
   }
 
   // Store credentials to send via postMessage after iframe loads
-  pendingCredentials = {
+  pendingCredentials.value = {
     username: guacUser,
     password: password || ""
   };
@@ -170,20 +171,24 @@ function hide() {
  * 
  * Security: Sends credentials via postMessage after iframe loads.
  * This keeps passwords out of URLs, browser history, and server logs.
+ * 
+ * Note: The Guacamole iframe is same-origin (served from /guacamole/),
+ * so we use window.location.origin as the target origin for postMessage.
  */
 function handleLoad() {
   loading.value = false;
   
   // Send credentials via postMessage if pending
-  if (pendingCredentials && iframeRef.value?.contentWindow) {
+  if (pendingCredentials.value && iframeRef.value?.contentWindow) {
     try {
-      // Get the origin for secure postMessage
-      const targetOrigin = new URL(guacSource.value, window.location.origin).origin;
+      // Use same origin since Guacamole is served from same domain
+      // This is secure because the iframe src is a relative path (/guacamole/)
+      const targetOrigin = window.location.origin;
       
       iframeRef.value.contentWindow.postMessage({
         type: 'guacamole-auth',
-        username: pendingCredentials.username,
-        password: pendingCredentials.password
+        username: pendingCredentials.value.username,
+        password: pendingCredentials.value.password
       }, targetOrigin);
       
       console.log('[GuacamoleFrame] Credentials sent via postMessage');
@@ -192,7 +197,7 @@ function handleLoad() {
     }
     
     // Clear pending credentials after sending
-    pendingCredentials = null;
+    pendingCredentials.value = null;
   }
   
   // Focus iframe after content loads
