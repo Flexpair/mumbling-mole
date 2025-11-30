@@ -132,6 +132,22 @@ class NetlifyIdentityAdapter extends AuthProvider {
   }
 
   /**
+   * Helper method to create error handler for auth operations
+   * @private
+   * @param {Function} handleLogin - Login success handler
+   * @param {Function} reject - Promise reject function
+   * @returns {Function} Error handler function
+   */
+  _createErrorHandler(handleLogin, reject) {
+    const handleError = (error) => {
+      this.netlifyIdentity.off('login', handleLogin);
+      this.netlifyIdentity.off('error', handleError);
+      reject(error);
+    };
+    return handleError;
+  }
+
+  /**
    * Sign up new user (opens modal to signup tab)
    * Netlify Identity handles signup via modal, not programmatically
    * @returns {Promise<Object>}
@@ -146,11 +162,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
         resolve(user);
       };
       
-      const handleError = (error) => {
-        this.netlifyIdentity.off('login', handleLogin);
-        this.netlifyIdentity.off('error', handleError);
-        reject(error);
-      };
+      const handleError = this._createErrorHandler(handleLogin, reject);
       
       this.netlifyIdentity.on('login', handleLogin);
       this.netlifyIdentity.on('error', handleError);
@@ -172,11 +184,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
         resolve(user);
       };
       
-      const handleError = (error) => {
-        this.netlifyIdentity.off('login', handleLogin);
-        this.netlifyIdentity.off('error', handleError);
-        reject(error);
-      };
+      const handleError = this._createErrorHandler(handleLogin, reject);
       
       this.netlifyIdentity.on('login', handleLogin);
       this.netlifyIdentity.on('error', handleError);
