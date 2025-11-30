@@ -122,8 +122,8 @@ describe('Int16ArrayWrapper', () => {
     
     const result = wrapper.toChannelData();
     
-    expect(result.channels[0][0]).toBeCloseTo(1.0, 5);
-    expect(result.channels[0][1]).toBeCloseTo(-1.0, 5);
+    expect(result.channels[0][0]).toBeCloseTo(1, 5);
+    expect(result.channels[0][1]).toBeCloseTo(-1, 5);
     expect(result.channels[0][2]).toBe(0);
     expect(result.channels[0][3]).toBeCloseTo(0.5, 2);
   });
@@ -688,7 +688,6 @@ describe('BufferQueueNode - end() method', () => {
 
 describe('BufferQueueNode - _handleCallback', () => {
   let mockAudioContext;
-  let mockWorkletNode;
 
   beforeEach(() => {
     ({ mockAudioContext } = createAudioMocks());

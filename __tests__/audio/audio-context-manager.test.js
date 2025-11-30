@@ -5,7 +5,7 @@
 import { jest } from '@jest/globals';
 
 describe('AudioContextManager', () => {
-  let audioContextManager, getAudioContext, ensureAudioContext, canPlayAudio;
+  let audioContextManager, getAudioContext, ensureAudioContext;
   let mockAudioContext;
 
   beforeEach(async () => {

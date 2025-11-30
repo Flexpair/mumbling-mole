@@ -260,9 +260,10 @@ describe('NetlifyIdentityAdapter', () => {
 
     test('opens signup modal', async () => {
       // Setup mock to trigger login event
+      const mockUser = { id: '789', email: 'new@example.com' };
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'login') {
-          setTimeout(() => callback({ id: '789', email: 'new@example.com' }), 10);
+          setTimeout(callback, 10, mockUser);
         }
       });
 
@@ -288,9 +289,10 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('cleans up handlers on success', async () => {
+      const mockUser = { id: '999', email: 'cleanup@example.com' };
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'login') {
-          setTimeout(() => callback({ id: '999', email: 'cleanup@example.com' }), 10);
+          setTimeout(callback, 10, mockUser);
         }
       });
 
@@ -301,9 +303,10 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('rejects on error', async () => {
+      const signupError = new Error('Signup failed');
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'error') {
-          setTimeout(() => callback(new Error('Signup failed')), 10);
+          setTimeout(callback, 10, signupError);
         }
       });
 
@@ -312,17 +315,14 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('cleans up handlers on error', async () => {
+      const signupError = new Error('Error');
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'error') {
-          setTimeout(() => callback(new Error('Error')), 10);
+          setTimeout(callback, 10, signupError);
         }
       });
 
-      try {
-        await adapter.signup('error@example.com', 'pass');
-      } catch (e) {
-        // Expected error
-      }
+      await expect(adapter.signup('error@example.com', 'pass')).rejects.toThrow();
       
       expect(adapter.netlifyIdentity.off).toHaveBeenCalledWith('login', expect.any(Function));
       expect(adapter.netlifyIdentity.off).toHaveBeenCalledWith('error', expect.any(Function));
@@ -336,9 +336,10 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('opens login modal', async () => {
+      const mockUser = { id: '111', email: 'login@example.com' };
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'login') {
-          setTimeout(() => callback({ id: '111', email: 'login@example.com' }), 10);
+          setTimeout(callback, 10, mockUser);
         }
       });
 
@@ -364,9 +365,10 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('cleans up handlers on success', async () => {
+      const mockUser = { id: '333', email: 'cleanup@example.com' };
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'login') {
-          setTimeout(() => callback({ id: '333', email: 'cleanup@example.com' }), 10);
+          setTimeout(callback, 10, mockUser);
         }
       });
 
@@ -377,9 +379,10 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('rejects on error', async () => {
+      const loginError = new Error('Login failed');
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'error') {
-          setTimeout(() => callback(new Error('Login failed')), 10);
+          setTimeout(callback, 10, loginError);
         }
       });
 
@@ -388,17 +391,14 @@ describe('NetlifyIdentityAdapter', () => {
     });
 
     test('cleans up handlers on error', async () => {
+      const loginError = new Error('Error');
       adapter.netlifyIdentity.on.mockImplementation((event, callback) => {
         if (event === 'error') {
-          setTimeout(() => callback(new Error('Error')), 10);
+          setTimeout(callback, 10, loginError);
         }
       });
 
-      try {
-        await adapter.login('error@example.com', 'pass');
-      } catch (e) {
-        // Expected error
-      }
+      await expect(adapter.login('error@example.com', 'pass')).rejects.toThrow();
       
       expect(adapter.netlifyIdentity.off).toHaveBeenCalledWith('login', expect.any(Function));
       expect(adapter.netlifyIdentity.off).toHaveBeenCalledWith('error', expect.any(Function));

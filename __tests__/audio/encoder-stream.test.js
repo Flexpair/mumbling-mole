@@ -59,9 +59,10 @@ describe('EncoderStream - Initialization', () => {
     const mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     
-    new EncoderStream('Opus');
+    const stream = new EncoderStream('Opus');
     
     expect(mockPool.get).toHaveBeenCalled();
+    expect(stream._worker).toBe(mockWorker);
   });
 
   test('sets up worker message handler', () => {

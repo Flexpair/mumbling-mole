@@ -86,9 +86,10 @@ describe('DecoderStream - Initialization', () => {
   test('sets up worker message handler', () => {
     const mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
-    new DecoderStream();
+    const stream = new DecoderStream();
     
     expect(mockWorker.onmessage).toBeInstanceOf(Function);
+    expect(stream).toBeDefined();
   });
 });
 
