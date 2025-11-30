@@ -176,8 +176,17 @@ app/
 
 ## 📄 License
 
-Upstream [mumble-web](https://github.com/johni0702/mumble-web) is ISC licensed (see [upstream/LICENSE](upstream/LICENSE)).
+The upstream mumble-web project is licensed under the ISC License - see [upstream/LICENSE](upstream/LICENSE).
+
+Licensing for modifications in this fork is pending.
+
+## 🙏 Acknowledgments
+
+- [mumble-web](https://github.com/johni0702/mumble-web) – Original project by Jonas Herzig
+- [MetroMumble](https://github.com/xPoke/MetroMumble) – Theme inspiration
 
 ---
 
-<p align="center">Made with ❤️ for Flexpair</p>
+<p align="center">
+  Made with ❤️ for the Flexpair community
+</p>
