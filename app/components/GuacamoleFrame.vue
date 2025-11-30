@@ -102,8 +102,18 @@ onMounted(() => {
 });
 
 /**
+ * Credentials to send via postMessage after iframe loads
+ * @type {{ username: string, password: string } | null}
+ */
+let pendingCredentials = null;
+
+/**
  * Start the Guacamole session with credentials
  * Called from AppState._setupGuacamoleFrame()
+ * 
+ * Security: Credentials are passed via postMessage, NOT URL parameters.
+ * This prevents passwords from appearing in browser history, server logs,
+ * and referrer headers.
  * 
  * @param {string} guacUser - Guacamole username
  * @param {string} password - Guacamole password
@@ -130,14 +140,14 @@ function start(guacUser, password) {
     console.warn("[Guac] localStorage sanitization failed", e);
   }
 
-  // Build Guacamole URL with credentials
-  const src =
-    "/guacamole/#/?username=" +
-    guacUser +
-    "&password=" +
-    encodeURIComponent(password || "");
+  // Store credentials to send via postMessage after iframe loads
+  pendingCredentials = {
+    username: guacUser,
+    password: password || ""
+  };
 
-  guacSource.value = src;
+  // Load Guacamole without credentials in URL (security improvement)
+  guacSource.value = "/guacamole/";
 }
 
 /**
@@ -157,9 +167,34 @@ function hide() {
 
 /**
  * Handle iframe load event
+ * 
+ * Security: Sends credentials via postMessage after iframe loads.
+ * This keeps passwords out of URLs, browser history, and server logs.
  */
 function handleLoad() {
   loading.value = false;
+  
+  // Send credentials via postMessage if pending
+  if (pendingCredentials && iframeRef.value?.contentWindow) {
+    try {
+      // Get the origin for secure postMessage
+      const targetOrigin = new URL(guacSource.value, window.location.origin).origin;
+      
+      iframeRef.value.contentWindow.postMessage({
+        type: 'guacamole-auth',
+        username: pendingCredentials.username,
+        password: pendingCredentials.password
+      }, targetOrigin);
+      
+      console.log('[GuacamoleFrame] Credentials sent via postMessage');
+    } catch (e) {
+      console.warn('[GuacamoleFrame] Failed to send credentials via postMessage:', e);
+    }
+    
+    // Clear pending credentials after sending
+    pendingCredentials = null;
+  }
+  
   // Focus iframe after content loads
   focusIframe();
 }

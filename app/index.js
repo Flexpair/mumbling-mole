@@ -128,9 +128,7 @@ function applyQueryParamsToConnectDialog() {
   if (queryParams.port) {
     dialogStore.connectDialog.port = queryParams.port;
   }
-  if (queryParams.password) {
-    dialogStore.connectDialog.password = queryParams.password;
-  }
+
 }
 
 /**
