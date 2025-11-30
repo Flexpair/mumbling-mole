@@ -31,9 +31,7 @@ describe('useAccessibility', () => {
 
     afterEach(() => {
       jest.useRealTimers();
-      if (mockAnnouncer && mockAnnouncer.parentNode) {
-        mockAnnouncer.parentNode.removeChild(mockAnnouncer);
-      }
+      mockAnnouncer?.parentNode?.removeChild(mockAnnouncer);
     });
 
     it('should set message on announcer element', () => {
@@ -97,7 +95,7 @@ describe('useAccessibility', () => {
     });
 
     afterEach(() => {
-      container?.parentNode?.removeChild(container);
+      container?.remove();
     });
 
     it('should return containerRef, activate, and deactivate functions', () => {
