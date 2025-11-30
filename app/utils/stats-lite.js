@@ -4,11 +4,9 @@
  * Uses Welford's method (an online algorithm) for numerically stable variance calculation
  */
 export default class Stats {
-  constructor() {
-    this.n = 0;
-    this.mean = 0;
-    this._m2 = 0; // Sum of squares of differences from the current mean
-  }
+  n = 0;
+  mean = 0;
+  _m2 = 0; // Sum of squares of differences from the current mean
 
   /**
    * Add a new value to the running statistics

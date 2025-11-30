@@ -10,7 +10,9 @@ const mockRef = (val) => {
         const old = this._value;
         this._value = v;
         if (watchers.has(r)) {
-            watchers.get(r).forEach(cb => cb(v, old, () => {}));
+            for (const cb of watchers.get(r)) {
+                cb(v, old, () => {});
+            }
         }
       },
       __v_isRef: true
@@ -40,11 +42,11 @@ jest.unstable_mockModule('vue', () => ({
       return new Proxy(o, {
         get(target, prop, receiver) {
           const val = target[prop];
-          return (val && val.__v_isRef) ? val.value : val;
+          return (val?.__v_isRef) ? val.value : val;
         },
         set(target, prop, value, receiver) {
           const current = target[prop];
-          if (current && current.__v_isRef) {
+          if (current?.__v_isRef) {
             current.value = value;
             return true;
           }

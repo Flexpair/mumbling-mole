@@ -5,7 +5,7 @@
 import { jest } from '@jest/globals';
 
 describe('AudioContextManager', () => {
-  let audioContextManager, getAudioContext, ensureAudioContext, isAudioReady, canPlayAudio, getAudioStats;
+  let audioContextManager, getAudioContext, ensureAudioContext, canPlayAudio, getAudioStats;
   let mockAudioContext;
 
   beforeEach(async () => {
@@ -66,7 +66,6 @@ describe('AudioContextManager', () => {
     audioContextManager = module.default;
     getAudioContext = module.getAudioContext;
     ensureAudioContext = module.ensureAudioContext;
-    isAudioReady = module.isAudioReady;
     canPlayAudio = module.canPlayAudio;
     getAudioStats = module.getAudioStats;
     
@@ -281,7 +280,7 @@ describe('AudioContextManager', () => {
   });
 
   test('should accept custom config options', async () => {
-    const context = await getAudioContext({ 
+    await getAudioContext({ 
       sampleRate: 44100,
       latencyHint: 'playback'
     });

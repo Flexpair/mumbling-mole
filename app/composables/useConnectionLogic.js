@@ -410,7 +410,7 @@ export function useConnectionLogic({ auth } = {}) {
       }
       if (target.model) {
         target.model.sendMessage(message);
-      } else if (target.value && target.value.model) {
+      } else if (target.value?.model) {
          target.value.model.sendMessage(message);
       }
     }

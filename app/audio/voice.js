@@ -356,7 +356,7 @@ export function initVoice(onData, onUserMediaError) {
     },
   };
 
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  if (!navigator.mediaDevices?.getUserMedia) {
     const error = new Error("MediaStreamError");
     error.name = "NotSupportedError";
     onUserMediaError(error);

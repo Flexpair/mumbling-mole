@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { PassThrough, Writable, Readable } from 'node:stream';
 
 const { default: duplexer } = await import('../../app/utils/duplexer-lite.js');
@@ -75,10 +74,9 @@ describe('duplexer-lite', () => {
       const duplex = duplexer(writable, readable, { highWaterMark: 1 });
       
       // Fill the duplex buffer to trigger backpressure
-      let pauseCalled = false;
+
       const origPause = readable.pause.bind(readable);
       readable.pause = () => {
-        pauseCalled = true;
         return origPause();
       };
       

@@ -11,9 +11,9 @@ describe('MumbleProto Coverage', () => {
     const decoded = MessageType.decode(buffer);
     
     // Verify all payload fields are present in decoded message
-    Object.keys(payload).forEach(key => {
+    for (const key of Object.keys(payload)) {
       expect(decoded[key]).toBeDefined();
-    });
+    }
     
     return { message, buffer, decoded };
   };

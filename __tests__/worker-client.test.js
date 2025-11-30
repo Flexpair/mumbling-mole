@@ -161,7 +161,7 @@ describe('WorkerBasedMumbleConnector', () => {
     });
 
     test('registers promise handlers', () => {
-      const promise = connector._query({ client: 1 }, 'test', {});
+      connector._query({ client: 1 }, 'test', {});
       const reqId = connector._reqId - 1;
 
       expect(connector._requests[reqId]).toBeDefined();
@@ -680,7 +680,7 @@ describe('WorkerBasedMumbleClient', () => {
       ]);
 
       expect(messageSpy).toHaveBeenCalled();
-      const [sender, message, users, channels1, channels2] = messageSpy.mock.calls[0];
+      const [sender, message, users, channels1] = messageSpy.mock.calls[0];
       expect(sender._id).toBe('sender-id');
       expect(message).toBe('Hello');
       expect(users[0]._id).toBe('user1');

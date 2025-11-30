@@ -97,9 +97,7 @@ describe('useAccessibility', () => {
     });
 
     afterEach(() => {
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
-      }
+      container?.parentNode?.removeChild(container);
     });
 
     it('should return containerRef, activate, and deactivate functions', () => {
@@ -186,7 +184,7 @@ describe('useAccessibility', () => {
       expect(() => activate()).not.toThrow();
       expect(() => deactivate()).not.toThrow();
       
-      emptyContainer.parentNode.removeChild(emptyContainer);
+      emptyContainer.remove();
     });
 
     it('should handle null containerRef gracefully', () => {

@@ -7,7 +7,7 @@
 
 // Simple ref implementation for tests
 export function ref(value) {
-  if (value && value.__v_isRef) {
+  if (value?.__v_isRef) {
     return value;
   }
   const r = {
@@ -25,22 +25,21 @@ export function reactive(obj) {
       if (prop === '__v_raw') return target;
       const val = Reflect.get(target, prop, receiver);
       // Auto-unwrap refs
-      if (val && val.__v_isRef && !val.__v_isComputed) {
+      if (val?.__v_isRef && !val?.__v_isComputed) {
         return val.value;
       }
       return val;
     },
     set(target, prop, value, receiver) {
       const current = target[prop];
-      if (current && current.__v_isRef) {
+      if (current?.__v_isRef) {
         if (value === current) {
           return true;
         }
         current.value = value;
         return true;
       }
-      target[prop] = value;
-      return true;
+      return Reflect.set(target, prop, value, receiver);
     }
   });
 }
@@ -63,18 +62,20 @@ export function effectScope(detached) {
     active: true,
     effects: [],
     cleanups: [],
-    run(fn) {
-      const prev = currentScope;
-      currentScope = this;
-      try {
-        return fn();
-      } finally {
-        currentScope = prev;
-      }
-    },
-    stop() {
-      this.active = false;
+    run: null,
+    stop: null,
+  };
+  scope.run = function(fn) {
+    const prev = currentScope;
+    currentScope = scope;
+    try {
+      return fn();
+    } finally {
+      currentScope = prev;
     }
+  };
+  scope.stop = function() {
+    scope.active = false;
   };
   return scope;
 }
@@ -197,7 +198,7 @@ export function unref(ref) {
 
 // isReactive helper
 export function isReactive(obj) {
-  return obj && obj.__v_isReactive === true;
+  return obj?.__v_isReactive === true;
 }
 
 // shallowRef helper
