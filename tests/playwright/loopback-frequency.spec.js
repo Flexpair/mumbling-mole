@@ -77,7 +77,8 @@ test.describe('Loopback Frequency Test', () => {
       await continueButton.click();
       await page.waitForLoadState('networkidle', { timeout: 10000 });
       console.log('✅ Passed Codespaces interstitial');
-    } catch (e) {
+    } catch {
+      // Expected when not running in Codespaces environment
       console.log('ℹ️  No Codespaces interstitial page');
     }
     
@@ -100,16 +101,16 @@ test.describe('Loopback Frequency Test', () => {
       console.log('✅ Found Netlify Identity iframe');
       
       // Try the last iframe first (the one with actual content)
-      let loginFrame = page.frameLocator(iframeSelector).last();
+      let loginFrame = page.frameLocator(iframeSelector).nth(-1);
       let loginTab = loginFrame.getByRole('button', { name: 'Log in' }).first();
       
       console.log('⏳ Waiting for Netlify Identity iframe content...');
       try {
         await expect(loginTab).toBeVisible({ timeout: 5000 });
       } catch {
-        // If last() doesn't work, try first()
+        // If nth(-1) doesn't work, try nth(0)
         console.log('⏳ Trying first iframe instead...');
-        loginFrame = page.frameLocator(iframeSelector).first();
+        loginFrame = page.frameLocator(iframeSelector).nth(0);
         loginTab = loginFrame.getByRole('button', { name: 'Log in' }).first();
         await expect(loginTab).toBeVisible({ timeout: 10000 });
       }
@@ -154,10 +155,10 @@ test.describe('Loopback Frequency Test', () => {
     // Wait for app initialization (window.mumbleUi should be defined)
     console.log('⏳ Waiting for UI initialization...');
     
-    // Wait for window.mumbleUi to be defined (app uses mumbleUi not ui)
+    // Wait for globalThis.mumbleUi to be defined (app uses mumbleUi not ui)
     await page.waitForFunction(
       () => {
-        return window.mumbleUi !== undefined && 
+        return globalThis.mumbleUi !== undefined && 
                document.querySelector('#container') !== null;
       }, 
       { timeout: 30000 }
@@ -186,7 +187,7 @@ test.describe('Loopback Frequency Test', () => {
       console.log('✅ Test toggle clicked');
 
       const isTestActive = await page.evaluate(() => {
-        return window.mumbleUi?.connectDialog?.isTestActive || false;
+        return globalThis.mumbleUi?.connectDialog?.isTestActive || false;
       });
       expect(isTestActive).toBe(true);
       console.log('✅ Test mode activated');
@@ -197,7 +198,7 @@ test.describe('Loopback Frequency Test', () => {
       console.log('🔄 Step 3: Waiting for connection to complete (started by toggle)...');
 
       await page.waitForFunction(() => {
-        const ui = window.mumbleUi;
+        const ui = globalThis.mumbleUi;
         return ui?.connected?.() === true;
       }, { timeout: 10000 });
 
@@ -207,14 +208,14 @@ test.describe('Loopback Frequency Test', () => {
       console.log('⏳ Step 4: Waiting for audio components to initialize...');
       console.log('   (This may take a few seconds - connecting to Murmur server)');
 
-      const uiAvailable = await page.evaluate(() => window.mumbleUi !== undefined);
+      const uiAvailable = await page.evaluate(() => globalThis.mumbleUi !== undefined);
       if (!uiAvailable) {
-        console.error('❌ window.mumbleUi is undefined after connect!');
+        console.error('❌ globalThis.mumbleUi is undefined after connect!');
         throw new Error('UI state lost after connect - check for JS errors');
       }
 
       const resumeResult = await page.evaluate(async () => {
-        const ui = window.mumbleUi;
+        const ui = globalThis.mumbleUi;
         if (!ui) {
           return { error: 'mumbleUi not found' };
         }
@@ -257,9 +258,9 @@ test.describe('Loopback Frequency Test', () => {
 
       await page.waitForFunction(
         () => {
-          const ui = window.mumbleUi;
+          const ui = globalThis.mumbleUi;
           if (!ui) {
-            console.error('[TEST-CHECK] window.mumbleUi is undefined!');
+            console.error('[TEST-CHECK] globalThis.mumbleUi is undefined!');
             return false;
           }
 
@@ -317,7 +318,7 @@ test.describe('Loopback Frequency Test', () => {
 
       while (Date.now() - startWait < TEST_CONFIG.BEEPER_MAX_WAIT) {
         const freq = await page.evaluate(() => {
-          return window.mumbleUi?.loopbackDominantFrequency || 0;
+          return globalThis.mumbleUi?.loopbackDominantFrequency || 0;
         });
 
         if (freq > 0) {
@@ -336,20 +337,20 @@ test.describe('Loopback Frequency Test', () => {
       const frequencies = [];
 
       const analysisState = await page.evaluate(() => {
-        const thisUser = window.mumbleUi.thisUser;
+        const thisUser = globalThis.mumbleUi.thisUser;
         return {
           hasThisUser: !!thisUser,
-          selfMute: window.mumbleUi.selfMute,
-          selfDeaf: window.mumbleUi.selfDeaf,
-          isLoopbackMode: window.mumbleUi.isLoopbackMode,
-          loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency
+          selfMute: globalThis.mumbleUi.selfMute,
+          selfDeaf: globalThis.mumbleUi.selfDeaf,
+          isLoopbackMode: globalThis.mumbleUi.isLoopbackMode,
+          loopbackDominantFrequency: globalThis.mumbleUi.loopbackDominantFrequency
         };
       });
       console.log('   Analysis state before averaging:', JSON.stringify(analysisState, null, 2));
 
       for (let i = 0; i < TEST_CONFIG.FREQUENCY_READINGS; i++) {
         const freq = await page.evaluate(() => {
-          return window.mumbleUi?.loopbackDominantFrequency || 0;
+          return globalThis.mumbleUi?.loopbackDominantFrequency || 0;
         });
         frequencies.push(freq);
         console.log(`   Reading ${i + 1}/${TEST_CONFIG.FREQUENCY_READINGS}: ${freq} Hz`);
@@ -410,7 +411,7 @@ test.describe('Loopback Frequency Test', () => {
       let preMuteFreq = 0;
       while (Date.now() - startWaitPreMute < TEST_CONFIG.BEEPER_MAX_WAIT) {
         preMuteFreq = await page.evaluate(() => {
-          return window.mumbleUi?.loopbackDominantFrequency || 0;
+          return globalThis.mumbleUi?.loopbackDominantFrequency || 0;
         });
         console.log('   Pre-mute frequency reading:', preMuteFreq);
         if (preMuteFreq > 0) {
@@ -423,7 +424,7 @@ test.describe('Loopback Frequency Test', () => {
 
       console.log('   Programmatically muting via mumbleUi.requestMute while dialog remains open...');
       await page.evaluate(() => {
-        const ui = window.mumbleUi;
+        const ui = globalThis.mumbleUi;
         const thisUser = ui?.thisUser;
         if (ui?.requestMute && thisUser) {
           ui.requestMute(thisUser);
@@ -432,16 +433,16 @@ test.describe('Loopback Frequency Test', () => {
 
       // Wait until selfMute flips to true so the audio gate can take effect
       await page.waitForFunction(() => {
-        return window.mumbleUi.selfMute === true;
+        return globalThis.mumbleUi.selfMute === true;
       }, { timeout: 2000 });
 
       await page.waitForTimeout(500);
 
       const muteAnalysisState = await page.evaluate(() => {
         return {
-          selfMute: window.mumbleUi.selfMute,
-          selfDeaf: window.mumbleUi.selfDeaf,
-          loopbackDominantFrequency: window.mumbleUi.loopbackDominantFrequency || 0,
+          selfMute: globalThis.mumbleUi.selfMute,
+          selfDeaf: globalThis.mumbleUi.selfDeaf,
+          loopbackDominantFrequency: globalThis.mumbleUi.loopbackDominantFrequency || 0,
           displayText: document.querySelector('.loopback-frequency-display')?.textContent || ''
         };
       });
@@ -462,7 +463,7 @@ test.describe('Loopback Frequency Test', () => {
       console.log('\n🔄 Step 11: Switching to normal mode via Connect button...');
 
       await page.evaluate(() => {
-        const ui = window.mumbleUi;
+        const ui = globalThis.mumbleUi;
         if (ui?.connectDialog) {
           ui.connectDialog.visible = true;
         }
@@ -566,12 +567,12 @@ test.describe('Loopback Frequency Test', () => {
 
     console.log('\n🧹 Cleaning up resources...');
     await page.evaluate(() => {
-      if (window.mumbleUi?.isBeeping?.value) {
-        window.mumbleUi.stopBeep();
+      if (globalThis.mumbleUi?.isBeeping?.value) {
+        globalThis.mumbleUi.stopBeep();
       }
 
-      if (window.mumbleUi?.connection?.client) {
-        window.mumbleUi.connection.resetClient();
+      if (globalThis.mumbleUi?.connection?.client) {
+        globalThis.mumbleUi.connection.resetClient();
       }
     });
     await page.waitForTimeout(500);

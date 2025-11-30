@@ -501,10 +501,9 @@ describe('mumble-client Client', () => {
       test('should handle Long timestamp objects (protobufjs)', () => {
         client._inFlightDataPings = 1;
         const now = Date.now();
+        const mockLongTimestamp = { toNumber: jest.fn(() => now - 100) };
 
-        client._onPing({ 
-          timestamp: { toNumber: () => now - 100 } 
-        });
+        client._onPing({ timestamp: mockLongTimestamp });
 
         expect(client._inFlightDataPings).toBe(0);
       });
@@ -780,12 +779,18 @@ describe('mumble-client Client', () => {
     });
 
     describe('_onTextMessage', () => {
-      test('should emit message event with sender and content', () => {
-        const listener = jest.fn();
+      let listener;
+      let sender;
+
+      beforeEach(() => {
+        listener = jest.fn();
         client.on('message', listener);
-        const sender = new User(client, 1);
-        const channel = new Channel(client, 0);
+        sender = new User(client, 1);
         client._userById[1] = sender;
+      });
+
+      test('should emit message event with sender and content', () => {
+        const channel = new Channel(client, 0);
         client._channelById[0] = channel;
 
         client._onTextMessage({
@@ -806,11 +811,7 @@ describe('mumble-client Client', () => {
       });
 
       test('should handle direct messages to users', () => {
-        const listener = jest.fn();
-        client.on('message', listener);
-        const sender = new User(client, 1);
         const recipient = new User(client, 2);
-        client._userById[1] = sender;
         client._userById[2] = recipient;
 
         client._onTextMessage({
@@ -1217,14 +1218,14 @@ describe('mumble-client Client', () => {
       
       stream.write({
         pcm: new Float32Array([0.5, -0.5]),
-        x: 1.0,
-        y: 2.0,
-        z: 3.0
+        x: 1,
+        y: 2,
+        z: 3
       });
       
       setTimeout(() => {
         expect(transformedData).toBeDefined();
-        expect(transformedData.position).toEqual({ x: 1.0, y: 2.0, z: 3.0 });
+        expect(transformedData.position).toEqual({ x: 1, y: 2, z: 3 });
         done();
       }, 10);
     });
@@ -1540,10 +1541,8 @@ describe('mumble-client Client', () => {
     test('should wait for drain on buffered write', () => {
       const emitSpy = jest.spyOn(client, 'emit');
       let drainCallback;
-      client._data = { 
-        write: jest.fn(() => false), 
-        once: jest.fn((event, cb) => { drainCallback = cb; })
-      };
+      const mockOnce = jest.fn((event, cb) => { drainCallback = cb; });
+      client._data = { write: jest.fn(() => false), once: mockOnce };
       
       client._send({
         name: 'TextMessage',
@@ -1634,7 +1633,8 @@ describe('mumble-client Client', () => {
       client._dataStats = { update: jest.fn() };
       
       const pastTimestamp = Date.now() - 50;
-      client._onPing({ timestamp: { toNumber: () => pastTimestamp } });
+      const mockLongTimestamp = { toNumber: jest.fn(() => pastTimestamp) };
+      client._onPing({ timestamp: mockLongTimestamp });
       
       expect(client._dataStats.update).toHaveBeenCalled();
     });

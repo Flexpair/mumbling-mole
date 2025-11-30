@@ -81,7 +81,7 @@ button.message-confirmation {
   top: 50%;
   transform: translateY(-50%);
   background: rgba(128, 128, 128, 0.3);
-  color: #666;
+  color: #000;
   width: 20px;
   height: 20px;
   border-radius: 50%;

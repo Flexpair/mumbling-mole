@@ -129,7 +129,7 @@ describe('useAccessibility', () => {
       deactivate();
       expect(document.activeElement).toBe(outsideButton);
       
-      outsideButton.parentNode.removeChild(outsideButton);
+      outsideButton.remove();
     });
 
     it('should wrap focus to last element when shift+tab on first element', () => {

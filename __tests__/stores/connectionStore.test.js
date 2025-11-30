@@ -5,7 +5,7 @@
  * to Mumble servers via the worker-client.
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { ref, shallowRef, computed } from 'vue';
+import { ref, shallowRef } from 'vue';
 
 // Mock worker-client before importing connectionStore
 const mockConnect = jest.fn();
@@ -30,7 +30,7 @@ jest.unstable_mockModule('../../app/localize', () => ({
 }));
 
 jest.unstable_mockModule('../../app/utils/websocket-url', () => ({
-  buildWebSocketUrl: jest.fn((host, port) => `wss://${host}:${port}`),
+  buildWebSocketUrl: jest.fn((host, port) => `wss://${String(host)}:${String(port)}`),
 }));
 
 // Create a mock store factory since Pinia isn't available

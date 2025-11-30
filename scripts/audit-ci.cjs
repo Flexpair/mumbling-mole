@@ -27,8 +27,8 @@ function runAudit() {
     if (err.stdout) {
       try {
         return JSON.parse(err.stdout);
-      } catch (parseErr) {
-        console.error('[audit-ci] Failed to parse npm audit output:', parseErr.message);
+      } catch (error_) {
+        console.error('[audit-ci] Failed to parse npm audit output:', error_.message);
         console.error('[audit-ci] Raw output:', err.stdout);
         throw new Error('npm audit returned malformed JSON');
       }

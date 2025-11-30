@@ -5,8 +5,6 @@
  * Can be used with v-tooltip custom directive.
  */
 
-import { reactive } from 'vue';
-
 /**
  * v-tooltip Custom Directive
  * 

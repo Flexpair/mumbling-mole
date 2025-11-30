@@ -11,7 +11,7 @@
  * - stats-lite
  */
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { Readable, Writable, PassThrough } from 'node:stream';
+import { Writable, PassThrough } from 'node:stream';
 
 // Import the modules under test
 import websocketStream from '../../app/utils/websocket-stream-lite.js';

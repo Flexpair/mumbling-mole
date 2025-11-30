@@ -3,7 +3,7 @@
  * 
  * Tests for the voice encoder/decoder in mumble-streams
  */
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 
 import { Encoder, Decoder } from '../app/mumble-streams/voice.js';
 
@@ -166,7 +166,7 @@ describe('Voice Encoder', () => {
         seqNum: 1,
         end: false,
         frames: [Buffer.from([1])],
-        position: { x: 1.0, y: 2.0, z: 3.0 },
+        position: { x: 1, y: 2, z: 3 },
       });
     });
   });

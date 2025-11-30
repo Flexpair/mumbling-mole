@@ -10,7 +10,7 @@
 
 import { jest } from '@jest/globals';
 
-describe('mumble-client Integration Tests', () => {
+describe('mumble-client Integration Tests', () => { // NOSONAR - nested describes are idiomatic Jest
   describe('Bandwidth Calculation (Static Methods)', () => {
     let MumbleClient;
 
@@ -37,20 +37,16 @@ describe('mumble-client Integration Tests', () => {
       expect(result).toBeGreaterThan(0);
     });
 
-    test('calcEnforcableBandwidth should handle different bitrate values', () => {
-      const bitrates = [40000, 72000, 96000, 128000];
+    test.each([40000, 72000, 96000, 128000])('calcEnforcableBandwidth should handle bitrate %i', (bitrate) => {
+      const result = MumbleClient.calcEnforcableBandwidth(
+        bitrate,
+        60,
+        false
+      );
       
-      for (const bitrate of bitrates) {
-        const result = MumbleClient.calcEnforcableBandwidth(
-          bitrate,
-          60,
-          false
-        );
-        
-        expect(result).toBeGreaterThan(0);
-        expect(typeof result).toBe('number');
-        // Note: Result may be higher than input bitrate due to protocol overhead
-      }
+      expect(result).toBeGreaterThan(0);
+      expect(typeof result).toBe('number');
+      // Note: Result may be higher than input bitrate due to protocol overhead
     });
 
     test('calcEnforcableBandwidth should handle voice activity detection flag', () => {
@@ -65,18 +61,14 @@ describe('mumble-client Integration Tests', () => {
       // Note: VAD flag affects calculation but may not always reduce bandwidth
     });
 
-    test('calcEnforcableBandwidth should handle different frame counts', () => {
-      const frames = [20, 40, 60];
+    test.each([20, 40, 60])('calcEnforcableBandwidth should handle frame count %i', (frameCount) => {
+      const result = MumbleClient.calcEnforcableBandwidth(
+        96000,
+        frameCount,
+        false
+      );
       
-      for (const frameCount of frames) {
-        const result = MumbleClient.calcEnforcableBandwidth(
-          96000,
-          frameCount,
-          false
-        );
-        
-        expect(result).toBeGreaterThan(0);
-      }
+      expect(result).toBeGreaterThan(0);
     });
   });
 
@@ -153,15 +145,11 @@ describe('mumble-client Integration Tests', () => {
       }).not.toThrow();
     });
 
-    test('client should support multiple event types', () => {
+    test.each(['connected', 'error', 'message', 'voice'])('client should support event type %s', (eventType) => {
       const client = new MumbleClient({ username: 'testuser' });
-      const eventTypes = ['connected', 'error', 'message', 'voice'];
-
-      for (const eventType of eventTypes) {
-        expect(() => {
-          client.on(eventType, () => {});
-        }).not.toThrow();
-      }
+      expect(() => {
+        client.on(eventType, () => {});
+      }).not.toThrow();
     });
   });
 

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { jest } from "@jest/globals";
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 
 /**
  * Tests for worker.js - Worker thread implementation
@@ -151,7 +151,7 @@ describe("worker.js", () => {
     });
     await new Promise(resolve => setTimeout(resolve, 0));
     
-    const client = mockClients[mockClients.length - 1];
+    const client = mockClients.at(-1);
     const connectResponse = postMessageCalls.find(call => call.reqId === reqId);
     const clientId = connectResponse?.result;
     
