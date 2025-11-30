@@ -170,7 +170,6 @@ describe('AudioContextManager', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation();
     
     const context = await audioContextManager.getAudioContext();
-    await audioContextManager.getAudioContext();
     
     // Force resume failure
     context._shouldFailResume = true;

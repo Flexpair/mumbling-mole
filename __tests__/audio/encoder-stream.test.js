@@ -70,7 +70,7 @@ describe('EncoderStream - Initialization', () => {
     
     new EncoderStream('Opus');
     
-    new EncoderStream('Opus');
+    expect(typeof mockWorker.onmessage).toBe('function');
   });
 });
 

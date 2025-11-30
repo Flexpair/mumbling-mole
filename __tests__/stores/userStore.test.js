@@ -189,15 +189,8 @@ describe('useUserStore Jitter Buffer Calculation', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     
-    // Reset mocks
-    mockAudioState.audioLockActive = false;
-    mockVoiceState.isLoopbackMode = false;
-    mockVoiceState.loopbackDominantFrequency = 0;
-    mockVoiceState.setMute.mockClear();
-    mockVoiceState.updateVoiceHandler.mockClear();
-
-    mockClient = createMockClient();
-    mockUser = createMockUser(mockClient);
+        // Reset settings store mock
+    mockSettingsStore.jitterBufferSize = 3;
     mockSettingsStore.jitterBufferMode = 'balanced';
 
     mockClient = createMockClient();

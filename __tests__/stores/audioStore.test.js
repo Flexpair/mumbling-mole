@@ -402,15 +402,18 @@ describe('audioStore', () => {
         context: mockContext
       };
       
-
-
-
-
-
-
-
-
-
+      mockBeeper = {
+        gainNode: mockGain,
+        oscillator: {
+          start: jest.fn(),
+          stop: jest.fn(),
+          frequency: { setValueAtTime: jest.fn() }
+        },
+        context: mockContext,
+        isPlaying: false
+      };
+      // Assign to store's internal _persistentBeeper
+      store._persistentBeeper = mockBeeper;
     });
 
     test('should set beeper to playing state', async () => {
