@@ -47,18 +47,19 @@ export default {
     '!app/audio/recorder-worker.js', // AudioWorklet processor - no imports allowed
     '!app/audio/playback-buffer-processor.js', // AudioWorklet processor
     '!app/index.js', // Entry point - hard to test in isolation
+    '!app/**/index.js', // Barrel exports - just re-export, no logic to test
   ],
 
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
 
-  // Coverage thresholds (start conservative, increase over time)
+  // Coverage thresholds - 80% minimum enforced
   coverageThreshold: {
     global: {
-      statements: 20,
-      branches: 15,
-      functions: 20,
-      lines: 20
+      statements: 80,
+      branches: 80,
+      functions: 80,
+      lines: 80
     }
   },
 

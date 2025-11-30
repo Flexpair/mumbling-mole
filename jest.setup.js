@@ -83,8 +83,11 @@ global.Worker = class Worker {
 };
 
 // Mock localStorage (jsdom provides this, but ensure it's clean)
+// Only clear if localStorage is defined (jsdom environment)
 beforeEach(() => {
-  localStorage.clear();
+  if (typeof localStorage !== 'undefined') {
+    localStorage.clear();
+  }
 });
 
 globalThis.console = {

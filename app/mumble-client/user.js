@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import DropStream from '../utils/drop-stream.js'
 import Timer from 'rtimer'
+import { debugLog } from '../utils/debug-utils.js'
 
 class User extends EventEmitter {
   constructor (client, id) {
@@ -41,27 +42,27 @@ class User extends EventEmitter {
   _update (msg) {
     const changes = {}
     
-    // Simple field updates
+    // Simple field updates (using camelCase field names from protobufjs)
     Object.assign(changes,
       this._updateField(msg, 'name', 'username', '_username'),
-      this._updateField(msg, 'user_id', 'uniqueId', '_uniqueId'),
+      this._updateField(msg, 'userId', 'uniqueId', '_uniqueId'),
       this._updateField(msg, 'mute', 'mute', '_mute'),
       this._updateField(msg, 'deaf', 'deaf', '_deaf'),
       this._updateField(msg, 'suppress', 'suppress', '_suppress'),
-      this._updateField(msg, 'self_mute', 'selfMute', '_selfMute'),
-      this._updateField(msg, 'self_deaf', 'selfDeaf', '_selfDeaf'),
+      this._updateField(msg, 'selfMute', 'selfMute', '_selfMute'),
+      this._updateField(msg, 'selfDeaf', 'selfDeaf', '_selfDeaf'),
       this._updateField(msg, 'texture', 'texture', '_texture'),
       this._updateField(msg, 'comment', 'comment', '_comment'),
-      this._updateField(msg, 'priority_speaker', 'prioritySpeaker', '_prioritySpeaker'),
+      this._updateField(msg, 'prioritySpeaker', 'prioritySpeaker', '_prioritySpeaker'),
       this._updateField(msg, 'recording', 'recording', '_recording'),
       this._updateField(msg, 'hash', 'certHash', '_certHash')
     )
 
     // Hash updates with invalidation
     Object.assign(changes,
-      this._updateWithInvalidation(msg, 'texture_hash', 'textureHash', '_textureHash', 
+      this._updateWithInvalidation(msg, 'textureHash', 'textureHash', '_textureHash', 
         () => { this._haveRequestedTexture = false }),
-      this._updateWithInvalidation(msg, 'comment_hash', 'commentHash', '_commentHash',
+      this._updateWithInvalidation(msg, 'commentHash', 'commentHash', '_commentHash',
         () => { this._haveRequestedComment = false })
     )
 
@@ -76,7 +77,7 @@ class User extends EventEmitter {
     }
 
     // Channel update (special case with side effects)
-    const newChannelId = msg.channelId ?? msg.channel_id;
+    const newChannelId = msg.channelId;
     if (newChannelId != null) {
       if (this.channel) {
         const index = this.channel.users.indexOf(this)
@@ -105,20 +106,12 @@ class User extends EventEmitter {
   }
 
   /**
-   * Creates a codec stream or fallback DropStream if no codecs available.
+   * Creates a codec stream for voice decoding.
+   * Note: codecs are always provided in browser environment (set in worker.js)
    * @private
    */
   _createVoiceCodecStream () {
-    if (!this._client._codecs) {
-      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-        console.warn('[MUMBLE-USER-DEBUG] WARNING: No codecs available, using DropStream');
-      }
-      return DropStream.obj()
-    }
-    
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-      console.log('[MUMBLE-USER-DEBUG] Creating decoder stream with codecs');
-    }
+    debugLog('[MUMBLE-USER]', 'Creating decoder stream with codecs')
     return this._client._codecs.createDecoderStream(this)
   }
 
@@ -128,9 +121,7 @@ class User extends EventEmitter {
    */
   _setupVoiceStream (stream) {
     stream.once('close', () => {
-      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-        console.log('[MUMBLE-USER-DEBUG] Voice stream closed for user:', this._username);
-      }
+      debugLog('[MUMBLE-USER]', 'Voice stream closed for user:', this._username)
       this._voice = null
     })
     
@@ -141,24 +132,18 @@ class User extends EventEmitter {
       }
     }, this._client._options.userVoiceTimeout || 200).set()
     
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-      console.log('[MUMBLE-USER-DEBUG] Emitting "voice" event with stream');
-    }
+    debugLog('[MUMBLE-USER]', 'Emitting "voice" event with stream')
     this.emit('voice', stream)
   }
 
   _getOrCreateVoiceStream () {
     if (this._voice) {
-      if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-        console.log('[MUMBLE-USER-DEBUG] Voice stream already exists, reusing existing stream');
-      }
+      debugLog('[MUMBLE-USER]', 'Voice stream already exists, reusing existing stream')
       return this._voice
     }
 
     // New transmission
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-      console.log('[MUMBLE-USER-DEBUG] Creating new voice stream for user:', this._username, 'id:', this._id);
-    }
+    debugLog('[MUMBLE-USER]', 'Creating new voice stream for user:', this._username, 'id:', this._id)
     
     this._voice = this._createVoiceCodecStream()
     this._setupVoiceStream(this._voice)
@@ -166,16 +151,17 @@ class User extends EventEmitter {
     return this._voice
   }
 
+  /**
+   * Calculates the duration of audio frames.
+   * Note: codecs are always provided in browser environment (set in worker.js)
+   * @private
+   */
   _getDuration (codec, frames) {
-    if (this._client._codecs) {
-      let duration = 0
-      for (const frame of frames) {
-        duration += this._client._codecs.getDuration(codec, frame)
-      }
-      return duration
-    } else {
-      return frames.length * 10
+    let duration = 0
+    for (const frame of frames) {
+      duration += this._client._codecs.getDuration(codec, frame)
     }
+    return duration
   }
 
   /**
@@ -230,9 +216,7 @@ class User extends EventEmitter {
       frame: frame,
       position: position
     }
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-      console.log('[MUMBLE-USER-DEBUG] Writing frame to voice stream, frame length:', frame?.length || 'null')
-    }
+    debugLog('[MUMBLE-USER]', 'Writing frame to voice stream, frame length:', frame?.length || 'null')
     this._getOrCreateVoiceStream().write(writeData)
   }
 
@@ -255,9 +239,7 @@ class User extends EventEmitter {
    * the transmission has ended it closes the stream.
    */
   _onVoice (seqNum, codec, target, frames, position, end) {
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO !== undefined) {
-      console.log('[MUMBLE-USER-DEBUG] _onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end)
-    }
+    debugLog('[MUMBLE-USER]', '_onVoice called - seqNum:', seqNum, 'codec:', codec, 'frames:', frames.length, 'end:', end)
 
     if (frames.length > 0) {
       const duration = this._getDuration(codec, frames)
@@ -355,7 +337,7 @@ class User extends EventEmitter {
       name: 'UserState',
       payload: {
         session: this._id,
-        user_id: 0
+        userId: 0
       }
     })
   }
@@ -375,7 +357,7 @@ class User extends EventEmitter {
       name: 'UserState',
       payload: {
         session: this._id,
-        channel_id: channel._id
+        channelId: channel._id
       }
     })
   }

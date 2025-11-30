@@ -636,6 +636,24 @@ select {
     margin-bottom: 16px;
     padding-bottom: 10px;
   }
+
+  /* Responsive spacing for mobile */
+  .connect-dialog .form-fields {
+    gap: 12px;
+  }
+
+  .connect-dialog p {
+    margin: 12px 0;
+    padding: 10px;
+  }
+
+  .loopback-test-section {
+    margin-top: 12px;
+  }
+
+  .connect-dialog .dialog-buttons {
+    margin-top: 12px;
+  }
 }
 
 /* Tablet view */
@@ -724,6 +742,24 @@ select {
   cursor: not-allowed;
 }
 
+/* Uniform vertical spacing for form elements */
+.connect-dialog .form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.connect-dialog .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.connect-dialog .form-field label {
+  font-weight: 500;
+  font-size: 0.95em;
+}
+
 .connect-dialog p {
   margin: 16px 0;
   padding: 12px;
@@ -734,15 +770,11 @@ select {
 }
 
 .loopback-test-section {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+  margin-top: 16px;
 }
 
 .connect-dialog .dialog-buttons {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+  margin-top: 16px;
 }
 
 .connect-dialog .dialog-buttons input[type="submit"],

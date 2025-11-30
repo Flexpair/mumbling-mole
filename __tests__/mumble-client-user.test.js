@@ -165,7 +165,7 @@ describe('mumble-client User', () => {
     });
 
     test('should update uniqueId', () => {
-      user._update({ user_id: 12345, actor: 1 });
+      user._update({ userId: 12345, actor: 1 });
       expect(user.uniqueId).toBe(12345);
     });
 
@@ -180,12 +180,12 @@ describe('mumble-client User', () => {
     });
 
     test('should update selfMute status', () => {
-      user._update({ self_mute: true, actor: 1 });
+      user._update({ selfMute: true, actor: 1 });
       expect(user.selfMute).toBe(true);
     });
 
     test('should update selfDeaf status', () => {
-      user._update({ self_deaf: true, actor: 1 });
+      user._update({ selfDeaf: true, actor: 1 });
       expect(user.selfDeaf).toBe(true);
     });
 
@@ -201,7 +201,7 @@ describe('mumble-client User', () => {
 
     test('should update texture hash and reset request flag', () => {
       user._haveRequestedTexture = true;
-      user._update({ texture_hash: 'hash123', actor: 1 });
+      user._update({ textureHash: 'hash123', actor: 1 });
 
       expect(user.textureHash).toBe('hash123');
       expect(user._haveRequestedTexture).toBe(false);
@@ -214,14 +214,14 @@ describe('mumble-client User', () => {
 
     test('should update comment hash and reset request flag', () => {
       user._haveRequestedComment = true;
-      user._update({ comment_hash: 'hash456', actor: 1 });
+      user._update({ commentHash: 'hash456', actor: 1 });
 
       expect(user.commentHash).toBe('hash456');
       expect(user._haveRequestedComment).toBe(false);
     });
 
     test('should update priority speaker status', () => {
-      user._update({ priority_speaker: true, actor: 1 });
+      user._update({ prioritySpeaker: true, actor: 1 });
       expect(user.prioritySpeaker).toBe(true);
     });
 
@@ -236,17 +236,17 @@ describe('mumble-client User', () => {
     });
 
     test('should update channel and adjust user arrays', () => {
-      user._update({ channel_id: 1, actor: 1 });
+      user._update({ channelId: 1, actor: 1 });
       
       expect(user.channel).toBe(channel1);
       expect(channel1.users).toContain(user);
     });
 
     test('should handle channel change', () => {
-      user._update({ channel_id: 1, actor: 1 });
+      user._update({ channelId: 1, actor: 1 });
       expect(channel1.users).toContain(user);
 
-      user._update({ channel_id: 2, actor: 1 });
+      user._update({ channelId: 2, actor: 1 });
       expect(channel1.users).not.toContain(user);
       expect(channel2.users).toContain(user);
     });
@@ -271,7 +271,7 @@ describe('mumble-client User', () => {
         name: 'MultiUser',
         mute: true,
         deaf: true,
-        channel_id: 1,
+        channelId: 1,
         actor: 1
       });
 
@@ -296,7 +296,7 @@ describe('mumble-client User', () => {
     });
 
     test('should remove user from channel', () => {
-      user._update({ channel_id: 1, actor: 1 });
+      user._update({ channelId: 1, actor: 1 });
       expect(channel1.users).toContain(user);
 
       user._remove(null, 'Left', false);
@@ -450,7 +450,7 @@ describe('mumble-client User', () => {
         name: 'UserState',
         payload: {
           session: 31,
-          channel_id: 2
+          channelId: 2
         }
       });
     });
@@ -471,14 +471,14 @@ describe('mumble-client User', () => {
   });
 
   describe('register Method', () => {
-    test('should send UserState message with user_id 0 to register', () => {
+    test('should send UserState message with userId 0 to register', () => {
       user.register();
 
       expect(client._send).toHaveBeenCalledWith({
         name: 'UserState',
         payload: {
           session: 31,
-          user_id: 0
+          userId: 0
         }
       });
     });
@@ -507,6 +507,271 @@ describe('mumble-client User', () => {
       user._update({ name: 'Test', actor: 1 });
 
       expect(listener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Voice Stream Management', () => {
+    beforeEach(() => {
+      // Setup codecs mock
+      client._codecs = {
+        createDecoderStream: jest.fn(() => ({
+          once: jest.fn(),
+          write: jest.fn(),
+          end: jest.fn()
+        })),
+        getDuration: jest.fn(() => 20)
+      };
+    });
+
+    test('_createVoiceCodecStream should create decoder stream when codecs available', () => {
+      const stream = user._createVoiceCodecStream();
+      expect(client._codecs.createDecoderStream).toHaveBeenCalledWith(user);
+    });
+
+    test('_getOrCreateVoiceStream should reuse existing stream', () => {
+      const mockStream = { 
+        once: jest.fn(), 
+        write: jest.fn(), 
+        end: jest.fn() 
+      };
+      user._voice = mockStream;
+      
+      const result = user._getOrCreateVoiceStream();
+      expect(result).toBe(mockStream);
+    });
+
+    test('_getOrCreateVoiceStream should create new stream when none exists', () => {
+      user._voice = null;
+      const result = user._getOrCreateVoiceStream();
+      expect(result).toBeDefined();
+      expect(client._codecs.createDecoderStream).toHaveBeenCalled();
+    });
+
+    test('_getDuration should calculate total duration from frames', () => {
+      const frames = [Buffer.from([1]), Buffer.from([2]), Buffer.from([3])];
+      const duration = user._getDuration('Opus', frames);
+      // 3 frames * 20ms each = 60
+      expect(duration).toBe(60);
+    });
+
+    test('_handlePacketLoss should return false for late packets', () => {
+      user._lastVoiceSeqId = 10;
+      const result = user._handlePacketLoss(5, 20, 'Opus', 0, null);
+      expect(result).toBe(false);
+    });
+
+    test('_handlePacketLoss should insert empty frames for lost packets', () => {
+      user._lastVoiceSeqId = 5;
+      user._voice = { write: jest.fn(), once: jest.fn(), end: jest.fn() };
+      
+      // seqNum 10 with lastSeqId 5 means we lost packets 6-9 (4 packets)
+      const result = user._handlePacketLoss(10, 20, 'Opus', 0, null);
+      
+      expect(result).toBe(true);
+    });
+
+    test('_handlePacketLoss should cap lost frames at 10', () => {
+      user._lastVoiceSeqId = 5;
+      user._voice = { write: jest.fn(), once: jest.fn(), end: jest.fn() };
+      
+      // seqNum 100 would mean 94 lost packets, but should cap at 10
+      user._handlePacketLoss(100, 20, 'Opus', 0, null);
+      
+      // Should have called write 10 times for empty frames
+      expect(user._voice.write).toHaveBeenCalledTimes(10);
+    });
+
+    test('_insertEmptyFrames should write null frames', () => {
+      user._voice = { write: jest.fn(), once: jest.fn(), end: jest.fn() };
+      
+      user._insertEmptyFrames(3, 'Opus', 0, { x: 1, y: 2, z: 3 });
+      
+      expect(user._voice.write).toHaveBeenCalledTimes(3);
+      expect(user._voice.write).toHaveBeenCalledWith({
+        target: 0,
+        codec: 'Opus',
+        frame: null,
+        position: { x: 1, y: 2, z: 3 }
+      });
+    });
+
+    test('_writeFrame should write frame to stream', () => {
+      user._voice = { write: jest.fn(), once: jest.fn(), end: jest.fn() };
+      const frame = Buffer.from([1, 2, 3]);
+      
+      user._writeFrame(frame, 'Opus', 0, null);
+      
+      expect(user._voice.write).toHaveBeenCalledWith({
+        target: 0,
+        codec: 'Opus',
+        frame: frame,
+        position: null
+      });
+    });
+
+    test('_endVoiceTransmission should end and clean up stream', () => {
+      const mockStream = { end: jest.fn() };
+      const mockTimeout = { clear: jest.fn() };
+      user._voice = mockStream;
+      user._voiceTimeout = mockTimeout;
+      
+      user._endVoiceTransmission();
+      
+      expect(mockTimeout.clear).toHaveBeenCalled();
+      expect(mockStream.end).toHaveBeenCalled();
+      expect(user._voice).toBeNull();
+      expect(user._voiceTimeout).toBeNull();
+    });
+
+    test('_endVoiceTransmission should handle no active stream', () => {
+      user._voice = null;
+      user._voiceTimeout = null;
+      
+      // Should not throw
+      user._endVoiceTransmission();
+      
+      expect(user._voice).toBeNull();
+    });
+  });
+
+  describe('_onVoice Method', () => {
+    beforeEach(() => {
+      client._codecs = {
+        createDecoderStream: jest.fn(() => ({
+          once: jest.fn(),
+          write: jest.fn(),
+          end: jest.fn()
+        })),
+        getDuration: jest.fn(() => 10)
+      };
+    });
+
+    test('should write frames to voice stream', () => {
+      const frames = [Buffer.from([1, 2, 3])];
+      
+      user._onVoice(0, 'Opus', 0, frames, null, false);
+      
+      // Voice stream should be created and written to
+      expect(user._voice).toBeDefined();
+    });
+
+    test('should end transmission when end flag is true', () => {
+      const frames = [Buffer.from([1, 2, 3])];
+      user._voice = { write: jest.fn(), end: jest.fn() };
+      user._voiceTimeout = { set: jest.fn(), clear: jest.fn() };
+      
+      user._onVoice(0, 'Opus', 0, frames, null, true);
+      
+      expect(user._voice).toBeNull();
+    });
+
+    test('should update lastVoiceSeqId after writing', () => {
+      const frames = [Buffer.from([1])];
+      client._codecs.getDuration = jest.fn(() => 20);
+      
+      user._onVoice(10, 'Opus', 0, frames, null, false);
+      
+      // seqNum + duration/10 - 1 = 10 + 20/10 - 1 = 11
+      expect(user._lastVoiceSeqId).toBe(11);
+    });
+
+    test('should handle empty frames array with end flag', () => {
+      user._voice = { end: jest.fn() };
+      user._voiceTimeout = { clear: jest.fn() };
+      
+      user._onVoice(0, 'Opus', 0, [], null, true);
+      
+      expect(user._voice).toBeNull();
+    });
+
+    test('should drop late packets during ongoing transmission', () => {
+      user._voice = { write: jest.fn(), once: jest.fn(), end: jest.fn() };
+      user._voiceTimeout = { set: jest.fn(), clear: jest.fn() };
+      user._lastVoiceSeqId = 100;
+      
+      const frames = [Buffer.from([1])];
+      
+      // Late packet (seqNum 50 < lastSeqId 100)
+      user._onVoice(50, 'Opus', 0, frames, null, false);
+      
+      // Frame should not be written
+      expect(user._voice.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('State Modification Methods', () => {
+    test('setMute should send UserState with mute flag', () => {
+      user.setMute(true);
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 31,
+          mute: true
+        }
+      });
+    });
+
+    test('setMute(false) should also set deaf to false', () => {
+      user.setMute(false);
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 31,
+          mute: false,
+          deaf: false
+        }
+      });
+    });
+
+    test('setDeaf should send UserState with deaf flag', () => {
+      user.setDeaf(true);
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 31,
+          deaf: true,
+          mute: true
+        }
+      });
+    });
+
+    test('setDeaf(false) should not change mute', () => {
+      user.setDeaf(false);
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 31,
+          deaf: false
+        }
+      });
+    });
+
+    test('clearComment should send empty comment', () => {
+      user.clearComment();
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 31,
+          comment: ''
+        }
+      });
+    });
+
+    test('clearTexture should send empty texture', () => {
+      user.clearTexture();
+      
+      expect(client._send).toHaveBeenCalledWith({
+        name: 'UserState',
+        payload: {
+          session: 31,
+          texture: ''
+        }
+      });
     });
   });
 });

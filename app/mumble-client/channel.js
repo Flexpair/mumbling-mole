@@ -26,12 +26,12 @@ class Channel extends EventEmitter {
       this._links = msg.links
       changes.links = this.links
     }
-    if (msg.links_remove) {
-      this._links = this._links.filter(e => !msg.links_remove.includes(e))
+    if (msg.linksRemove) {
+      this._links = this._links.filter(e => !msg.linksRemove.includes(e))
       changes.links = this.links
     }
-    if (msg.links_add) {
-      const newLinks = msg.links_add.filter(e => !this._links.includes(e))
+    if (msg.linksAdd) {
+      const newLinks = msg.linksAdd.filter(e => !this._links.includes(e))
       for (const link of newLinks) {
         this._links.push(link)
       }
@@ -47,8 +47,8 @@ class Channel extends EventEmitter {
     if (msg.description != null) {
       changes.description = this._description = msg.description
     }
-    if (msg.description_hash != null) {
-      changes.descriptionHash = this._descriptionHash = msg.description_hash
+    if (msg.descriptionHash != null) {
+      changes.descriptionHash = this._descriptionHash = msg.descriptionHash
       this._haveRequestedDescription = false // invalidate previous request
     }
     if (msg.temporary != null) {
@@ -57,8 +57,8 @@ class Channel extends EventEmitter {
     if (msg.position != null) {
       changes.position = this._position = msg.position
     }
-    if (msg.max_users != null) {
-      changes.maxUsers = this._maxUsers = msg.max_users
+    if (msg.maxUsers != null) {
+      changes.maxUsers = this._maxUsers = msg.maxUsers
     }
     this._updateLinks(msg, changes)
     if (msg.parent != null) {

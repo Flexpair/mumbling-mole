@@ -109,7 +109,9 @@ jest.unstable_mockModule('../../app/utils/debug-utils', () => ({
 // Mock AudioStore
 const mockAudioState = {
   audioContext: {},
-  audioLockActive: { value: false }
+  audioLockActive: false,
+  notifyAudioLock: jest.fn(),
+  getAudioContext: jest.fn(() => ({}))
 };
 
 // Mock VoiceStore
@@ -117,7 +119,16 @@ const mockVoiceState = {
   isLoopbackMode: false,
   loopbackDominantFrequency: 0,
   setMute: jest.fn(),
-  updateVoiceHandler: jest.fn()
+  updateVoiceHandler: jest.fn(),
+  updateLoopbackFrequency: jest.fn()
+};
+
+// Mock ConnectionStore
+const mockConnectionStore = {
+  getClient: jest.fn(() => ({
+    setSelfMute: jest.fn(),
+    setSelfDeaf: jest.fn()
+  }))
 };
 
 // Mock SettingsStore - the state that userStore reads from
@@ -132,6 +143,10 @@ jest.unstable_mockModule('../../app/stores/audioStore.js', () => ({
 
 jest.unstable_mockModule('../../app/stores/voiceStore.js', () => ({
   useVoiceStore: () => mockVoiceState
+}));
+
+jest.unstable_mockModule('../../app/stores/connectionStore.js', () => ({
+  useConnectionStore: () => mockConnectionStore
 }));
 
 jest.unstable_mockModule('../../app/stores/settingsStore.js', () => ({
@@ -172,7 +187,7 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     setActivePinia(createPinia());
     
     // Reset mocks
-    mockAudioState.audioLockActive.value = false;
+    mockAudioState.audioLockActive = false;
     mockVoiceState.isLoopbackMode = false;
     mockVoiceState.loopbackDominantFrequency = 0;
     mockVoiceState.setMute.mockClear();
@@ -226,4 +241,377 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     
     expect(mockSettingsStore.jitterBufferSize).toBe(11);
   });
+
+  test('should use low-latency mode settings', async () => {
+    mockSettingsStore.jitterBufferMode = 'low-latency';
+    mockClient.dataStats = { mean: 50, variance: 4, n: 10 };
+    
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
+
+    await new Promise(r => setTimeout(r, 100));
+    
+    const callback = mockClient.on.mock.calls.find(call => call[0] === 'dataPing')?.[1];
+    if (callback) callback();
+    
+    // low-latency: factor=3, minPackets=2
+    // 50 + 3*2 = 56ms -> ceil(56/20) = 3 packets
+    expect(mockSettingsStore.jitterBufferSize).toBe(3);
+  });
+
+  test('should use high-quality mode settings', async () => {
+    mockSettingsStore.jitterBufferMode = 'high-quality';
+    mockClient.dataStats = { mean: 100, variance: 100, n: 50 };
+    
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
+
+    await new Promise(r => setTimeout(r, 100));
+    
+    const callback = mockClient.on.mock.calls.find(call => call[0] === 'dataPing')?.[1];
+    if (callback) callback();
+    
+    // high-quality: factor=5, minPackets=4
+    // 100 + 5*10 = 150ms -> ceil(150/20) = 8 packets
+    expect(mockSettingsStore.jitterBufferSize).toBe(8);
+  });
+
+  test('should skip calculation when no stats available', async () => {
+    mockClient.dataStats = { n: 0 };
+    mockSettingsStore.jitterBufferSize = 5;
+    
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
+
+    await new Promise(r => setTimeout(r, 100));
+    
+    const callback = mockClient.on.mock.calls.find(call => call[0] === 'dataPing')?.[1];
+    if (callback) callback();
+    
+    // Should set to minPackets for mode (balanced = 3)
+    expect(mockSettingsStore.jitterBufferSize).toBe(3);
+  });
+
+  test('should skip calculation when no client', () => {
+    mockUIUser.model._client = null;
+    mockSettingsStore.jitterBufferSize = 7;
+    
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
+
+    // Should not throw and should not change buffer size
+    expect(mockSettingsStore.jitterBufferSize).toBe(7);
+  });
 });
+
+describe('useUserStore state management', () => {
+  let userStore;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockAudioState.audioLockActive = false;
+    mockAudioState.notifyAudioLock = jest.fn();
+    mockVoiceState.setMute.mockClear();
+    mockConnectionStore.getClient = jest.fn(() => ({
+      setSelfMute: jest.fn(),
+      setSelfDeaf: jest.fn()
+    }));
+    userStore = useUserStore();
+  });
+
+  test('store should expose thisUser state', () => {
+    expect(userStore).toHaveProperty('thisUser');
+  });
+
+  test('store should expose selfMute state', () => {
+    expect(userStore).toHaveProperty('selfMute');
+  });
+
+  test('store should expose selfDeaf state', () => {
+    expect(userStore).toHaveProperty('selfDeaf');
+  });
+
+  test('reset should be a function', () => {
+    expect(typeof userStore.reset).toBe('function');
+  });
+
+  test('requestMute should be a function', () => {
+    expect(typeof userStore.requestMute).toBe('function');
+  });
+
+  test('requestDeaf should be a function', () => {
+    expect(typeof userStore.requestDeaf).toBe('function');
+  });
+
+  test('requestUnmute should be a function', () => {
+    expect(typeof userStore.requestUnmute).toBe('function');
+  });
+
+  test('requestUndeaf should be a function', () => {
+    expect(typeof userStore.requestUndeaf).toBe('function');
+  });
+
+  test('requestUnmute should notify audio lock when active', () => {
+    mockAudioState.audioLockActive = true;
+    
+    userStore.requestUnmute();
+    
+    expect(mockAudioState.notifyAudioLock).toHaveBeenCalled();
+  });
+
+  test('requestUndeaf should notify audio lock when active', () => {
+    mockAudioState.audioLockActive = true;
+    
+    userStore.requestUndeaf();
+    
+    expect(mockAudioState.notifyAudioLock).toHaveBeenCalled();
+  });
+
+  test('registerUser should be a function', () => {
+    expect(typeof userStore.registerUser).toBe('function');
+  });
+});
+
+describe('useUserStore registerUser', () => {
+  let userStore;
+  let mockUser;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    userStore = useUserStore();
+    
+    mockUser = {
+      session: 42,
+      username: 'TestUser',
+      channel: null,
+      selfMute: false,
+      selfDeaf: false,
+      on: jest.fn(),
+      off: jest.fn()
+    };
+  });
+
+  test('should create UI wrapper for user', () => {
+    userStore.registerUser(mockUser);
+    
+    expect(mockUser.__ui).toBeDefined();
+    expect(mockUser.__ui.name.value).toBe('TestUser');
+    expect(mockUser.__ui.selfMute.value).toBe(false);
+    expect(mockUser.__ui.selfDeaf.value).toBe(false);
+    expect(mockUser.__ui.talking.value).toBe('off');
+  });
+
+  test('should register event listeners', () => {
+    userStore.registerUser(mockUser);
+    
+    expect(mockUser.on).toHaveBeenCalledWith('update', expect.any(Function));
+    expect(mockUser.on).toHaveBeenCalledWith('voice', expect.any(Function));
+    expect(mockUser.on).toHaveBeenCalledWith('server-state-sync', expect.any(Function));
+  });
+
+  test('should clean up previous UI wrapper if exists', () => {
+    const oldSyncFn = jest.fn();
+    mockUser.__ui = { old: true };
+    mockUser.__syncServerState = oldSyncFn;
+    
+    userStore.registerUser(mockUser);
+    
+    expect(mockUser.off).toHaveBeenCalledWith('server-state-sync', oldSyncFn);
+    expect(mockUser.__ui.old).toBeUndefined();
+  });
+
+  test('handleUserUpdate should update channel', () => {
+    userStore.registerUser(mockUser);
+    
+    const updateHandler = mockUser.on.mock.calls.find(c => c[0] === 'update')[1];
+    
+    const newChannel = { __ui: { name: 'NewChannel' } };
+    mockUser.channel = newChannel;
+    
+    updateHandler(null, { channel: newChannel });
+    
+    expect(mockUser.__ui.channel.value).toEqual({ name: 'NewChannel' });
+  });
+
+  test('handleUserUpdate should update selfMute', () => {
+    userStore.registerUser(mockUser);
+    
+    const updateHandler = mockUser.on.mock.calls.find(c => c[0] === 'update')[1];
+    
+    updateHandler(null, { selfMute: true });
+    
+    expect(mockUser.__ui.selfMute.value).toBe(true);
+  });
+
+  test('handleUserUpdate should update selfDeaf', () => {
+    userStore.registerUser(mockUser);
+    
+    const updateHandler = mockUser.on.mock.calls.find(c => c[0] === 'update')[1];
+    
+    
+    updateHandler(null, { selfDeaf: true });
+    
+    expect(mockUser.__ui.selfDeaf.value).toBe(true);
+  });
+
+  test('server-state-sync should update selfMute and selfDeaf', () => {
+    userStore.registerUser(mockUser);
+    
+    const syncHandler = mockUser.on.mock.calls.find(c => c[0] === 'server-state-sync')[1];
+    
+    syncHandler({ selfMute: true, selfDeaf: true });
+    
+    expect(userStore.selfMute).toBe(true);
+    expect(userStore.selfDeaf).toBe(true);
+  });
+});
+
+describe('useUserStore Request Methods Branch Coverage', () => {
+  let userStore;
+  
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockAudioState.audioLockActive = false;
+    mockConnectionStore.getClient.mockReturnValue({
+      setSelfMute: jest.fn(),
+      setSelfDeaf: jest.fn()
+    });
+    userStore = useUserStore();
+  });
+
+  describe('requestMute', () => {
+    test('should mute when user is undefined (self)', () => {
+      userStore.requestMute(undefined);
+      expect(userStore.selfMute).toBe(true);
+    });
+
+    test('should mute when user equals thisUser', () => {
+      const mockUser = { session: 1 };
+      userStore.thisUser.value = mockUser;
+      userStore.requestMute(mockUser);
+      expect(userStore.selfMute).toBe(true);
+    });
+
+    test('should call client.setSelfMute when thisUser exists', () => {
+      const mockClient = { setSelfMute: jest.fn(), setSelfDeaf: jest.fn() };
+      mockConnectionStore.getClient.mockReturnValue(mockClient);
+      const mockUser = { session: 1 };
+      userStore.thisUser.value = mockUser;
+      
+      userStore.requestMute(undefined);
+      
+      expect(mockClient.setSelfMute).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('requestDeaf', () => {
+    test('should deaf and mute when not in loopback mode', () => {
+      userStore.requestDeaf(undefined, false);
+      expect(userStore.selfDeaf).toBe(true);
+      expect(userStore.selfMute).toBe(true);
+    });
+
+    test('should only deaf (not mute) when in loopback mode', () => {
+      userStore.selfMute.value = false;
+      userStore.requestDeaf(undefined, true);
+      expect(userStore.selfDeaf).toBe(true);
+      expect(userStore.selfMute).toBe(false);
+    });
+
+    test('should call client methods when thisUser exists', () => {
+      const mockClient = { setSelfMute: jest.fn(), setSelfDeaf: jest.fn() };
+      mockConnectionStore.getClient.mockReturnValue(mockClient);
+      const mockUser = { session: 1 };
+      userStore.thisUser.value = mockUser;
+      
+      userStore.requestDeaf(undefined, false);
+      
+      expect(mockClient.setSelfDeaf).toHaveBeenCalledWith(true);
+      expect(mockClient.setSelfMute).toHaveBeenCalledWith(true);
+    });
+    
+    test('should not call setSelfMute in loopback mode', () => {
+      const mockClient = { setSelfMute: jest.fn(), setSelfDeaf: jest.fn() };
+      mockConnectionStore.getClient.mockReturnValue(mockClient);
+      const mockUser = { session: 1 };
+      userStore.thisUser.value = mockUser;
+      
+      userStore.requestDeaf(undefined, true);
+      
+      expect(mockClient.setSelfDeaf).toHaveBeenCalledWith(true);
+      expect(mockClient.setSelfMute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestUnmute', () => {
+    test('should return early and call notifyAudioLock when audio is locked', () => {
+      mockAudioState.audioLockActive = true;
+      userStore.selfMute.value = true;
+      
+      userStore.requestUnmute(undefined);
+      
+      expect(mockAudioState.notifyAudioLock).toHaveBeenCalled();
+      expect(userStore.selfMute).toBe(true); // Should NOT unmute
+    });
+
+    test('should unmute and undeaf when audio is not locked', () => {
+      mockAudioState.audioLockActive = false;
+      userStore.selfMute.value = true;
+      userStore.selfDeaf.value = true;
+      
+      userStore.requestUnmute(undefined);
+      
+      expect(userStore.selfMute).toBe(false);
+      expect(userStore.selfDeaf).toBe(false);
+    });
+
+    test('should call client methods when thisUser exists', () => {
+      const mockClient = { setSelfMute: jest.fn(), setSelfDeaf: jest.fn() };
+      mockConnectionStore.getClient.mockReturnValue(mockClient);
+      const mockUser = { session: 1 };
+      userStore.thisUser.value = mockUser;
+      
+      userStore.requestUnmute(undefined);
+      
+      expect(mockClient.setSelfMute).toHaveBeenCalledWith(false);
+      expect(mockClient.setSelfDeaf).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('requestUndeaf', () => {
+    test('should return early and notify when audio is locked', () => {
+      mockAudioState.audioLockActive = true;
+      userStore.selfDeaf.value = true;
+      
+      userStore.requestUndeaf(undefined);
+      
+      expect(mockAudioState.notifyAudioLock).toHaveBeenCalled();
+      expect(userStore.selfDeaf).toBe(true); // Should NOT undeaf
+    });
+
+    test('should undeaf when audio is not locked', () => {
+      mockAudioState.audioLockActive = false;
+      userStore.selfDeaf.value = true;
+      
+      userStore.requestUndeaf(undefined);
+      
+      expect(userStore.selfDeaf).toBe(false);
+    });
+  });
+
+  describe('reset', () => {
+    test('should reset all user state', () => {
+      userStore.thisUser.value = { session: 1 };
+      userStore.selfMute.value = true;
+      userStore.selfDeaf.value = true;
+      
+      userStore.reset();
+      
+      // After reset, thisUser becomes null (ref gets replaced)
+      expect(userStore.thisUser).toBe(null);
+      expect(userStore.selfMute).toBe(false);
+      expect(userStore.selfDeaf).toBe(false);
+    });
+  });
+});
+

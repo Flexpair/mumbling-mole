@@ -162,7 +162,7 @@ describe('mumble-client Channel', () => {
 
     test('should update description hash and reset request flag', () => {
       channel._haveRequestedDescription = true;
-      channel._update({ description_hash: 'hash123' });
+      channel._update({ descriptionHash: 'hash123' });
 
       expect(channel.descriptionHash).toBe('hash123');
       expect(channel._haveRequestedDescription).toBe(false);
@@ -179,7 +179,7 @@ describe('mumble-client Channel', () => {
     });
 
     test('should update maxUsers', () => {
-      channel._update({ max_users: 10 });
+      channel._update({ maxUsers: 10 });
       expect(channel.maxUsers).toBe(10);
     });
 
@@ -233,17 +233,17 @@ describe('mumble-client Channel', () => {
       });
     });
 
-    test('should remove links with links_remove', () => {
+    test('should remove links with linksRemove', () => {
       channel._links = [1, 2, 3, 4];
-      channel._update({ links_remove: [2, 4] });
+      channel._update({ linksRemove: [2, 4] });
 
       expect(channel._links).toEqual([1, 3]);
       expect(channel.links).toEqual([channel1, channel3]);
     });
 
-    test('should add links with links_add', () => {
+    test('should add links with linksAdd', () => {
       channel._links = [1];
-      channel._update({ links_add: [2, 3] });
+      channel._update({ linksAdd: [2, 3] });
 
       expect(channel._links).toEqual([1, 2, 3]);
       expect(channel.links).toEqual([channel1, channel2, channel3]);
@@ -251,7 +251,7 @@ describe('mumble-client Channel', () => {
 
     test('should not add duplicate links', () => {
       channel._links = [1, 2];
-      channel._update({ links_add: [2, 3] });
+      channel._update({ linksAdd: [2, 3] });
 
       expect(channel._links).toEqual([1, 2, 3]);
     });

@@ -6,7 +6,8 @@
     "sass",
     "jest",
     "jest-environment-jsdom",
-    "ws"
+    "ws",
+    "protobufjs-cli"
   ],
   "specials": [
     "babel"

@@ -136,8 +136,75 @@ const messageListenerCall = globalThis.addEventListener.mock.calls.find(
 const messageHandler = messageListenerCall?.[1];
 
 describe("worker.js", () => {
+  // ============ HELPER FUNCTIONS ============
+  /**
+   * Connects to a test server and returns connection info.
+   * Reduces boilerplate across tests.
+   */
+  async function connectClient(reqId = 1, host = "wss://test", args = {}) {
+    await messageHandler({ 
+      data: { 
+        reqId, 
+        method: "_connect", 
+        payload: { host, args } 
+      } 
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    const client = mockClients[mockClients.length - 1];
+    const connectResponse = postMessageCalls.find(call => call.reqId === reqId);
+    const clientId = connectResponse?.result;
+    
+    return { client, clientId, connectResponse };
+  }
+
+  /**
+   * Creates a mock channel with all required properties.
+   */
+  function createMockChannel(overrides = {}) {
+    const channel = new EventEmitter();
+    Object.assign(channel, {
+      id: 0,
+      name: "Root",
+      children: [],
+      links: [],
+      parent: null,
+      position: 0,
+      description: "",
+      ...overrides
+    });
+    return channel;
+  }
+
+  /**
+   * Creates a mock user with all required properties.
+   */
+  function createMockUser(overrides = {}) {
+    const user = new EventEmitter();
+    Object.assign(user, {
+      session: 123,
+      username: "TestUser",
+      setChannel: jest.fn(),
+      sendMessage: jest.fn(),
+      requestMove: jest.fn(),
+      ...overrides
+    });
+    return user;
+  }
+
+  /**
+   * Sets up a connected client with root channel and self.
+   */
+  async function setupConnectedClientWithRoot(reqId = 1) {
+    const { client, clientId } = await connectClient(reqId);
+    const mockRoot = createMockChannel();
+    client.root = mockRoot;
+    client.self = { id: 99 };
+    return { client, clientId, mockRoot };
+  }
+
+  // ============ SETUP / TEARDOWN ============
   beforeEach(() => {
-    // Clear call history and reset state
     jest.clearAllMocks();
     postMessageCalls.length = 0;
     mockClients.length = 0;
@@ -161,64 +228,26 @@ describe("worker.js", () => {
 
   describe("Connection handling", () => {
     test("should handle connect request", async () => {
-      const msg = {
-        reqId: 1,
-        method: "_connect",
-        payload: {
-          host: "wss://example.com",
-          args: { username: "test" }
-        },
-      };
+      const { clientId } = await connectClient(1, "wss://example.com", { username: "test" });
 
-      await messageHandler({ data: msg });
-
-      // Verify mumbleConnect was called
       expect(mumbleConnectMock).toHaveBeenCalledWith(
         "wss://example.com",
         expect.objectContaining({ username: "test" })
       );
-
-      // Verify success response
-      // Note: Promise resolution always happens in a microtask, so we need to wait
-      // for the microtask queue to flush before checking postMessage.
-      await new Promise(resolve => setTimeout(resolve, 0));
-
       expect(globalThis.self.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          reqId: 1,
-          result: expect.any(Number)
-        }),
+        expect.objectContaining({ reqId: 1, result: clientId }),
         undefined
       );
     });
 
     test("should proxy client events", async () => {
-      // Connect first
-      const msg = {
-        reqId: 2,
-        method: "_connect",
-        payload: {
-          host: "wss://example.com",
-          args: {}
-        },
-      };
-      await messageHandler({ data: msg });
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const { client } = await connectClient(2, "wss://example.com");
       
-      const client = mockClients[mockClients.length - 1];
-      
-      // Emit event on client
-      // Note: 'update' is not proxied on the client object itself, only on users/channels.
-      // 'denied' is proxied.
       const denialReason = { type: 1, reason: "Invalid password" };
       client.emit("denied", denialReason);
       
-      // Verify proxied message
       expect(globalThis.self.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "denied",
-          value: [denialReason]
-        }),
+        expect.objectContaining({ event: "denied", value: [denialReason] }),
         undefined
       );
     });
@@ -226,33 +255,11 @@ describe("worker.js", () => {
 
   describe("Voice stream handling", () => {
     test("should handle createVoiceStream message", async () => {
-      // Connect first
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      
-      // Mock createVoiceStream on client
+      const { client, clientId } = await connectClient();
       const mockStream = new EventEmitter();
       client.createVoiceStream.mockReturnValue(mockStream);
 
-      // Get the client ID from the connect response
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      const msg = {
-        clientId: clientId,
-        method: "createVoiceStream",
-        payload: [1, 960], // voiceId, samplesPerPacket
-      };
-
-      messageHandler({ data: msg });
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [1, 960] } });
 
       expect(client.createVoiceStream).toHaveBeenCalled();
     });
@@ -278,31 +285,10 @@ describe("worker.js", () => {
 
   describe("Client method calls", () => {
     test("should handle setSelfMute request", async () => {
-      // Connect first
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const client = mockClients[mockClients.length - 1];
-      // Mock setSelfMute on client
+      const { client, clientId } = await connectClient();
       client.setSelfMute = jest.fn();
-      
-      // Get the client ID
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
 
-      const msg = {
-        clientId: clientId,
-        method: "setSelfMute",
-        payload: [true],
-      };
-
-      messageHandler({ data: msg });
+      messageHandler({ data: { clientId, method: "setSelfMute", payload: [true] } });
       
       expect(client.setSelfMute).toHaveBeenCalledWith(true);
     });
@@ -310,34 +296,421 @@ describe("worker.js", () => {
 
   describe("Error handling", () => {
     test("should catch message processing errors", async () => {
-      const consoleErrorSpy = jest
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+      const { clientId } = await connectClient();
 
-      // Connect first to get a valid client ID
-      await messageHandler({ 
-        data: { 
-          reqId: 1, 
-          method: "_connect", 
-          payload: { host: "wss://test", args: {} } 
-        } 
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
-      const connectResponse = postMessageCalls.find(call => call.reqId === 1);
-      const clientId = connectResponse.result;
-
-      const msg = {
-        clientId: clientId,
-        method: "invalid",
-        payload: {},
-      };
-
-      expect(() => messageHandler({ data: msg })).not.toThrow();
-      
-      // worker.js logs error but doesn't send response for invalid methods
+      expect(() => messageHandler({ data: { clientId, method: "invalid", payload: {} } })).not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();
     });
+
+    test("should handle connection failure", async () => {
+      const connectionError = new Error("Connection refused");
+      mumbleConnectMock.mockRejectedValueOnce(connectionError);
+
+      const msg = {
+        reqId: 99,
+        method: "_connect",
+        payload: { host: "wss://invalid", args: {} },
+      };
+
+      await messageHandler({ data: msg });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Should have called postMessage with error
+      expect(globalThis.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reqId: 99,
+          error: expect.objectContaining({
+            message: "Connection refused"
+          })
+        }),
+        undefined
+      );
+    });
+
+    test("should handle Event objects in reject", async () => {
+      // Create a mock WebSocket error event
+      const wsError = new Event('error');
+      mumbleConnectMock.mockRejectedValueOnce(wsError);
+
+      const msg = {
+        reqId: 100,
+        method: "_connect",
+        payload: { host: "wss://ws-error", args: {} },
+      };
+
+      await messageHandler({ data: msg });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Should convert Event to serializable object (reject() uses Error)
+      expect(globalThis.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reqId: 100,
+          error: expect.objectContaining({
+            message: "Connection failed",
+            name: "Error"
+          })
+        }),
+        undefined
+      );
+    });
+  });
+
+  describe("Channel and User registration", () => {
+    test("should register channel on client", async () => {
+      const { client } = await connectClient();
+      const mockChannel = createMockChannel();
+      client.root = mockChannel;
+      client.self = { id: 1 };
+      
+      globalThis.postMessage.mockClear();
+      client.emit('newChannel', mockChannel);
+      
+      expect(globalThis.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "newChannel" }),
+        undefined
+      );
+    });
+
+    test("should register user on client", async () => {
+      const { client } = await connectClient();
+      const mockUser = createMockUser();
+      
+      client.emit('newUser', mockUser);
+      
+      expect(globalThis.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "newUser" }),
+        undefined
+      );
+    });
+  });
+
+  describe("setAudioQuality", () => {
+    test("should call setAudioQuality on client", async () => {
+      const { client, clientId } = await connectClient();
+      client.setAudioQuality = jest.fn();
+
+      messageHandler({ data: { clientId, method: "setAudioQuality", payload: [40000, 960] } });
+      
+      expect(client.setAudioQuality).toHaveBeenCalledWith(40000, 960);
+    });
+  });
+
+  describe("Disconnect handling", () => {
+    test("should handle disconnect request", async () => {
+      const { client, clientId } = await connectClient();
+
+      messageHandler({ data: { clientId, method: "disconnect", payload: [] } });
+      
+      expect(client.disconnect).toHaveBeenCalled();
+    });
+  });
+
+  describe("reject() function branches", () => {
+    test("should handle structuredClone failure gracefully", async () => {
+      const uncloneable = { message: "Test error", name: "TestError", func: () => {} };
+      mumbleConnectMock.mockRejectedValueOnce(uncloneable);
+      
+      await connectClient(98, "wss://test-unclone");
+      
+      expect(globalThis.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reqId: 98,
+          error: expect.objectContaining({ message: "Test error", name: "TestError" })
+        }),
+        undefined
+      );
+    });
+  });
+
+  describe("pushProp edge cases", () => {
+    test("should handle transformed values", async () => {
+      const { client, mockRoot } = await setupConnectedClientWithRoot();
+      mockRoot.id = 1;
+      client.self = { id: 42 };
+      
+      globalThis.postMessage.mockClear();
+      client.emit('maxBandwidthChange');
+      
+      expect(globalThis.postMessage).toHaveBeenCalled();
+    });
+  });
+
+  describe("Voice stream target handling", () => {
+    test("should handle different voice targets", async () => {
+      const { client, clientId } = await connectClient();
+      client.createVoiceStream.mockClear();
+
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [31] } });
+      
+      expect(client.createVoiceStream).toHaveBeenCalled();
+    });
+  });
+
+  describe("User method calls", () => {
+    test("should handle user method calls when user exists", async () => {
+      const { clientId } = await connectClient();
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      messageHandler({ data: { clientId, userId: 42, method: "requestMove", payload: [1] } });
+      
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    test("should reject disallowed methods", async () => {
+      const { clientId } = await connectClient();
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      messageHandler({ data: { clientId, userId: 42, method: "dangerousMethod", payload: [] } });
+      
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("Channel method calls", () => {
+    test("should call allowed channel methods", async () => {
+      const { client, clientId } = await connectClient();
+      const mockChannel = { sendMessage: jest.fn() };
+      client.getChannelById = jest.fn(() => mockChannel);
+
+      messageHandler({ data: { clientId, channelId: 0, method: "sendMessage", payload: ["Hello"] } });
+      
+      expect(mockChannel.sendMessage).toHaveBeenCalledWith("Hello");
+    });
+  });
+
+  describe("Edge cases", () => {
+    test("should handle missing target gracefully", async () => {
+      const { client, clientId } = await connectClient();
+      client.getUserById = jest.fn(() => null);
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      messageHandler({ data: { clientId, userId: 999, method: "requestMove", payload: [1] } });
+      
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    test("should handle postMessage failure", async () => {
+      const { client } = await connectClient();
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const throwingMock = jest.fn((msg) => {
+        if (msg.event) throw new Error('postMessage failed');
+        postMessageCalls.push(msg);
+      });
+      globalThis.postMessage = throwingMock;
+      globalThis.self.postMessage = throwingMock;
+      
+      expect(() => client.emit('denied', { type: 1, reason: "Test" })).toThrow('postMessage failed');
+      
+      globalThis.postMessage = jest.fn((msg) => postMessageCalls.push(msg));
+      globalThis.self.postMessage = globalThis.postMessage;
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("Client initialization edge cases", () => {
+    test("should handle client with root channel already set", async () => {
+      const clientWithRoot = createMockClient();
+      const mockRoot = createMockChannel();
+      clientWithRoot.root = mockRoot;
+      clientWithRoot.users = [];
+      
+      mumbleConnectMock.mockResolvedValueOnce(clientWithRoot);
+      await connectClient(50, "wss://test-with-root");
+      
+      const rootPropMessage = postMessageCalls.find(
+        call => call.prop === 'root' && call.clientId !== undefined
+      );
+      expect(rootPropMessage).toBeDefined();
+    });
+
+    test("should handle newChannel event after connection", async () => {
+      const clientNoRoot = createMockClient();
+      clientNoRoot.root = null;
+      clientNoRoot.users = [];
+      clientNoRoot.channels = {};
+      clientNoRoot.self = { id: 99 };
+      
+      mumbleConnectMock.mockResolvedValueOnce(clientNoRoot);
+      await connectClient(51, "wss://test-no-root");
+      
+      const mockChannel = createMockChannel();
+      clientNoRoot.root = mockChannel;
+      clientNoRoot.emit('newChannel', mockChannel);
+      
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      const channelMessage = postMessageCalls.find(call => call.event === 'newChannel');
+      expect(channelMessage).toBeDefined();
+    });
+
+    test("should handle connected event triggering initialization", async () => {
+      const clientNoRoot = createMockClient();
+      clientNoRoot.root = null;
+      clientNoRoot.users = [];
+      clientNoRoot.channels = {};
+      clientNoRoot.self = { id: 99 };
+      
+      mumbleConnectMock.mockResolvedValueOnce(clientNoRoot);
+      await connectClient(52, "wss://test-connected-event");
+      
+      const mockRoot = createMockChannel();
+      clientNoRoot.root = mockRoot;
+      clientNoRoot.emit('connected');
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      expect(postMessageCalls.length).toBeGreaterThan(0);
+    });
+
+    test("should cleanup on disconnect", async () => {
+      const clientWithRoot = createMockClient();
+      const mockRoot = createMockChannel();
+      clientWithRoot.root = mockRoot;
+      clientWithRoot.users = [];
+      
+      mumbleConnectMock.mockResolvedValueOnce(clientWithRoot);
+      await connectClient(53, "wss://test-disconnect");
+      
+      expect(() => clientWithRoot.emit('disconnect')).not.toThrow();
+    });
+
+    test("should handle dataPing event for stats", async () => {
+      const { client } = await connectClient(54, "wss://test-dataping");
+      client.dataStats = { ping: 50, jitter: 10 };
+      
+      globalThis.postMessage.mockClear();
+      client.emit('dataPing');
+      
+      const statsMessage = postMessageCalls.find(call => call.prop === 'dataStats');
+      expect(statsMessage).toBeDefined();
+    });
+
+    test("should handle serverVersion event", async () => {
+      const { client } = await connectClient(55, "wss://test-version");
+      client.serverVersion = "1.5.0";
+      
+      globalThis.postMessage.mockClear();
+      client.emit('serverVersion');
+      
+      const versionMessage = postMessageCalls.find(call => call.prop === 'serverVersion');
+      expect(versionMessage).toBeDefined();
+    });
+  });
+
+  describe("User setChannel method", () => {
+    test("should transform channel ID to channel object for setChannel", async () => {
+      const { client, clientId } = await connectClient();
+      const mockUser = createMockUser();
+      const mockChannel = { id: 5, name: "Test Channel" };
+      
+      client.getUserById = jest.fn(() => mockUser);
+      client.getChannelById = jest.fn(() => mockChannel);
+
+      messageHandler({ data: { clientId, userId: 42, method: "setChannel", payload: [5] } });
+      
+      expect(client.getChannelById).toHaveBeenCalledWith(5);
+      expect(mockUser.setChannel).toHaveBeenCalledWith(mockChannel);
+    });
+  });
+
+  describe("Voice stream with target", () => {
+    test("should pass voice target to stream data", async () => {
+      const { client, clientId } = await connectClient();
+      let capturedStream = null;
+      client.createVoiceStream = jest.fn(() => {
+        capturedStream = new MockPassThrough();
+        return capturedStream;
+      });
+
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [100, 960, 31] } });
+      
+      expect(client.createVoiceStream).toHaveBeenCalledWith(31);
+    });
+  });
+
+  describe("Channel link handling in update events", () => {
+    test("should transform links array in channel update", async () => {
+      const clientWithSelf = createMockClient();
+      clientWithSelf.self = { id: 99 };
+      clientWithSelf.users = [];
+      
+      const mockChannel = createMockChannel({ id: 1, name: "Test" });
+      clientWithSelf.root = mockChannel;
+      
+      mumbleConnectMock.mockResolvedValueOnce(clientWithSelf);
+      await connectClient();
+      
+      globalThis.postMessage.mockClear();
+      postMessageCalls.length = 0;
+      
+      const linkedChannel = { id: 2, name: "Linked" };
+      mockChannel.emit('update', { name: "Updated", links: [linkedChannel] });
+      
+      const updateMessage = postMessageCalls.find(
+        call => call.event === 'update' && call.channelId !== undefined
+      );
+      
+      if (updateMessage) {
+        expect(updateMessage.value[0].links).toEqual([2]);
+      }
+    });
+  });
+
+  describe("Message validation", () => {
+    test("should reject non-object messages", () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      messageHandler({ data: null });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('invalid data format'));
+      warnSpy.mockRestore();
+    });
+
+    test("should reject messages with invalid structure", () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      messageHandler({ data: { somethingRandom: 123 } });
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('invalid message structure'),
+        expect.any(Object)
+      );
+      warnSpy.mockRestore();
+    });
+
+    test("should handle message exceptions gracefully", async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const { client, clientId } = await connectClient();
+      client.getUserById = jest.fn(() => { throw new Error('Test exception'); });
+      
+      messageHandler({ data: { clientId, userId: 42, method: "sendMessage", payload: ["test"] } });
+      
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("Voice stream handling", () => {
+    test("should handle voice data write", async () => {
+      const { client, clientId } = await connectClient();
+      const mockStream = new MockPassThrough();
+      client.createVoiceStream.mockReturnValue(mockStream);
+
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [5, 960, 0] } });
+      
+      const voiceData = new ArrayBuffer(960 * 4);
+      messageHandler({ data: { voiceId: 5, chunk: voiceData } });
+    });
+
+    test("should end voice stream when chunk is null", async () => {
+      const { client, clientId } = await connectClient();
+      const mockStream = new MockPassThrough();
+      client.createVoiceStream.mockReturnValue(mockStream);
+
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [6, 960, 0] } });
+      messageHandler({ data: { voiceId: 6, chunk: null } });
+    });
   });
 });
+
+

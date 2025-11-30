@@ -50,6 +50,26 @@ describe('useDialogStore', () => {
       expect(store.connectDialog.password).toBe('TestPass');
       expect(store.connectDialog.isTestActive).toBe(true);
     });
+
+    test('resetConnectDialog() clears all state', () => {
+      const store = useDialogStore();
+      
+      store.connectDialog.address = 'server.example.com';
+      store.connectDialog.port = '64738';
+      store.connectDialog.username = 'TestUser';
+      store.connectDialog.password = 'TestPass';
+      store.connectDialog.visible = true;
+      store.connectDialog.isTestActive = true;
+      
+      store.resetConnectDialog();
+      
+      expect(store.connectDialog.address).toBe('');
+      expect(store.connectDialog.port).toBe('');
+      expect(store.connectDialog.username).toBe('');
+      expect(store.connectDialog.password).toBe('');
+      expect(store.connectDialog.visible).toBe(false);
+      expect(store.connectDialog.isTestActive).toBe(false);
+    });
   });
 
   describe('errorDialog', () => {
@@ -82,6 +102,46 @@ describe('useDialogStore', () => {
       expect(store.errorDialog.reason).toBe('Connection failed');
     });
 
+    test('showErrorDialog() handles null error', () => {
+      const store = useDialogStore();
+      
+      store.showErrorDialog(null);
+      
+      expect(store.errorDialog.visible).toBe(true);
+      // Should keep default values when error is null
+      expect(store.errorDialog.type).toBe(0);
+      expect(store.errorDialog.reason).toBe('');
+    });
+
+    test('showErrorDialog() handles error without type (defaults to 0)', () => {
+      const store = useDialogStore();
+      
+      const error = { reason: 'Some error' };
+      store.showErrorDialog(error);
+      
+      expect(store.errorDialog.visible).toBe(true);
+      expect(store.errorDialog.type).toBe(0);
+      expect(store.errorDialog.reason).toBe('Some error');
+    });
+
+    test('showErrorDialog() handles error without reason or message', () => {
+      const store = useDialogStore();
+      
+      const error = { type: 3 };
+      store.showErrorDialog(error);
+      
+      expect(store.errorDialog.visible).toBe(true);
+      expect(store.errorDialog.type).toBe(3);
+      expect(store.errorDialog.reason).toBe('');
+    });
+
+    test('hideErrorDialog() sets visible to false', () => {
+      const store = useDialogStore();
+      store.errorDialog.visible = true;
+      store.hideErrorDialog();
+      expect(store.errorDialog.visible).toBe(false);
+    });
+
     test('resetErrorDialog() clears all state', () => {
       const store = useDialogStore();
       
@@ -110,6 +170,19 @@ describe('useDialogStore', () => {
       expect(store.infoDialog.visible).toBe(false);
       expect(store.infoDialog.serverVersion).toBeNull();
       expect(store.infoDialog.codec).toBe('Unknown');
+    });
+
+    test('showInfoDialog() sets visible to true', () => {
+      const store = useDialogStore();
+      store.showInfoDialog();
+      expect(store.infoDialog.visible).toBe(true);
+    });
+
+    test('hideInfoDialog() sets visible to false', () => {
+      const store = useDialogStore();
+      store.infoDialog.visible = true;
+      store.hideInfoDialog();
+      expect(store.infoDialog.visible).toBe(false);
     });
 
     test('properties can be set directly', () => {
@@ -149,6 +222,13 @@ describe('useDialogStore', () => {
       const store = useDialogStore();
       store.showSampleRateDialog();
       expect(store.sampleRateDialog.visible).toBe(true);
+    });
+
+    test('hideSampleRateDialog() sets visible to false', () => {
+      const store = useDialogStore();
+      store.sampleRateDialog.visible = true;
+      store.hideSampleRateDialog();
+      expect(store.sampleRateDialog.visible).toBe(false);
     });
 
     test('sampleRate and connectionParams can be set before show()', () => {

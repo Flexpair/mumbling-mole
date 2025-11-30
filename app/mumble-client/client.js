@@ -7,6 +7,7 @@ import { getOSName, getOSVersion } from './utils.js'
 import User from './user.js'
 import Channel from './channel.js'
 import Stats from '../utils/stats-lite.js'
+import { debugLog } from '../utils/debug-utils.js'
 
 const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
 
@@ -183,22 +184,20 @@ class MumbleClient extends EventEmitter {
 
   _send (msg) {
     const isTextMessage = msg.name === 'TextMessage';
-    const needsDrainHandling = !this._data.write(msg);
+    const writeSucceeded = this._data.write(msg);
     
     if (isTextMessage) {
-      // Emit event immediately if stream didn't return false (not buffering)
-      if (!needsDrainHandling) {
+      // Emit event immediately if stream returned true (not buffering)
+      // Only register drain listener if not already waiting
+      // This prevents memory leak from accumulating listeners during rapid sends
+      if (!writeSucceeded && !this._waitingForDrain) {
+        this._waitingForDrain = true;
+        this._data.once('drain', () => {
+          this._waitingForDrain = false;
+          this.emit('messageSent', msg.payload.message);
+        });
+      } else if (writeSucceeded) {
         this.emit('messageSent', msg.payload.message);
-      } else {
-        // Only register drain listener if not already waiting
-        // This prevents memory leak from accumulating listeners during rapid sends
-        if (!this._waitingForDrain) {
-          this._waitingForDrain = true;
-          this._data.once('drain', () => {
-            this._waitingForDrain = false;
-            this.emit('messageSent', msg.payload.message);
-          });
-        }
       }
     }
   }
@@ -247,11 +246,11 @@ class MumbleClient extends EventEmitter {
     })
   }
 
+  /**
+   * Creates a voice stream for audio transmission.
+   * Note: codecs are always provided in browser environment (set in worker.js)
+   */
   createVoiceStream (target = 0, numberOfChannels = 1) {
-    if (!this._codecs) {
-      return DropStream.obj()
-    }
-
     const transformVoiceChunk = (chunk, encoding, callback) => {
       if (chunk instanceof Buffer) {
         chunk = new Float32Array(
@@ -323,19 +322,13 @@ class MumbleClient extends EventEmitter {
    * Forwards the packet to the source user.
    */
   _onVoice (chunk) {
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-      console.log('[MUMBLE-CLIENT-DEBUG] _onVoice called - source:', chunk.source, 'target:', chunk.target, 'codec:', chunk.codec, 'frames:', chunk.frames?.length);
-    }
+    debugLog('[MUMBLE-CLIENT]', '_onVoice called - source:', chunk.source, 'target:', chunk.target, 'codec:', chunk.codec, 'frames:', chunk.frames?.length)
     const user = this._userById[chunk.source]
     if (!user) {
-      if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-        console.warn('[MUMBLE-CLIENT-DEBUG] WARNING: User not found for source ID:', chunk.source, 'Available users:', Object.keys(this._userById));
-      }
+      debugLog('[MUMBLE-CLIENT]', 'WARNING: User not found for source ID:', chunk.source, 'Available users:', Object.keys(this._userById))
       return;
     }
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-      console.log('[MUMBLE-CLIENT-DEBUG] Found user:', user.name, 'Forwarding voice data');
-    }
+    debugLog('[MUMBLE-CLIENT]', 'Found user:', user.name, 'Forwarding voice data')
     user._onVoice(
       chunk.seqNum,
       chunk.codec,
@@ -363,9 +356,7 @@ class MumbleClient extends EventEmitter {
 
   _onUDPTunnel (payload) {
     // Forward tunneled udp packets to the voice pipeline
-    if (globalThis.window?.MUMBLE_DEBUG_AUDIO) {
-      console.log('[MUMBLE-CLIENT-DEBUG] UDPTunnel packet received, length:', payload.length);
-    }
+    debugLog('[MUMBLE-CLIENT]', 'UDPTunnel packet received, length:', payload.length)
     this._voiceDecoder.write(payload)
   }
 
@@ -383,11 +374,10 @@ class MumbleClient extends EventEmitter {
 
   _onServerSync (payload) {
     // This packet finishes the initialization phase
-    // Handle both snake_case (max_bandwidth) and camelCase (maxBandwidth)
-    const maxBandwidth = payload.max_bandwidth || payload.maxBandwidth
+    const maxBandwidth = payload.maxBandwidth
     this.self = this._userById[payload.session]
     this.maxBandwidth = maxBandwidth
-    this.welcomeMessage = payload.welcome_text || payload.welcomeText
+    this.welcomeMessage = payload.welcomeText
     
     // Emit maxBandwidth change
     if (maxBandwidth !== undefined) {
@@ -407,14 +397,14 @@ class MumbleClient extends EventEmitter {
         timestamp: timestamp
       }
       if (dataStats) {
-        payload.tcp_packets = dataStats.n
-        payload.tcp_ping_avg = dataStats.mean
-        payload.tcp_ping_var = dataStats.variance
+        payload.tcpPackets = dataStats.n
+        payload.tcpPingAvg = dataStats.mean
+        payload.tcpPingVar = dataStats.variance
       }
       if (voiceStats) {
-        payload.udp_packets = voiceStats.n
-        payload.udp_ping_avg = voiceStats.mean
-        payload.udp_ping_var = voiceStats.variance
+        payload.udpPackets = voiceStats.n
+        payload.udpPingAvg = voiceStats.mean
+        payload.udpPingVar = voiceStats.variance
       }
       this._send({
         name: 'Ping',
@@ -448,13 +438,13 @@ class MumbleClient extends EventEmitter {
   _onServerConfig (payload) {
     // Server configuration (max message length, max bandwidth, etc.)
     console.log('[ServerConfig]', {
-      maxBandwidth: payload.max_bandwidth || payload.maxBandwidth,
-      maxMessageLength: payload.message_length || payload.messageLength,
-      maxImageLength: payload.image_message_length || payload.imageMessageLength,
-      maxUsers: payload.max_users || payload.maxUsers,
-      welcomeText: payload.welcome_text || payload.welcomeText,
-      allowHtml: payload.allow_html || payload.allowHtml,
-      recordingAllowed: payload.recording_allowed || payload.recordingAllowed
+      maxBandwidth: payload.maxBandwidth,
+      maxMessageLength: payload.messageLength,
+      maxImageLength: payload.imageMessageLength,
+      maxUsers: payload.maxUsers,
+      welcomeText: payload.welcomeText,
+      allowHtml: payload.allowHtml,
+      recordingAllowed: payload.recordingAllowed
     })
   }
 
@@ -463,7 +453,7 @@ class MumbleClient extends EventEmitter {
     console.log('[CodecVersion]', {
       alpha: payload.alpha,
       beta: payload.beta,
-      preferAlpha: payload.prefer_alpha || payload.preferAlpha,
+      preferAlpha: payload.preferAlpha,
       opus: payload.opus
     })
   }
@@ -479,7 +469,7 @@ class MumbleClient extends EventEmitter {
   _onPermissionQuery (payload) {
     // Server response to permission queries
     console.log('[PermissionQuery]', {
-      channelId: payload.channel_id || payload.channelId,
+      channelId: payload.channelId,
       permissions: payload.permissions,
       flush: payload.flush
     })
@@ -493,17 +483,17 @@ class MumbleClient extends EventEmitter {
       user: user ? user.name : `session ${session}`,
       version: payload.version,
       certificates: payload.certificates?.length || 0,
-      fromClient: payload.from_client || payload.fromClient,
-      fromServer: payload.from_server || payload.fromServer,
-      udpPackets: payload.udp_packets || payload.udpPackets,
-      tcpPackets: payload.tcp_packets || payload.tcpPackets,
-      udpPingAvg: payload.udp_ping_avg || payload.udpPingAvg,
-      tcpPingAvg: payload.tcp_ping_avg || payload.tcpPingAvg,
-      onlineSeconds: payload.onlinesecs || payload.onlineSeconds,
-      idleSeconds: payload.idlesecs || payload.idleSeconds,
+      fromClient: payload.fromClient,
+      fromServer: payload.fromServer,
+      udpPackets: payload.udpPackets,
+      tcpPackets: payload.tcpPackets,
+      udpPingAvg: payload.udpPingAvg,
+      tcpPingAvg: payload.tcpPingAvg,
+      onlineSeconds: payload.onlinesecs,
+      idleSeconds: payload.idlesecs,
       bandwidth: payload.bandwidth,
       opus: payload.opus,
-      strongCertificate: payload.strong_certificate || payload.strongCertificate
+      strongCertificate: payload.strongCertificate
     })
   }
 
@@ -512,7 +502,7 @@ class MumbleClient extends EventEmitter {
     console.log('[SuggestConfig]', {
       version: payload.version,
       positional: payload.positional,
-      pushToTalk: payload.push_to_talk || payload.pushToTalk
+      pushToTalk: payload.pushToTalk
     })
   }
 
@@ -527,7 +517,7 @@ class MumbleClient extends EventEmitter {
     if (payload.type === DenyType.Text) {
       this.emit('denied', 'Text', null, null, payload.reason)
     } else if (payload.type === DenyType.Permission) {
-      const channelId = payload.channelId ?? payload.channel_id;
+      const channelId = payload.channelId;
       const user = this._userById[payload.session]
       const channel = this._channelById[channelId]
       this.emit('denied', 'Permission', user, channel, payload.permission)
@@ -554,8 +544,8 @@ class MumbleClient extends EventEmitter {
   }
 
   _onTextMessage (payload) {
-    const channelIds = payload.channelId ?? payload.channel_id ?? [];
-    const treeIds = payload.treeId ?? payload.tree_id ?? [];
+    const channelIds = payload.channelId ?? [];
+    const treeIds = payload.treeId ?? [];
     this.emit(
       'message',
       this._userById[payload.actor],
@@ -567,7 +557,7 @@ class MumbleClient extends EventEmitter {
   }
 
   _onChannelState (payload) {
-    const channelId = payload.channelId ?? payload.channel_id;
+    const channelId = payload.channelId;
     let channel = this._channelById[channelId]
     if (!channel) {
       channel = new Channel(this, channelId)
@@ -575,11 +565,11 @@ class MumbleClient extends EventEmitter {
       this.channels.push(channel)
       this.emit('newChannel', channel)
     }
-    for (const otherId of (payload.links_remove || [])) {
+    for (const otherId of (payload.linksRemove || [])) {
       const otherChannel = this._channelById[otherId]
       if (otherChannel?.links.includes(channel)) {
         otherChannel._update({
-          links_remove: [channelId]
+          linksRemove: [channelId]
         })
       }
     }
@@ -587,7 +577,7 @@ class MumbleClient extends EventEmitter {
   }
 
   _onChannelRemove (payload) {
-    const channelId = payload.channelId ?? payload.channel_id;
+    const channelId = payload.channelId;
     const channel = this._channelById[channelId]
     if (channel) {
       channel._remove()
@@ -609,7 +599,7 @@ class MumbleClient extends EventEmitter {
 
       // For some reason, the mumble protocol does not send the initial
       // channel of a client if it is the root channel
-      payload.channelId = payload.channelId ?? payload.channel_id ?? 0
+      payload.channelId = payload.channelId ?? 0
     }
     user._update(payload)
   }
@@ -668,7 +658,7 @@ class MumbleClient extends EventEmitter {
   getActualBitrate (samplesPerPacket, sendPosition) {
     const bitrate = this.getPreferredBitrate(samplesPerPacket, sendPosition)
     
-    // If server doesn't send max_bandwidth, use preferred bitrate
+    // If server doesn't send maxBandwidth, use preferred bitrate
     if (this.maxBandwidth === undefined) {
       return bitrate
     }
@@ -693,7 +683,7 @@ class MumbleClient extends EventEmitter {
     if (this._preferredBitrate) {
       return this._preferredBitrate
     }
-    // If server doesn't send max_bandwidth, use a reasonable default (40000 bps = 40 kbit/s)
+    // If server doesn't send maxBandwidth, use a reasonable default (40000 bps = 40 kbit/s)
     if (this.maxBandwidth === undefined) {
       return 40000
     }
@@ -755,8 +745,7 @@ class MumbleClient extends EventEmitter {
         session: this.self._id
       }
     }
-    // Protobuf.js converts snake_case proto fields to camelCase in JavaScript
-    // So we must use selfMute (not self_mute) even though the .proto file has self_mute
+    // protobufjs converts camelCase to snake_case on the wire automatically
     if (mute) {
       message.payload.selfMute = true
     } else {

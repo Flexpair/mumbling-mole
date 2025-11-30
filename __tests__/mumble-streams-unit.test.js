@@ -385,6 +385,94 @@ describe('mumble-streams Unit Tests', () => {
         expect(reason).toBeDefined();
       });
     });
+
+    describe('Varint Parsing - Edge Cases', () => {
+      test('handles 2-byte varint (0x80-0xBF prefix)', async () => {
+        const decoder = new Decoder('server');
+        const dataPromise = waitForDecoderData(decoder);
+        
+        // 2-byte varint: 0x80 | high6bits, lowbyte
+        // Value 200 = 0x80 | (200 >> 8), 200 & 0xFF = 0x80, 0xC8
+        const buffer = Buffer.from([
+          0x80,        // Opus header
+          0x80, 0x01,  // Source session ID: 2-byte varint (value=1)
+          0x01,        // Sequence number
+          0x03,        // Frame length
+          0x01, 0x02, 0x03
+        ]);
+        decoder.write(buffer);
+        const packet = await dataPromise;
+        expect(packet.source).toBe(1);
+      });
+
+      test('handles 3-byte varint (0xC0-0xDF prefix)', async () => {
+        const decoder = new Decoder('server');
+        const dataPromise = waitForDecoderData(decoder);
+        
+        // 3-byte varint: 0xC0 | high5bits, middle, lowbyte
+        const buffer = Buffer.from([
+          0x80,              // Opus header
+          0xC0, 0x00, 0x01,  // Source session ID: 3-byte varint (value=1)
+          0x01,              // Sequence number
+          0x03,              // Frame length
+          0x01, 0x02, 0x03
+        ]);
+        decoder.write(buffer);
+        const packet = await dataPromise;
+        expect(packet.source).toBe(1);
+      });
+
+      test('handles 4-byte varint (0xE0-0xEF prefix)', async () => {
+        const decoder = new Decoder('server');
+        const dataPromise = waitForDecoderData(decoder);
+        
+        // 4-byte varint: 0xE0 | high4bits, ...
+        const buffer = Buffer.from([
+          0x80,                    // Opus header
+          0xE0, 0x00, 0x00, 0x01,  // Source session ID: 4-byte varint
+          0x01,                    // Sequence number
+          0x03,                    // Frame length
+          0x01, 0x02, 0x03
+        ]);
+        decoder.write(buffer);
+        const packet = await dataPromise;
+        expect(packet.source).toBe(1);
+      });
+
+      test('handles shout target (target=1)', async () => {
+        const decoder = new Decoder('server');
+        const dataPromise = waitForDecoderData(decoder);
+        
+        // Mode 1 = shout
+        const buffer = Buffer.from([
+          0x81,        // Header: Opus codec, shout mode (1)
+          0x01,        // Source session ID
+          0x01,        // Sequence number
+          0x03,        // Frame length
+          0x01, 0x02, 0x03
+        ]);
+        decoder.write(buffer);
+        const packet = await dataPromise;
+        expect(packet.target).toBe('shout');
+      });
+
+      test('handles whisper target (target=2)', async () => {
+        const decoder = new Decoder('server');
+        const dataPromise = waitForDecoderData(decoder);
+        
+        // Mode 2 = whisper
+        const buffer = Buffer.from([
+          0x82,        // Header: Opus codec, whisper mode (2)
+          0x01,        // Source session ID
+          0x01,        // Sequence number
+          0x03,        // Frame length
+          0x01, 0x02, 0x03
+        ]);
+        decoder.write(buffer);
+        const packet = await dataPromise;
+        expect(packet.target).toBe('whisper');
+      });
+    });
   });
 
   describe('Data Module - Encoder/Decoder', () => {
@@ -564,6 +652,110 @@ describe('mumble-streams Unit Tests', () => {
 
       test('supports UDPTunnel message', () => {
         expect(data.messages.UDPTunnel).toBeDefined();
+      });
+    });
+
+    describe('Error handling', () => {
+      test('encoder throws error for unknown message type', (done) => {
+        const encoder = new data.Encoder();
+        
+        encoder.on('error', (err) => {
+          expect(err.message).toContain('Unknown message');
+          done();
+        });
+        
+        encoder.write({
+          name: 'NonExistentMessage',
+          payload: {}
+        });
+      });
+
+      test('encoder throws TypeError when chunk.name is not a string', (done) => {
+        const encoder = new data.Encoder();
+        
+        encoder.on('error', (err) => {
+          expect(err).toBeInstanceOf(TypeError);
+          expect(err.message).toContain('chunk.name is not a string');
+          done();
+        });
+        
+        encoder.write({
+          name: 123, // Not a string
+          payload: {}
+        });
+      });
+
+      test('encoder handles missing payload gracefully', async () => {
+        const encoder = new data.Encoder();
+        
+        const dataPromise = new Promise((resolve) => {
+          encoder.once('data', resolve);
+        });
+        
+        encoder.write({
+          name: 'Ping'
+          // No payload - should default to {}
+        });
+        
+        const buffer = await dataPromise;
+        expect(buffer).toBeDefined();
+        expect(Buffer.isBuffer(buffer)).toBe(true);
+      });
+
+      test('decoder handles buffer expansion for large messages', async () => {
+        const encoder = new data.Encoder();
+        const decoder = new data.Decoder();
+        
+        // Create a large TextMessage
+        const largeText = 'x'.repeat(2000);
+        
+        const decoderPromise = new Promise((resolve) => {
+          decoder.once('data', resolve);
+        });
+        
+        encoder.pipe(decoder);
+        encoder.write({
+          name: 'TextMessage',
+          payload: {
+            message: largeText,
+            session: [1]
+          }
+        });
+        
+        const decoded = await decoderPromise;
+        expect(decoded.name).toBe('TextMessage');
+        expect(decoded.payload.message).toBe(largeText);
+      });
+
+      test('decoder handles incomplete message gracefully', () => {
+        const decoder = new data.Decoder();
+        
+        // Write incomplete header
+        decoder.write(Buffer.from([0, 0, 0, 0, 0])); // Only 5 bytes, needs 6
+        
+        // Should not crash, just wait for more data
+        expect(decoder._bufferSize).toBe(5);
+      });
+
+      test('decoder handles UDPTunnel messages as raw bytes', async () => {
+        const encoder = new data.Encoder();
+        const decoder = new data.Decoder();
+        
+        const voiceData = Buffer.from([0x80, 0x01, 0x02, 0x03, 0x04]);
+        
+        const decoderPromise = new Promise((resolve) => {
+          decoder.once('data', resolve);
+        });
+        
+        encoder.pipe(decoder);
+        encoder.write({
+          name: 'UDPTunnel',
+          payload: voiceData
+        });
+        
+        const decoded = await decoderPromise;
+        expect(decoded.name).toBe('UDPTunnel');
+        expect(Buffer.isBuffer(decoded.payload)).toBe(true);
       });
     });
   });
