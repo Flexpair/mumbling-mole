@@ -462,7 +462,7 @@ describe('MumbleProto Coverage', () => {
     const writer = $protobuf.Writer.create();
     writer.uint32((13 << 3) | 2);
     const packedWriter = $protobuf.Writer.create();
-    [1, 2].forEach(v => packedWriter.int32(v));
+    for (const v of [1, 2]) packedWriter.int32(v);
     writer.bytes(packedWriter.finish());
     
     const buffer = writer.finish();
@@ -489,7 +489,7 @@ describe('MumbleProto Coverage', () => {
       const writer = $protobuf.Writer.create();
       writer.uint32((fieldId << 3) | 2);
       const packedWriter = $protobuf.Writer.create();
-      values.forEach(v => packedWriter.uint32(v));
+      for (const v of values) packedWriter.uint32(v);
       writer.bytes(packedWriter.finish());
       
       // TextMessage requires 'message' field
