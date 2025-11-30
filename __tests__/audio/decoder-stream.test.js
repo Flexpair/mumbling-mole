@@ -14,14 +14,15 @@ import { jest } from '@jest/globals';
 
 // Mock Worker before importing module
 const mockWorkerInstances = [];
-class MockWorker {
-  constructor(url, options) {
-    this.url = url;
-    this.options = options;
-    this.onmessage = null;
-    this.postMessage = jest.fn();
-    mockWorkerInstances.push(this);
-  }
+function MockWorker(url, options) {
+  const instance = {
+    url: url,
+    options: options,
+    onmessage: null,
+    postMessage: jest.fn()
+  };
+  mockWorkerInstances.push(instance);
+  return instance;
 }
 globalThis.Worker = MockWorker;
 
@@ -85,10 +86,10 @@ describe('DecoderStream - Initialization', () => {
   test('sets up worker message handler', () => {
     const mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
-    
     const stream = new DecoderStream();
     
     expect(mockWorker.onmessage).toBeInstanceOf(Function);
+    expect(stream).toBeDefined();
   });
 });
 

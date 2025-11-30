@@ -552,7 +552,7 @@ test.describe('Loopback Frequency Test', () => {
         const iframeContent = guacamoleIframe.contentFrame();
         if (iframeContent) {
           const errorText = await iframeContent.locator('body').textContent({ timeout: 2000 });
-          if (errorText && errorText.includes('404')) {
+          if (errorText?.includes('404')) {
             console.log('   ✅ Expected 404 error in iframe (Guacamole server not running in test env)');
           }
         }

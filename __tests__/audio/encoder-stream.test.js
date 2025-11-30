@@ -12,17 +12,15 @@
 import { jest } from '@jest/globals';
 
 // Mock Worker before importing module
-class MockWorker {
-  constructor(url, options) {
-    this.url = url;
-    this.options = options;
-    this.onmessage = null;
-    this.postMessage = jest.fn();
-  }
+function MockWorker(url, options) {
+  return {
+    url: url,
+    options: options,
+    onmessage: null,
+    postMessage: jest.fn()
+  };
 }
 globalThis.Worker = MockWorker;
-
-// Mock reuse-pool
 const mockPool = {
   get: jest.fn(),
   recycle: jest.fn()
@@ -61,18 +59,19 @@ describe('EncoderStream - Initialization', () => {
     const mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     
-    new EncoderStream('Opus');
+    const stream = new EncoderStream('Opus');
     
     expect(mockPool.get).toHaveBeenCalled();
+    expect(stream._worker).toBe(mockWorker);
   });
 
   test('sets up worker message handler', () => {
     const mockWorker = new MockWorker();
     mockPool.get.mockReturnValue(mockWorker);
     
-    const stream = new EncoderStream('Opus');
+    new EncoderStream('Opus');
     
-    expect(mockWorker.onmessage).toBeInstanceOf(Function);
+    expect(typeof mockWorker.onmessage).toBe('function');
   });
 });
 

@@ -48,9 +48,9 @@ jest.unstable_mockModule('vue', () => ({
           const current = target[prop];
           if (current?.__v_isRef) {
             current.value = value;
-            return true;
+          } else {
+            target[prop] = value;
           }
-          target[prop] = value;
           return true;
         }
       });
@@ -143,7 +143,9 @@ jest.unstable_mockModule('../../app/utils/debug-utils', () => ({
 // Mock BufferQueueNode dependency
 jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
   default: class MockBufferQueueNode {
-    setJitterBufferSize() {}
+    setJitterBufferSize() {
+      // Intentionally empty - mock implementation for testing
+    }
   }
 }));
 

@@ -269,6 +269,7 @@ Accept suspended state in initialization; resume on user interaction (Piano butt
 8. **Never** call `controller.enqueue()` after `controller.terminate()` in decoder streams
 9. **Never** use timeouts/polling for initialization - use event-based callbacks (e.g., `onAudioMixerReady`)
 10. **Never** commit changes without explicit user approval - WAIT for user to give commit command
+11. **Never** edit `app/mumble-streams/mumble-proto-minimal.js` manually - it is auto-generated. Modify `app/mumble-streams/Mumble.proto` or `scripts/generate-proto.sh` instead.
 
 ## Debugging patterns
 **Tunnel issues**: `tail -f /tmp/entrypoint.log`; verify websockify with `ps aux | grep websockify`. `docker-entrypoint.sh` launches websockify to bridge **WebSocket (browser) ↔ TCP (Mumble protocol)**—this is how browser clients connect to standard Mumble servers without native sockets  

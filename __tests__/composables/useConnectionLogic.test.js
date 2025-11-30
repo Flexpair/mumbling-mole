@@ -505,7 +505,7 @@ describe('useConnectionLogic', () => {
 
     it('should set micPermissionDenied on getUserMedia error', async () => {
       const originalMediaDevices = navigator.mediaDevices;
-      const mockStream = { getTracks: () => [] };
+
       Object.defineProperty(navigator, 'mediaDevices', {
         value: {
           getUserMedia: jest.fn().mockRejectedValue(new Error('Permission denied'))

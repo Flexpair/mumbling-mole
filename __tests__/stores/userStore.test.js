@@ -39,9 +39,9 @@ jest.unstable_mockModule('vue', () => {
           const current = target[prop];
           if (current?.__v_isRef) {
             current.value = value;
-            return true;
+          } else {
+            target[prop] = value;
           }
-          target[prop] = value;
           return true;
         }
       });
@@ -87,7 +87,9 @@ jest.unstable_mockModule('../../app/composables/useLocalStorage.js', async () =>
 // Mock other dependencies
 jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
   default: class MockBufferQueueNode {
-    setJitterBufferSize() {}
+    setJitterBufferSize() {
+      // Mock implementation - no operation needed for tests
+    }
   }
 }));
 
@@ -160,23 +162,22 @@ const { createPinia, setActivePinia, storeToRefs } = await import('pinia');
 const { useUserStore } = await import('../../app/stores/userStore.js');
 const { ref } = await import('vue');
 
-// Mock mumble-client User and Client
-class MockClient {
-  constructor() {
-    this.dataStats = { mean: 200, variance: 25, n: 100 }; // High latency (200ms)
-    this.on = jest.fn();
-    this.off = jest.fn();
-  }
+function createMockClient() {
+  return {
+    dataStats: { mean: 200, variance: 25, n: 100 }, // High latency (200ms)
+    on: jest.fn(),
+    off: jest.fn()
+  };
 }
 
-class MockUser {
-  constructor(client) {
-    this._client = client;
-    this.session = 1;
-    this.username = 'TestUser';
-    this.on = jest.fn();
-    this.off = jest.fn();
-  }
+function createMockUser(client) {
+  return {
+    _client: client,
+    session: 1,
+    username: 'TestUser',
+    on: jest.fn(),
+    off: jest.fn()
+  };
 }
 
 describe('useUserStore Jitter Buffer Calculation', () => {
@@ -188,19 +189,12 @@ describe('useUserStore Jitter Buffer Calculation', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     
-    // Reset mocks
-    mockAudioState.audioLockActive = false;
-    mockVoiceState.isLoopbackMode = false;
-    mockVoiceState.loopbackDominantFrequency = 0;
-    mockVoiceState.setMute.mockClear();
-    mockVoiceState.updateVoiceHandler.mockClear();
-
-    // Reset settings store mock
+        // Reset settings store mock
     mockSettingsStore.jitterBufferSize = 3;
     mockSettingsStore.jitterBufferMode = 'balanced';
 
-    mockClient = new MockClient();
-    mockUser = new MockUser(mockClient);
+    mockClient = createMockClient();
+    mockUser = createMockUser(mockClient);
     
     // Create UI wrapper structure as in registerUser
     mockUIUser = {

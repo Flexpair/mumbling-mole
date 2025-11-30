@@ -497,7 +497,6 @@ describe('mumble-streams Unit Tests', () => {
       });
     };
 
-    // Helper to collect multiple decoder outputs
     const collectDecoderOutputs = (decoder, count) => {
       return new Promise((resolve) => {
         const messages = [];

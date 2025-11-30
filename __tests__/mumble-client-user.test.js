@@ -524,7 +524,7 @@ describe('mumble-client User', () => {
     });
 
     test('_createVoiceCodecStream should create decoder stream when codecs available', () => {
-      const stream = user._createVoiceCodecStream();
+      user._createVoiceCodecStream();
       expect(client._codecs.createDecoderStream).toHaveBeenCalledWith(user);
     });
 
