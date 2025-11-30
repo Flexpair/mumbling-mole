@@ -12,12 +12,16 @@
 
 import { jest } from '@jest/globals';
 
+// Track mock worker instances for cleanup
+const mockWorkerInstances = [];
+
 // Mock Worker before importing module
 function MockWorker() {
   const instance = {
     onmessage: null,
     postMessage: jest.fn()
   };
+  mockWorkerInstances.push(instance);
   return instance;
 }
 globalThis.Worker = MockWorker;
