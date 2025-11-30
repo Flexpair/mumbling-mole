@@ -198,19 +198,19 @@ describe('mumble-streams Unit Tests', () => {
       });
     });
 
-    describe('Position Data', () => {
-      // Helper to write invalid position data
-      const writeInvalidPositionData = (encoder) => {
-        encoder.write({
-          mode: 0,
-          codec: 'Opus',
-          seqNum: 1,
-          end: false,
-          frames: [Buffer.from([1, 2])], // Small frame
-          position: { x: 1, y: 2, z: 3 }
-        });
-      };
+    // Helper to write invalid position data
+    const writeInvalidPositionData = (encoder) => {
+      encoder.write({
+        mode: 0,
+        codec: 'Opus',
+        seqNum: 1,
+        end: false,
+        frames: [Buffer.from([1, 2])], // Small frame
+        position: { x: 1, y: 2, z: 3 }
+      });
+    };
 
+    describe('Position Data', () => {
       test('position data encoding behavior', () => {
         const encoder = new Encoder('server');
 
@@ -344,18 +344,18 @@ describe('mumble-streams Unit Tests', () => {
       });
     });
 
-    describe('Error Handling', () => {
-      // Helper to check debug event
-      const checkDebugEvent = (decoder) => {
-        return new Promise((resolve) => {
-          decoder.on('debug', (msg) => {
-            if (msg === 'Failed to parse voice packet') {
-              resolve(true);
-            }
-          });
+    // Helper to check debug event
+    const checkDebugEvent = (decoder) => {
+      return new Promise((resolve) => {
+        decoder.on('debug', (msg) => {
+          if (msg === 'Failed to parse voice packet') {
+            resolve(true);
+          }
         });
-      };
+      });
+    };
 
+    describe('Error Handling', () => {
       test('handles empty buffer gracefully', async () => {
         const decoder = new Decoder('server');
         const debugPromise = checkDebugEvent(decoder);
@@ -497,13 +497,14 @@ describe('mumble-streams Unit Tests', () => {
       });
     };
 
+    // Helper to collect multiple decoder outputs
     const collectDecoderOutputs = (decoder, count) => {
       return new Promise((resolve) => {
         const messages = [];
         const handler = (msg) => {
           messages.push(msg);
           if (messages.length === count) {
-            decoder.off('data', handler);
+            decoder.removeListener('data', handler);
             resolve(messages);
           }
         };
@@ -579,18 +580,18 @@ describe('mumble-streams Unit Tests', () => {
       });
     });
 
+    // Helper to extract timestamp value
+    const extractTimestampValue = (timestamp) => {
+      return typeof timestamp === 'object' && timestamp.low !== undefined
+        ? timestamp.low
+        : timestamp;
+    };
+
     describe('Decoder', () => {
       test('creates decoder instance', () => {
         const decoder = new data.Decoder();
         expect(decoder).toBeDefined();
       });
-
-      // Helper to extract timestamp value
-      const extractTimestampValue = (timestamp) => {
-        return typeof timestamp === 'object' && timestamp.low !== undefined
-          ? timestamp.low
-          : timestamp;
-      };
 
       test('decodes encoded message (round-trip)', async () => {
         const encoder = new data.Encoder();
@@ -988,17 +989,17 @@ describe('mumble-streams Unit Tests', () => {
       });
     });
 
-    describe('Key Generation', () => {
-      // Helper to promisify generateKey
-      const generateKeyAsync = (crypt) => {
-        return new Promise((resolve, reject) => {
-          crypt.generateKey((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
+    // Helper to promisify generateKey
+    const generateKeyAsync = (crypt) => {
+      return new Promise((resolve, reject) => {
+        crypt.generateKey((err) => {
+          if (err) reject(err);
+          else resolve();
         });
-      };
+      });
+    };
 
+    describe('Key Generation', () => {
       test('generateKey creates random keys', async () => {
         const crypt = new udpCrypto();
 

@@ -41,7 +41,6 @@
 
 <script setup>
 import { Teleport, Transition, computed, inject, toRefs } from 'vue';
-import { storeToRefs } from 'pinia';
 import { useUIStore } from '../stores/uiStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';

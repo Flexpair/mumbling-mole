@@ -1,5 +1,4 @@
 import { EventEmitter } from 'node:events'
-import DropStream from '../utils/drop-stream.js'
 import Timer from 'rtimer'
 import { debugLog } from '../utils/debug-utils.js'
 

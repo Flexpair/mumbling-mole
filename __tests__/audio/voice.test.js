@@ -546,7 +546,7 @@ describe('Mixer Management', () => {
 
   describe('onAudioMixerReady', () => {
     test('calls callback immediately if mixer exists', () => {
-      const mockMixer = { gain: { value: 1.0 } };
+      const mockMixer = { gain: { value: 1 } };
       globalThis._audioMixer = mockMixer;
       
       const callback = jest.fn();
@@ -577,7 +577,7 @@ describe('Mixer Management', () => {
     });
 
     test('handles callback errors gracefully', () => {
-      const mockMixer = { gain: { value: 1.0 } };
+      const mockMixer = { gain: { value: 1 } };
       globalThis._audioMixer = mockMixer;
       
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -607,7 +607,7 @@ describe('enumMicrophones', () => {
     originalNavigator = globalThis.navigator;
     
     // Create navigator mock
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: {
         mediaDevices: {
           enumerateDevices: mockEnumerateDevices
@@ -623,7 +623,7 @@ describe('enumMicrophones', () => {
 
   afterEach(() => {
     // Restore original navigator
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: originalNavigator,
       writable: true,
       configurable: true
@@ -647,7 +647,7 @@ describe('enumMicrophones', () => {
         const select = document.querySelector('#audioSource');
         // Simulate gotDevices function
         while (select.firstChild) {
-          select.removeChild(select.firstChild);
+          select.firstChild.remove();
         }
         for (const device of devices) {
           if (device.kind === 'audioinput') {
@@ -801,7 +801,7 @@ describe('initVoice Integration Tests', () => {
       expect(mockGainNode.connect).toHaveBeenCalledWith(mockAudioWorkletNode);
 
       // Verify mixer gain value
-      expect(mockGainNode.gain.setValueAtTime).toHaveBeenCalledWith(1.0, 0);
+      expect(mockGainNode.gain.setValueAtTime).toHaveBeenCalledWith(1, 0);
 
       // Verify global mixer reference
       expect(globalThis._audioMixer).toBe(mockGainNode);

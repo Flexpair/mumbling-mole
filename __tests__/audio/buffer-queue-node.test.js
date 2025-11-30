@@ -188,10 +188,9 @@ describe('AudioBufferWrapper', () => {
 
 describe('BufferQueueNode - Basic Functionality', () => {
   let mockAudioContext;
-  let mockWorkletNode;
 
   beforeEach(() => {
-    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
+    ({ mockAudioContext } = createAudioMocks());
   });
 
   afterEach(() => {
@@ -319,10 +318,9 @@ describe('BufferQueueNode - Audio Connection', () => {
 
 describe('BufferQueueNode - Error Handling', () => {
   let mockAudioContext;
-  let mockWorkletNode;
 
   beforeEach(() => {
-    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
+    ({ mockAudioContext } = createAudioMocks());
   });
 
   afterEach(() => {

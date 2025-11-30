@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { MumbleProto } from '../app/mumble-streams/mumble-proto-minimal.js';
 import $protobuf from "protobufjs/minimal.js";
 
@@ -463,7 +462,7 @@ describe('MumbleProto Coverage', () => {
     const writer = $protobuf.Writer.create();
     writer.uint32((13 << 3) | 2);
     const packedWriter = $protobuf.Writer.create();
-    [1, 2].forEach(v => packedWriter.int32(v));
+    for (const v of [1, 2]) packedWriter.int32(v);
     writer.bytes(packedWriter.finish());
     
     const buffer = writer.finish();
@@ -476,7 +475,7 @@ describe('MumbleProto Coverage', () => {
     const writer = $protobuf.Writer.create();
     writer.uint32((1 << 3) | 2);
     const packedWriter = $protobuf.Writer.create();
-    [10, 20].forEach(v => packedWriter.uint32(v));
+    for (const v of [10, 20]) packedWriter.uint32(v);
     writer.bytes(packedWriter.finish());
     
     const buffer = writer.finish();
@@ -490,7 +489,7 @@ describe('MumbleProto Coverage', () => {
       const writer = $protobuf.Writer.create();
       writer.uint32((fieldId << 3) | 2);
       const packedWriter = $protobuf.Writer.create();
-      values.forEach(v => packedWriter.uint32(v));
+      for (const v of values) packedWriter.uint32(v);
       writer.bytes(packedWriter.finish());
       
       // TextMessage requires 'message' field

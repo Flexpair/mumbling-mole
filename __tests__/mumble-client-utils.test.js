@@ -1,7 +1,7 @@
 /**
  * mumble-client/utils Tests
  */
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 
 // Dynamic import because the path resolution is tricky
 let getOSName, getOSVersion;
