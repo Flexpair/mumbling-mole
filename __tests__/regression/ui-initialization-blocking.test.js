@@ -16,7 +16,6 @@ import { jest } from '@jest/globals';
 
 describe('UI Freeze Regression (3.16.1)', () => {
   let mockAudioContext;
-  let mockNetlifyIdentity;
   let resumeAttempts;
   let koApplyBindingsCallTime;
   let userHasClicked;
@@ -40,18 +39,18 @@ describe('UI Freeze Regression (3.16.1)', () => {
       destination: {}
     };
     
-    // Mock Netlify Identity that blocks until user clicks
-    mockNetlifyIdentity = {
-      init: jest.fn((config) => {
-        // Netlify Identity init() is actually synchronous in real code
-        // But in production, the widget script loading can delay
-        return Promise.resolve();
-      }),
-      currentUser: jest.fn(() => null),
-      on: jest.fn(),
-      open: jest.fn(),
-      close: jest.fn()
-    };
+
+
+
+
+
+
+
+
+
+
+
+
     
     globalThis.AudioContext = jest.fn(() => mockAudioContext);
   });

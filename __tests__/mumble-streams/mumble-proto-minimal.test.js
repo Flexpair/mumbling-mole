@@ -1544,8 +1544,6 @@ describe('MumbleProto', () => {
 
     test('UserState decode with unknown field', () => {
       const { UserState } = MumbleProto;
-      const original = UserState.create({ session: 1, name: 'User' });
-      const encoded = UserState.encode(original).finish();
       
       // UserState has fields 1-19, use tag 14 which is comment (string)
       // But we want to hit the default case. UserState uses all tags 1-19,

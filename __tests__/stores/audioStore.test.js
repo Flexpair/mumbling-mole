@@ -402,15 +402,15 @@ describe('audioStore', () => {
         context: mockContext
       };
       
-      mockBeeper = {
-        oscillator: { connect: jest.fn() },
-        gain: mockGain,
-        localGain: { 
-          ...mockGain,
-          gain: { ...mockGain.gain }
-        },
-        isPlaying: false
-      };
+
+
+
+
+
+
+
+
+
     });
 
     test('should set beeper to playing state', async () => {

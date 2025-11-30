@@ -22,14 +22,16 @@ fi
 TEMP_FILE=$(mktemp)
 "$PBJS" --target static-module --wrap es6 --es6 --no-comments "$PROTO_FILE" > "$TEMP_FILE"
 
-# Import-Syntax anpassen
-sed -i 's|from "protobufjs/minimal"|from "protobufjs/minimal.js"|g' "$TEMP_FILE"
-sed -i 's|import \* as \$protobuf|import \$protobuf|g' "$TEMP_FILE"
-
 # Überflüssige Methoden entfernen (verify, fromObject, toObject, toJSON, *Delimited)
+# Und Import-Syntax anpassen (ersetzt sed für Cross-Platform Kompatibilität)
 node -e "
 const fs = require('fs');
 let code = fs.readFileSync('$TEMP_FILE', 'utf8');
+
+// Import-Syntax anpassen
+code = code.replace(/from \"protobufjs\/minimal\"/g, 'from \"protobufjs/minimal.js\"');
+code = code.replace(/import \* as \\\$protobuf/g, 'import \$protobuf');
+
 const methods = ['verify', 'fromObject', 'toObject', 'encodeDelimited', 'decodeDelimited'];
 for (const m of methods) {
     code = code.replace(new RegExp('\\\\n\\\\s*\\\\w+\\\\.' + m + ' = function ' + m + '\\\\([^)]*\\\\) \\\\{[\\\\s\\\\S]*?\\\\n\\\\s*\\\\};', 'g'), '');

@@ -19,9 +19,7 @@ describe('mumble-websocket', () => {
         return this;
       }),
       _trigger: function(event, ...args) {
-        if (this._handlers && this._handlers[event]) {
-          this._handlers[event](...args);
-        }
+        this._handlers?.[event]?.(...args);
       }
     };
 
@@ -33,11 +31,11 @@ describe('mumble-websocket', () => {
     };
 
     // Setup module mocks
-    await jest.unstable_mockModule('../app/utils/websocket-stream-lite.js', () => ({
+    jest.unstable_mockModule('../app/utils/websocket-stream-lite.js', () => ({
       default: mockWebsocketStream
     }));
 
-    await jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
+    jest.unstable_mockModule('../app/mumble-client/index.js', () => ({
       default: jest.fn(() => mockMumbleClient)
     }));
 

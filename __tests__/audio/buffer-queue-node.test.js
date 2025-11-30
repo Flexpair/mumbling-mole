@@ -691,7 +691,7 @@ describe('BufferQueueNode - _handleCallback', () => {
   let mockWorkletNode;
 
   beforeEach(() => {
-    ({ mockAudioContext, mockWorkletNode } = createAudioMocks());
+    ({ mockAudioContext } = createAudioMocks());
   });
 
   afterEach(() => {

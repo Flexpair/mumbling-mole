@@ -186,7 +186,7 @@ describe('useAccessibility', () => {
     });
 
     it('should handle null containerRef gracefully', () => {
-      const { containerRef, activate, deactivate } = useFocusTrap();
+      const { activate, deactivate } = useFocusTrap();
       // containerRef.value is null by default
       
       expect(() => activate()).not.toThrow();
