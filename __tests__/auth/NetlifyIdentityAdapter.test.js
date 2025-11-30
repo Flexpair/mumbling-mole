@@ -626,7 +626,6 @@ describe('NetlifyIdentityAdapter', () => {
 
       test('removes specific callback', () => {
         const callback1 = jest.fn();
-        const callback2 = jest.fn();
         
         adapter.off('login', callback1);
         

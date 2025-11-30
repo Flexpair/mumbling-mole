@@ -5,7 +5,7 @@
 import { jest } from '@jest/globals';
 
 describe('AudioContextManager', () => {
-  let audioContextManager, getAudioContext, ensureAudioContext, canPlayAudio, getAudioStats;
+  let audioContextManager, getAudioContext, ensureAudioContext, canPlayAudio;
   let mockAudioContext;
 
   beforeEach(async () => {
@@ -67,7 +67,6 @@ describe('AudioContextManager', () => {
     getAudioContext = module.getAudioContext;
     ensureAudioContext = module.ensureAudioContext;
     canPlayAudio = module.canPlayAudio;
-    getAudioStats = module.getAudioStats;
     
     // Reset manager state
     audioContextManager.audioContext = null;
@@ -171,7 +170,10 @@ describe('AudioContextManager', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation();
     
     const context = await audioContextManager.getAudioContext();
-    mockAudioContext._shouldFailResume = true;
+    await audioContextManager.getAudioContext();
+    
+    // Force resume failure
+    context._shouldFailResume = true;
     
     try {
       await audioContextManager.resumeAudioContext();
