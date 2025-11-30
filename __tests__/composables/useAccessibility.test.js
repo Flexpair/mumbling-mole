@@ -31,7 +31,7 @@ describe('useAccessibility', () => {
 
     afterEach(() => {
       jest.useRealTimers();
-      mockAnnouncer?.parentNode?.removeChild(mockAnnouncer);
+      mockAnnouncer?.remove();
     });
 
     it('should set message on announcer element', () => {
@@ -60,7 +60,7 @@ describe('useAccessibility', () => {
     });
 
     it('should warn when announcer element not found', () => {
-      mockAnnouncer.parentNode.removeChild(mockAnnouncer);
+      mockAnnouncer.remove();
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       
       announceToScreenReader('Test message');
