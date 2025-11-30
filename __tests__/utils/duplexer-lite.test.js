@@ -1,4 +1,4 @@
-import { PassThrough, Writable, Readable } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 
 const { default: duplexer } = await import('../../app/utils/duplexer-lite.js');
 
@@ -81,8 +81,9 @@ describe('duplexer-lite', () => {
       };
       
       // Push more data than highWaterMark
-      readable.push(Buffer.alloc(100));
-      readable.push(Buffer.alloc(100));
+      for (const buf of [Buffer.alloc(100), Buffer.alloc(100)]) {
+        readable.push(buf);
+      }
       
       setTimeout(() => {
         // Drain the duplex to trigger resume

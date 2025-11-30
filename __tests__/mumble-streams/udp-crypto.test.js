@@ -4,7 +4,7 @@
  * Tests for the UDP encryption/decryption used in Mumble protocol
  */
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import UdpCrypt, { BLOCK_SIZE, ocbEncrypt, ocbDecrypt } from '../../app/mumble-streams/udp-crypto.js';
+import UdpCrypt, { BLOCK_SIZE } from '../../app/mumble-streams/udp-crypto.js';
 
 describe('UdpCrypt', () => {
   let crypt;

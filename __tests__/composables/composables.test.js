@@ -432,7 +432,7 @@ describe('vTooltip directive', () => {
       mockElement._tooltipShowHandler({});
       
       // Top should be above the element
-      const top = parseInt(mockElement._tooltip.style.top);
+      const top = Number.parseInt(mockElement._tooltip.style.top);
       expect(top).toBeLessThan(200);
     });
 
@@ -449,7 +449,7 @@ describe('vTooltip directive', () => {
       mockElement._tooltipShowHandler({});
       
       // Top should be below the element
-      const top = parseInt(mockElement._tooltip.style.top);
+      const top = Number.parseInt(mockElement._tooltip.style.top);
       expect(top).toBeGreaterThanOrEqual(30);
     });
   });

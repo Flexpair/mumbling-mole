@@ -12,6 +12,21 @@ import {
 import { translate } from '../localize';
 import { debugLog } from '../utils/debug-utils';
 
+/**
+ * Initialize voice input capture
+ * @param {Function} onData - Callback for voice data
+ * @param {Function} onError - Callback for errors
+ * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
+ */
+function initVoiceInput(onData, onError, onMixerReady) {
+  initVoice(onData, onError);
+  
+  // Register for mixer ready notification if callback provided
+  if (onMixerReady) {
+    onAudioMixerReady(onMixerReady);
+  }
+}
+
 export const useVoiceStore = defineStore('voice', () => {
   const audioStore = useAudioStore();
   const connectionStore = useConnectionStore();
@@ -28,21 +43,6 @@ export const useVoiceStore = defineStore('voice', () => {
   
   // Loopback frequency analysis - tracks dominant frequency in returned audio
   const loopbackDominantFrequency = ref(0);
-
-  /**
-   * Initialize voice input capture
-   * @param {Function} onData - Callback for voice data
-   * @param {Function} onError - Callback for errors
-   * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
-   */
-  function initVoiceInput(onData, onError, onMixerReady) {
-    initVoice(onData, onError);
-    
-    // Register for mixer ready notification if callback provided
-    if (onMixerReady) {
-      onAudioMixerReady(onMixerReady);
-    }
-  }
 
   /**
    * Setup audio/voice for connection
