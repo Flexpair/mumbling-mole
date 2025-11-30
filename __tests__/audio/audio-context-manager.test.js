@@ -66,7 +66,6 @@ describe('AudioContextManager', () => {
     audioContextManager = module.default;
     getAudioContext = module.getAudioContext;
     ensureAudioContext = module.ensureAudioContext;
-    canPlayAudio = module.canPlayAudio;
     
     // Reset manager state
     audioContextManager.audioContext = null;
