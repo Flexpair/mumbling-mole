@@ -101,30 +101,33 @@ body {
 
 #container {
   height: 100%;
-  position: relative; /* Make toolbar position: absolute relative to container */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 #main-content,
 main {
   display: block;
-  height: calc(100% - 36px); // Full height minus toolbar
+  flex: 1;
+  height: auto; /* Let flexbox handle height */
+  overflow: hidden; /* Prevent scrollbars if content overflows */
+  position: relative;
 }
 
 .guacamole {
   display: block;
-  float: left;
   margin: 0;
   width: 100%;
-  height: 100%; // Full height of parent (main already accounts for toolbar)
-  background: white; // White background for Guacamole iframe
+  height: 100%;
+  background: white;
 }
 
 .guacamole-placeholder {
   display: block;
-  float: left;
   margin: 0;
   width: 100%;
-  height: 100%; // Full height of parent (main already accounts for toolbar)
+  height: 100%;
   background-image: url("img/AdobeStock_74031703.webp");
   background-repeat: no-repeat;
   background-position: bottom;
@@ -147,6 +150,8 @@ main {
 iframe {
   width: 100%;
   height: 100%;
+  border: none;
+  display: block;
 }
 
 .toolbar-horizontal {

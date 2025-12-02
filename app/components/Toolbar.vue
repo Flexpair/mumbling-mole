@@ -1,6 +1,7 @@
 <template>
-  <fieldset 
+  <div 
     class="toolbar-horizontal" 
+    role="toolbar"
     aria-label="Voice and communication controls"
   >
     <!-- Mute/Unmute Button -->
@@ -123,7 +124,7 @@
     >
       <img src="svg/logout.svg" alt="" aria-hidden="true" />
     </button>
-  </fieldset>
+  </div>
 </template>
 
 <script setup>
@@ -265,14 +266,14 @@ const handleLogoutClick = () => {
 }
 
 .toolbar-horizontal {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   height: 36px;
   display: flex;
   align-items: center;
-  padding: 4px 0;
+  padding: 0;
+  box-sizing: border-box;
+  margin: 0;
+  border: none;
+  width: 100%;
 }
 
 .message-box-container {
