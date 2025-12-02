@@ -115,6 +115,10 @@ main {
   position: relative;
 }
 
+footer {
+  flex-shrink: 0;
+}
+
 .guacamole {
   display: block;
   margin: 0;
