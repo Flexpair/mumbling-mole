@@ -47,7 +47,7 @@ function getUsernameFromMetadata(user) {
   return user.user_metadata.full_name.replaceAll(/\W+/g, "_");
 }
 
-import { vTooltip } from "./composables/index.js";
+import { vTooltip, announceToScreenReader } from "./composables/index.js";
 
 // Initialize Pinia with debug plugin (only active when ?debug-audio is in URL)
 const pinia = createPinia();
@@ -248,17 +248,6 @@ function initializeKeyboardShortcuts() {
     
     // Escape: Close current modal/dialog (handled by individual components)
   });
-}
-
-/**
- * Announce message to screen readers via live region
- */
-function announceToScreenReader(message) {
-  const announcer = document.getElementById('a11y-announcer');
-  if (announcer) {
-    announcer.textContent = message;
-    setTimeout(() => { announcer.textContent = ''; }, 1000);
-  }
 }
 
 // Backwards-compatible log export used by some modules
