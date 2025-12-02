@@ -2,6 +2,7 @@ import { Writable } from "node:stream";
 import keyboardjs from "keyboardjs";
 import DropStream from "../utils/drop-stream.js";
 import audioContextManager, { ensureAudioContext } from "./audio-context-manager";
+import { debugLog } from "../utils/debug-utils.js";
 
 // Helper to get settings value - works with both old ref-style ({value: x}) and new Pinia store (direct access)
 const getSettingsValue = (settings, key, defaultValue) => {
@@ -263,7 +264,7 @@ function handleTrackEnded(track, mixer, node, src, mixerTimestamp) {
 
 async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
   const initStartTime = Date.now();
-  console.log('[VOICE-INIT] Starting audio pipeline initialization');
+  debugLog('[VOICE-INIT]', 'Starting audio pipeline initialization');
 
   try {
     // AUDIO-CONTEXT: Use managed AudioContext with autoplay policy handling
@@ -273,13 +274,13 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
       sampleRate: 48000,
       latencyHint: 'interactive'
     });
-    console.log(`[VOICE-INIT] AudioContext ready after ${Date.now() - acStartTime}ms (state: ${ac.state}, sampleRate: ${ac.sampleRate}Hz)`);
+    debugLog('[VOICE-INIT]', `AudioContext ready after ${Date.now() - acStartTime}ms (state: ${ac.state}, sampleRate: ${ac.sampleRate}Hz)`);
 
     // AUDIOWORKLET: Load AudioWorklet processor for real-time audio capture
     // recorder-worker.js runs in audio thread for low-latency processing
     const workletStartTime = Date.now();
     await ac.audioWorklet.addModule("recorder-worker.js");
-    console.log(`[VOICE-INIT] AudioWorklet module loaded after ${Date.now() - workletStartTime}ms`);
+    debugLog('[VOICE-INIT]', `AudioWorklet module loaded after ${Date.now() - workletStartTime}ms`);
 
     // AUDIO-SOURCE: Create audio source from microphone stream
     const src = ac.createMediaStreamSource(userMedia);
@@ -316,7 +317,7 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
     currentMixerTimestamp = mixerTimestamp;
 
     globalThis._audioMixer = mixer;
-    console.log(`[VOICE-INIT] Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
+    debugLog('[VOICE-INIT]', `Audio mixer ready - total initialization time: ${Date.now() - initStartTime}ms`);
 
     for (const callback of audioMixerReadyCallbacks) {
       try {
