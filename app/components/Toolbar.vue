@@ -1,7 +1,6 @@
 <template>
-  <div 
+  <fieldset 
     class="toolbar-horizontal" 
-    role="toolbar"
     aria-label="Voice and communication controls"
   >
     <!-- Mute/Unmute Button -->
@@ -124,7 +123,7 @@
     >
       <img src="svg/logout.svg" alt="" aria-hidden="true" />
     </button>
-  </div>
+  </fieldset>
 </template>
 
 <script setup>
