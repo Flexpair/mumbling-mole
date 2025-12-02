@@ -763,6 +763,9 @@ describe('initVoice Integration Tests', () => {
       const onData = jest.fn();
       const onError = jest.fn();
 
+      // Enable debug mode to verify logging
+      globalThis.MUMBLE_DEBUG_AUDIO = true;
+
       // Setup getUserMedia to call success callback
       mockGetUserMedia.mockResolvedValue(mockMediaStream);
 
@@ -809,10 +812,12 @@ describe('initVoice Integration Tests', () => {
       // Verify no errors
       expect(onError).not.toHaveBeenCalled();
 
-      // Verify console logs
+      // Verify debug logs are called when debug mode is enabled
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[VOICE-INIT] Starting audio pipeline initialization')
+        '[VOICE-INIT]',
+        expect.stringContaining('Starting audio pipeline initialization')
       );
+      globalThis.MUMBLE_DEBUG_AUDIO = false;
     });
 
     test('should handle PCM data from AudioWorklet', async () => {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useLocalStorage } from '../composables/useLocalStorage.js';
 import MumbleClient from '../mumble-client/index.js';
+import { debugLog } from '../utils/debug-utils.js';
 
 /**
  * Settings Store - User-configurable settings with localStorage persistence
@@ -14,7 +15,7 @@ export const useSettingsStore = defineStore('settings', () => {
   // FORCE-CONT: PTT is currently disabled/untested (Nov 2025)
   if (voiceMode.value === 'ptt') {
     voiceMode.value = 'cont';
-    console.warn('[Settings] PTT mode disabled, switched to Continuous.');
+    debugLog('[Settings]', 'PTT mode disabled, switched to Continuous.');
   }
 
   const pttKey = useLocalStorage('pttKey', 'ctrl + shift', { prefix: 'mumble.' });

@@ -28,11 +28,10 @@ flatten(translationsJson, "", translations);
  * Gets a translation by its key (English only)
  *
  * @param {string} key - Translation key in dot notation (e.g., "connectdialog.title")
- * @param {string} [_languageChosen] - Ignored, always uses English (kept for API compatibility)
  * @return {string} The translated string or a placeholder if key is missing
  */
-export function translate(key, _languageChosen) {
-  if (translations.hasOwnProperty(key)) {
+export function translate(key) {
+  if (Object.hasOwn(translations, key)) {
     return translations[key];
   }
   console.warn(`Missing translation for key: ${key}`);

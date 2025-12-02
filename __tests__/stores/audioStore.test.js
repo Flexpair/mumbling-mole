@@ -79,14 +79,6 @@ jest.unstable_mockModule('../../app/utils/promise-cache-utils.js', () => ({
   }
 }));
 
-// Mock microphone-permission
-jest.unstable_mockModule('../../app/utils/microphone-permission.js', () => ({
-  createMicrophonePermissionManager: jest.fn(() => ({
-    attemptPermission: jest.fn(),
-    retryPermission: jest.fn()
-  }))
-}));
-
 const { useAudioStore } = await import('../../app/stores/audioStore.js');
 
 describe('audioStore', () => {

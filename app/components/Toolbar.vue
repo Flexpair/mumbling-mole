@@ -265,14 +265,14 @@ const handleLogoutClick = () => {
 }
 
 .toolbar-horizontal {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   height: 36px;
   display: flex;
   align-items: center;
-  padding: 4px 0;
+  padding: 0;
+  box-sizing: border-box;
+  margin: 0;
+  border: none;
+  width: 100%;
 }
 
 .message-box-container {

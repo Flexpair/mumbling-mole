@@ -18,7 +18,6 @@ export const useAudioStore = defineStore('audio', () => {
   // Microphone permission state (reactive)
   const micPermissionDenied = ref(false);
   const micPermissionErrorMessage = ref('');
-  let _micPermissionManager = null; // Lazy-initialized permission manager
   
   // Beeper state (reactive)
   const isBeeping = ref(false);
@@ -31,7 +30,7 @@ export const useAudioStore = defineStore('audio', () => {
   audioContextManager.onReady((ctx) => {
     if (audioContext.value !== ctx) {
       audioContext.value = ctx;
-      debugLog('AudioStore synced with AudioContextManager (onReady)');
+      debugLog('[AUDIO]', 'AudioStore synced with AudioContextManager (onReady)');
     }
   });
 
@@ -151,12 +150,11 @@ export const useAudioStore = defineStore('audio', () => {
   }
 
   /**
-   * Retry microphone permission request
+   * Reset microphone permission state so user can retry
    */
   function retryMicrophonePermission() {
-    if (_micPermissionManager) {
-      _micPermissionManager.retryPermission();
-    }
+    micPermissionDenied.value = false;
+    micPermissionErrorMessage.value = '';
   }
 
   /**

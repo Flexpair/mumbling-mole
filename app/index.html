@@ -53,18 +53,32 @@
       }
       /* Background image is on .guacamole-placeholder in main.scss */
       #app { height: 100%; }
-      #container { height: 100%; position: relative; }
+      #container { 
+        height: 100%; 
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      main {
+        display: block;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+      }
+      footer {
+        flex-shrink: 0;
+      }
       .guacamole-placeholder {
         display: block;
-        float: left;
         margin: 0;
         width: 100%;
-        height: calc(100% - 36px);
+        height: 100%;
       }
       .toolbar-horizontal {
         display: flex;
         flex-flow: row nowrap;
         width: 100%;
+        height: 36px;
       }
     </style>
 

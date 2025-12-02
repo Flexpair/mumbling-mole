@@ -531,7 +531,8 @@ describe('mumble-client Client', () => {
     });
 
     describe('_onServerConfig', () => {
-      test('should log server configuration', () => {
+      test('should log server configuration in debug mode', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
         client._onServerConfig({
@@ -546,11 +547,13 @@ describe('mumble-client Client', () => {
           maxUsers: 100
         }));
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
     });
 
     describe('_onCodecVersion', () => {
-      test('should log codec capabilities', () => {
+      test('should log codec capabilities in debug mode', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
         client._onCodecVersion({
@@ -564,11 +567,13 @@ describe('mumble-client Client', () => {
           opus: true
         }));
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
     });
 
     describe('_onCryptSetup', () => {
-      test('should log when encryption keys present', () => {
+      test('should log when encryption keys present in debug mode', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
         client._onCryptSetup({
@@ -576,22 +581,26 @@ describe('mumble-client Client', () => {
           client_nonce: new Uint8Array([4, 5, 6])
         });
 
-        expect(logSpy).toHaveBeenCalledWith('[CryptSetup] UDP encryption keys exchanged (not used by WebSocket client)');
+        expect(logSpy).toHaveBeenCalledWith('[CryptSetup]', 'UDP encryption keys exchanged (not used by WebSocket client)');
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
 
       test('should not log when no keys present', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
         client._onCryptSetup({});
 
         expect(logSpy).not.toHaveBeenCalled();
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
     });
 
     describe('_onPermissionQuery', () => {
-      test('should log permission query response', () => {
+      test('should log permission query response in debug mode', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
         client._onPermissionQuery({
@@ -604,11 +613,13 @@ describe('mumble-client Client', () => {
           channelId: 5
         }));
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
     });
 
     describe('_onUserStats', () => {
-      test('should log user statistics', () => {
+      test('should log user statistics in debug mode', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
         const user = new User(client, 42);
         client._userById[42] = user;
@@ -626,11 +637,13 @@ describe('mumble-client Client', () => {
           opus: true
         }));
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
     });
 
     describe('_onSuggestConfig', () => {
-      test('should log suggested configuration', () => {
+      test('should log suggested configuration in debug mode', () => {
+        globalThis.MUMBLE_DEBUG_AUDIO = true;
         const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
         client._onSuggestConfig({
@@ -643,6 +656,7 @@ describe('mumble-client Client', () => {
           pushToTalk: true
         }));
         logSpy.mockRestore();
+        globalThis.MUMBLE_DEBUG_AUDIO = false;
       });
     });
 

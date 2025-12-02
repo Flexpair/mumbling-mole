@@ -436,7 +436,7 @@ class MumbleClient extends EventEmitter {
   
   _onServerConfig (payload) {
     // Server configuration (max message length, max bandwidth, etc.)
-    console.log('[ServerConfig]', {
+    debugLog('[ServerConfig]', {
       maxBandwidth: payload.maxBandwidth,
       maxMessageLength: payload.messageLength,
       maxImageLength: payload.imageMessageLength,
@@ -449,7 +449,7 @@ class MumbleClient extends EventEmitter {
 
   _onCodecVersion (payload) {
     // Server codec capabilities announcement
-    console.log('[CodecVersion]', {
+    debugLog('[CodecVersion]', {
       alpha: payload.alpha,
       beta: payload.beta,
       preferAlpha: payload.preferAlpha,
@@ -461,13 +461,13 @@ class MumbleClient extends EventEmitter {
     // UDP encryption setup (not used by WebSocket-based client)
     // Only log if client/server nonce present (indicates encryption handshake)
     if (payload.client_nonce || payload.server_nonce || payload.key) {
-      console.log('[CryptSetup] UDP encryption keys exchanged (not used by WebSocket client)')
+      debugLog('[CryptSetup]', 'UDP encryption keys exchanged (not used by WebSocket client)')
     }
   }
 
   _onPermissionQuery (payload) {
     // Server response to permission queries
-    console.log('[PermissionQuery]', {
+    debugLog('[PermissionQuery]', {
       channelId: payload.channelId,
       permissions: payload.permissions,
       flush: payload.flush
@@ -478,7 +478,7 @@ class MumbleClient extends EventEmitter {
     // Detailed user statistics (bandwidth, packets, etc.)
     const session = payload.session
     const user = this._userById[session]
-    console.log('[UserStats]', {
+    debugLog('[UserStats]', {
       user: user ? user.name : `session ${session}`,
       version: payload.version,
       certificates: payload.certificates?.length || 0,
@@ -498,7 +498,7 @@ class MumbleClient extends EventEmitter {
 
   _onSuggestConfig (payload) {
     // Server suggestions for client configuration
-    console.log('[SuggestConfig]', {
+    debugLog('[SuggestConfig]', {
       version: payload.version,
       positional: payload.positional,
       pushToTalk: payload.pushToTalk

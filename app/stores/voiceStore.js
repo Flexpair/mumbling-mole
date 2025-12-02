@@ -60,7 +60,7 @@ export const useVoiceStore = defineStore('voice', () => {
           }
         },
         (err) => {
-          console.log(translate('logentry.mic_init_error'), err);
+          debugLog('[VOICE]', translate('logentry.mic_init_error'), err);
         },
         () => {
           audioStore.initializePersistentBeeper();
@@ -77,10 +77,10 @@ export const useVoiceStore = defineStore('voice', () => {
       try {
         await audioStore.loadAudioWorkletModule('playback-buffer-processor.js');
       } catch (err) {
-        console.warn('[AUDIO-INIT] Playback AudioWorklet pre-warm failed:', err);
+        debugLog('[AUDIO-INIT]', 'Playback AudioWorklet pre-warm failed:', err);
       }
     } catch (error) {
-      console.warn('AudioContext resume failed, continuing anyway:', error);
+      debugLog('[AUDIO-INIT]', 'AudioContext resume failed, continuing anyway:', error);
     }
   }
 
@@ -125,7 +125,7 @@ export const useVoiceStore = defineStore('voice', () => {
     } else if (mode === 'ptt') {
       newHandler = new PushToTalkVoiceHandler(client, settingsStore, target);
     } else {
-      console.error(translate('logentry.unknown_voice_mode'), mode);
+      debugLog('[VOICE]', translate('logentry.unknown_voice_mode'), mode);
       return;
     }
     
