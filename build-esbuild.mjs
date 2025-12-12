@@ -170,15 +170,6 @@ const buildConfig = {
       }
     },
     
-    // Custom plugin to alias fs to our mock
-    {
-      name: 'fs-mock',
-      setup(build) {
-        build.onResolve({ filter: /^fs$/ }, args => ({
-          path: path.resolve(__dirname, 'polyfills/fs-mock.js')
-        }));
-      }
-    },
     // Polyfill Node.js built-ins for browser
     NodeModulesPolyfillPlugin(),
     NodeGlobalsPolyfillPlugin({
@@ -192,7 +183,6 @@ const buildConfig = {
   loader: {
     '.json': 'json',
     '.txt': 'text',
-    '.proto': 'text', // Load .proto files as text for fs-mock
     '.png': 'file',
     '.webp': 'file',
     '.jpg': 'file',
