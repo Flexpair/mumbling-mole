@@ -15,6 +15,7 @@ Browser-based Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 9. **Rebuild before testing** – Run `npm run build:local` before tests. Plain `npm run build` does NOT restart server!
 10. **Playwright locators** – Use role-based (`getByRole`, `getByLabel`) with `.or()` fallbacks.
 11. **Never edit mumble-proto-minimal.js** – Auto-generated; modify `Mumble.proto` or `scripts/generate-proto.sh`.
+12. **Git remote policy** – Never interact with the `upstream` repo/remote. Assume all git operations (push/PR base/merge targets) refer to the Flexpair fork (`origin`, e.g. `Flexpair/mumbling-mole`) unless explicitly instructed otherwise.
 
 ## 🎯 Quick Start
 
