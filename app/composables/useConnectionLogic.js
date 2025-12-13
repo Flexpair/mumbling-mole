@@ -6,6 +6,7 @@ import { useUserStore } from '../stores/userStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { translate } from '../localize';
+import { fetchCredentials, clearCredentials } from '../auth/credentials-service.js';
 
 /**
  * Determine Guacamole login role from user roles
@@ -87,7 +88,7 @@ export function useConnectionLogic({ auth } = {}) {
    * @private
    */
   async function _setupConnection(params) {
-    const { host, port, username, password, tokens = [], isLoopback = false } = params;
+    const { host, port, username, tokens = [], isLoopback = false } = params;
 
     // Auth check
     if (!auth) {
@@ -97,20 +98,29 @@ export function useConnectionLogic({ auth } = {}) {
     }
     
     const identity = auth.currentUser();
-    if (!identity?.app_metadata) {
+    if (!identity) {
       alert('You do not have permission to connect to the server. Please contact the administrator.');
       return;
     }
 
-    // Ensure required roles
-    let user_roles = identity.app_metadata.roles || [];
-    if (!Array.isArray(user_roles)) {
-      user_roles = [];
+    // Fetch credentials from auth server (validates JWT server-side)
+    let serverCredentials;
+    try {
+      const token = identity.token?.access_token || identity.access_token;
+      if (!token) {
+        throw new Error('No access token available');
+      }
+      serverCredentials = await fetchCredentials(token);
+      console.log('[useConnectionLogic] Credentials received from server');
+    } catch (error) {
+      console.error('[useConnectionLogic] Failed to fetch credentials:', error);
+      alert('Failed to authenticate. Please log in again.');
+      auth.logout();
+      return;
     }
 
-    if (!user_roles.includes('watch')) user_roles.push('watch');
-    if (!user_roles.includes('listen')) user_roles.push('listen');
-    identity.app_metadata.roles = user_roles;
+    // Use server-provided password
+    const password = serverCredentials.mumblePassword;
 
     // Initialize AudioContext
     if (!audioStore.audioContext) {
@@ -123,7 +133,7 @@ export function useConnectionLogic({ auth } = {}) {
       const audioCompatible = currentSampleRate === 48000;
       
       if (!audioCompatible) {
-        const connectionParams = { host, port, username, password, tokens };
+        const connectionParams = { host, port, username, password, tokens, serverCredentials };
         dialogStore.sampleRateDialog.sampleRate = currentSampleRate;
         dialogStore.sampleRateDialog.connectionParams = connectionParams;
         dialogStore.showSampleRateDialog();
@@ -138,7 +148,8 @@ export function useConnectionLogic({ auth } = {}) {
       username, 
       password, 
       tokens,
-      isLoopback
+      isLoopback,
+      serverCredentials
     };
 
     // Request microphone permission
@@ -186,7 +197,7 @@ export function useConnectionLogic({ auth } = {}) {
    * @private
    */
   async function _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { host, port, username, password, tokens = [] } = connectionParams;
+    const { host, port, username, password, tokens = [], serverCredentials } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
 
     if (isLoopback) {
@@ -200,7 +211,7 @@ export function useConnectionLogic({ auth } = {}) {
     _resetUIForConnection();
 
     try {
-      await _establishClientConnection(host, port, username, password, tokens);
+      await _establishClientConnection(host, port, username, password, tokens, serverCredentials);
     } catch (err) {
       console.error('Connection failed:', err);
       if (dialogStore) {
@@ -230,14 +241,15 @@ export function useConnectionLogic({ auth } = {}) {
    * Establish client connection and setup
    * @private
    */
-  async function _establishClientConnection(host, port, username, password, tokens) {
+  async function _establishClientConnection(host, port, username, password, tokens, serverCredentials) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
     
-    const user_roles = (auth?.currentUser()?.app_metadata?.roles) || [];
-    const guac_login = getGuacamoleLogin(user_roles);
+    // Use server-provided Guacamole credentials (secure) or fallback to client-side (legacy)
+    const guacUser = serverCredentials?.guacamoleUser || getGuacamoleLogin(auth?.currentUser()?.app_metadata?.roles || []);
+    const guacPassword = serverCredentials?.guacamolePassword || password;
     
     // Setup Guacamole
-    _setupGuacamoleFrame(guac_login, password);
+    _setupGuacamoleFrame(guacUser, guacPassword);
     
     if (voiceStore.isLoopbackMode) {
       console.log(translate('logentry.connected_loopback'));

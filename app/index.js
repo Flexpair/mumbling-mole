@@ -116,6 +116,8 @@ globalThis.mumbleUi = {
 
 /**
  * Apply URL query parameters to connect dialog
+ * SECURITY: Password is no longer accepted from URL parameters.
+ * It is fetched securely from the auth server after JWT validation.
  */
 function applyQueryParamsToConnectDialog() {
   const urlObj = new URL(document.location.href);
@@ -128,9 +130,8 @@ function applyQueryParamsToConnectDialog() {
   if (queryParams.port) {
     dialogStore.connectDialog.port = queryParams.port;
   }
-  if (queryParams.password) {
-    dialogStore.connectDialog.password = queryParams.password;
-  }
+  // Password is no longer accepted from URL for security reasons
+  // It is fetched from the auth server after successful authentication
 }
 
 /**

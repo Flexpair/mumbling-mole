@@ -215,7 +215,11 @@ const handleSourceCodeClick = () => {
   globalThis.open(packageJson.homepage, '_blank').focus();
 };
 
-const handleLogoutClick = () => {
+const handleLogoutClick = async () => {
+  // Clear cached credentials before logout
+  const { clearCredentials } = await import('../auth/credentials-service.js');
+  clearCredentials();
+  
   auth.logout();
   location.reload();
 };

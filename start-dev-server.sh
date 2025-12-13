@@ -44,10 +44,22 @@ sleep 2
 if ps -p $(cat /tmp/entrypoint.pid) > /dev/null 2>&1; then
     echo "✅ Dev server started"
     
-    echo "⏳ Waiting for server..."
+    # Get container IP for health checks
+    CONTAINER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+    
+    echo "⏳ Waiting for websockify..."
     for i in {1..30}; do
-        if curl -s http://localhost:8081 > /dev/null 2>&1; then
-            echo "🎯 Server ready!"
+        if curl -s "http://${CONTAINER_IP}:8081" > /dev/null 2>&1; then
+            echo "🎯 Websockify ready!"
+            break
+        fi
+        sleep 1
+    done
+    
+    echo "⏳ Waiting for auth-server..."
+    for i in {1..10}; do
+        if curl -s "http://${CONTAINER_IP}:8082/api/health" > /dev/null 2>&1; then
+            echo "🔐 Auth-server ready!"
             break
         fi
         sleep 1
