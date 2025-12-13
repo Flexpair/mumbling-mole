@@ -61,6 +61,7 @@ services:
       - ./letsencrypt:/etc/letsencrypt:ro
     ports:
       - "443:443"
+      - "80:80"
     depends_on:
       - guacamole
       - mumble
