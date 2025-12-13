@@ -5,19 +5,18 @@
   "workspaceFolder": "/home/node",
   "remoteUser": "node",
   "overrideCommand": true,
-  "postCreateCommand": "bash -lc 'cd /home/node && echo \"🔧 Fixing murmur data permissions...\" && chmod 777 .devcontainer/murmur_data && docker restart murmur 2>/dev/null || true && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true'",
-  // postStartCommand removed - start dev server manually to avoid system overload and allow inspection
-  // To start manually: ./start-dev-server.sh
-  "postStartCommand": "",
+  "postCreateCommand": "bash -lc 'cd /home/node && echo \"🔧 Fixing murmur data permissions...\" && chmod 777 .devcontainer/murmur_data && docker restart murmur 2>/dev/null || true && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true && echo \"🌐 Setting up nginx DNS...\" && (grep -q local.flexpair.app /etc/hosts || echo \"172.18.0.7 local.flexpair.app\" | sudo tee -a /etc/hosts)'",
+  "postStartCommand": "./start-dev-server.sh",
   "portsAttributes": {
-    "8081": {
+    "443": {
       "label": "App",
-      "onAutoForward": "notify",
+      "onAutoForward": "openBrowser",
+      "protocol": "https",
       "visibility": "public"
     }
   },
   "forwardPorts": [
-    8081
+    443
   ],
   "customizations": {
     "vscode": {
