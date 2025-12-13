@@ -21,10 +21,30 @@
 let cachedCredentials = null;
 
 /**
+ * Cache timestamp for TTL-based invalidation
+ * @type {number|null}
+ */
+let cacheTimestamp = null;
+
+/**
+ * Cache TTL in milliseconds (5 minutes default - matches typical JWT refresh)
+ */
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
  * Pending request to prevent concurrent fetches
  * @type {Promise<ServerCredentials>|null}
  */
 let pendingRequest = null;
+
+/**
+ * Check if cache has expired
+ * @returns {boolean}
+ */
+function isCacheExpired() {
+  if (!cacheTimestamp) return true;
+  return Date.now() - cacheTimestamp > CACHE_TTL_MS;
+}
 
 /**
  * Fetch server credentials from auth endpoint
@@ -41,8 +61,8 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
     throw new Error('No authentication token provided');
   }
 
-  // Return cached credentials if available and not forcing refresh
-  if (cachedCredentials && !forceRefresh) {
+  // Return cached credentials if available, not expired, and not forcing refresh
+  if (cachedCredentials && !isCacheExpired() && !forceRefresh) {
     return cachedCredentials;
   }
 
@@ -68,6 +88,7 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
 
       const credentials = await response.json();
       cachedCredentials = credentials;
+      cacheTimestamp = Date.now();
       return credentials;
     } finally {
       pendingRequest = null;
@@ -82,15 +103,16 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
  */
 export function clearCredentials() {
   cachedCredentials = null;
+  cacheTimestamp = null;
   pendingRequest = null;
 }
 
 /**
- * Check if credentials are cached
+ * Check if credentials are cached and not expired
  * @returns {boolean}
  */
 export function hasCredentials() {
-  return cachedCredentials !== null;
+  return cachedCredentials !== null && !isCacheExpired();
 }
 
 /**

@@ -6,7 +6,7 @@ import { useUserStore } from '../stores/userStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { translate } from '../localize';
-import { fetchCredentials, clearCredentials } from '../auth/credentials-service.js';
+import { fetchCredentials } from '../auth/credentials-service.js';
 
 /**
  * Determine Guacamole login role from user roles

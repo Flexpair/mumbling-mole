@@ -199,6 +199,47 @@ describe('credentials-service', () => {
       await fetchCredentials('token');
       expect(hasCredentials()).toBe(true);
     });
+
+    it('should return false after cache TTL expires', async () => {
+      const originalDateNow = Date.now;
+      let currentTime = 1000000;
+      Date.now = jest.fn(() => currentTime);
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ mumblePassword: 'test' })
+      });
+
+      await fetchCredentials('token');
+      expect(hasCredentials()).toBe(true);
+
+      // Advance time past 5 minute TTL
+      currentTime += 6 * 60 * 1000;
+      expect(hasCredentials()).toBe(false);
+
+      Date.now = originalDateNow;
+    });
+
+    it('should refetch after cache expires', async () => {
+      const originalDateNow = Date.now;
+      let currentTime = 1000000;
+      Date.now = jest.fn(() => currentTime);
+      
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ mumblePassword: 'test' })
+      });
+
+      await fetchCredentials('token');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Advance time past 5 minute TTL
+      currentTime += 6 * 60 * 1000;
+      await fetchCredentials('token');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      Date.now = originalDateNow;
+    });
   });
 
   describe('getCachedCredentials', () => {

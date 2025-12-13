@@ -10,6 +10,50 @@ import { jest } from '@jest/globals';
 describe('auth-server', () => {
   // Helper functions extracted from auth-server logic
   
+  describe('hashEmail', () => {
+    // Use dynamic import within test to avoid top-level await
+    let crypto;
+    
+    beforeAll(async () => {
+      crypto = await import('crypto');
+    });
+    
+    function hashEmail(email, cryptoModule) {
+      if (!email) return 'unknown';
+      return cryptoModule.createHash('sha256').update(email).digest('hex').slice(0, 8);
+    }
+
+    it('should return "unknown" for null email', () => {
+      expect(hashEmail(null, crypto)).toBe('unknown');
+    });
+
+    it('should return "unknown" for undefined email', () => {
+      expect(hashEmail(undefined, crypto)).toBe('unknown');
+    });
+
+    it('should return "unknown" for empty string', () => {
+      expect(hashEmail('', crypto)).toBe('unknown');
+    });
+
+    it('should return 8-character hash for valid email', () => {
+      const hash = hashEmail('test@example.com', crypto);
+      expect(hash).toHaveLength(8);
+      expect(hash).toMatch(/^[a-f0-9]{8}$/);
+    });
+
+    it('should return consistent hash for same email', () => {
+      const hash1 = hashEmail('user@flexpair.com', crypto);
+      const hash2 = hashEmail('user@flexpair.com', crypto);
+      expect(hash1).toBe(hash2);
+    });
+
+    it('should return different hashes for different emails', () => {
+      const hash1 = hashEmail('user1@example.com', crypto);
+      const hash2 = hashEmail('user2@example.com', crypto);
+      expect(hash1).not.toBe(hash2);
+    });
+  });
+
   describe('getNestedProperty', () => {
     function getNestedProperty(obj, path) {
       return path.split('.').reduce((acc, part) => acc?.[part], obj);

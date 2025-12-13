@@ -9,9 +9,19 @@
 
 import express from 'express';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 app.use(express.json());
+
+// Rate limiting to prevent brute force attacks (OWASP A07)
+const credentialsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // 30 requests per window per IP
+  message: { error: 'Too many authentication attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const PORT = process.env.AUTH_SERVER_PORT || 8082;
 // In container: bind to 0.0.0.0 to be reachable via nginx proxy
@@ -108,6 +118,14 @@ async function validateToken(token, providerConfig) {
 }
 
 /**
+ * Hash email for privacy-compliant logging (GDPR/CCPA)
+ */
+function hashEmail(email) {
+  if (!email) return 'unknown';
+  return crypto.createHash('sha256').update(email).digest('hex').slice(0, 8);
+}
+
+/**
  * Health check endpoint
  */
 app.get('/api/health', (req, res) => {
@@ -127,7 +145,7 @@ app.get('/api/health', (req, res) => {
  * Response (401):
  *   { error: 'Invalid or expired token' }
  */
-app.post('/api/credentials', async (req, res) => {
+app.post('/api/credentials', credentialsLimiter, async (req, res) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader?.startsWith('Bearer ')) {
@@ -153,7 +171,8 @@ app.post('/api/credentials', async (req, res) => {
   const roles = getNestedProperty(user, providerConfig.rolesClaim) || [];
   const guacamoleUser = getGuacamoleUser(roles);
 
-  console.log(`[AUTH] Credentials issued for ${user.email || 'unknown'} (roles: ${roles.join(', ')})`);
+  // Privacy-compliant logging (GDPR/CCPA) - hash email instead of storing plaintext
+  console.log(`[AUTH] Credentials issued for user:${hashEmail(user.email)} (roles: ${roles.join(', ')})`);
 
   res.json({
     mumblePassword: MUMBLE_PASSWORD,

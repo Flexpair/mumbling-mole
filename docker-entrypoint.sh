@@ -10,6 +10,22 @@ AUTH_SERVER_HOST="${AUTH_SERVER_HOST:-0.0.0.0}"
 WEBROOT="/home/node/dist"
 AUTH_SERVER_DIR="/home/node/auth-server"
 
+# Track background process PIDs for cleanup
+AUTH_SERVER_PID=""
+
+# Signal handler for graceful shutdown
+cleanup() {
+  echo "[entrypoint] Shutting down..."
+  if [[ -n "${AUTH_SERVER_PID}" ]] && kill -0 "${AUTH_SERVER_PID}" 2>/dev/null; then
+    echo "[entrypoint] Stopping auth server (PID: ${AUTH_SERVER_PID})"
+    kill "${AUTH_SERVER_PID}" 2>/dev/null || true
+    wait "${AUTH_SERVER_PID}" 2>/dev/null || true
+  fi
+  exit 0
+}
+
+trap cleanup SIGTERM SIGINT SIGQUIT
+
 # Sonderfall: alter HTTP-Smoke-Test → nur statische Dateien auf :8081 ausliefern
 if [[ "${SKIP_TUNNEL:-}" = "1" ]]; then
   echo "[entrypoint] SKIP_TUNNEL=1 → serve static files on ${HOST}:${PORT} from ${WEBROOT}"
