@@ -2,7 +2,9 @@
 set -euo pipefail
 
 PORT="${PORT:-${SMOKE_HTTP_PORT:-8081}}"
-HOST="${HOST:-0.0.0.0}"
+# Bind only to internal Docker network IP - nginx proxies from outside
+# Use 0.0.0.0 only if explicitly set (e.g., for local development without nginx)
+HOST="${HOST:-172.18.0.6}"
 WEBROOT="/home/node/dist"
 
 # Sonderfall: alter HTTP-Smoke-Test → nur statische Dateien auf :8081 ausliefern

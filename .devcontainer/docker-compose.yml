@@ -25,8 +25,6 @@ services:
     networks:
       guacamole_net:
         ipv4_address: 172.18.0.4
-    ports:
-      - "8080/tcp"
     restart: always
 
   mumble:
@@ -43,8 +41,6 @@ services:
       guacamole_net:
         ipv4_address: 172.18.0.6
     container_name: mumble_web_container
-    ports:
-      - "8081:8081"
     depends_on:
       - murmur
     environment:
@@ -83,9 +79,6 @@ services:
       guacamole_net:
         ipv4_address: 172.18.0.5
     container_name: murmur
-    ports:
-      - "${MURMUR_PORT:-64738}:${MURMUR_PORT:-64738}"
-      - "${MURMUR_PORT:-64738}:${MURMUR_PORT:-64738}/udp"
     volumes:
       - ./murmur_config/murmur.ini:/etc/mumble/config.ini:ro
       - ./murmur_data:/data

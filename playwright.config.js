@@ -22,25 +22,21 @@ import { config } from 'dotenv';
 // Load test credentials from .env.test
 config({ path: '.env.test' });
 
-// Auto-detect GitHub Codespaces public URL
+// Auto-detect the appropriate base URL for testing
 const getBaseURL = () => {
   if (process.env.PLAYWRIGHT_BASE_URL) {
     return process.env.PLAYWRIGHT_BASE_URL;
   }
   
-  // In CI (GitHub Actions), use HTTPS with Nginx on port 443
-  if (process.env.CI === 'true') {
-    return 'https://localhost';
-  }
-  
-  // In GitHub Codespaces, use the public forwarded URL
+  // In GitHub Codespaces, use nginx reverse proxy (port 443)
   if (process.env.CODESPACES === 'true' && process.env.CODESPACE_NAME) {
     const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN || 'app.github.dev';
-    return `https://${process.env.CODESPACE_NAME}-8081.${domain}`;
+    return `https://${process.env.CODESPACE_NAME}-443.${domain}`;
   }
   
-  // Fallback to localhost (dev mode, direct mumble container)
-  return 'http://localhost:8081';
+  // Default: Use nginx reverse proxy (tests full stack with TLS)
+  // Works in both dev container and CI
+  return 'https://local.flexpair.app';
 };
 
 export default defineConfig({
@@ -101,7 +97,7 @@ export default defineConfig({
         '--autoplay-policy=no-user-gesture-required', // Allow audio without user gesture
         '--disable-web-security',                 // For cross-origin WebSocket
         '--allow-file-access-from-files',        // For local file access
-        '--host-resolver-rules=MAP local.flexpair.app 127.0.0.1', // DNS override for Netlify Identity
+        '--host-resolver-rules=MAP local.flexpair.app 172.18.0.7', // DNS override for nginx
       ]
     },
     

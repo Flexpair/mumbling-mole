@@ -117,7 +117,6 @@ RUN echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/node \
 RUN mkdir -p /home/node/.npm && chown -R node:node /home/node
 USER node
 
-EXPOSE 8081 8082
 CMD ["bash", "-lc", "while :; do sleep 3600; done"]
 
 
@@ -132,7 +131,5 @@ COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entr
 
 USER node
 WORKDIR /home/node
-
-EXPOSE 8081 8082
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/home/node/docker-entrypoint.sh"]
