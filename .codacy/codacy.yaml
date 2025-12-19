@@ -1,3 +1,13 @@
+engines:
+    bandit:
+        exclude_paths:
+            - auth-server/server.py
+    prospector:
+        exclude_paths:
+            - auth-server/server.py
+    semgrep:
+        exclude_paths:
+            - auth-server/server.py
 exclude_paths:
     - auth-server/__pycache__/**
 runtimes:
@@ -11,15 +21,3 @@ tools:
     - pylint@3.3.9
     - semgrep@1.78.0
     - trivy@0.66.0
-
-# Disable false positive rules for auth-server (URL scheme validated before urllib call)
-engines:
-    semgrep:
-        exclude_paths:
-            - auth-server/server.py
-    bandit:
-        exclude_paths:
-            - auth-server/server.py
-    prospector:
-        exclude_paths:
-            - auth-server/server.py

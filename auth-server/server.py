@@ -15,7 +15,6 @@ import socketserver
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from functools import reduce
 from time import time
 from typing import Any, Optional
 
@@ -64,8 +63,13 @@ RATE_LIMIT_MAX = 30
 
 def get_nested_property(obj: dict, path: str) -> Any:
     """Extract nested property using dot notation (e.g., 'app_metadata.roles')."""
-    return reduce(lambda acc, part: acc.get(part) if isinstance(acc, dict) else None, 
-                  path.split('.'), obj)
+    result: Any = obj
+    for part in path.split('.'):
+        if isinstance(result, dict):
+            result = result.get(part)
+        else:
+            return None
+    return result
 
 
 def get_guacamole_user(roles: list) -> str:
