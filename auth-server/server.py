@@ -83,6 +83,18 @@ def get_guacamole_user(roles: list) -> str:
     return 'watcher'
 
 
+def _is_valid_url_scheme(url: str) -> bool:
+    """Validate URL scheme for security (OWASP A10 SSRF prevention).
+    
+    Only https:// is allowed by default. http:// requires AUTH_ALLOW_HTTP=true.
+    """
+    if url.startswith('https://'):
+        return True
+    if url.startswith('http://'):
+        return os.environ.get('AUTH_ALLOW_HTTP', '').lower() == 'true'
+    return False
+
+
 def validate_token(token: str, provider_config: dict) -> Optional[dict]:
     """Validate JWT by calling the auth provider's user endpoint."""
     endpoint = provider_config.get('userEndpoint')
@@ -90,10 +102,9 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         print('[AUTH] Provider endpoint not configured')
         return None
 
-    # SECURITY: Validate URL scheme to prevent file:// SSRF attacks (OWASP A10)
     url = f"{endpoint}/user"
-    if not url.startswith(('https://', 'http://')):
-        print(f'[AUTH] Invalid URL scheme, must be http(s): {url[:50]}')
+    if not _is_valid_url_scheme(url):
+        print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
         return None
 
     try:
@@ -105,7 +116,7 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         )
-        # URL scheme validated above (lines 91-93), safe to use urlopen
+        # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
         with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
             if response.status != 200:

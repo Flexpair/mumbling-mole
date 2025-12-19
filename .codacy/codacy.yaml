@@ -1,15 +1,3 @@
-engines:
-    bandit:
-        exclude_paths:
-            - auth-server/server.py
-    prospector:
-        exclude_paths:
-            - auth-server/server.py
-    semgrep:
-        exclude_paths:
-            - auth-server/server.py
-exclude_paths:
-    - auth-server/__pycache__/**
 runtimes:
     - java@17.0.10
     - node@22.2.0
