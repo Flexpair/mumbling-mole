@@ -77,6 +77,9 @@ if [[ -f "${AUTH_SERVER_DIR}/index.js" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]
 fi
 
 echo "[entrypoint] Start websockify ${SSL_TARGET_FLAG:+(ssl-target)} on ${HOST}:${PORT} → ${MUMBLE_SERVER} (web=${WEBROOT})"
-# SSL_TARGET_FLAG expansion is intentionally unquoted for conditional argument passing
-# shellcheck disable=SC2086
-exec websockify ${SSL_TARGET_FLAG:+"$SSL_TARGET_FLAG"} --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"
+# Using array to safely handle optional SSL flag
+SSL_ARGS=()
+if [[ -n "${SSL_TARGET_FLAG}" ]]; then
+  SSL_ARGS=("${SSL_TARGET_FLAG}")
+fi
+exec websockify "${SSL_ARGS[@]}" --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"
