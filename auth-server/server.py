@@ -23,7 +23,12 @@ PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
 HOST = os.environ.get('AUTH_SERVER_HOST', '0.0.0.0')
 
 def generate_secure_password(length: int = 32) -> str:
-    """Generate a cryptographically secure URL-safe password."""
+    """Generate a cryptographically secure URL-safe password.
+    
+    Args:
+        length: Desired output length (not byte count). The function generates
+                more bytes than needed and slices to exact length.
+    """
     return secrets.token_urlsafe(length)[:length]
 
 MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD') or generate_secure_password(32)
@@ -91,7 +96,7 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
             headers={
                 'Authorization': f'Bearer {token}',
                 'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         )
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected
@@ -121,10 +126,14 @@ def hash_email(email: str) -> str:
 def check_rate_limit(client_ip: str) -> bool:
     """Check if client has exceeded rate limit. Returns True if allowed."""
     now = time()
-    # Clean old entries
+    # Clean old entries for this IP
     rate_limit_store[client_ip] = [t for t in rate_limit_store[client_ip] if now - t < RATE_LIMIT_WINDOW]
     
-    if len(rate_limit_store[client_ip]) >= RATE_LIMIT_MAX:
+    # Remove IPs with empty timestamp lists to prevent memory leak
+    if not rate_limit_store[client_ip]:
+        del rate_limit_store[client_ip]
+    
+    if len(rate_limit_store.get(client_ip, [])) >= RATE_LIMIT_MAX:
         return False
     
     rate_limit_store[client_ip].append(now)
@@ -139,9 +148,14 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         print(f'[AUTH] {self.address_string()} - {fmt % args}')
 
     def send_json(self, status: int, data: dict):
-        """Send JSON response with CORS headers."""
+        """Send JSON response with security and CORS headers."""
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
+        # Security headers (OWASP recommendations)
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header('X-XSS-Protection', '1; mode=block')
+        # CORS headers - wildcard is acceptable as this is behind nginx proxy
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
@@ -181,7 +195,11 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(401, {'error': 'Missing authorization header'})
             return
 
-        token = auth_header[7:]
+        token = auth_header[7:].strip()
+        if not token:
+            self.send_json(401, {'error': 'Missing authorization header'})
+            return
+
         provider_config = AUTH_PROVIDERS.get(AUTH_PROVIDER)
 
         if not provider_config:
@@ -196,10 +214,19 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             return
 
         # Extract roles and determine access level
-        roles = get_nested_property(user, provider_config['rolesClaim']) or []
+        raw_roles = get_nested_property(user, provider_config['rolesClaim'])
+        if isinstance(raw_roles, list):
+            roles = raw_roles
+        elif raw_roles:
+            roles = [str(raw_roles)]
+        else:
+            roles = []
         guacamole_user = get_guacamole_user(roles)
 
-        print(f"[AUTH] Credentials issued for user:{hash_email(user.get('email'))} (roles: {', '.join(roles)})")
+        print(
+            f"[AUTH] Credentials issued for user:{hash_email(user.get('email'))} "
+            f"(roles: {', '.join(map(str, roles))})"
+        )
 
         self.send_json(200, {
             'mumblePassword': MUMBLE_PASSWORD,
@@ -224,7 +251,9 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print('\n[AUTH] Shutting down...')
+    finally:
         server.shutdown()
+        server.server_close()
 
 
 if __name__ == '__main__':
