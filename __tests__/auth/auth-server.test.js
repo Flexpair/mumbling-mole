@@ -16,6 +16,61 @@ function getNestedProperty(obj, path) {
   return path.split('.').reduce((acc, part) => acc?.[part], obj);
 }
 
+function getGuacamoleUser(roles = []) {
+  if (roles.includes('admin')) return 'admin';
+  if (roles.includes('edit')) return 'editor';
+  if (roles.includes('watch')) return 'watcher';
+  return 'watcher';
+}
+
+function parseAuthHeader(authHeader) {
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.slice(7);
+}
+
+function generateSecurePassword(length = 32) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+}
+
+function formatCredentialsResponse(mumblePassword, guacamoleUser, guacamolePasswords) {
+  return {
+    mumblePassword,
+    guacamoleUser,
+    guacamolePassword: guacamolePasswords[guacamoleUser]
+  };
+}
+
+async function validateToken(token, providerConfig, mockFetch) {
+  if (!providerConfig.userEndpoint) {
+    return null;
+  }
+
+  try {
+    const response = await mockFetch(`${providerConfig.userEndpoint}/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 describe('auth-server', () => {
   // Helper functions extracted from auth-server logic
   
@@ -85,13 +140,6 @@ describe('auth-server', () => {
   });
 
   describe('getGuacamoleUser', () => {
-    function getGuacamoleUser(roles = []) {
-      if (roles.includes('admin')) return 'admin';
-      if (roles.includes('edit')) return 'editor';
-      if (roles.includes('watch')) return 'watcher';
-      return 'watcher';
-    }
-
     it('should return admin for admin role', () => {
       expect(getGuacamoleUser(['admin'])).toBe('admin');
     });
@@ -126,13 +174,6 @@ describe('auth-server', () => {
   });
 
   describe('Authorization header parsing', () => {
-    function parseAuthHeader(authHeader) {
-      if (!authHeader?.startsWith('Bearer ')) {
-        return null;
-      }
-      return authHeader.slice(7);
-    }
-
     it('should extract token from valid Bearer header', () => {
       expect(parseAuthHeader('Bearer abc123')).toBe('abc123');
     });
@@ -194,17 +235,6 @@ describe('auth-server', () => {
   });
 
   describe('Credential generation', () => {
-    // Simulates crypto.randomBytes behavior for password generation
-    function generateSecurePassword(length = 32) {
-      // In real code uses crypto.randomBytes
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-      let result = '';
-      for (let i = 0; i < length; i++) {
-        result += chars[Math.floor(Math.random() * chars.length)];
-      }
-      return result;
-    }
-
     it('should generate password of specified length', () => {
       expect(generateSecurePassword(16).length).toBe(16);
       expect(generateSecurePassword(32).length).toBe(32);
@@ -223,14 +253,6 @@ describe('auth-server', () => {
   });
 
   describe('Response formatting', () => {
-    function formatCredentialsResponse(mumblePassword, guacamoleUser, guacamolePasswords) {
-      return {
-        mumblePassword,
-        guacamoleUser,
-        guacamolePassword: guacamolePasswords[guacamoleUser]
-      };
-    }
-
     const passwords = {
       admin: 'admin-pwd',
       editor: 'editor-pwd',
@@ -293,31 +315,6 @@ describe('auth-server', () => {
   });
 
   describe('Token validation logic', () => {
-    // Mock validateToken behavior
-    async function validateToken(token, providerConfig, mockFetch) {
-      if (!providerConfig.userEndpoint) {
-        return null;
-      }
-
-      try {
-        const response = await mockFetch(`${providerConfig.userEndpoint}/user`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
-          }
-        });
-
-        if (!response.ok) {
-          return null;
-        }
-
-        return await response.json();
-      } catch {
-        return null;
-      }
-    }
-
     it('should return null if provider endpoint not configured', async () => {
       const result = await validateToken('token', { userEndpoint: null }, jest.fn());
       expect(result).toBeNull();
