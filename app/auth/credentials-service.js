@@ -67,7 +67,7 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
   }
 
   // Prevent concurrent requests
-  if (pendingRequest) {
+  if (pendingRequest !== null) {
     return pendingRequest;
   }
 

@@ -19,7 +19,30 @@ import {
   getCachedCredentials
 } from '../../app/auth/credentials-service.js';
 
+const createMockResponse = (data, ok = true, status = 200) => ({
+  ok,
+  status,
+  json: () => Promise.resolve(data)
+});
+
+const createErrorResponse = (status, error) => ({
+  ok: false,
+  status,
+  json: () => Promise.resolve({ error })
+});
+
+const createJsonErrorResponse = (status) => ({
+  ok: false,
+  status,
+  json: () => Promise.reject(new Error('Not JSON'))
+});
+
 describe('credentials-service', () => {
+  const validCredentials = {
+    mumblePassword: 'test-password',
+    guacamoleUser: 'editor',
+    guacamolePassword: 'guac-password'
+  };
 
   beforeEach(() => {
     mockFetch.mockReset();
@@ -31,11 +54,6 @@ describe('credentials-service', () => {
   });
 
   describe('fetchCredentials', () => {
-    const validCredentials = {
-      mumblePassword: 'test-password',
-      guacamoleUser: 'editor',
-      guacamolePassword: 'guac-password'
-    };
 
     it('should throw error when no token provided', async () => {
       await expect(fetchCredentials(null)).rejects.toThrow('No authentication token provided');
@@ -44,10 +62,7 @@ describe('credentials-service', () => {
     });
 
     it('should fetch credentials with valid token', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(validCredentials)
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse(validCredentials));
 
       const result = await fetchCredentials('valid-jwt-token');
 
@@ -62,10 +77,7 @@ describe('credentials-service', () => {
     });
 
     it('should cache credentials after successful fetch', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(validCredentials)
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse(validCredentials));
 
       await fetchCredentials('token');
       expect(hasCredentials()).toBe(true);
@@ -77,10 +89,7 @@ describe('credentials-service', () => {
     });
 
     it('should bypass cache when forceRefresh is true', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(validCredentials)
-      });
+      mockFetch.mockResolvedValue(createMockResponse(validCredentials));
 
       await fetchCredentials('token');
       await fetchCredentials('token', { forceRefresh: true });
@@ -91,13 +100,8 @@ describe('credentials-service', () => {
     it('should prevent concurrent requests', async () => {
       let resolveFirst;
       const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
-      
-      mockFetch.mockImplementationOnce(() => 
-        firstPromise.then(() => ({
-          ok: true,
-          json: () => Promise.resolve(validCredentials)
-        }))
-      );
+      const delayedResponse = firstPromise.then(() => createMockResponse(validCredentials));
+      mockFetch.mockImplementationOnce(() => delayedResponse);
 
       const request1 = fetchCredentials('token');
       const request2 = fetchCredentials('token');
@@ -112,22 +116,14 @@ describe('credentials-service', () => {
     });
 
     it('should throw error on 401 response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: () => Promise.resolve({ error: 'Invalid or expired token' })
-      });
+      mockFetch.mockResolvedValueOnce(createErrorResponse(401, 'Invalid or expired token'));
 
       await expect(fetchCredentials('bad-token'))
         .rejects.toThrow('Invalid or expired token');
     });
 
     it('should throw error on 500 response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({ error: 'Auth provider misconfigured' })
-      });
+      mockFetch.mockResolvedValueOnce(createErrorResponse(500, 'Auth provider misconfigured'));
 
       await expect(fetchCredentials('token'))
         .rejects.toThrow('Auth provider misconfigured');
@@ -141,11 +137,7 @@ describe('credentials-service', () => {
     });
 
     it('should handle non-JSON error responses', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 503,
-        json: () => Promise.reject(new Error('Not JSON'))
-      });
+      mockFetch.mockResolvedValueOnce(createJsonErrorResponse(503));
 
       await expect(fetchCredentials('token'))
         .rejects.toThrow('Failed to fetch credentials: 503');
@@ -154,10 +146,7 @@ describe('credentials-service', () => {
 
   describe('clearCredentials', () => {
     it('should clear cached credentials', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ mumblePassword: 'test' })
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse({ mumblePassword: 'test' }));
 
       await fetchCredentials('token');
       expect(hasCredentials()).toBe(true);
@@ -172,8 +161,8 @@ describe('credentials-service', () => {
       const creds2 = { mumblePassword: 'second' };
 
       mockFetch
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(creds1) })
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(creds2) });
+        .mockResolvedValueOnce(createMockResponse(creds1))
+        .mockResolvedValueOnce(createMockResponse(creds2));
 
       await fetchCredentials('token');
       expect(getCachedCredentials()).toEqual(creds1);
@@ -191,10 +180,7 @@ describe('credentials-service', () => {
     });
 
     it('should return true after successful fetch', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ mumblePassword: 'test' })
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse({ mumblePassword: 'test' }));
 
       await fetchCredentials('token');
       expect(hasCredentials()).toBe(true);
@@ -205,10 +191,7 @@ describe('credentials-service', () => {
       let currentTime = 1000000;
       Date.now = jest.fn(() => currentTime);
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ mumblePassword: 'test' })
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse({ mumblePassword: 'test' }));
 
       await fetchCredentials('token');
       expect(hasCredentials()).toBe(true);
@@ -225,10 +208,7 @@ describe('credentials-service', () => {
       let currentTime = 1000000;
       Date.now = jest.fn(() => currentTime);
       
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ mumblePassword: 'test' })
-      });
+      mockFetch.mockResolvedValue(createMockResponse({ mumblePassword: 'test' }));
 
       await fetchCredentials('token');
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -249,10 +229,7 @@ describe('credentials-service', () => {
 
     it('should return credentials after fetch', async () => {
       const creds = { mumblePassword: 'test', guacamoleUser: 'admin' };
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(creds)
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse(creds));
 
       await fetchCredentials('token');
       expect(getCachedCredentials()).toEqual(creds);

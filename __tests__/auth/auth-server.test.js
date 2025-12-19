@@ -7,6 +7,15 @@
 
 import { jest } from '@jest/globals';
 
+function hashEmail(email, cryptoModule) {
+  if (!email) return 'unknown';
+  return cryptoModule.createHash('sha256').update(email).digest('hex').slice(0, 8);
+}
+
+function getNestedProperty(obj, path) {
+  return path.split('.').reduce((acc, part) => acc?.[part], obj);
+}
+
 describe('auth-server', () => {
   // Helper functions extracted from auth-server logic
   
@@ -15,13 +24,8 @@ describe('auth-server', () => {
     let crypto;
     
     beforeAll(async () => {
-      crypto = await import('crypto');
+      crypto = await import('node:crypto');
     });
-    
-    function hashEmail(email, cryptoModule) {
-      if (!email) return 'unknown';
-      return cryptoModule.createHash('sha256').update(email).digest('hex').slice(0, 8);
-    }
 
     it('should return "unknown" for null email', () => {
       expect(hashEmail(null, crypto)).toBe('unknown');
@@ -55,10 +59,6 @@ describe('auth-server', () => {
   });
 
   describe('getNestedProperty', () => {
-    function getNestedProperty(obj, path) {
-      return path.split('.').reduce((acc, part) => acc?.[part], obj);
-    }
-
     it('should extract top-level property', () => {
       const obj = { name: 'test' };
       expect(getNestedProperty(obj, 'name')).toBe('test');
