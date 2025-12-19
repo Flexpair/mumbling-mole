@@ -79,15 +79,22 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         print('[AUTH] Provider endpoint not configured')
         return None
 
+    # SECURITY: Validate URL scheme to prevent file:// SSRF attacks (OWASP A10)
+    url = f"{endpoint}/user"
+    if not url.startswith(('https://', 'http://')):
+        print(f'[AUTH] Invalid URL scheme, must be http(s): {url[:50]}')
+        return None
+
     try:
         req = urllib.request.Request(
-            f"{endpoint}/user",
+            url,
             headers={
                 'Authorization': f'Bearer {token}',
                 'Content-Type': 'application/json',
                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
             }
         )
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status != 200:
                 print(f'[AUTH] Token validation failed: {response.status}')
@@ -96,7 +103,10 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
     except urllib.error.HTTPError as e:
         print(f'[AUTH] Token validation failed: {e.code}')
         return None
-    except Exception as e:
+    except urllib.error.URLError as e:
+        print(f'[AUTH] Token validation network error: {e.reason}')
+        return None
+    except (json.JSONDecodeError, TimeoutError, OSError) as e:
         print(f'[AUTH] Token validation error: {e}')
         return None
 
@@ -124,7 +134,7 @@ def check_rate_limit(client_ip: str) -> bool:
 class AuthHandler(http.server.BaseHTTPRequestHandler):
     """HTTP request handler for auth endpoints."""
 
-    def log_message(self, fmt, *args):
+    def log_message(self, fmt, *args):  # pylint: disable=arguments-differ
         """Override to use custom log format."""
         print(f'[AUTH] {self.address_string()} - {fmt % args}')
 

@@ -40,6 +40,9 @@ jobs:
       - name: Run unit tests with coverage
         run: npm run test:unit:coverage
 
+      - name: Run Python auth-server tests
+        run: python3 auth-server/test_server.py
+
       - name: Verify coverage thresholds
         run: |
           # Jest enforces thresholds defined in jest.config.js
