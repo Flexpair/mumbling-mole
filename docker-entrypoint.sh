@@ -42,32 +42,21 @@ if [[ "${PLAIN_TARGET:-}" = "1" ]]; then
 fi
 
 # Start Auth Server in background (if available and not skipped)
-if [[ -f "${AUTH_SERVER_DIR}/index.js" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]]; then
+if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]]; then
   echo "[entrypoint] Starting auth server on ${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}"
   
-  # Install auth-server dependencies if needed
-  if [[ ! -d "${AUTH_SERVER_DIR}/node_modules" ]]; then
-    echo "[entrypoint] Installing auth-server dependencies..."
-    (cd "${AUTH_SERVER_DIR}" && npm install --omit=dev)
-  fi
-  
-  # Start auth server in background with nohup to prevent termination
-  # Redirect output to log file for debugging
   nohup env \
     AUTH_SERVER_HOST="${AUTH_SERVER_HOST}" \
     AUTH_SERVER_PORT="${AUTH_SERVER_PORT}" \
     MUMBLE_PASSWORD="${MUMBLE_PASSWORD:-}" \
     AUTH_PROVIDER="${AUTH_PROVIDER:-netlify}" \
     NETLIFY_IDENTITY_URL="${NETLIFY_IDENTITY_URL:-https://welcome.flexpair.com/identity-proxy}" \
-    node "${AUTH_SERVER_DIR}/index.js" > /tmp/auth-server.log 2>&1 &
+    python3 "${AUTH_SERVER_DIR}/server.py" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!
   disown "${AUTH_SERVER_PID}" 2>/dev/null || true
-  
-  # Wait briefly to ensure server starts
   sleep 1
   
-  # Verify auth server is running
   if kill -0 "${AUTH_SERVER_PID}" 2>/dev/null; then
     echo "[entrypoint] Auth server started (PID: ${AUTH_SERVER_PID})"
   else

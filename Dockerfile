@@ -125,8 +125,9 @@ CMD ["bash", "-lc", "while :; do sleep 3600; done"]
 # =====================================================================
 FROM base-runtime AS prod
 
-# Nur die gebauten Artefakte kopieren, NICHT node_modules oder Build-Tools
+# Copy built artifacts and Python auth-server (no Node.js needed!)
 COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dist
+COPY --chown=node:node --chmod=444 ./auth-server/server.py /home/node/auth-server/server.py
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 
 USER node
