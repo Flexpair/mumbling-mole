@@ -200,13 +200,12 @@ class WorkerBasedMumbleClient extends EventEmitter {
 
     // Dummy client used for bandwidth calculations
     this._dummyClient = new MumbleClient({ username: "dummy" });
-    let defineDummyMethod = (name) => {
-      this[name] = function (...args) {
-        return this._dummyClient[name](...args);
-      };
+    this.getMaxBitrate = function (...args) {
+      return this._dummyClient.getMaxBitrate(...args);
     };
-    defineDummyMethod("getMaxBitrate");
-    defineDummyMethod("getActualBitrate");
+    this.getActualBitrate = function (...args) {
+      return this._dummyClient.getActualBitrate(...args);
+    };
     let _setAudioQuality = this.setAudioQuality;
     this.setAudioQuality = function (...args) {
       this._dummyClient.setAudioQuality(...args);

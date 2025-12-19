@@ -9,7 +9,7 @@ globalThis.mumbleWebConfig = {
     port: false,
     token: false,
     username: true,
-    password: true,
+    password: false, // Password is fetched securely from auth server
     channelName: false,
   },
   // Default values for user settings
@@ -28,7 +28,8 @@ globalThis.mumbleWebConfig = {
     address: globalThis.location.hostname,
     port: "443/murmur",
     username: "",
-    password: "",
+    // SECURITY: Password is no longer configurable here.
+    // It is fetched securely from the auth server after JWT validation.
     // General
     theme: "MetroMumbleLight",
   },

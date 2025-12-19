@@ -1,3 +1,4 @@
+/* global document, console, URL, URLSearchParams */
 import AuthFactory from "./auth/AuthFactory";
 import { createApp } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
@@ -77,7 +78,7 @@ try {
 }
 
 // Legacy global exports for Playwright tests (will be removed)
-const connected = () => userStore.thisUser != null;
+const connected = () => userStore.thisUser !== null;
 
 // Helper to deeply unwrap Vue refs (handles nested refs from Pinia)
 const unwrapRef = (val) => {
@@ -116,6 +117,8 @@ globalThis.mumbleUi = {
 
 /**
  * Apply URL query parameters to connect dialog
+ * SECURITY: Password is no longer accepted from URL parameters.
+ * It is fetched securely from the auth server after JWT validation.
  */
 function applyQueryParamsToConnectDialog() {
   const urlObj = new URL(document.location.href);
@@ -128,9 +131,8 @@ function applyQueryParamsToConnectDialog() {
   if (queryParams.port) {
     dialogStore.connectDialog.port = queryParams.port;
   }
-  if (queryParams.password) {
-    dialogStore.connectDialog.password = queryParams.password;
-  }
+  // Password is no longer accepted from URL for security reasons
+  // It is fetched from the auth server after successful authentication
 }
 
 /**
@@ -184,7 +186,7 @@ async function initializeAuth() {
     console.warn('[Auth] Initialization failed; continuing without authentication', e);
   }
 
-  if (user == null) {
+  if (user === null) {
     // Hide connect dialog when showing authentication modal
     dialogStore.connectDialog.visible = false;
     auth.open("signup"); // open the modal to the signup tab
@@ -280,13 +282,26 @@ async function main() {
   } catch (error) {
     console.error('[VUE] Failed to mount App:', error);
     // Fall back to showing an error message
-    document.getElementById('app').innerHTML = `
-      <div style="padding: 20px; color: red; font-family: sans-serif;">
-        <h2>Failed to load application</h2>
-        <p>Please refresh the page or contact support.</p>
-        <pre>${error.message}</pre>
-      </div>
-    `;
+    const appElement = document.getElementById('app');
+    appElement.innerHTML = '';
+    const errorContainer = document.createElement('div');
+    errorContainer.style.padding = '20px';
+    errorContainer.style.color = 'red';
+    errorContainer.style.fontFamily = 'sans-serif';
+
+    const heading = document.createElement('h2');
+    heading.textContent = 'Failed to load application';
+    errorContainer.appendChild(heading);
+
+    const p = document.createElement('p');
+    p.textContent = 'Please refresh the page or contact support.';
+    errorContainer.appendChild(p);
+
+    const pre = document.createElement('pre');
+    pre.textContent = error.message;
+    errorContainer.appendChild(pre);
+
+    appElement.appendChild(errorContainer);
   }
   
   enumMicrophones();

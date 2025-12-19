@@ -112,6 +112,19 @@ jest.unstable_mockModule('../../app/stores/dialogStore', () => ({
   useDialogStore: () => mockDialogStore,
 }));
 
+// Mock credentials service
+const mockFetchCredentials = jest.fn().mockResolvedValue({
+  mumblePassword: 'test-password',
+  guacamoleUser: 'watcher',
+  guacamolePassword: 'guac-password'
+});
+const mockClearCredentials = jest.fn();
+
+jest.unstable_mockModule('../../app/auth/credentials-service.js', () => ({
+  fetchCredentials: mockFetchCredentials,
+  clearCredentials: mockClearCredentials
+}));
+
 const { useConnectionLogic } = await import('../../app/composables/useConnectionLogic.js');
 
 describe('useConnectionLogic', () => {
@@ -132,11 +145,20 @@ describe('useConnectionLogic', () => {
     
     mockAuth = {
       currentUser: jest.fn(() => ({
+        token: { access_token: 'test-jwt-token' },
         app_metadata: {
           roles: ['watch', 'listen'],
         },
       })),
+      logout: jest.fn(),
     };
+    
+    // Reset credentials mock
+    mockFetchCredentials.mockResolvedValue({
+      mumblePassword: 'test-password',
+      guacamoleUser: 'watcher',
+      guacamolePassword: 'guac-password'
+    });
     
     originalAlert = globalThis.alert;
     globalThis.alert = jest.fn();
@@ -201,14 +223,25 @@ describe('useConnectionLogic', () => {
       );
     });
 
-    it('should alert when user has no app_metadata', async () => {
-      mockAuth.currentUser.mockReturnValue({});
+    it('should alert when user is not authenticated', async () => {
+      mockAuth.currentUser.mockReturnValue(null);
       
       await logic.connect('host', 64738, 'user', 'pass');
       
       expect(globalThis.alert).toHaveBeenCalledWith(
         'You do not have permission to connect to the server. Please contact the administrator.'
       );
+    });
+
+    it('should alert when credentials fetch fails', async () => {
+      mockFetchCredentials.mockRejectedValue(new Error('Token expired'));
+      
+      await logic.connect('host', 64738, 'user', 'pass');
+      
+      expect(globalThis.alert).toHaveBeenCalledWith(
+        'Failed to authenticate. Please log in again.'
+      );
+      expect(mockAuth.logout).toHaveBeenCalled();
     });
 
     it('should initialize AudioContext if not present', async () => {
@@ -401,16 +434,18 @@ describe('useConnectionLogic', () => {
       expect(globalThis.alert).toHaveBeenCalled();
     });
 
-    it('should handle roles that are not an array', async () => {
+    it('should handle user without access_token gracefully', async () => {
       mockAuth.currentUser.mockReturnValue({ 
-        app_metadata: { roles: 'not-an-array' }
+        app_metadata: { roles: ['watch'] }
+        // No token property
       });
       
-      // Should convert to empty array and add required roles
       await logic.connect('host', 1234, 'user', 'pass');
       
-      // No error thrown - it handles gracefully
-      expect(globalThis.alert).not.toHaveBeenCalled();
+      // Should show auth error since no token available
+      expect(globalThis.alert).toHaveBeenCalledWith(
+        'Failed to authenticate. Please log in again.'
+      );
     });
 
     it('should show sample rate dialog for non-48kHz audio', async () => {

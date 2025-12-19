@@ -95,3 +95,8 @@ app/build-info.json
 .env.test
 
 .env.test
+.devcontainer/.env
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

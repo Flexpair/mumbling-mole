@@ -26,7 +26,7 @@ npm run build:local            # Build + restart server (USE THIS!)
 
 # Testing  
 npm test                       # Full suite: unit + loopback + audit
-npm run test:unit              # Jest (1477 tests, ES modules)
+npm run test:unit              # Jest (~1500 tests, ES modules)
 npm run test:loopback:headed   # Playwright with visible browser
 
 # Build
@@ -40,7 +40,7 @@ npm run build                  # Production (~1s, esbuild)
 ┌─────────────────────────────────────────────────────────────┐
 │  Main Thread                   │    Web Worker               │
 │  • Vue.js 3 + Pinia stores     │    • Mumble protocol        │
-│  • AppState coordinator        │    • Opus encoding (WASM)   │
+│  • Direct Pinia store access   │    • Opus encoding (WASM)   │
 │  • AudioContext singleton      │    • Channel/user trees     │
 └────────────────────────────────┴─────────────────────────────┘
               │                              │
@@ -55,7 +55,7 @@ npm run build                  # Production (~1s, esbuild)
 | Concern | Files |
 |---------|-------|
 | **Entry/UI** | `app/index.js` → `app/components/App.vue` |
-| **State** | `app/stores/*.js` (7 Pinia stores), `AppState.js` (compatibility) |
+| **State** | `app/stores/*.js` (7 Pinia stores) |
 | **Audio** | `voice.js` → `recorder-worker.js` → `encode-worker.js` |
 | **Network** | `worker-client.js` ↔ `worker.js` → `mumble-websocket.js` |
 | **Build** | `build-esbuild.mjs` |
@@ -64,13 +64,15 @@ npm run build                  # Production (~1s, esbuild)
 7 stores in `app/stores/`: `connectionStore`, `audioStore`, `voiceStore`, `uiStore`, `userStore`, `settingsStore`, `dialogStore`
 
 ```javascript
-// Component usage
+// Component usage (Vue 3 Composition API)
 import { useConnectionStore } from '../stores/connectionStore';
+import { storeToRefs } from 'pinia';
+
 const store = useConnectionStore();
-// Access: store.connected, store.client
+const { connected, client } = storeToRefs(store); // Reactive refs
 ```
 
-`AppState` wraps stores for legacy `window.mumbleUi` compatibility—migrate to direct store usage.
+**Migration complete**: `AppState.js` removed. Use direct Pinia stores only. Legacy `window.mumbleUi` remains for automation compatibility.
 
 ### Audio Pipeline
 - **Send**: `recorder-worker.js` (AudioWorklet, 960 samples) → `encode-worker.js` (Opus WASM) → WebSocket
@@ -79,13 +81,24 @@ const store = useConnectionStore();
 
 ## 🧪 Testing Patterns
 
-### ES Module Mocking
+### ES Module Mocking (Critical!)
+
 ```javascript
-// Mocks BEFORE imports (ES modules requirement)
+// Mocks MUST come BEFORE dynamic imports (ES modules requirement)
 jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
   default: mockGetUserMedia
 }));
+// Import AFTER mocks are defined
 const { ContinuousVoiceHandler } = await import('../../app/audio/voice.js');
+```
+
+### Test Commands
+
+```bash
+npm run test:unit              # Jest with --experimental-vm-modules
+npm run test:unit:coverage     # With coverage report
+npm run test:loopback:headed   # Playwright with visible browser
+npm run test:loopback:debug    # Step-through debugging
 ```
 
 ### Loopback Test Limitation
@@ -94,13 +107,13 @@ const { ContinuousVoiceHandler } = await import('../../app/audio/voice.js');
 - Remote client AudioContext state
 - Multi-stream scenarios
 
-See `tests/README.md` for multi-stream unit tests added Nov 2025.
+See `tests/README.md` for multi-stream unit tests.
 
 ## 🔧 Implementation Patterns
 
 ### Race Condition Prevention
 ```javascript
-// Promise caching
+// Promise caching (prevents duplicate init)
 if (this._initPromise) return this._initPromise;
 this._initPromise = (async () => { /* ... */ })();
 
@@ -139,7 +152,7 @@ async onClick() {
 
 ## 📁 Vendored Code
 - `app/mumble-client/` and `app/mumble-streams/` – Forked Mumble protocol (active development)
-- `vendors/mumble-client/` – Original unmodified upstream (ISC license compliance)
+- `upstream/` – Original unmodified upstream (ISC license compliance)
 - Edit `app/mumble-*` directly; no separate build step
 
 ## 🎨 Config & Theming
@@ -148,6 +161,7 @@ async onClick() {
 - **Colors**: `#157878` (teal), `#00FFFF` (cyan), black, white only
 
 ## 🐛 Debugging
+
 ```bash
 # Tunnel issues
 tail -f /tmp/entrypoint.log
@@ -161,6 +175,14 @@ npm run test:loopback:debug   # Step-through
 ```
 
 Console log prefixes: `[VOICE]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[LOOPBACK]`
+
+## 🔐 Authentication
+
+Auth abstraction layer supports provider migration (Netlify Identity → Supabase).
+
+- Config: `app/config.js` → `auth.provider` setting
+- Adapters: `app/auth/NetlifyIdentityAdapter.js`, future `SupabaseAuthAdapter.js`
+- See `app/auth/README.md` for migration plan
 
 ## 📚 Related Docs
 - `app/stores/README.md` – Pinia architecture diagrams

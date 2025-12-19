@@ -6,13 +6,13 @@ echo "Stopping dev server..."
 
 if [[ -f /tmp/entrypoint.pid ]]; then
     PID=$(cat /tmp/entrypoint.pid)
-    if ps -p $PID > /dev/null 2>&1; then
+    if ps -p "$PID" > /dev/null 2>&1; then
         echo "Killing process $PID..."
-        kill $PID
+        kill "$PID"
         sleep 2
-        if ps -p $PID > /dev/null 2>&1; then
+        if ps -p "$PID" > /dev/null 2>&1; then
             echo "Force killing process $PID..."
-            kill -9 $PID
+            kill -9 "$PID"
         fi
         echo "Dev server stopped."
     else

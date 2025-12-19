@@ -43,9 +43,13 @@ services:
     container_name: mumble_web_container
     depends_on:
       - murmur
+    extra_hosts:
+      - "murmur:172.18.0.5"
     environment:
       - MUMBLE_SERVER=murmur:${MURMUR_PORT:-64738}
-      - GUACPWD=${MURMUR_PASSWORD-}
+      - MUMBLE_PASSWORD=${MUMBLE_PASSWORD:-CHANGE_ME}
+      - AUTH_PROVIDER=${AUTH_PROVIDER:-netlify}
+      - NETLIFY_IDENTITY_URL=${NETLIFY_IDENTITY_URL:-https://welcome.flexpair.com/identity-proxy}
       - SKIP_PREPARE=1
 
   nginx:

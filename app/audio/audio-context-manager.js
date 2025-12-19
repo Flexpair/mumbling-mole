@@ -205,7 +205,7 @@ class AudioContextManager {
       return this.audioContext;
     } catch (error) {
       this.resumeAttempts++;
-      console.warn(`Failed to resume AudioContext (attempt ${this.resumeAttempts}):`, error);
+      console.warn('Failed to resume AudioContext (attempt %d):', this.resumeAttempts, error);
 
       // RETRY-BACKOFF: Retry with exponential backoff if under limit
       // Handles browsers that need time before allowing resume

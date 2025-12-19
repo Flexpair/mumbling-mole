@@ -101,9 +101,9 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
       const outputChannel = output[channel];
       const inputChannel = this._currentBuffer.channels[channel] || this._currentBuffer.channels[0];
       
-      for (let i = 0; i < sampleCount; i++) {
-        outputChannel[outputOffset + i] = inputChannel[this._currentBufferOffset + i];
-      }
+      // Use TypedArray.set for better performance and to avoid prototype pollution warnings
+      const sourceData = inputChannel.subarray(this._currentBufferOffset, this._currentBufferOffset + sampleCount);
+      outputChannel.set(sourceData, outputOffset);
     }
     
     this._currentBufferOffset += sampleCount;

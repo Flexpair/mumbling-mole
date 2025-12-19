@@ -71,7 +71,9 @@ describe('createPiniaDebugPlugin', () => {
     });
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      '[PINIA:testStore] → testAction',
+      '[PINIA:%s] → %s',
+      'testStore',
+      'testAction',
       ['arg1', 'arg2']
     );
   });
@@ -92,7 +94,9 @@ describe('createPiniaDebugPlugin', () => {
     });
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      '[PINIA:testStore] → noArgsAction',
+      '[PINIA:%s] → %s',
+      'testStore',
+      'noArgsAction',
       ''
     );
   });
@@ -115,7 +119,10 @@ describe('createPiniaDebugPlugin', () => {
     afterCallback({ result: 'success' });
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[PINIA:testStore] ✓ actionWithResult'),
+      expect.stringContaining('[PINIA:%s] ✓ %s (%sms)'),
+      'testStore',
+      'actionWithResult',
+      expect.any(String),
       { result: 'success' }
     );
   });
@@ -138,7 +145,10 @@ describe('createPiniaDebugPlugin', () => {
     afterCallback(undefined);
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[PINIA:testStore] ✓ actionNoResult')
+      expect.stringContaining('[PINIA:%s] ✓ %s (%sms)'),
+      'testStore',
+      'actionNoResult',
+      expect.any(String)
     );
   });
 
@@ -160,7 +170,10 @@ describe('createPiniaDebugPlugin', () => {
     onErrorCallback(testError);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[PINIA:testStore] ✗ failingAction failed'),
+      expect.stringContaining('[PINIA:%s] ✗ %s failed (%sms):'),
+      'testStore',
+      'failingAction',
+      expect.any(String),
       testError
     );
   });
