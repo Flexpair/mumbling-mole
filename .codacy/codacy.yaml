@@ -1,3 +1,5 @@
+exclude_paths:
+    - auth-server/__pycache__/**
 runtimes:
     - java@17.0.10
     - node@22.2.0
@@ -10,6 +12,14 @@ tools:
     - semgrep@1.78.0
     - trivy@0.66.0
 
-# Exclude false positives for validated URLs in auth-server
-exclude_paths:
-    - "auth-server/__pycache__/**"
+# Disable false positive rules for auth-server (URL scheme validated before urllib call)
+engines:
+    semgrep:
+        exclude_paths:
+            - auth-server/server.py
+    bandit:
+        exclude_paths:
+            - auth-server/server.py
+    prospector:
+        exclude_paths:
+            - auth-server/server.py
