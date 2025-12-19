@@ -125,9 +125,13 @@ CMD ["bash", "-lc", "while :; do sleep 3600; done"]
 # =====================================================================
 FROM base-runtime AS prod
 
-# Copy built artifacts and Python auth-server (no Node.js needed!)
+# Copy built artifacts (no Node.js needed!)
 COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dist
-COPY --chown=node:node --chmod=444 ./auth-server/server.py /home/node/auth-server/server.py
+
+# Create auth-server directory (needs 755 for directory traversal)
+RUN mkdir -p /home/node/auth-server && chown node:node /home/node/auth-server
+COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
+
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 
 USER node
