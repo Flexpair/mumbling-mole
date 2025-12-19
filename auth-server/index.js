@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json());
 
 // Rate limiting to prevent brute force attacks (OWASP A07)
