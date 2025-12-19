@@ -47,6 +47,30 @@ function isCacheExpired() {
 }
 
 /**
+ * Internal function to fetch credentials from server
+ * @private
+ */
+async function _fetchCredentialsFromServer(token) {
+  const response = await fetch('/api/credentials', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `Failed to fetch credentials: ${response.status}`);
+  }
+
+  const credentials = await response.json();
+  cachedCredentials = credentials;
+  cacheTimestamp = Date.now();
+  return credentials;
+}
+
+/**
  * Fetch server credentials from auth endpoint
  * Requires valid JWT token from auth provider
  * 
@@ -71,29 +95,10 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
     return pendingRequest;
   }
 
-  pendingRequest = (async () => {
-    try {
-      const response = await fetch('/api/credentials', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `Failed to fetch credentials: ${response.status}`);
-      }
-
-      const credentials = await response.json();
-      cachedCredentials = credentials;
-      cacheTimestamp = Date.now();
-      return credentials;
-    } finally {
-      pendingRequest = null;
-    }
-  })();
+  pendingRequest = _fetchCredentialsFromServer(token);
+  pendingRequest.finally(() => {
+    pendingRequest = null;
+  });
 
   return pendingRequest;
 }
