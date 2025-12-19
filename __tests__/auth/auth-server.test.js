@@ -30,11 +30,14 @@ function parseAuthHeader(authHeader) {
   return authHeader.slice(7);
 }
 
+let _passwordCounter = 0;
 function generateSecurePassword(length = 32) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   let result = '';
+  // Using deterministic counter-based pattern to avoid Math.random() in tests
+  const offset = (_passwordCounter++) % chars.length;
   for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
+    result += chars[(offset + i) % chars.length];
   }
   return result;
 }

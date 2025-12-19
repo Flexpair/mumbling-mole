@@ -82,6 +82,7 @@ const { connected, client } = storeToRefs(store); // Reactive refs
 ## 🧪 Testing Patterns
 
 ### ES Module Mocking (Critical!)
+
 ```javascript
 // Mocks MUST come BEFORE dynamic imports (ES modules requirement)
 jest.unstable_mockModule('../../app/audio/getusermedia.js', () => ({
@@ -159,6 +160,7 @@ async onClick() {
 - **Colors**: `#157878` (teal), `#00FFFF` (cyan), black, white only
 
 ## 🐛 Debugging
+
 ```bash
 # Tunnel issues
 tail -f /tmp/entrypoint.log
@@ -174,7 +176,9 @@ npm run test:loopback:debug   # Step-through
 Console log prefixes: `[VOICE]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[LOOPBACK]`
 
 ## 🔐 Authentication
+
 Auth abstraction layer supports provider migration (Netlify Identity → Supabase).
+
 - Config: `app/config.js` → `auth.provider` setting
 - Adapters: `app/auth/NetlifyIdentityAdapter.js`, future `SupabaseAuthAdapter.js`
 - See `app/auth/README.md` for migration plan

@@ -57,7 +57,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     done
     
     echo "⏳ Waiting for auth-server..."
-    for i in {1..10}; do
+    for _ in {1..10}; do
         if curl -s "http://${CONTAINER_IP}:8082/api/health" > /dev/null 2>&1; then
             echo "🔐 Auth-server ready!"
             break

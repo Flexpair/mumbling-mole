@@ -37,7 +37,8 @@ version_file="$CODACY_CLI_V2_TMP_FOLDER/version.yaml"
 
 get_version_from_yaml() {
     if [ -f "$version_file" ]; then
-        local version=$(grep -o 'version: *"[^"]*"' "$version_file" | cut -d'"' -f2)
+        local version
+        version=$(grep -o 'version: *"[^"]*"' "$version_file" | cut -d'"' -f2)
         if [ -n "$version" ]; then
             echo "$version"
             return 0
@@ -55,7 +56,8 @@ get_latest_version() {
     fi
 
     handle_rate_limit "$response"
-    local version=$(echo "$response" | grep -m 1 tag_name | cut -d'"' -f4)
+    local version
+    version=$(echo "$response" | grep -m 1 tag_name | cut -d'"' -f4)
     echo "$version"
 }
 

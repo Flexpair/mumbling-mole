@@ -116,13 +116,13 @@ jest.unstable_mockModule('../../app/stores/dialogStore', () => ({
 const mockFetchCredentials = jest.fn().mockResolvedValue({
   mumblePassword: 'test-password',
   guacamoleUser: 'watcher',
-  guacamolePassword: 'guac-password',
+  guacamolePassword: 'guac-password'
 });
 const mockClearCredentials = jest.fn();
 
 jest.unstable_mockModule('../../app/auth/credentials-service.js', () => ({
   fetchCredentials: mockFetchCredentials,
-  clearCredentials: mockClearCredentials,
+  clearCredentials: mockClearCredentials
 }));
 
 const { useConnectionLogic } = await import('../../app/composables/useConnectionLogic.js');
@@ -157,7 +157,7 @@ describe('useConnectionLogic', () => {
     mockFetchCredentials.mockResolvedValue({
       mumblePassword: 'test-password',
       guacamoleUser: 'watcher',
-      guacamolePassword: 'guac-password',
+      guacamolePassword: 'guac-password'
     });
     
     originalAlert = globalThis.alert;
