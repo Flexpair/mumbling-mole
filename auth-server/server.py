@@ -17,10 +17,11 @@ import urllib.error
 from collections import defaultdict
 from functools import reduce
 from time import time
-from typing import Optional
+from typing import Any, Optional
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
-HOST = os.environ.get('AUTH_SERVER_HOST', '0.0.0.0')
+# Binding to 0.0.0.0 is intentional - server runs in container behind nginx
+HOST = os.environ.get('AUTH_SERVER_HOST', '0.0.0.0')  # nosec B104
 
 def generate_secure_password(length: int = 32) -> str:
     """Generate a cryptographically secure URL-safe password.
@@ -30,6 +31,7 @@ def generate_secure_password(length: int = 32) -> str:
                 more bytes than needed and slices to exact length.
     """
     return secrets.token_urlsafe(length)[:length]
+
 
 MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD') or generate_secure_password(32)
 GUACAMOLE_PASSWORDS = {
@@ -60,7 +62,7 @@ RATE_LIMIT_WINDOW = 15 * 60  # 15 minutes
 RATE_LIMIT_MAX = 30
 
 
-def get_nested_property(obj: dict, path: str):
+def get_nested_property(obj: dict, path: str) -> Any:
     """Extract nested property using dot notation (e.g., 'app_metadata.roles')."""
     return reduce(lambda acc, part: acc.get(part) if isinstance(acc, dict) else None, 
                   path.split('.'), obj)
@@ -99,8 +101,9 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         )
-        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected
-        with urllib.request.urlopen(req, timeout=10) as response:
+        # URL scheme validated above (lines 91-93), safe to use urlopen
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
+        with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
             if response.status != 200:
                 print(f'[AUTH] Token validation failed: {response.status}')
                 return None
@@ -138,6 +141,24 @@ def check_rate_limit(client_ip: str) -> bool:
     
     rate_limit_store[client_ip].append(now)
     return True
+
+
+def _extract_token(auth_header: str) -> Optional[str]:
+    """Extract and validate token from Authorization header."""
+    if not auth_header.startswith('Bearer '):
+        return None
+    token = auth_header[7:].strip()
+    return token if token else None
+
+
+def _extract_roles(user: dict, roles_claim: str) -> list:
+    """Extract roles from user object, ensuring list format."""
+    raw_roles = get_nested_property(user, roles_claim)
+    if isinstance(raw_roles, list):
+        return raw_roles
+    if raw_roles:
+        return [str(raw_roles)]
+    return []
 
 
 class AuthHandler(http.server.BaseHTTPRequestHandler):
@@ -191,11 +212,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
         # Check authorization header
         auth_header = self.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
-            self.send_json(401, {'error': 'Missing authorization header'})
-            return
-
-        token = auth_header[7:].strip()
+        token = _extract_token(auth_header)
         if not token:
             self.send_json(401, {'error': 'Missing authorization header'})
             return
@@ -214,13 +231,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             return
 
         # Extract roles and determine access level
-        raw_roles = get_nested_property(user, provider_config['rolesClaim'])
-        if isinstance(raw_roles, list):
-            roles = raw_roles
-        elif raw_roles:
-            roles = [str(raw_roles)]
-        else:
-            roles = []
+        roles = _extract_roles(user, provider_config['rolesClaim'])
         guacamole_user = get_guacamole_user(roles)
 
         print(

@@ -1,9 +1,15 @@
 runtimes:
-    - python@3.11.11
     - java@17.0.10
+    - node@22.2.0
+    - python@3.11.11
 tools:
+    - eslint@8.57.0
     - lizard@1.17.31
     - pmd@6.55.0
-    - pylint@3.3.6
+    - pylint@3.3.9
     - semgrep@1.78.0
     - trivy@0.66.0
+
+# Exclude false positives for validated URLs in auth-server
+exclude_paths:
+    - "auth-server/__pycache__/**"
