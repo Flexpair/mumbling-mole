@@ -238,24 +238,41 @@ export function useConnectionLogic({ auth } = {}) {
   }
 
   /**
+   * Get Guacamole credentials from server or legacy fallback
+   * @private
+   */
+  function _getGuacamoleCredentials(serverCredentials, password) {
+    const roles = auth?.currentUser()?.app_metadata?.roles || [];
+    return {
+      user: serverCredentials?.guacamoleUser || getGuacamoleLogin(roles),
+      password: serverCredentials?.guacamolePassword || password
+    };
+  }
+
+  /**
+   * Register existing users in the channel
+   * @private
+   */
+  function _registerExistingUsers(client) {
+    for (const user of client.users.values()) {
+      if (user !== client.self) {
+        userStore.registerUser(user);
+      }
+    }
+  }
+
+  /**
    * Establish client connection and setup
    * @private
    */
   async function _establishClientConnection(host, port, username, password, tokens, serverCredentials) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
     
-    // Use server-provided Guacamole credentials (secure) or fallback to client-side (legacy)
-    const guacUser = serverCredentials?.guacamoleUser || getGuacamoleLogin(auth?.currentUser()?.app_metadata?.roles || []);
-    const guacPassword = serverCredentials?.guacamolePassword || password;
+    const guacCreds = _getGuacamoleCredentials(serverCredentials, password);
+    _setupGuacamoleFrame(guacCreds.user, guacCreds.password);
     
-    // Setup Guacamole
-    _setupGuacamoleFrame(guacUser, guacPassword);
-    
-    if (voiceStore.isLoopbackMode) {
-      console.log(translate('logentry.connected_loopback'));
-    } else {
-      console.log(translate('logentry.connected'));
-    }
+    const logKey = voiceStore.isLoopbackMode ? 'logentry.connected_loopback' : 'logentry.connected';
+    console.log(translate(logKey));
 
     // Register root channel and self user
     connectionStore.registerChannel(client.root);
@@ -265,13 +282,7 @@ export function useConnectionLogic({ auth } = {}) {
       userStore.thisUser = client.self.__ui;
     }
 
-    // CRITICAL: Register voice listeners for all existing users in the channel
-    for (const user of client.users.values()) {
-      if (user !== client.self) {
-        userStore.registerUser(user);
-      }
-    }
-
+    _registerExistingUsers(client);
     _setupClientHandlers(client);
     
     // CRITICAL: Set audio quality BEFORE creating voice handler

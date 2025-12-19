@@ -1,7 +1,8 @@
 runtimes:
-    - java@17.0.10
+    - node@22.2.0
     - node@22.2.0
     - python@3.11.11
+    - java@17.0.10
 tools:
     - eslint@8.57.0
     - lizard@1.17.31
