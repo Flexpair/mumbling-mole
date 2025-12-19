@@ -95,10 +95,15 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
     return pendingRequest;
   }
 
-  pendingRequest = _fetchCredentialsFromServer(token);
-  pendingRequest.finally(() => {
-    pendingRequest = null;
-  });
+  pendingRequest = _fetchCredentialsFromServer(token)
+    .then(result => {
+      pendingRequest = null;
+      return result;
+    })
+    .catch(error => {
+      pendingRequest = null;
+      throw error;
+    });
 
   return pendingRequest;
 }
