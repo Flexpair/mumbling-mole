@@ -62,13 +62,13 @@ if [[ -f "${AUTH_SERVER_DIR}/index.js" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]
     node "${AUTH_SERVER_DIR}/index.js" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!
-  disown ${AUTH_SERVER_PID} 2>/dev/null || true
+  disown "${AUTH_SERVER_PID}" 2>/dev/null || true
   
   # Wait briefly to ensure server starts
   sleep 1
   
   # Verify auth server is running
-  if kill -0 ${AUTH_SERVER_PID} 2>/dev/null; then
+  if kill -0 "${AUTH_SERVER_PID}" 2>/dev/null; then
     echo "[entrypoint] Auth server started (PID: ${AUTH_SERVER_PID})"
   else
     echo "[entrypoint] WARNING: Auth server failed to start, check /tmp/auth-server.log"
@@ -77,4 +77,4 @@ if [[ -f "${AUTH_SERVER_DIR}/index.js" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]
 fi
 
 echo "[entrypoint] Start websockify ${SSL_TARGET_FLAG:+(ssl-target)} on ${HOST}:${PORT} → ${MUMBLE_SERVER} (web=${WEBROOT})"
-exec websockify ${SSL_TARGET_FLAG} --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"
+exec websockify ${SSL_TARGET_FLAG:+"$SSL_TARGET_FLAG"} --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"

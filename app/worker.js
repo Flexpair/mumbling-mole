@@ -1,3 +1,4 @@
+/* global console, Event, structuredClone, Buffer, clearInterval, setInterval, require, self */
 import { Transform, PassThrough } from "node:stream";
 import mumbleConnect from "./mumble-websocket.js";
 import toArrayBuffer from "./utils/to-arraybuffer-lite.js";
@@ -193,7 +194,7 @@ function setupUser(id, user) {
     if (actor) {
       actor = actor.id;
     }
-    if (props.channel != null) {
+    if (props.channel !== null && props.channel !== undefined) {
       props.channel = props.channel.id;
     }
     return [actor, props];
@@ -443,7 +444,7 @@ function handleClientMessage(data) {
   let allowedMethods;
   let args = payload; // Local variable for potentially modified arguments
   
-  if (userId != null) {
+  if (userId !== null && userId !== undefined) {
     target = client.getUserById(userId);
     allowedMethods = ALLOWED_USER_METHODS;
     if (method === "setChannel") {
@@ -482,7 +483,22 @@ function handleClientMessage(data) {
   }
 
   // Call the method
-  target[method](...args);
+  switch (method) {
+    case 'setMute': target.setMute(...args); break;
+    case 'setDeaf': target.setDeaf(...args); break;
+    case 'setSelfMute': target.setSelfMute(...args); break;
+    case 'setSelfDeaf': target.setSelfDeaf(...args); break;
+    case 'sendMessage': target.sendMessage(...args); break;
+    case 'setChannel': target.setChannel(...args); break;
+    case 'join': target.join(...args); break;
+    case 'link': target.link(...args); break;
+    case 'disconnect': target.disconnect(...args); break;
+    case 'getMaxBitrate': target.getMaxBitrate(...args); break;
+    case 'getActualBitrate': target.getActualBitrate(...args); break;
+    case 'setAudioQuality': target.setAudioQuality(...args); break;
+    default:
+      console.error('[WORKER] Method not implemented in switch:', method);
+  }
   
   // Only send response for query-type methods (those that need return values)
   // Regular calls (like sendMessage) don't need responses
@@ -505,9 +521,9 @@ function onMessage(data) {
   
   if (method === "_connect") {
     handleConnect(reqId, payload);
-  } else if (data.clientId != null) {
+  } else if (data.clientId !== null && data.clientId !== undefined) {
     handleClientMessage(data);
-  } else if (data.voiceId != null) {
+  } else if (data.voiceId !== null && data.voiceId !== undefined) {
     handleVoiceStream(data);
   }
 }

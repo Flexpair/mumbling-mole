@@ -1282,11 +1282,11 @@ describe('mumble-client Client', () => {
 
   describe('_onData', () => {
     test('should call handler for known packet type', () => {
-      client._onTestPacket = jest.fn();
+      client._onPing = jest.fn();
       
-      client._onData({ name: 'TestPacket', payload: { foo: 'bar' } });
+      client._onData({ name: 'Ping', payload: { foo: 'bar' } });
       
-      expect(client._onTestPacket).toHaveBeenCalledWith({ foo: 'bar' });
+      expect(client._onPing).toHaveBeenCalledWith({ foo: 'bar' });
     });
 
     test('should warn for unknown packet type', () => {

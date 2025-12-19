@@ -25,20 +25,20 @@ export function createPiniaDebugPlugin() {
     // Log all actions with timing
     store.$onAction(({ name, args, after, onError }) => {
       const startTime = performance.now();
-      console.log(`[PINIA:${storeId}] → ${name}`, args.length ? args : '');
+      console.log('[PINIA:%s] → %s', storeId, name, args.length ? args : '');
       
       after((result) => {
         const duration = (performance.now() - startTime).toFixed(1);
         if (result === undefined) {
-          console.log(`[PINIA:${storeId}] ✓ ${name} (${duration}ms)`);
+          console.log('[PINIA:%s] ✓ %s (%sms)', storeId, name, duration);
         } else {
-          console.log(`[PINIA:${storeId}] ✓ ${name} (${duration}ms)`, result);
+          console.log('[PINIA:%s] ✓ %s (%sms)', storeId, name, duration, result);
         }
       });
       
       onError((error) => {
         const duration = (performance.now() - startTime).toFixed(1);
-        console.error(`[PINIA:${storeId}] ✗ ${name} failed (${duration}ms):`, error);
+        console.error('[PINIA:%s] ✗ %s failed (%sms):', storeId, name, duration, error);
       });
     });
   };

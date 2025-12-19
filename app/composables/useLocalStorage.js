@@ -78,7 +78,7 @@ export function useLocalStorage(key, defaultValue, options = {}) {
       return defaultValue;
       
     } catch (error) {
-      console.warn(`[useLocalStorage] Failed to read key "${storageKey}":`, error);
+      console.warn('[useLocalStorage] Failed to read key "%s":', storageKey, error);
       return defaultValue;
     }
   };
@@ -91,7 +91,7 @@ export function useLocalStorage(key, defaultValue, options = {}) {
     try {
       globalThis.localStorage.setItem(storageKey, serialize(newValue));
     } catch (error) {
-      console.error(`[useLocalStorage] Failed to write key "${storageKey}":`, error);
+      console.error('[useLocalStorage] Failed to write key "%s":', storageKey, error);
     }
   }, { deep: isObject }); // Deep watch for objects/arrays
 

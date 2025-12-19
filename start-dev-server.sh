@@ -14,7 +14,7 @@ fi
 
 if [[ -f /tmp/entrypoint.pid ]]; then
     PID=$(cat /tmp/entrypoint.pid)
-    if ps -p $PID > /dev/null 2>&1; then
+    if ps -p "$PID" > /dev/null 2>&1; then
         echo "✅ Dev server already running with PID $PID"
         
         echo "⏳ Checking if server is ready..."
@@ -41,7 +41,7 @@ echo "📋 Logs: tail -f /tmp/entrypoint.log"
 
 sleep 2
 
-if ps -p $(cat /tmp/entrypoint.pid) > /dev/null 2>&1; then
+if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     echo "✅ Dev server started"
     
     # Get container IP for health checks

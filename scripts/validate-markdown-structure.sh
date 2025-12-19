@@ -109,8 +109,8 @@ done <<< "$MARKDOWN_FILES"
 # Check for multiple markdown files in same directory
 # Allow: README.md + LICENSE.md together, or special allowed files
 for dir in "${!DIR_MD_COUNT[@]}"; do
-    count=${DIR_MD_COUNT[$dir]}
-    if [[ $count -gt 1 ]]; then
+    count="${DIR_MD_COUNT[$dir]}"
+    if [[ "$count" -gt 1 ]]; then
         # Check if files are valid combinations (README + LICENSE, or allowed special files)
         files_in_dir=$(echo -e "${DIR_MD_FILES[$dir]}" | grep -v "^$")
         
@@ -140,11 +140,11 @@ for dir in "${!DIR_MD_COUNT[@]}"; do
         # - N special files
         total_standard=$((readme_count + license_count))
         
-        if [[ $readme_count -gt 1 ]] || [[ $license_count -gt 1 ]] || [[ $total_standard -gt 2 ]]; then
+        if [[ "$readme_count" -gt 1 ]] || [[ "$license_count" -gt 1 ]] || [[ "$total_standard" -gt 2 ]]; then
             invalid_combo=true
         fi
         
-        if $invalid_combo; then
+        if "$invalid_combo"; then
             echo -e "${RED}✗ Error: Invalid markdown file combination in directory${NC}"
             echo -e "  Directory: ${YELLOW}$dir${NC}"
             echo -e "  Count: $count files (README: $readme_count, LICENSE: $license_count, Special: $special_count)"
@@ -163,7 +163,7 @@ echo "📊 Validation Summary:"
 echo "  Total markdown files found: $(echo "$MARKDOWN_FILES" | grep -c "^")"
 echo "  Directories with markdown: ${#DIR_MD_COUNT[@]}"
 
-if [[ $ERRORS -gt 0 ]]; then
+if [[ "$ERRORS" -gt 0 ]]; then
     echo -e "${RED}❌ Validation FAILED with $ERRORS error(s)${NC}"
     echo ""
     echo "Rules:"

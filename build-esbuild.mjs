@@ -64,7 +64,14 @@ fs.writeFileSync(
 
 // Copy static files helper
 function copyFile(src, dest) {
-  const destPath = path.join('dist', dest);
+  // SECURITY: Prevent path traversal by ensuring dest is within dist/
+  const distRoot = path.resolve(__dirname, 'dist');
+  const destPath = path.resolve(distRoot, dest);
+  
+  if (!destPath.startsWith(distRoot)) {
+    throw new Error(`Security Error: Attempted path traversal to ${destPath}`);
+  }
+
   const destDir = path.dirname(destPath);
   
   if (!fs.existsSync(destDir)) {
@@ -81,7 +88,14 @@ function copyFile(src, dest) {
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
   
-  const destPath = path.join('dist', dest);
+  // SECURITY: Prevent path traversal by ensuring dest is within dist/
+  const distRoot = path.resolve(__dirname, 'dist');
+  const destPath = path.resolve(distRoot, dest);
+  
+  if (!destPath.startsWith(distRoot)) {
+    throw new Error(`Security Error: Attempted path traversal to ${destPath}`);
+  }
+
   if (!fs.existsSync(destPath)) {
     fs.mkdirSync(destPath, { recursive: true });
   }
