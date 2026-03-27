@@ -91,6 +91,20 @@
     <!-- Critical config scripts (must execute synchronously before app) -->
     <script src="config.js"></script>
     <script src="config.local.js"></script>
+    <!-- Save identity tokens (recovery_token, etc.) from the URL hash before
+         the Netlify Identity widget loads. The widget auto-processes hash tokens
+         on script execution, but at that point init() hasn't configured the
+         correct API URL yet — so verification fails silently and the token is
+         lost. We stash the hash and clear it so the widget finds nothing. The
+         app restores it right before calling init() with the correct config. -->
+    <script>
+      (function() {
+        if (/^#(recovery_token|confirmation_token|invite_token)=/.test(location.hash)) {
+          window.__savedIdentityHash = location.hash;
+          history.replaceState(null, '', location.pathname + location.search);
+        }
+      })();
+    </script>
 
     <!-- Non-critical scripts: defer to avoid render-blocking -->
     <script defer src="theme.js"></script>

@@ -2,84 +2,78 @@
 
 Provider-agnostic authentication system for mumbling-mole.
 
-## 🎯 Purpose
+## Purpose
 
-This authentication abstraction layer provides a unified interface for different authentication providers, enabling seamless migration from Netlify Identity (deprecated) to modern auth services without changing application code.
+This authentication abstraction layer provides a unified interface for different authentication providers. The current production provider is **Netlify Identity**. The abstraction enables future migration to other auth services without changing application code.
 
-## ⚠️ Context: Netlify Identity Deprecation
+## Netlify Identity Status
 
-**Official Netlify Statement** (2025):
-> "Netlify Identity service and the underlying GoTrue API are deprecated. While Identity and GoTrue continue to function for sites that currently have them enabled, new Identity or GoTrue configurations are not recommended. While we will keep fixing any major security issues that arise, we will no longer fix bugs in the functionality of Identity or GoTrue."
+**Netlify Identity is fully supported.** Although a deprecation was announced in 2025, Netlify reversed that decision in February 2026 after community feedback. Identity remains a first-class Netlify service with ongoing reliability and security updates.
 
-**Netlify's Official Recommendations:**
-- For **Netlify Identity replacement**: [Auth0](https://docs.netlify.com/extend/install-and-use/setup-guides/auth0/)
-- For **GoTrue replacement**: [Supabase Auth](https://github.com/supabase/auth) (actively maintained fork)
+**Source**: https://www.netlify.com/blog/auth0-extension-identity-changes/
 
-**Source**: https://docs.netlify.com/security/secure-access-to-sites/identity/
+Auth0 is available as an alternative for teams needing enterprise features (MFA, SSO), but migration is **not required**.
 
-## 🚀 Migration Decision: Supabase Auth
+## Architecture
 
-After evaluation, **Supabase Auth** has been chosen as the migration target:
+```
+Application code
+     |
+  AuthProvider interface (common API)
+     |
+  NetlifyIdentityAdapter (production)
+```
 
-### Why Supabase?
+### Files
 
-✅ **Officially recommended by Netlify** as GoTrue replacement  
-✅ **GoTrue-based** - Similar API to Netlify Identity (easier migration)  
-✅ **Open source** - No vendor lock-in (MIT license)  
-✅ **Active development** - Regular updates and security patches  
-✅ **Generous free tier** - 50,000 MAU free forever  
-✅ **Similar feature set** - Email, OAuth, MFA, etc.  
+```
+app/auth/
+  AuthProvider.js              Abstract base class
+  NetlifyIdentityAdapter.js    Netlify Identity implementation
+  AuthFactory.js               Config-based provider factory
+  index.js                     Barrel exports
+  credentials-service.js       Server-side credential fetch after JWT validation
+  README.md                    This file
 
-### Resources
+Related:
+  app/config.js                Auth configuration (APIUrl, locale, logo)
+  app/index.html               Widget script + hash-preservation inline script
+  app/index.js                 Auth initialization + event wiring
+  auth-server/server.py        Server-side JWT validation
+```
 
-- **Supabase Auth Docs**: https://supabase.com/docs/guides/auth
-- **Pricing**: https://supabase.com/docs/guides/platform/manage-your-usage/monthly-active-users
-- **GitHub**: https://github.com/supabase/auth
-- **Migration Plan**: See `docs/NETLIFY_IDENTITY_MIGRATION_PLAN.md`
+## Identity Proxy and Hash Token Preservation
 
-## 📊 Current Implementation Status
+### Why the identity-proxy exists
 
-### Phase 1: Auth Abstraction Layer ✅ COMPLETE
-- ✅ `AuthProvider` base class defining unified interface
-- ✅ `NetlifyIdentityAdapter` wrapping current provider
-- ✅ `AuthFactory` for config-based provider selection
-- ✅ Comprehensive test suite
+The Netlify Identity widget makes POST requests (login, signup, token verify, etc.) to the GoTrue API. When the app is hosted on a different domain than the Netlify site (`public-playground.flexpair.app` vs `welcome.flexpair.com`), the direct `/.netlify/identity/` endpoints only allow GET via CORS. The proxy at `https://welcome.flexpair.com/identity-proxy` adds the correct CORS headers for all HTTP methods.
 
-### Phase 2: Application Integration ✅ COMPLETE
-- ✅ Integrated into `app/index.js`
-- ✅ Added auth config to `config.js`
-- ✅ Backward compatibility maintained (`this.netlifyIdentity` alias)
-- ✅ Browser-tested and working
+### Hash token preservation (recovery, confirmation, invite)
 
-### Phase 3: Supabase Evaluation ⏳ PENDING
-- ⏳ Create Supabase account
-- ⏳ Set up test project
-- ⏳ Build prototype `SupabaseAuthAdapter`
-- ⏳ Test authentication flows
+Netlify Identity uses URL hash fragments for callback tokens:
+- `#recovery_token=...` (password reset)
+- `#confirmation_token=...` (email confirmation)
+- `#invite_token=...` (invitation acceptance)
 
-### Phase 4: Implementation ⏳ PENDING
-- ⏳ Implement full `SupabaseAuthAdapter`
-- ⏳ Add to `AuthFactory`
-- ⏳ Test all auth flows (login, signup, logout, etc.)
-- ⏳ Update configuration examples
+**Problem**: The widget auto-processes these tokens when its script executes (`defer`). At that point, `init()` has not yet been called, so the widget doesn't know the correct API URL. It falls back to `/.netlify/identity/` on the current host, which fails (501/404). The token is consumed and cleared from the URL, so it's lost.
 
-### Phase 5: Migration ⏳ PENDING (Target: Q1 2026)
-- ⏳ Export users from Netlify Identity (contact Netlify Support)
-- ⏳ Import users to Supabase
-- ⏳ Update production config
-- ⏳ Monitor and verify
-- ⏳ Deprecate Netlify Identity
+**Solution** (two parts):
 
-## 🛠️ Currently Implemented Providers
+1. **`index.html` inline script** (runs before widget loads):
+   Detects identity tokens in the hash, saves them to `window.__savedIdentityHash`, and clears the hash via `history.replaceState()`. The widget loads and finds no token.
 
-### NetlifyIdentityAdapter (Production)
+2. **`NetlifyIdentityAdapter.init()`** (runs after widget loads):
+   Restores the saved hash right before calling `netlifyIdentity.init(config)`. The widget's `init()` finds the token and processes it with the correctly configured API URL.
 
-Wraps the existing Netlify Identity widget.
+3. **`hasIdentityTokenInHash()` in `index.js`**:
+   Checks both the live hash and the stashed `__savedIdentityHash` to decide whether to skip opening the signup modal. Without this, `auth.open("signup")` would override the widget's recovery/confirmation modal.
 
-**Status**: Active (deprecated upstream)  
-**Config**:
+## Configuration
+
+In `app/config.js`:
+
 ```javascript
-{
+auth: {
   provider: 'netlify',
   netlify: {
     APIUrl: 'https://welcome.flexpair.com/identity-proxy',
@@ -89,676 +83,81 @@ Wraps the existing Netlify Identity widget.
 }
 ```
 
-**Features**:
-- Modal-based authentication
-- Email/password login
-- OAuth providers (Google, GitHub, etc.)
-- User metadata management
-- Backward compatible with legacy code
+The `APIUrl` must point to the identity proxy, not the Netlify site directly.
 
-## 📚 Usage Guide
-
-### Basic Setup
-
-```javascript
-import AuthFactory from './auth/AuthFactory.js';
-
-// Create auth instance from config
-const auth = AuthFactory.create(window.mumbleWebConfig.auth);
-
-// Initialize
-await auth.init(window.mumbleWebConfig.auth?.netlify || {});
-
-// Listen for events
-auth.on('login', (user) => {
-  console.log('User logged in:', user.email);
-});
-
-auth.on('logout', () => {
-  console.log('User logged out');
-});
-
-auth.on('error', (error) => {
-  console.error('Auth error:', error);
-});
-
-// Get current user (synchronous)
-const user = auth.currentUser();
-
-// Or async version
-const user = await auth.getCurrentUser();
-```
-
-### Configuration
-
-In `app/config.js`:
-
-```javascript
-window.mumbleWebConfig = {
-  // ... other config
-  auth: {
-    provider: 'netlify', // 'netlify' or 'supabase' (future)
-    netlify: {
-      APIUrl: 'https://welcome.flexpair.com/identity-proxy',
-      locale: 'en',
-      logo: false
-    },
-    // Future Supabase config:
-    // supabase: {
-    //   url: 'https://your-project.supabase.co',
-    //   anonKey: 'your-anon-key'
-    // }
-  }
-};
-```
-
-### Application Integration
-
-The auth abstraction is integrated in `app/index.js`:
-
-```javascript
-// In GlobalBindings constructor
-try {
-  this.auth = AuthFactory.create(window.mumbleWebConfig.auth || { provider: 'netlify' });
-} catch (error) {
-  console.error('[Auth] Failed to initialize:', error);
-  throw error; // Authentication is required - no fallback
-}
-
-// Backward compatibility
-this.netlifyIdentity = this.auth;
-```
-
-## 🔌 Provider API Reference
+## Provider API Reference
 
 All providers implement the `AuthProvider` base class:
 
 ### Initialization
-- `async init(config)` - Initialize the auth provider with configuration
+- `async init(config)` — Initialize the auth provider
 
 ### User Management
-- `async getCurrentUser()` - Get currently authenticated user (async)
-- `currentUser()` - Get currently authenticated user (sync, for backward compatibility)
-- `isAuthenticated()` - Check if user is authenticated
-- `async login(email, password)` - Log in a user
-- `async logout()` - Log out current user
-- `async signup(email, password, metadata)` - Sign up new user
-- `async updateUser(updates)` - Update user metadata
+- `async getCurrentUser()` — Get authenticated user (async)
+- `currentUser()` — Get authenticated user (sync)
+- `isAuthenticated()` — Check auth status
+- `async login(email, password)` — Log in
+- `async logout()` — Log out
+- `async signup(email, password, metadata)` — Sign up
+- `async updateUser(updates)` — Update user metadata
 
-### UI Methods (Provider-Specific)
-- `async openAuth(view)` - Open auth UI modal
-- `open(view)` - Open auth UI modal (sync)
-- `async closeAuth()` - Close auth UI modal
-- `close()` - Close auth UI modal (sync)
+### UI Methods
+- `open(view)` / `async openAuth(view)` — Open auth modal (`'login'`, `'signup'`, `'recover'`)
+- `close()` / `async closeAuth()` — Close auth modal
 
 ### Token Management
-- `async refreshToken()` - Refresh JWT token
-- `async requestPasswordReset(email)` - Request password reset
+- `async refreshToken()` — Refresh JWT token
+- `async requestPasswordReset(email)` — Open recovery modal
 
 ### Event System
-- `on(event, callback)` - Register event listener
-- `off(event, callback)` - Unregister event listener
+- `on(event, callback)` — Register listener (can be called before `init()`)
+- `off(event, callback)` — Unregister listener
 
-**Supported Events**: `login`, `logout`, `signup`, `error`, `close`
+**Events**: `login`, `logout`, `signup`, `error`, `close`
 
 ### Metadata
-- `getProviderName()` - Get provider identifier string
+- `getProviderName()` — Returns `'Netlify Identity'`
 
-## 🧪 Testing
-
-### Automated Test Suite
-
-```bash
-# Run all auth abstraction tests
-bash scripts/test-auth-abstraction.sh
-```
-
-**Tests include**:
-- ✅ Provider initialization
-- ✅ Login/logout flows
-- ✅ User state management
-- ✅ Event system
-- ✅ Error handling
-
-### Manual Browser Testing
-
-1. Build the project: `npm run build`
-2. Start dev server: `./start-dev-server.sh`
-3. Open browser console
-4. Check auth initialization: `window.mumbleUi.auth`
-5. Test authentication flows through UI
-
-## 🔄 Adding a New Provider (e.g., Supabase)
-
-### Step 1: Create Adapter
-
-Create `app/auth/SupabaseAuthAdapter.js`:
+## Usage
 
 ```javascript
-import AuthProvider from './AuthProvider.js';
-import { createClient } from '@supabase/supabase-js';
+import AuthFactory from './auth/AuthFactory.js';
 
-class SupabaseAuthAdapter extends AuthProvider {
-  constructor() {
-    super();
-    this.supabase = null;
-    this.currentUserCache = null;
-  }
+const auth = AuthFactory.create(window.mumbleWebConfig.auth);
+await auth.init(window.mumbleWebConfig.auth?.netlify || {});
 
-  async init(config) {
-    this.supabase = createClient(config.url, config.anonKey);
-    
-    // Listen to auth state changes
-    this.supabase.auth.onAuthStateChange((event, session) => {
-      this.currentUserCache = session?.user || null;
-      this._emit(event, session?.user);
-    });
-    
-    // Get initial session
-    const { data } = await this.supabase.auth.getSession();
-    this.currentUserCache = data.session?.user || null;
-  }
+auth.on('login', (user) => console.log('Logged in:', user.email));
+auth.on('logout', () => console.log('Logged out'));
+auth.on('error', (error) => console.error('Auth error:', error));
 
-  async getCurrentUser() {
-    return this.currentUserCache;
-  }
-
-  currentUser() {
-    return this.currentUserCache;
-  }
-
-  async login(email, password) {
-    const { data, error } = await this.supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    if (error) throw error;
-    return data.user;
-  }
-
-  async logout() {
-    const { error } = await this.supabase.auth.signOut();
-    if (error) throw error;
-  }
-
-  async signup(email, password, metadata = {}) {
-    const { data, error } = await this.supabase.auth.signUp({
-      email,
-      password,
-      options: { data: metadata }
-    });
-    if (error) throw error;
-    return data.user;
-  }
-
-  isAuthenticated() {
-    return !!this.currentUserCache;
-  }
-
-  getProviderName() {
-    return 'supabase';
-  }
-}
-
-export default SupabaseAuthAdapter;
+const user = auth.currentUser();
 ```
 
-### Step 2: Register in Factory
+## Adding a New Provider
 
-Update `app/auth/AuthFactory.js`:
+1. Create `app/auth/YourAdapter.js` extending `AuthProvider`
+2. Implement all required methods
+3. Register in `AuthFactory.js`
+4. Add configuration to `config.js`
+5. Update this README
+6. Add tests
 
-```javascript
-import SupabaseAuthAdapter from './SupabaseAuthAdapter.js';
+## Troubleshooting
 
-class AuthFactory {
-  static create(config = {}) {
-    const provider = config.provider || 'netlify';
-    
-    switch (provider) {
-      case 'supabase':
-        return new SupabaseAuthAdapter();
-      case 'netlify':
-        return new NetlifyIdentityAdapter();
-      default:
-        throw new Error(`Unknown auth provider: ${provider}`);
-    }
-  }
-  
-  static getSupportedProviders() {
-    return ['netlify', 'supabase'];
-  }
-}
-```
+### `GET /.netlify/identity/settings` 404 or 501
 
-### Step 3: Update Config
+**Cause**: Widget trying to reach identity endpoints on the current host instead of the proxy.
+**Fix**: Ensure `init(config)` receives the config with `APIUrl` pointing to the identity-proxy. If this happens during hash token processing, verify the inline script in `index.html` is saving and clearing the hash before the widget loads.
 
-Add Supabase config to `app/config.js`:
+### Recovery/confirmation/invite link shows signup instead of expected modal
 
-```javascript
-auth: {
-  provider: 'supabase',
-  supabase: {
-    url: 'https://your-project.supabase.co',
-    anonKey: 'your-anon-key'
-  }
-}
-```
-
-### Step 4: Test
-
-```bash
-npm run build
-bash scripts/test-auth-abstraction.sh
-```
-
-## 📁 File Structure
-
-```
-app/auth/
-├── README.md                    # This file
-├── AuthProvider.js              # Base class (155 lines)
-├── AuthFactory.js               # Provider factory (105 lines)
-├── NetlifyIdentityAdapter.js    # Netlify implementation (250 lines)
-└── index.js                     # Central exports (18 lines)
-
-Related files:
-├── app/config.js                # Auth configuration
-├── app/index.js                 # Application integration
-├── docs/NETLIFY_IDENTITY_MIGRATION_PLAN.md  # 15-week migration plan
-├── scripts/test-auth-abstraction.sh         # Test suite
-└── app/auth/README.md                       # This file (includes implementation summary)
-```
-
-## 🐛 Troubleshooting
-
-### Auth provider not initializing
-
-**Symptom**: Console error about auth initialization  
-**Fix**: Check that `window.mumbleWebConfig.auth` is properly set in config.js
-
-### Netlify Identity 404 errors
-
-**Symptom**: `GET /.netlify/identity/settings 404`  
-**Cause**: Config not passed to `netlifyIdentity.init()`  
-**Fix**: Ensure `init(config)` method receives and passes config object
+**Cause**: `auth.open("signup")` in `index.js` overrides the widget's token-triggered modal.
+**Fix**: `hasIdentityTokenInHash()` should return `true` for the token in the URL. Check that the inline script in `index.html` is stashing the hash to `__savedIdentityHash` and that `hasIdentityTokenInHash()` checks both sources.
 
 ### Events not firing
 
-**Symptom**: Event callbacks not called  
-**Fix**: Register listeners BEFORE calling auth methods:
+Register listeners before calling auth methods. Listeners registered before `init()` are queued and attached automatically.
 
-```javascript
-auth.on('login', handleLogin);  // Register first
-await auth.login(email, password);  // Then call
-```
+### CORS errors on identity requests
 
-### User metadata missing
-
-**Symptom**: `user.user_metadata` is undefined  
-**Fix**: Add null checks before accessing:
-
-```javascript
-if (user && user.user_metadata && user.user_metadata.full_name) {
-  // Safe to use
-}
-```
-
-## 📈 Migration Timeline
-
-**Current Status**: Phase 2 Complete (October 2025)
-
-**Next Milestones**:
-- **November 2025**: Evaluate Supabase, create test project
-- **December 2025**: Implement SupabaseAuthAdapter
-- **January 2026**: Testing and refinement
-- **February 2026**: User migration preparation
-- **March 2026**: Production cutover
-- **April 2026**: Deprecate Netlify Identity
-
-See `docs/NETLIFY_IDENTITY_MIGRATION_PLAN.md` for detailed 15-week plan.
-
-## 💰 Cost Comparison
-
-| Provider | Free Tier | Paid Plans | Notes |
-|----------|-----------|------------|-------|
-| **Netlify Identity** | 1,000 MAU | $99/mo (up to 5k MAU) | Deprecated |
-| **Supabase Auth** | 50,000 MAU | $25/mo + $0.00325/MAU | Recommended |
-| **Auth0** | 7,500 MAU | $35/mo (Essentials) | Enterprise option |
-| **Firebase Auth** | 50,000 MAU | Pay-as-you-go | Google ecosystem |
-
-**Current usage**: ~500-1000 MAU  
-**Recommendation**: Supabase (free tier sufficient)
-
-## 🔗 External Resources
-
-- **Netlify Deprecation Notice**: https://docs.netlify.com/security/secure-access-to-sites/identity/
-- **Supabase Auth Docs**: https://supabase.com/docs/guides/auth
-- **Supabase Auth GitHub**: https://github.com/supabase/auth
-- **Auth0 Extension Guide**: https://docs.netlify.com/extend/install-and-use/setup-guides/auth0/
-
-## 📝 Contributing
-
-When adding new providers:
-1. Extend `AuthProvider` base class
-2. Implement all required methods
-3. Add synchronous compatibility methods if needed
-4. Register in `AuthFactory`
-5. Add configuration example
-6. Update this README
-7. Add tests to test suite
-
-## 📄 License
-
-Same as parent project (mumbling-mole).
-# Auth Abstraction Layer - Implementation Summary
-
-**Branch:** `feature/auth-abstraction-layer`  
-**Status:** ✅ Phase 1 Complete  
-**Created:** October 11, 2025
-
----
-
-## 🎯 What Was Built
-
-Created a complete authentication abstraction layer that allows switching between auth providers without changing application code.
-
-### Files Created
-
-```
-app/auth/
-├── AuthProvider.js              (Abstract base class - defines interface)
-├── NetlifyIdentityAdapter.js    (Wraps current Netlify Identity)
-├── AuthFactory.js               (Creates auth provider from config)
-├── index.js                     (Central exports)
-└── README.md                    (Complete documentation)
-```
-
-**Total:** ~800 lines of code
-
----
-
-## 🔌 How It Works
-
-### The Abstraction Pattern
-
-```
-Your App Code
-     ↓
-  AuthProvider Interface (common API)
-     ↓
-┌─────────────┬───────────┬─────────┬──────────┐
-│  Netlify    │ Supabase  │  Auth0  │ Firebase │
-│  (current)  │  (future) │ (future)│ (future) │
-└─────────────┴───────────┴─────────┴──────────┘
-```
-
-### Current Implementation
-
-```javascript
-// App uses common interface:
-import AuthFactory from './auth/AuthFactory.js';
-
-const auth = AuthFactory.create();  // Creates NetlifyIdentityAdapter
-await auth.init();
-auth.on('login', user => console.log('Logged in!'));
-
-// Later, switch to Supabase by changing ONE line in config:
-// auth: { provider: 'supabase', options: { ... } }
-// App code doesn't change at all!
-```
-
----
-
-## ✅ What's Complete
-
-### Phase 1: Core Abstraction ✅
-
-- [x] **AuthProvider.js** - Defines interface all providers must implement
-  - 15+ methods covering all auth operations
-  - Consistent API across providers
-  - JSDoc documentation for each method
-
-- [x] **NetlifyIdentityAdapter.js** - Wraps current Netlify Identity
-  - Maintains backward compatibility
-  - Implements full AuthProvider interface
-  - Throws error when widget unavailable (authentication required)
-
-- [x] **AuthFactory.js** - Provider factory
-  - Config-based provider selection
-  - Easy to add new providers
-  - Validates configuration
-
-- [x] **Documentation** - Complete README
-  - Usage examples
-  - Migration roadmap
-  - Provider comparison
-  - Contributing guide
-
----
-
-## 🚀 Next Steps
-
-### Phase 2: App Integration (Recommended Next)
-
-Integrate the abstraction layer with your app:
-
-1. **Update `app/config.js`** - Add auth config:
-   ```javascript
-   auth: {
-     provider: 'netlify',  // Start with current provider
-     options: {}
-   }
-   ```
-
-2. **Update `app/index.js`** - Use AuthFactory:
-   ```javascript
-   // OLD:
-   this.netlifyIdentity = window.netlifyIdentity;
-   
-   // NEW:
-   import AuthFactory from './auth/AuthFactory.js';
-   this.auth = AuthFactory.create();
-   await this.auth.init();
-   ```
-
-3. **Replace all `netlifyIdentity` calls** with `this.auth`
-   - Search for `netlifyIdentity` in codebase
-   - Replace with `auth` abstraction
-   - Test thoroughly (should be identical behavior)
-
-### Phase 3: Provider Evaluation (Your Current Stage)
-
-Now you can evaluate alternatives at your own pace:
-
-**Option 1: Supabase Auth** ⭐ Recommended
-- Research: https://supabase.com/docs/guides/auth
-- Pros: Similar API, free tier, open source
-- Estimated effort: Medium (2-3 weeks)
-
-**Option 2: Auth0**
-- Research: https://auth0.com/docs
-- Pros: Enterprise features, Netlify recommendation
-- Estimated effort: High (3-4 weeks)
-
-**Option 3: Firebase Auth**
-- Research: https://firebase.google.com/docs/auth
-- Pros: Google backing, generous free tier
-- Estimated effort: High (3-4 weeks)
-
-**Option 4: Stay on Netlify Identity** (temporary)
-- Abstraction allows clean migration later
-- Works today, deprecated but functional
-- Buys you time to evaluate properly
-
-### Phase 4: Implement Chosen Provider
-
-Once you decide, create the new adapter:
-
-```javascript
-// app/auth/SupabaseAuthAdapter.js (example)
-import AuthProvider from './AuthProvider.js';
-import { createClient } from '@supabase/supabase-js';
-
-class SupabaseAuthAdapter extends AuthProvider {
-  constructor(url, anonKey) {
-    super();
-    this.supabase = createClient(url, anonKey);
-  }
-  
-  async init() { /* ... */ }
-  async getCurrentUser() { /* ... */ }
-  async login(email, password) { /* ... */ }
-  // ... implement all methods
-}
-```
-
----
-
-## 🧪 Testing the Abstraction
-
-### Test Authentication
-
-```javascript
-// In browser console or test file
-import { AuthFactory } from './app/auth/index.js';
-
-const auth = AuthFactory.create();
-await auth.init();
-
-console.log('Provider:', auth.getProviderName());
-// Should show: "Netlify Identity"
-
-const user = await auth.getCurrentUser();
-console.log('Current user:', user);
-```
-
----
-
-## 📊 Benefits of This Approach
-
-### ✅ Flexibility
-- Switch providers anytime
-- Test multiple providers in parallel
-- A/B test different auth systems
-
-### ✅ Maintainability
-- Single place to change provider (config.js)
-- Clear separation of concerns
-- Easy to understand codebase
-
-### ✅ Testability
-- Real authentication required
-- Playwright tests use actual Netlify Identity login
-- Credentials stored in `.env.test` (not committed)
-
-### ✅ Future-Proof
-- Not locked into any provider
-- Can adopt new auth tech easily
-- Prepared for next deprecation
-
----
-
-## 📝 Decision Points
-
-You can now evaluate providers without pressure:
-
-### Evaluate Supabase
-```bash
-# Try Supabase in a test branch:
-git checkout -b test/supabase-auth
-# Create SupabaseAuthAdapter.js
-# Test with your app
-# Compare with other options
-```
-
-### Evaluate Auth0
-```bash
-# Try Auth0 in a test branch:
-git checkout -b test/auth0
-# Create Auth0Adapter.js
-# Test with your app
-# Compare with other options
-```
-
-### Compare Side-by-Side
-Since you have the abstraction, you can:
-1. Implement multiple adapters
-2. Switch between them via config
-3. Test each with your actual app
-4. Make informed decision based on real experience
-
----
-
-## 🎓 Learning Resources
-
-### Provider Documentation
-
-**Supabase Auth:**
-- Getting Started: https://supabase.com/docs/guides/auth
-- JS Client: https://supabase.com/docs/reference/javascript/auth-signup
-- Migration Guide: https://supabase.com/docs/guides/auth/auth-migration
-
-**Auth0:**
-- Quickstart: https://auth0.com/docs/quickstart/spa/vanillajs
-- API Reference: https://auth0.com/docs/api/authentication
-
-**Firebase:**
-- Web Setup: https://firebase.google.com/docs/auth/web/start
-- API Reference: https://firebase.google.com/docs/reference/js/auth
-
-### Example Implementations
-
-Look at these for inspiration:
-- [React + Supabase](https://github.com/supabase/supabase/tree/master/examples/auth/react-auth)
-- [Vue + Auth0](https://github.com/auth0-samples/auth0-vue-samples)
-- [Angular + Firebase](https://github.com/angular/angularfire)
-
----
-
-## 🔗 Related Documentation
-
-- **[Migration Plan](../docs/NETLIFY_IDENTITY_MIGRATION_PLAN.md)** - Complete 15-week migration strategy
-- **This document** - Detailed auth abstraction documentation
-
----
-
-## ❓ FAQ
-
-### Q: Do I have to migrate now?
-**A:** No! The abstraction is in place. Netlify Identity still works (security fixes only). You can evaluate options at your own pace.
-
-### Q: Can I test multiple providers before deciding?
-**A:** Yes! That's the whole point. Create adapters for each, test them, then choose.
-
-### Q: Will this break my current app?
-**A:** No. Phase 2 (app integration) maintains identical behavior. It's just a refactor.
-
-### Q: What's the minimum I need to do now?
-**A:** Just Phase 2 (app integration). That future-proofs you. Evaluate providers later.
-
-### Q: Which provider do you recommend?
-**A:** Supabase Auth - similar API to Netlify Identity, easiest migration, great free tier.
-
----
-
-## 🎯 Summary
-
-**What you have now:**
-- ✅ Complete auth abstraction layer
-- ✅ Current Netlify Identity wrapped in adapter
-- ✅ Config-based provider switching
-- ✅ Complete documentation
-
-**What you can do next:**
-1. **Immediate:** Integrate with app (Phase 2) - No functional changes
-2. **Soon:** Evaluate providers (Phase 3) - Take your time
-3. **Later:** Implement chosen provider (Phase 4) - When ready
-4. **Finally:** Migrate users and switch (Phase 5) - Q1 2026?
-
-**You're in control. No rush. Well-architected for the future.** 🚀
-
----
-
-**Branch:** `feature/auth-abstraction-layer`  
-**Status:** Ready for Phase 2 (App Integration)  
-**Next Action:** Integrate AuthFactory into app/index.js
+The direct `/.netlify/identity/` endpoint only allows GET from cross-origin. All auth requests must go through the identity-proxy. Check that `APIUrl` in config points to the proxy.
