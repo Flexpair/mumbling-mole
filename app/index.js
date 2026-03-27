@@ -170,11 +170,22 @@ function handleAuthError(err) {
 }
 
 /**
+ * Check if the URL hash contains a Netlify Identity token
+ * (recovery_token, confirmation_token, or invite_token).
+ * The widget handles these automatically during init().
+ * @returns {boolean}
+ */
+function hasIdentityTokenInHash() {
+  const hash = globalThis.location.hash;
+  return /^#(recovery_token|confirmation_token|invite_token)=/.test(hash);
+}
+
+/**
  * Initialize authentication and handle initial user state
  */
 async function initializeAuth() {
   let user = null;
-  
+
   try {
     await auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
@@ -189,7 +200,12 @@ async function initializeAuth() {
   if (user === null) {
     // Hide connect dialog when showing authentication modal
     dialogStore.connectDialog.visible = false;
-    auth.open("signup"); // open the modal to the signup tab
+    // Don't open signup modal if callback token is present in URL hash —
+    // the Netlify Identity widget handles recovery/confirmation/invite tokens
+    // automatically during init() and will show the appropriate modal.
+    if (!hasIdentityTokenInHash()) {
+      auth.open("signup");
+    }
   } else {
     const username = getUsernameFromMetadata(user);
     if (username) {
