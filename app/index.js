@@ -176,8 +176,9 @@ function handleAuthError(err) {
  * @returns {boolean}
  */
 function hasIdentityTokenInHash() {
-  const hash = globalThis.location.hash;
-  return /^#(recovery_token|confirmation_token|invite_token)=/.test(hash);
+  const hash = globalThis.location?.hash || "";
+  const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+  return params.has("recovery_token") || params.has("confirmation_token") || params.has("invite_token");
 }
 
 /**
@@ -185,6 +186,7 @@ function hasIdentityTokenInHash() {
  */
 async function initializeAuth() {
   let user = null;
+  let initSucceeded = false;
 
   try {
     await auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
@@ -192,6 +194,7 @@ async function initializeAuth() {
       locale: "en",
       logo: false,
     });
+    initSucceeded = true;
     user = auth.currentUser();
   } catch (e) {
     console.warn('[Auth] Initialization failed; continuing without authentication', e);
@@ -200,10 +203,10 @@ async function initializeAuth() {
   if (user === null) {
     // Hide connect dialog when showing authentication modal
     dialogStore.connectDialog.visible = false;
-    // Don't open signup modal if callback token is present in URL hash —
-    // the Netlify Identity widget handles recovery/confirmation/invite tokens
-    // automatically during init() and will show the appropriate modal.
-    if (!hasIdentityTokenInHash()) {
+    // Skip signup modal only when init succeeded and the widget can handle the
+    // token itself.  If init failed, always fall back to signup so the user
+    // is never left with an empty screen.
+    if (!initSucceeded || !hasIdentityTokenInHash()) {
       auth.open("signup");
     }
   } else {

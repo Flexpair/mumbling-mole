@@ -7,17 +7,18 @@
  * calls auth.open("signup"), which replaces the recovery modal.
  *
  * FIX: hasIdentityTokenInHash() checks for identity tokens in the URL hash
- * and skips auth.open("signup") when present.
+ * and skips auth.open("signup") when present (only if init succeeded).
  */
 
 import { jest } from '@jest/globals';
 
 /**
- * Mirrors the function in app/index.js.
- * Accepts an explicit hash parameter for testability.
+ * Mirrors the production function in app/index.js — uses URLSearchParams
+ * so that tokens are detected regardless of position in the hash.
  */
 function hasIdentityTokenInHash(hash) {
-  return /^#(recovery_token|confirmation_token|invite_token)=/.test(hash);
+  const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+  return params.has("recovery_token") || params.has("confirmation_token") || params.has("invite_token");
 }
 
 describe('Recovery token blocked by signup modal', () => {
@@ -35,6 +36,10 @@ describe('Recovery token blocked by signup modal', () => {
       expect(hasIdentityTokenInHash('#invite_token=xyz789')).toBe(true);
     });
 
+    it('detects token even when not the first parameter', () => {
+      expect(hasIdentityTokenInHash('#foo=bar&recovery_token=abc')).toBe(true);
+    });
+
     it('returns false for empty hash', () => {
       expect(hasIdentityTokenInHash('')).toBe(false);
     });
@@ -46,14 +51,10 @@ describe('Recovery token blocked by signup modal', () => {
     it('returns false for unrelated hash', () => {
       expect(hasIdentityTokenInHash('#section-about')).toBe(false);
     });
-
-    it('returns false for token-like substrings that are not at the start', () => {
-      expect(hasIdentityTokenInHash('#foo=bar&recovery_token=abc')).toBe(false);
-    });
   });
 
   describe('initializeAuth behavior with recovery token', () => {
-    it('should NOT call auth.open("signup") when recovery_token is present', async () => {
+    it('should NOT call auth.open("signup") when recovery_token is present and init succeeded', async () => {
       const hash = '#recovery_token=PvfCnpSj_7hdroWcFXP4Ag';
 
       const mockAuth = {
@@ -62,17 +63,44 @@ describe('Recovery token blocked by signup modal', () => {
         open: jest.fn(),
       };
 
-      // Simulate the initializeAuth logic
       await mockAuth.init({});
+      const initSucceeded = true;
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
           mockAuth.open('signup');
         }
       }
 
       expect(mockAuth.open).not.toHaveBeenCalled();
+    });
+
+    it('should call auth.open("signup") when recovery_token is present but init FAILED', async () => {
+      const hash = '#recovery_token=PvfCnpSj_7hdroWcFXP4Ag';
+
+      const mockAuth = {
+        init: jest.fn().mockRejectedValue(new Error('network error')),
+        currentUser: jest.fn().mockReturnValue(null),
+        open: jest.fn(),
+      };
+
+      let initSucceeded = false;
+      try {
+        await mockAuth.init({});
+        initSucceeded = true;
+      } catch {
+        // init failed
+      }
+      const user = mockAuth.currentUser();
+
+      if (user === null) {
+        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
+          mockAuth.open('signup');
+        }
+      }
+
+      expect(mockAuth.open).toHaveBeenCalledWith('signup');
     });
 
     it('should call auth.open("signup") when NO token is present', async () => {
@@ -85,10 +113,11 @@ describe('Recovery token blocked by signup modal', () => {
       };
 
       await mockAuth.init({});
+      const initSucceeded = true;
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
           mockAuth.open('signup');
         }
       }
@@ -107,10 +136,11 @@ describe('Recovery token blocked by signup modal', () => {
       };
 
       await mockAuth.init({});
+      const initSucceeded = true;
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
           mockAuth.open('signup');
         }
       }
