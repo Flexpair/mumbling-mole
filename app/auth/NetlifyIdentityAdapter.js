@@ -15,7 +15,7 @@ import AuthProvider from './AuthProvider.js';
 class NetlifyIdentityAdapter extends AuthProvider {
   constructor() {
     super();
-    
+
     // Will be set in init() after widget loads
     this.netlifyIdentity = null;
     this._initialized = false;
@@ -72,14 +72,23 @@ class NetlifyIdentityAdapter extends AuthProvider {
 
     // Wait for widget to load - throws if unavailable (no fallback for security)
     this.netlifyIdentity = await this._waitForWidget();
+
+    // Restore identity hash that was saved and cleared by the inline script in
+    // index.html (before the widget loaded). This way the widget's own init()
+    // finds the token and processes it with the correctly configured API URL.
+    if (globalThis.__savedIdentityHash) {
+      globalThis.location.hash = globalThis.__savedIdentityHash;
+      delete globalThis.__savedIdentityHash;
+    }
+
     this.netlifyIdentity.init(config);
-    
+
     // Register any event handlers that were queued before init()
     for (const { event, callback } of this._pendingHandlers) {
       this.netlifyIdentity.on(event, callback);
     }
     this._pendingHandlers = [];
-    
+
     this._initialized = true;
   }
 

@@ -170,13 +170,12 @@ function handleAuthError(err) {
 }
 
 /**
- * Check if the URL hash contains a Netlify Identity token
- * (recovery_token, confirmation_token, or invite_token).
- * The widget handles these automatically during init().
+ * Check if a Netlify Identity token is present — either still in the URL hash
+ * or already stashed by the inline script in index.html.
  * @returns {boolean}
  */
 function hasIdentityTokenInHash() {
-  const hash = globalThis.location?.hash || "";
+  const hash = globalThis.location?.hash || globalThis.__savedIdentityHash || "";
   const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
   return params.has("recovery_token") || params.has("confirmation_token") || params.has("invite_token");
 }
