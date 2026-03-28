@@ -202,7 +202,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async logout() {
-    this.netlifyIdentity.logout();
+    return new Promise((resolve) => {
+      const done = () => {
+        this.netlifyIdentity.off('logout', done);
+        resolve();
+      };
+      this.netlifyIdentity.on('logout', done);
+      this.netlifyIdentity.logout();
+    });
   }
 
   /**
