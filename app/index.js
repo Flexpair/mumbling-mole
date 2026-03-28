@@ -208,6 +208,11 @@ async function initializeAuth() {
     // A recovery/confirmation/invite token is present — let the widget handle
     // it (show password-reset modal, etc.).  Don't open signup or the connect
     // dialog; the widget will fire a "login" event when done.
+    // Preserve username so handleAuthClose() knows the user is authenticated.
+    const username = getUsernameFromMetadata(user);
+    if (username) {
+      dialogStore.connectDialog.username = username;
+    }
     dialogStore.connectDialog.visible = false;
   } else if (user === null) {
     // Hide connect dialog when showing authentication modal

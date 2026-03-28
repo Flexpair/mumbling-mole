@@ -28,7 +28,7 @@ function hasIdentityTokenInHash(hash) {
 
 /**
  * Simulates the initializeAuth() logic from app/index.js.
- * Returns { openedWith, connectVisible } to verify behavior.
+ * Returns { connectVisible } to verify behavior.
  */
 async function simulateInitializeAuth(mockAuth, hash) {
   const hadIdentityToken = hasIdentityTokenInHash(hash);
@@ -41,7 +41,10 @@ async function simulateInitializeAuth(mockAuth, hash) {
   } catch {
     // init failed
   }
-  const user = mockAuth.currentUser();
+  let user = null;
+  if (initSucceeded) {
+    user = mockAuth.currentUser();
+  }
 
   if (initSucceeded && hadIdentityToken) {
     result.connectVisible = false;
