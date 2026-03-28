@@ -805,6 +805,25 @@ select {
   box-shadow: 0 4px 12px rgba(0, 150, 255, 0.3);
 }
 
+.connect-dialog .dialog-logout-button {
+  margin-left: auto;
+  padding: 10px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f0f0f0;
+    border-color: #999;
+    color: #333;
+  }
+}
+
 .connect-dialog .dialog-close {
   padding: 10px 24px;
   font-size: 15px;
