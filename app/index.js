@@ -66,6 +66,12 @@ const settingsStore = useSettingsStore();
 // Initialize settings with config defaults
 settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 
+// Set when the widget is processing an identity token (recovery, confirmation,
+// invite).  Error/close handlers must not override the widget's modal while this
+// is true — the widget fires spurious errors (e.g. 404 from /.netlify/identity/)
+// that would otherwise show the connect dialog on top of the password-reset form.
+let widgetHandlingToken = false;
+
 // Initialize auth - always use Netlify Identity in production
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
 let auth;
@@ -152,6 +158,9 @@ function handleAuthLogin(user) {
  * Handle auth modal close event
  */
 function handleAuthClose() {
+  if (widgetHandlingToken) {
+    widgetHandlingToken = false;
+  }
   if (dialogStore.connectDialog.username) {
     // Show connect dialog when auth modal is closed and user is authenticated
     dialogStore.connectDialog.visible = true;
@@ -165,8 +174,9 @@ function handleAuthClose() {
  */
 function handleAuthError(err) {
   console.warn("[Auth] Authentication error:", err);
-  // Show connect dialog even if auth fails to allow retry
-  dialogStore.connectDialog.visible = true;
+  if (!widgetHandlingToken) {
+    dialogStore.connectDialog.visible = true;
+  }
 }
 
 /**
@@ -209,6 +219,7 @@ async function initializeAuth() {
     // it (show password-reset modal, etc.).  Don't open signup or the connect
     // dialog; the widget will fire a "login" event when done.
     // Preserve username so handleAuthClose() knows the user is authenticated.
+    widgetHandlingToken = true;
     const username = getUsernameFromMetadata(user);
     if (username) {
       dialogStore.connectDialog.username = username;
