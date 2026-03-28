@@ -81,7 +81,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
       // JWT to the token-verification request.  Without this, invite/recovery
       // links fail in browsers that already have a logged-in session because
       // the server sees the conflicting Bearer token.
-      try { globalThis.localStorage?.removeItem("gotrue.user"); } catch (_) { /* Private browsing */ }
+      try { globalThis.localStorage?.removeItem('gotrue.user'); } catch (_) { /* Private browsing */ }
       globalThis.location.hash = globalThis.__savedIdentityHash;
       delete globalThis.__savedIdentityHash;
     }

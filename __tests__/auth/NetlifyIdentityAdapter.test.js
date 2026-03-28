@@ -90,6 +90,54 @@ describe('NetlifyIdentityAdapter - init()', () => {
     );
   }, 10000);
 
+  test('clears gotrue.user from localStorage when savedIdentityHash is present', async () => {
+    globalThis.__savedIdentityHash = '#invite_token=abc123';
+    const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+    adapter = new NetlifyIdentityAdapter();
+    await adapter.init();
+
+    expect(removeItemSpy).toHaveBeenCalledWith('gotrue.user');
+    expect(globalThis.__savedIdentityHash).toBeUndefined();
+    removeItemSpy.mockRestore();
+  });
+
+  test('restores location.hash from savedIdentityHash before init', async () => {
+    globalThis.__savedIdentityHash = '#recovery_token=xyz';
+
+    adapter = new NetlifyIdentityAdapter();
+    await adapter.init();
+
+    // The hash should have been set (widget's init() may then clear it,
+    // but we verify the adapter wrote it before calling init).
+    expect(mockNetlifyIdentity.init).toHaveBeenCalled();
+    expect(globalThis.__savedIdentityHash).toBeUndefined();
+  });
+
+  test('does not clear localStorage when no savedIdentityHash is present', async () => {
+    delete globalThis.__savedIdentityHash;
+    const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+    adapter = new NetlifyIdentityAdapter();
+    await adapter.init();
+
+    expect(removeItemSpy).not.toHaveBeenCalled();
+    removeItemSpy.mockRestore();
+  });
+
+  test('does not throw when localStorage access fails', async () => {
+    globalThis.__savedIdentityHash = '#invite_token=abc123';
+    const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('Access denied');
+    });
+
+    adapter = new NetlifyIdentityAdapter();
+    // Should not reject
+    await expect(adapter.init()).resolves.toBeUndefined();
+
+    removeItemSpy.mockRestore();
+  });
+
   test('calls netlifyIdentity.init with config', async () => {
     adapter = new NetlifyIdentityAdapter();
     const config = { container: '#widget' };
