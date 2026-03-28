@@ -548,12 +548,22 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     delete globalThis.netlifyIdentity;
   });
 
-  test('calls netlifyIdentity.logout', async () => {
+  test('calls netlifyIdentity.logout and resolves on logout event', async () => {
+    adapter.netlifyIdentity.logout.mockImplementation(() => {
+      // Simulate the widget firing the 'logout' event after logout completes
+      const logoutCallback = adapter.netlifyIdentity.on.mock.calls.find(c => c[0] === 'logout')[1];
+      logoutCallback();
+    });
     await adapter.logout();
     expect(adapter.netlifyIdentity.logout).toHaveBeenCalled();
+    expect(adapter.netlifyIdentity.off).toHaveBeenCalledWith('logout', expect.any(Function));
   });
 
   test('resolves after logout', async () => {
+    adapter.netlifyIdentity.logout.mockImplementation(() => {
+      const logoutCallback = adapter.netlifyIdentity.on.mock.calls.find(c => c[0] === 'logout')[1];
+      logoutCallback();
+    });
     const result = await adapter.logout();
     expect(result).toBeUndefined();
   });

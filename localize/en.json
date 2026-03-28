@@ -7,6 +7,7 @@
     "headphones": "Please use \uD83C\uDFA7. Thank you.",
     "connect": "Connect",
     "loopback": "Test",
+    "logout": "Logout",
     "error": {
       "title": "Failed to connect",
       "reason": {
