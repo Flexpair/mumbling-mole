@@ -77,6 +77,15 @@ class NetlifyIdentityAdapter extends AuthProvider {
     // index.html (before the widget loaded). This way the widget's own init()
     // finds the token and processes it with the correctly configured API URL.
     if (globalThis.__savedIdentityHash) {
+      // Clear any existing session so the GoTrue client doesn't attach a stale
+      // JWT to the token-verification request.  Without this, invite/recovery
+      // links fail in browsers that already have a logged-in session because
+      // the server sees the conflicting Bearer token.
+      try {
+        globalThis.localStorage?.removeItem('gotrue.user');
+      } catch (e) {
+        console.warn('[Auth] Could not clear stored session:', e);
+      }
       globalThis.location.hash = globalThis.__savedIdentityHash;
       delete globalThis.__savedIdentityHash;
     }
