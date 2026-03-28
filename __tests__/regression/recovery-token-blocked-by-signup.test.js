@@ -6,8 +6,9 @@
  * modal. However, initializeAuth() then sees user === null and immediately
  * calls auth.open("signup"), which replaces the recovery modal.
  *
- * FIX: hasIdentityTokenInHash() checks for identity tokens in the URL hash
- * and skips auth.open("signup") when present (only if init succeeded).
+ * FIX: hasIdentityTokenInHash() is called BEFORE auth.init() and the result
+ * is captured, because the widget consumes the hash token during init() and
+ * the adapter deletes __savedIdentityHash — checking afterwards is too late.
  */
 
 import { jest } from '@jest/globals';
@@ -19,6 +20,29 @@ import { jest } from '@jest/globals';
 function hasIdentityTokenInHash(hash) {
   const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
   return params.has("recovery_token") || params.has("confirmation_token") || params.has("invite_token");
+}
+
+/**
+ * Simulates the initializeAuth() logic from app/index.js.
+ * Captures token presence BEFORE init, just like the production code.
+ */
+async function simulateInitializeAuth(mockAuth, hash) {
+  const hadIdentityToken = hasIdentityTokenInHash(hash);
+
+  let initSucceeded = false;
+  try {
+    await mockAuth.init({});
+    initSucceeded = true;
+  } catch {
+    // init failed
+  }
+  const user = mockAuth.currentUser();
+
+  if (user === null) {
+    if (!initSucceeded || !hadIdentityToken) {
+      mockAuth.open('signup');
+    }
+  }
 }
 
 describe('Recovery token blocked by signup modal', () => {
@@ -55,7 +79,21 @@ describe('Recovery token blocked by signup modal', () => {
 
   describe('initializeAuth behavior with recovery token', () => {
     it('should NOT call auth.open("signup") when recovery_token is present and init succeeded', async () => {
-      const hash = '#recovery_token=PvfCnpSj_7hdroWcFXP4Ag';
+      const mockAuth = {
+        init: jest.fn().mockResolvedValue(undefined),
+        currentUser: jest.fn().mockReturnValue(null),
+        open: jest.fn(),
+      };
+
+      await simulateInitializeAuth(mockAuth, '#recovery_token=PvfCnpSj_7hdroWcFXP4Ag');
+
+      expect(mockAuth.open).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call auth.open("signup") even when hash is cleared after init (race condition)', async () => {
+      // This is the core regression: the widget clears the hash during init(),
+      // so checking hasIdentityTokenInHash() AFTER init() returns false.
+      const hashBeforeInit = '#recovery_token=IKhPWdwOwPi-c5hbx-yxJA';
 
       const mockAuth = {
         init: jest.fn().mockResolvedValue(undefined),
@@ -63,87 +101,45 @@ describe('Recovery token blocked by signup modal', () => {
         open: jest.fn(),
       };
 
-      await mockAuth.init({});
-      const initSucceeded = true;
-      const user = mockAuth.currentUser();
+      await simulateInitializeAuth(mockAuth, hashBeforeInit);
 
-      if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
-          mockAuth.open('signup');
-        }
-      }
-
+      // After init, the hash is gone — but we use the pre-init snapshot
+      expect(hasIdentityTokenInHash('')).toBe(false);  // would have caused the bug
       expect(mockAuth.open).not.toHaveBeenCalled();
     });
 
     it('should call auth.open("signup") when recovery_token is present but init FAILED', async () => {
-      const hash = '#recovery_token=PvfCnpSj_7hdroWcFXP4Ag';
-
       const mockAuth = {
         init: jest.fn().mockRejectedValue(new Error('network error')),
         currentUser: jest.fn().mockReturnValue(null),
         open: jest.fn(),
       };
 
-      let initSucceeded = false;
-      try {
-        await mockAuth.init({});
-        initSucceeded = true;
-      } catch {
-        // init failed
-      }
-      const user = mockAuth.currentUser();
-
-      if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
-          mockAuth.open('signup');
-        }
-      }
+      await simulateInitializeAuth(mockAuth, '#recovery_token=PvfCnpSj_7hdroWcFXP4Ag');
 
       expect(mockAuth.open).toHaveBeenCalledWith('signup');
     });
 
     it('should call auth.open("signup") when NO token is present', async () => {
-      const hash = '';
-
       const mockAuth = {
         init: jest.fn().mockResolvedValue(undefined),
         currentUser: jest.fn().mockReturnValue(null),
         open: jest.fn(),
       };
 
-      await mockAuth.init({});
-      const initSucceeded = true;
-      const user = mockAuth.currentUser();
-
-      if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
-          mockAuth.open('signup');
-        }
-      }
+      await simulateInitializeAuth(mockAuth, '');
 
       expect(mockAuth.open).toHaveBeenCalledWith('signup');
     });
 
     it('should NOT call auth.open when user is already authenticated', async () => {
-      const hash = '';
-
-      const mockUser = { user_metadata: { full_name: 'Test User' } };
       const mockAuth = {
         init: jest.fn().mockResolvedValue(undefined),
-        currentUser: jest.fn().mockReturnValue(mockUser),
+        currentUser: jest.fn().mockReturnValue({ user_metadata: { full_name: 'Test User' } }),
         open: jest.fn(),
       };
 
-      await mockAuth.init({});
-      const initSucceeded = true;
-      const user = mockAuth.currentUser();
-
-      if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
-          mockAuth.open('signup');
-        }
-      }
+      await simulateInitializeAuth(mockAuth, '');
 
       expect(mockAuth.open).not.toHaveBeenCalled();
     });

@@ -187,6 +187,11 @@ async function initializeAuth() {
   let user = null;
   let initSucceeded = false;
 
+  // Capture token presence BEFORE init() — the widget consumes the hash
+  // token and clears location.hash during netlifyIdentity.init(), and the
+  // adapter deletes __savedIdentityHash, so checking afterwards is too late.
+  const hadIdentityToken = hasIdentityTokenInHash();
+
   try {
     await auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
       APIUrl: "https://welcome.flexpair.com/identity-proxy",
@@ -205,7 +210,7 @@ async function initializeAuth() {
     // Skip signup modal only when init succeeded and the widget can handle the
     // token itself.  If init failed, always fall back to signup so the user
     // is never left with an empty screen.
-    if (!initSucceeded || !hasIdentityTokenInHash()) {
+    if (!initSucceeded || !hadIdentityToken) {
       auth.open("signup");
     }
   } else {
