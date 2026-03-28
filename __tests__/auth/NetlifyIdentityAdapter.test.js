@@ -132,8 +132,12 @@ describe('NetlifyIdentityAdapter - init()', () => {
     });
 
     adapter = new NetlifyIdentityAdapter();
-    // Should not reject
+    // Should not reject — the error is logged but swallowed
     await expect(adapter.init()).resolves.toBeUndefined();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Auth] Could not clear stored session:',
+      expect.any(DOMException),
+    );
 
     removeItemSpy.mockRestore();
   });
