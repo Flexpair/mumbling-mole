@@ -204,15 +204,20 @@ async function initializeAuth() {
     console.warn('[Auth] Initialization failed; continuing without authentication', e);
   }
 
-  if (user === null) {
+  if (initSucceeded && hadIdentityToken) {
+    // A recovery/confirmation/invite token is present — let the widget handle
+    // it (show password-reset modal, etc.).  Don't open signup or the connect
+    // dialog; the widget will fire a "login" event when done.
+    // Preserve username so handleAuthClose() knows the user is authenticated.
+    const username = getUsernameFromMetadata(user);
+    if (username) {
+      dialogStore.connectDialog.username = username;
+    }
+    dialogStore.connectDialog.visible = false;
+  } else if (user === null) {
     // Hide connect dialog when showing authentication modal
     dialogStore.connectDialog.visible = false;
-    // Skip signup modal only when init succeeded and the widget can handle the
-    // token itself.  If init failed, always fall back to signup so the user
-    // is never left with an empty screen.
-    if (!initSucceeded || !hadIdentityToken) {
-      auth.open("signup");
-    }
+    auth.open("signup");
   } else {
     const username = getUsernameFromMetadata(user);
     if (username) {
