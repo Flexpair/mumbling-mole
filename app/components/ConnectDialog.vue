@@ -120,7 +120,7 @@
           :aria-label="isTestActive && connected ? 'Exit test mode and connect to voice server' : 'Connect to voice server'"
         />
         <button
-          v-if="auth?.logout"
+          v-if="auth?.logout && username"
           type="button"
           class="dialog-logout-button"
           @click="handleLogout"
@@ -348,14 +348,16 @@ function handleHide() {
   visible.value = false;
 }
 
-/**
- * Handle logout button click
- */
 async function handleLogout() {
-  const { clearCredentials } = await import('../auth/credentials-service.js');
-  clearCredentials();
-  auth.logout();
-  location.reload();
+  try {
+    const { clearCredentials } = await import('../auth/credentials-service.js');
+    clearCredentials();
+    await auth.logout();
+  } catch (error) {
+    console.error('[ConnectDialog Vue] Logout failed', error);
+  } finally {
+    location.reload();
+  }
 }
 
 // Note: Escape key is intentionally disabled for Connect Dialog
