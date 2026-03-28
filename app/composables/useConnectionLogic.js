@@ -111,7 +111,6 @@ export function useConnectionLogic({ auth } = {}) {
         throw new Error('No access token available');
       }
       serverCredentials = await fetchCredentials(token);
-      console.log('[useConnectionLogic] Credentials received from server');
     } catch (error) {
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
       alert('Failed to authenticate. Please log in again.');
@@ -288,8 +287,6 @@ export function useConnectionLogic({ auth } = {}) {
     // CRITICAL: Set audio quality BEFORE creating voice handler
     const samplesPerPacket = settingsStore.samplesPerPacket || 960;
     const audioBitrate = settingsStore.audioBitrate || 40000;
-    
-    console.log('[DEBUG] setAudioQuality called with:', { audioBitrate, samplesPerPacket });
     
     client.setAudioQuality(audioBitrate, samplesPerPacket);
 

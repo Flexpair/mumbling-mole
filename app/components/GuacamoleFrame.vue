@@ -75,7 +75,6 @@ function focusIframe() {
   if (iframeRef.value && visible.value) {
     try {
       iframeRef.value.focus();
-      console.log('[GuacamoleFrame] Focus set to iframe');
     } catch (e) {
       console.warn('[GuacamoleFrame] Failed to focus iframe:', e);
     }
@@ -121,7 +120,6 @@ function start(guacUser, password) {
       if (/guac|token|auth/i.test(key)) {
         const val = localStorage.getItem(key);
         if (val === "undefined" || val === "null") {
-          console.log(`[Guac] Sanitizing localStorage key: ${key}`);
           localStorage.removeItem(key);
         }
       }

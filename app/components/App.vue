@@ -100,7 +100,6 @@ onMounted(() => {
   if (guacamoleFrameRef.value) {
     const uiStore = useUIStore();
     uiStore.guacamoleFrame = guacamoleFrameRef.value;
-    console.log('[App.vue] GuacamoleFrame reference assigned to uiStore.guacamoleFrame');
   }
 });
 </script>

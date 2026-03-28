@@ -240,11 +240,8 @@ onUnmounted(() => {
  * Handle form submission (Connect button)
  */
 async function handleConnect() {
-  console.log('[ConnectDialog Vue] handleConnect() called');
-  
   // If in test mode and connected: exit test mode and switch to normal mode
   if (isTestActive.value && connected.value) {
-    console.log('[ConnectDialog Vue] Exiting test mode, switching to normal connection');
     isTestActive.value = false;
     voiceStore.isLoopbackMode = false;
     
@@ -259,7 +256,6 @@ async function handleConnect() {
       const guac_login = connectionLogic.getGuacamoleLogin(user_roles);
       
       if (guac_login) {
-        console.log('[ConnectDialog Vue] Starting and showing Guacamole frame');
         uiStore.guacamoleFrame.start(guac_login, password.value);
         uiStore.guacamoleFrame.show();
       } else {
@@ -277,7 +273,6 @@ async function handleConnect() {
     // Hide dialog before connecting
     visible.value = false;
     
-    console.log('[ConnectDialog Vue] Connecting in normal mode');
     await connectionLogic.connect(address.value, port.value, username.value, password.value);
   }
 }
@@ -286,16 +281,12 @@ async function handleConnect() {
  * Handle loopback toggle - ONE-WAY activation only
  */
 async function handleToggleLoopback() {
-  console.log('[ConnectDialog Vue] handleToggleLoopback() called, isTestActive:', isTestActive.value);
-  
   // ONE-WAY: Only allow activation, not deactivation
   // Use "Exit Test Mode" button to deactivate
   if (isTestActive.value) {
-    console.log('[ConnectDialog Vue] Test already active, ignoring toggle');
     return;
   }
-  
-  console.log('[ConnectDialog Vue] Activating test mode');
+
   isTestActive.value = true;
   await connectionLogic.connectLoopback(address.value, port.value, username.value, password.value);
 }
@@ -304,8 +295,6 @@ async function handleToggleLoopback() {
  * Exit test mode and show Guacamole
  */
 async function handleExitTest() {
-  console.log('[ConnectDialog Vue] handleExitTest() called');
-  
   // Call connect() which will detect we're already connected and exit test mode
   await handleConnect();
 }
@@ -315,19 +304,13 @@ async function handleExitTest() {
  * Guard: Only starts beep if audio pipeline is fully ready (voiceHandler + beeper initialized)
  */
 function startBeep() {
-  console.log('[ConnectDialog Vue] startBeep() called, pianoButtonReady:', pianoButtonReady.value);
-  
   // Guard: Prevent beep if audio pipeline not ready
   if (!pianoButtonReady.value) {
-    console.log('[ConnectDialog Vue] Piano button not ready, ignoring beep request');
     return;
   }
-  
+
   if (audioStore?.startBeep) {
-    console.log('[ConnectDialog Vue] Calling audioStore.startBeep()');
     audioStore.startBeep();
-  } else {
-    console.error('[ConnectDialog Vue] audioStore.startBeep not available');
   }
 }
 
@@ -335,7 +318,6 @@ function startBeep() {
  * Stop beep (Piano button released)
  */
 function stopBeep() {
-  console.log('[ConnectDialog Vue] stopBeep() called');
   if (audioStore?.stopBeep) {
     audioStore.stopBeep();
   }

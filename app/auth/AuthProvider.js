@@ -87,32 +87,6 @@ class AuthProvider {
   }
 
   /**
-   * Update current user's metadata
-   * @param {Object} updates - Metadata updates
-   * @returns {Promise<Object>} Updated user object
-   */
-  async updateUser(updates) {
-    throw new Error('Method updateUser() must be implemented by subclass');
-  }
-
-  /**
-   * Request password reset email
-   * @param {string} email - User's email
-   * @returns {Promise<void>}
-   */
-  async requestPasswordReset(email) {
-    throw new Error('Method requestPasswordReset() must be implemented by subclass');
-  }
-
-  /**
-   * Refresh the user's authentication token
-   * @returns {Promise<string>} New JWT token
-   */
-  async refreshToken() {
-    throw new Error('Method refreshToken() must be implemented by subclass');
-  }
-
-  /**
    * Register event listener
    * Standard events: 'init', 'login', 'logout', 'error', 'open', 'close'
    * @param {string} event - Event name

@@ -52,7 +52,9 @@ import { vTooltip, announceToScreenReader } from "./composables/index.js";
 
 // Initialize Pinia with debug plugin (only active when ?debug-audio is in URL)
 const pinia = createPinia();
-pinia.use(createPiniaDebugPlugin());
+if (globalThis.MUMBLE_DEBUG_AUDIO) {
+  pinia.use(createPiniaDebugPlugin());
+}
 setActivePinia(pinia);
 
 // Initialize stores
@@ -203,11 +205,7 @@ async function initializeAuth() {
   const hadIdentityToken = hasIdentityTokenInHash();
 
   try {
-    await auth.init(globalThis.mumbleWebConfig.auth?.netlify || {
-      APIUrl: "https://welcome.flexpair.com/identity-proxy",
-      locale: "en",
-      logo: false,
-    });
+    await auth.init(globalThis.mumbleWebConfig.auth.netlify);
     initSucceeded = true;
     user = auth.currentUser();
   } catch (e) {
