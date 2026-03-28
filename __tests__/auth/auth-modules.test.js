@@ -18,10 +18,6 @@ class TestProvider extends AuthProvider {
   async signup() { return {}; }
   async login() { return {}; }
   async logout() { return; }
-  async updateUser() { return {}; }
-  async resetPassword() { return; }
-  async confirmEmail() { return; }
-  async refreshToken() { return; }
   on() { return () => {}; }
   off() { /* Intentionally blank for testing */ }
 }
@@ -42,12 +38,9 @@ class AuthenticatedTestProvider extends AuthProvider {
     this._currentUser = { email, id: '123' };
     return this._currentUser; 
   }
-  async logout() { 
+  async logout() {
     this._currentUser = null;
   }
-  async updateUser() { return {}; }
-  async requestPasswordReset() { /* Intentionally empty for test provider */ }
-  async refreshToken() { return; }
   on() { return () => {}; }
   off() { /* Intentionally empty for test provider */ }
 }
@@ -104,21 +97,6 @@ describe('AuthProvider', () => {
     test('requires logout() implementation', async () => {
       const provider = new IncompleteProvider();
       await expect(provider.logout()).rejects.toThrow('must be implemented');
-    });
-
-    test('requires updateUser() implementation', async () => {
-      const provider = new IncompleteProvider();
-      await expect(provider.updateUser({})).rejects.toThrow('must be implemented');
-    });
-
-    test('requires requestPasswordReset() implementation', async () => {
-      const provider = new IncompleteProvider();
-      await expect(provider.requestPasswordReset('test@test.com')).rejects.toThrow('must be implemented');
-    });
-
-    test('requires refreshToken() implementation', async () => {
-      const provider = new IncompleteProvider();
-      await expect(provider.refreshToken()).rejects.toThrow('must be implemented');
     });
 
     test('requires on() implementation', () => {

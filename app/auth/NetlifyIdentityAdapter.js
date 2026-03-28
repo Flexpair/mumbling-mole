@@ -222,42 +222,6 @@ class NetlifyIdentityAdapter extends AuthProvider {
   }
 
   /**
-   * Update user metadata
-   * Note: Netlify Identity widget doesn't expose direct update method,
-   * this would need to use the underlying GoTrue client
-   * @param {Object} updates
-   * @returns {Promise<Object>}
-   */
-  async updateUser(updates) {
-    // This is a limitation of the widget - would need gotrue client access
-    console.warn('NetlifyIdentityAdapter: updateUser not fully implemented. The Netlify Identity widget does not support direct user metadata updates; updates will NOT be applied. Only the current user object will be returned.');
-    const user = await this.getCurrentUser();
-    if (!user) {
-      throw new Error('No user logged in');
-    }
-    // Return current user as we can't update via widget
-    return user;
-  }
-
-  /**
-   * Request password reset
-   * Opens the modal to password recovery
-   * @param {string} email
-   * @returns {Promise<void>}
-   */
-  async requestPasswordReset(email) {
-    this.netlifyIdentity.open('recover');
-  }
-
-  /**
-   * Refresh JWT token
-   * @returns {Promise<string>}
-   */
-  async refreshToken() {
-    return this.netlifyIdentity.refresh();
-  }
-
-  /**
    * Register event listener
    * Can be called before init() - handlers will be queued and registered after init
    * @param {string} event

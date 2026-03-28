@@ -16,7 +16,7 @@
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'node:events';
 import { createPinia, setActivePinia } from 'pinia';
-import { safeStoreToRefs } from '../../app/utils/safeStoreToRefs.js';
+import { safeStoreToRefs } from '../helpers/safeStoreToRefs.js';
 
 describe('Server-State Synchronization - Critical Integration Test', () => {
   let User;
