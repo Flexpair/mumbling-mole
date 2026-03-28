@@ -6,23 +6,6 @@
 import { describe, it, expect } from '@jest/globals';
 
 describe('Barrel Exports', () => {
-  describe('app/auth/index.js', () => {
-    it('should export AuthProvider', async () => {
-      const { AuthProvider } = await import('../app/auth/index.js');
-      expect(AuthProvider).toBeDefined();
-    });
-
-    it('should export AuthFactory', async () => {
-      const { AuthFactory } = await import('../app/auth/index.js');
-      expect(AuthFactory).toBeDefined();
-    });
-
-    it('should export NetlifyIdentityAdapter', async () => {
-      const { NetlifyIdentityAdapter } = await import('../app/auth/index.js');
-      expect(NetlifyIdentityAdapter).toBeDefined();
-    });
-  });
-
   describe('app/mumble-client/index.js', () => {
     it('should export default MumbleClient', async () => {
       const module = await import('../app/mumble-client/index.js');

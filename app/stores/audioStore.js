@@ -61,15 +61,6 @@ export const useAudioStore = defineStore('audio', () => {
         });
         audioContext.value = ctx;
 
-        // Set up event handlers for audio context state changes
-        audioContextManager.onSuspend(() => {
-          // AudioContext suspended - audio features may be limited
-        });
-
-        audioContextManager.onResume(() => {
-          // AudioContext resumed - audio features restored
-        });
-
       } catch (error) {
         console.error('Failed to initialize AudioContext:', error);
         

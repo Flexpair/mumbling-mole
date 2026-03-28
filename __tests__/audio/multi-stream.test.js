@@ -7,7 +7,7 @@
 
 import { jest } from '@jest/globals';
 import { createPinia, setActivePinia } from 'pinia';
-import { safeStoreToRefs } from '../../app/utils/safeStoreToRefs.js';
+import { safeStoreToRefs } from '../helpers/safeStoreToRefs.js';
 
 // Mock BufferQueueNode before imports
 const mockBufferQueueNodeInstances = [];

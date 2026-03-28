@@ -16,7 +16,7 @@ jest.unstable_mockModule('vue', () => ({
   toRaw: (v) => v
 }));
 
-const { safeStoreToRefs } = await import('../../app/utils/safeStoreToRefs.js');
+const { safeStoreToRefs } = await import('../helpers/safeStoreToRefs.js');
 
 describe('safeStoreToRefs', () => {
   test('should return refs for ref values', () => {
