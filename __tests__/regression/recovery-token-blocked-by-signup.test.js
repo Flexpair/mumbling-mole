@@ -6,8 +6,9 @@
  * modal. However, initializeAuth() then sees user === null and immediately
  * calls auth.open("signup"), which replaces the recovery modal.
  *
- * FIX: hasIdentityTokenInHash() checks for identity tokens in the URL hash
- * and skips auth.open("signup") when present (only if init succeeded).
+ * FIX: hasIdentityTokenInHash() is called BEFORE auth.init() and the result
+ * is captured, because the widget consumes the hash token during init() and
+ * the adapter deletes __savedIdentityHash — checking afterwards is too late.
  */
 
 import { jest } from '@jest/globals';
@@ -63,12 +64,46 @@ describe('Recovery token blocked by signup modal', () => {
         open: jest.fn(),
       };
 
+      // Capture token presence BEFORE init (mirrors production fix)
+      const hadIdentityToken = hasIdentityTokenInHash(hash);
+
       await mockAuth.init({});
       const initSucceeded = true;
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hadIdentityToken) {
+          mockAuth.open('signup');
+        }
+      }
+
+      expect(mockAuth.open).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call auth.open("signup") even when hash is cleared after init (race condition)', async () => {
+      // This is the core regression: the widget clears the hash during init(),
+      // so checking hasIdentityTokenInHash() AFTER init() returns false.
+      const hashBeforeInit = '#recovery_token=IKhPWdwOwPi-c5hbx-yxJA';
+      const hashAfterInit = '';  // widget consumed the token and cleared the hash
+
+      const mockAuth = {
+        init: jest.fn().mockResolvedValue(undefined),
+        currentUser: jest.fn().mockReturnValue(null),
+        open: jest.fn(),
+      };
+
+      // Production fix: capture BEFORE init
+      const hadIdentityToken = hasIdentityTokenInHash(hashBeforeInit);
+
+      await mockAuth.init({});
+      const initSucceeded = true;
+      const user = mockAuth.currentUser();
+
+      // After init, the hash is gone — but we use the pre-init snapshot
+      expect(hasIdentityTokenInHash(hashAfterInit)).toBe(false);  // would have caused the bug
+
+      if (user === null) {
+        if (!initSucceeded || !hadIdentityToken) {
           mockAuth.open('signup');
         }
       }
@@ -85,6 +120,8 @@ describe('Recovery token blocked by signup modal', () => {
         open: jest.fn(),
       };
 
+      const hadIdentityToken = hasIdentityTokenInHash(hash);
+
       let initSucceeded = false;
       try {
         await mockAuth.init({});
@@ -95,7 +132,7 @@ describe('Recovery token blocked by signup modal', () => {
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hadIdentityToken) {
           mockAuth.open('signup');
         }
       }
@@ -112,12 +149,14 @@ describe('Recovery token blocked by signup modal', () => {
         open: jest.fn(),
       };
 
+      const hadIdentityToken = hasIdentityTokenInHash(hash);
+
       await mockAuth.init({});
       const initSucceeded = true;
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hadIdentityToken) {
           mockAuth.open('signup');
         }
       }
@@ -135,12 +174,14 @@ describe('Recovery token blocked by signup modal', () => {
         open: jest.fn(),
       };
 
+      const hadIdentityToken = hasIdentityTokenInHash(hash);
+
       await mockAuth.init({});
       const initSucceeded = true;
       const user = mockAuth.currentUser();
 
       if (user === null) {
-        if (!initSucceeded || !hasIdentityTokenInHash(hash)) {
+        if (!initSucceeded || !hadIdentityToken) {
           mockAuth.open('signup');
         }
       }
