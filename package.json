@@ -37,7 +37,7 @@
     "@esbuild-plugins/node-globals-polyfill": "0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "0.2.2",
     "@jest/globals": "30.3.0",
-    "@playwright/test": "1.58.2",
+    "@playwright/test": "1.59.1",
     "depcheck": "1.4.7",
     "dotenv": "17.4.0",
     "esbuild": "0.27.7",
