@@ -226,6 +226,73 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     expect(mockSettingsStore.jitterBufferSize).toBe(8);
   });
 
+  test('should not shrink buffer when delta is exactly 1 (hysteresis)', async () => {
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
+    await nextTick();
+
+    // Set current buffer to 9 packets
+    mockSettingsStore.jitterBufferSize = 9;
+
+    // Stats that yield targetPackets = 8 (delta = 1 → should NOT shrink)
+    // Target = 143 + 4 * 0 = 143ms → ceil(143/20) = 8
+    mockClient.dataStats = { mean: 143, variance: 0, n: 10 };
+
+    dataPingCallback();
+
+    // Should stay at 9 (hysteresis prevents single-packet shrink)
+    expect(mockSettingsStore.jitterBufferSize).toBe(9);
+  });
+
+  test('should shrink buffer when delta is greater than 1', async () => {
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
+    await nextTick();
+
+    // Set current buffer to 10 packets
+    mockSettingsStore.jitterBufferSize = 10;
+
+    // Stats that yield targetPackets = 8 (delta = 2 → should shrink)
+    mockClient.dataStats = { mean: 143, variance: 0, n: 10 };
+
+    dataPingCallback();
+
+    expect(mockSettingsStore.jitterBufferSize).toBe(8);
+  });
+
+  test('should always grow buffer immediately (no hysteresis on grow)', async () => {
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
+    await nextTick();
+
+    // Set current buffer to 5 packets
+    mockSettingsStore.jitterBufferSize = 5;
+
+    // Stats that yield targetPackets = 6 (grow by 1 → should update)
+    // Target = 105 + 4 * 0 = 105ms → ceil(105/20) = 6
+    mockClient.dataStats = { mean: 105, variance: 0, n: 10 };
+
+    dataPingCallback();
+
+    expect(mockSettingsStore.jitterBufferSize).toBe(6);
+  });
+
+  test('should recover from NaN jitterBufferSize (corrupted localStorage)', async () => {
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUser.__ui;
+    await nextTick();
+
+    // Simulate corrupted localStorage value
+    mockSettingsStore.jitterBufferSize = NaN;
+
+    mockClient.dataStats = { mean: 143, variance: 0, n: 10 };
+
+    dataPingCallback();
+
+    // Should recover to the calculated target
+    expect(mockSettingsStore.jitterBufferSize).toBe(8);
+  });
+
   test('should handle stats.n = 0 correctly (skip calculation)', async () => {
     const { thisUser } = storeToRefs(userStore);
     thisUser.value = mockUser.__ui;
