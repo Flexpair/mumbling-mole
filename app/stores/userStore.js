@@ -51,7 +51,17 @@ export const useUserStore = defineStore('user', () => {
             const targetMs = latency + (factor * deviation);
             const targetPackets = Math.max(minPackets, Math.ceil(targetMs / 20));
             
-            if (settingsStore.jitterBufferSize !== targetPackets) {
+            const current = settingsStore.jitterBufferSize;
+            // Guard against corrupted localStorage value (NaN propagates as no-update)
+            if (!Number.isFinite(current)) {
+               debugLog('[VOICE]', `Invalid jitter buffer size (${current}), resetting to ${targetPackets}`);
+               settingsStore.jitterBufferSize = targetPackets;
+               return;
+            }
+            // Hysteresis: grow immediately (quality), but only shrink if delta > 1
+            // Prevents oscillation when targetPackets sits on a Math.ceil boundary
+            const shouldUpdate = targetPackets > current || (current - targetPackets) > 1;
+            if (shouldUpdate) {
                debugLog('[VOICE]', `Auto-adjusting jitter buffer (${mode}): ${latency.toFixed(1)}ms + ${factor}*${deviation.toFixed(1)}ms = ${targetMs.toFixed(1)}ms -> ${targetPackets} packets`);
                settingsStore.jitterBufferSize = targetPackets;
             }
