@@ -62,6 +62,7 @@ export const useUserStore = defineStore('user', () => {
             // Prevents oscillation when targetPackets sits on a Math.ceil boundary
             const shouldUpdate = targetPackets > current || (current - targetPackets) > 1;
             if (shouldUpdate) {
+               console.warn(`[DIAG] JITTER RESIZE: ${current} -> ${targetPackets} packets (latency=${latency.toFixed(1)}ms, dev=${deviation.toFixed(1)}ms) t=${new Date().toISOString().slice(11, 23)}`);
                debugLog('[VOICE]', `Auto-adjusting jitter buffer (${mode}): ${latency.toFixed(1)}ms + ${factor}*${deviation.toFixed(1)}ms = ${targetMs.toFixed(1)}ms -> ${targetPackets} packets`);
                settingsStore.jitterBufferSize = targetPackets;
             }
@@ -95,7 +96,10 @@ export const useUserStore = defineStore('user', () => {
     debugLog('[VOICE]', 'Jitter buffer auto-adjust enabled for user', newUser.name);
     
     // Listen for dataPing to update stats-based calculation
-    client.on('dataPing', recalculateJitterBuffer);
+    client.on('dataPing', (duration) => {
+      console.log(`[DIAG] dataPing RTT=${duration}ms t=${new Date().toISOString().slice(11, 23)}`);
+      recalculateJitterBuffer();
+    });
     
     // Initialize buffer immediately
     recalculateJitterBuffer();
@@ -245,6 +249,18 @@ export const useUserStore = defineStore('user', () => {
       analyzer: frequencyAnalyzer,
       stopWatch: stopDeafWatch,
       userNode: userNode
+    });
+
+    // DIAG: Log buffer stats from AudioWorklet (reports every ~1s)
+    userNode.on('bufferStats', (stats) => {
+      const hasIssue = stats.droppedPackets > 0 || stats.underruns > 0;
+      const log = hasIssue ? console.warn : console.log;
+      log(
+        `[DIAG] queue=${stats.queueLength}/${stats.maxQueueSize}`,
+        hasIssue ? `DROPS=${stats.droppedPackets} UNDERRUNS=${stats.underruns}` : '',
+        `total_drops=${stats.totalDropped}`,
+        `t=${new Date().toISOString().slice(11, 23)}`
+      );
     });
 
     stream

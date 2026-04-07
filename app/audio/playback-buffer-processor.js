@@ -14,18 +14,21 @@
 registerProcessor('playback-buffer-processor', class extends AudioWorkletProcessor {
   constructor() {
     super();
-    
+
     // FIX #201: Maximum queue size to prevent memory leak
     // 25 packets = 500ms jitter buffer (25 * 20ms frames @ 48kHz)
     // Provides balance between latency and robustness
     this._MAX_QUEUE_SIZE = 25;
-    
+
     this._queue = [];
     this._currentBuffer = null;
     this._currentBufferOffset = 0;
     this._shuttingDown = false;
     this._shutDown = false;
     this._droppedPackets = 0; // Counter for monitoring
+    this._lastDroppedPackets = 0; // For delta reporting
+    this._processCallCount = 0; // For periodic stats reporting
+    this._underrunCount = 0; // Buffer underrun counter
     
     // Listen for incoming audio data from main thread
     this.port.onmessage = (event) => {
@@ -127,12 +130,13 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
     
     const frameCount = output[0].length;
     let outputOffset = 0;
-    
+
     while (outputOffset < frameCount) {
       this._getNextBuffer();
-      
+
       if (!this._currentBuffer) {
         this._fillSilence(output, outputOffset);
+        this._underrunCount++;
         this._shouldShutDown();
         break;
       }
@@ -144,7 +148,24 @@ registerProcessor('playback-buffer-processor', class extends AudioWorkletProcess
       this._copyAudioData(output, outputOffset, sampleCount);
       outputOffset += sampleCount;
     }
-    
+
+    // DIAG: Report queue stats every ~1 second (48000/128 ≈ 375 calls/sec)
+    this._processCallCount++;
+    if (this._processCallCount >= 375) {
+      const newDrops = this._droppedPackets - this._lastDroppedPackets;
+      this.port.postMessage({
+        type: 'stats',
+        queueLength: this._queue.length,
+        maxQueueSize: this._MAX_QUEUE_SIZE,
+        droppedPackets: newDrops,
+        totalDropped: this._droppedPackets,
+        underruns: this._underrunCount
+      });
+      this._lastDroppedPackets = this._droppedPackets;
+      this._underrunCount = 0;
+      this._processCallCount = 0;
+    }
+
     return true;
   }
 });

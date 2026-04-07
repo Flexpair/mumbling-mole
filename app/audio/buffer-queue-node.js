@@ -192,6 +192,9 @@ class BufferQueueNode extends EventEmitter {
           this.emit('close');
         } else if (type === 'closed') {
           // Worklet confirmed shutdown
+        } else if (type === 'stats') {
+          // DIAG: Emit stats for external logging
+          this.emit('bufferStats', event.data);
         }
       };
       
