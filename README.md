@@ -176,13 +176,13 @@ app/
 
 ## 📄 License
 
-mumbling-mole is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](LICENSE) file for the full text and the [NOTICE](NOTICE) file for copyright and attribution details.
+mumbling-mole is licensed under the **GNU Affero General Public License, version 3 only (AGPL-3.0-only)**. See the [LICENSE](LICENSE) file for the full text and the [NOTICE](NOTICE) file for copyright and attribution details.
 
 Portions of this project are derived from the [mumble-web](https://github.com/johni0702/mumble-web) project by Jonas Herzig, licensed under the ISC License. The original ISC license text is preserved in [upstream/LICENSE](upstream/LICENSE).
 
 ### Contributing
 
-By submitting a pull request, you agree that your contribution is licensed under the same terms as this project (AGPL-3.0) and that the project owner may relicense the project as a whole in the future.
+By submitting a pull request, you agree that your contribution is provided under the same license terms as this project: **AGPL-3.0-only**.
 
 ## 🙏 Acknowledgments
 
