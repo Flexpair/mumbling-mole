@@ -1,0 +1,20 @@
+mumbling-mole
+Copyright 2020-2026 Jens Fielenbach
+
+This project is licensed under the GNU Affero General Public License v3.0
+(AGPL-3.0). See the LICENSE file for the full license text.
+
+----------------------------------------------------------------------
+
+This project was originally derived from the mumble-web project by
+Jonas Herzig (Johni0702), which is licensed under the ISC License.
+The original ISC license text is preserved in upstream/LICENSE.
+
+While mumbling-mole has diverged substantially from mumble-web and
+consists overwhelmingly of original code by Jens Fielenbach, any
+portions that remain derivative of or inspired by mumble-web continue
+to acknowledge the original ISC copyright:
+
+    Copyright 2016-2020 Jonas Herzig
+
+Upstream source: https://github.com/Johni0702/mumble-web
