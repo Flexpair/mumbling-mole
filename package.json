@@ -25,6 +25,7 @@
     "update:proto": "curl -o app/mumble-streams/Mumble.proto https://raw.githubusercontent.com/mumble-voip/mumble/master/src/Mumble.proto && npm run generate:proto"
   },
   "author": "Jens Fielenbach <flexpair@icloud.com>",
+  "license": "AGPL-3.0-only",
   "repository": "Flexpair/mumbling-mole",
   "homepage": "https://github.com/Flexpair",
   "engines": {
