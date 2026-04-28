@@ -53,6 +53,7 @@ declare -A DIR_MD_FILES
 # These are exceptions to the "one README.md per folder" rule
 ALLOWED_SPECIAL_FILES=(
     "./.github/copilot-instructions.md"
+    "./.github/SECURITY.md"
 )
 
 # Check if file is in allowed special files
