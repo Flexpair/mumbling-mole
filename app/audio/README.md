@@ -104,7 +104,7 @@ npm run build
 ## Likely Root Causes (Based on Symptoms)
 
 ### If NO logs appear on Client B:
-**Issue**: Network/WebSocket connection
+**Issue**: Network/[WebSocket](https://en.wikipedia.org/wiki/WebSocket) connection
 **Check**: Are both clients actually connected to same server?
 
 ### If logs stop at "[DEBUG-WORKER] Voice stream started":
@@ -175,7 +175,7 @@ Voice echo works correctly, but the test tone button remains invisible.
 **CRITICAL DISCOVERY**: On **brand-new browser installations** (not Inkognito, not after permission reset),
 the entire audio stack initialization can take **6-10+ seconds** on first run ever:
 - OS audio driver interfaces must be initialized
-- WebRTC stack first-time initialization
+- [WebRTC](https://en.wikipedia.org/wiki/WebRTC) stack first-time initialization
 - AudioWorklet engine JIT compilation
 - Browser-internal audio subsystem warm-up
 
@@ -319,7 +319,7 @@ will appear automatically when ready. No timeout errors!
 ## Dual-Output Latency Test Beep
 
 ### Overview
-The test beep plays **both locally (immediate) and as echo from the Mumble server**, allowing users to hear the end-to-end audio latency.
+The test beep plays **both locally (immediate) and as echo from the [Mumble](https://en.wikipedia.org/wiki/Mumble_(software)) server**, allowing users to hear the end-to-end audio latency.
 
 ### How It Works
 
