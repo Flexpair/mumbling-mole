@@ -1,6 +1,6 @@
 # 🎤 Mumbling Mole
 
-> Browser-first [Mumble](https://en.wikipedia.org/wiki/Mumble_(software)) voice chat client – no native dependencies required
+> Browser-first [Mumble](https://en.wikipedia.org/wiki/Mumble_(software)) [voice chat](https://en.wikipedia.org/wiki/Voice_over_IP) client – no native dependencies required
 
 [![Node.js Version](https://img.shields.io/badge/node-%E2%89%A522.0.0-brightgreen)](https://nodejs.org/)
 
