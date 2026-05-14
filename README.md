@@ -10,7 +10,7 @@ Mumbling Mole brings Mumble voice communication to modern browsers via Vue.js 3,
 
 ## ✨ Features
 
-- 🎙️ **Browser-native audio** – AudioWorklet + Opus via WASM
+- 🎙️ **Browser-native audio** – AudioWorklet + [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) via WASM
 - 🔌 **WebSocket tunneling** – TCP over WebSocket (no WebRTC)
 - ⚡ **Vue.js 3 + Pinia** – Modern reactive UI with 7 state stores
 - 📦 **Fast builds** – esbuild compiles in ~0.3s
@@ -70,7 +70,7 @@ npm run build                  # Clean build (~0.3s)
 
 ### Audio Pipeline
 
-- **Send**: `recorder-worker.js` (960 samples @ 48kHz) → Opus WASM → WebSocket
+- **Send**: `recorder-worker.js` (960 samples @ 48kHz) → [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) WASM → WebSocket
 - **Receive**: WebSocket → decoder pool → jitter buffer → speakers
 - **⚠️ Critical**: Sender MUST output 960-sample frames (20ms @ 48kHz)
 
@@ -156,7 +156,7 @@ app/
 
 - **#201**: Unbounded playback queue (memory leak risk)
 - **#202**: No configurable jitter buffer
-- **#203**: Missing Opus PLC (packet loss → clicks)
+- **#203**: Missing [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) PLC (packet loss → clicks)
 
 ---
 

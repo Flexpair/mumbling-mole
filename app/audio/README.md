@@ -113,7 +113,7 @@ npm run build
 
 ### If logs stop at "[DEBUG-DECODER] Transform called":
 **Issue**: Decoder worker not responding
-**Check**: decode-worker.js loading, Opus decoder initialization
+**Check**: decode-worker.js loading, [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) decoder initialization
 
 ### If logs appear but "[AudioContext] State: suspended":
 **Issue**: Autoplay policy blocking audio
