@@ -53,12 +53,15 @@ playwright/.cache/
 node_modules/
 vendors/*/node_modules/
 jspm_packages/
-# npm cache (lokal, nicht committen)
+# Local npm cache
 .npm/
 # Yarn
 .yarn-integrity
 # Output of 'npm pack'
 *.tgz
+
+# Local backup files
+backups/
 
 # ============================================================
 # VS Code / Devcontainers
@@ -92,8 +95,6 @@ Thumbs.db
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
 app/build-info.json
-.env.test
-
 .env.test
 .devcontainer/.env
 
