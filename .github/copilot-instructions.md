@@ -4,7 +4,7 @@ Browser-based Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 
 ## 🚨 Critical Constraints
 
-1. **48 kHz / 960-sample frames** – Audio SENDING uses fixed 20ms @ 48kHz. Never change without coordinating `recorder-worker.js`, worker resampler, and Opus encoder.
+1. **48 kHz / 960-sample frames** – Audio SENDING uses fixed 20ms @ 48kHz. Never change without coordinating `recorder-worker.js`, worker resampler, and [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) encoder.
 2. **Dev container environment** – We run INSIDE a container; Murmur is at `murmur:64738`. Never suggest `docker-compose` or `docker ps`.
 3. **AudioContext singleton** – Always `ensureAudioContext()` from `audio-context-manager.js`, never `new AudioContext()`.
 4. **AudioWorklet = vanilla ES5** – `recorder-worker.js` and `playback-buffer-processor.js` cannot use imports/requires.
@@ -75,7 +75,7 @@ const { connected, client } = storeToRefs(store); // Reactive refs
 **Migration complete**: `AppState.js` removed. Use direct Pinia stores only. Legacy `window.mumbleUi` remains for automation compatibility.
 
 ### Audio Pipeline
-- **Send**: `recorder-worker.js` (AudioWorklet, 960 samples) → `encode-worker.js` (Opus WASM) → WebSocket
+- **Send**: `recorder-worker.js` (AudioWorklet, 960 samples) → `encode-worker.js` ([Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) WASM) → WebSocket
 - **Receive**: WebSocket → `decode-worker.js` pool → `buffer-queue-node.js` (jitter buffer) → speakers
 - **Constraint**: Sender MUST output 960-sample frames (20ms @ 48kHz)
 

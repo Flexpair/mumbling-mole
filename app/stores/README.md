@@ -507,8 +507,8 @@ Test these features manually:
 
 #### Connection Flow:
 1. Open the app
-2. Log in with Netlify Identity
-3. Connect to a Mumble server
+2. Log in with [Netlify](https://en.wikipedia.org/wiki/Netlify) Identity
+3. Connect to a [Mumble](https://en.wikipedia.org/wiki/Mumble_(software)) server
 4. Verify connection succeeds
 5. Verify channel tree appears
 6. Verify user list appears
@@ -1109,7 +1109,7 @@ The `GlobalBindings` class in `app/index.js` was a 1785-line god object that vio
 - Channel tree and links
 - Settings persistence
 - Authentication
-- Guacamole integration
+- [Guacamole](https://en.wikipedia.org/wiki/Apache_Guacamole) integration
 - Message sending
 
 This made the code:
@@ -1123,7 +1123,7 @@ This made the code:
 The refactoring breaks down `GlobalBindings` into 7 focused modules:
 
 ### 1. **ConnectionState** (133 lines)
-- WebSocket connection management
+- [WebSocket](https://en.wikipedia.org/wiki/WebSocket) connection management
 - Remote host/port tracking
 - Audio quality settings
 - Server-side mute/deaf state
@@ -1393,7 +1393,7 @@ Fixed dual-runtime API inconsistencies and added comprehensive test coverage. Al
 
 **Test Coverage:**
 - Rewrote `__tests_./stores/AppState.test.js` with 35 comprehensive tests (was 1 skipped)
-- Fixed Playwright E2E test (`loopback-frequency.spec.js`) for root-level API
+- Fixed [Playwright](https://en.wikipedia.org/wiki/Playwright_(software)) E2E test (`loopback-frequency.spec.js`) for root-level API
 - Coverage: AppState 78%, AudioState 94%, VoiceState 98%, UserState 94%
 
 ### Test Results

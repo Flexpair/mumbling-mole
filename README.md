@@ -1,16 +1,16 @@
 # 🎤 Mumbling Mole
 
-> Browser-first Mumble voice chat client – no native dependencies required
+> Browser-first [Mumble](https://en.wikipedia.org/wiki/Mumble_(software)) [voice chat](https://en.wikipedia.org/wiki/Voice_over_IP) client – no native dependencies required
 
 [![Node.js Version](https://img.shields.io/badge/node-%E2%89%A522.0.0-brightgreen)](https://nodejs.org/)
 
-Mumbling Mole brings Mumble voice communication to modern browsers via Vue.js 3, Web Audio API with AudioWorklet, and WebSocket tunneling (NOT WebRTC). Built on [mumble-web](https://github.com/johni0702/mumble-web).
+Mumbling Mole brings Mumble voice communication to modern browsers via Vue.js 3, Web Audio API with AudioWorklet, and [WebSocket](https://en.wikipedia.org/wiki/WebSocket) tunneling (NOT [WebRTC](https://en.wikipedia.org/wiki/WebRTC)). Built on [mumble-web](https://github.com/johni0702/mumble-web).
 
-**v4.0.3** · Vue.js 3.5.25 · esbuild 0.27.0 · 1,477 unit tests
+**v4.0.3** · Vue.js 3.5.32 · [esbuild](https://en.wikipedia.org/wiki/Esbuild) 0.28.0 · 1,477 unit tests
 
 ## ✨ Features
 
-- 🎙️ **Browser-native audio** – AudioWorklet + Opus via WASM
+- 🎙️ **Browser-native audio** – AudioWorklet + [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) via WASM
 - 🔌 **WebSocket tunneling** – TCP over WebSocket (no WebRTC)
 - ⚡ **Vue.js 3 + Pinia** – Modern reactive UI with 7 state stores
 - 📦 **Fast builds** – esbuild compiles in ~0.3s
@@ -70,7 +70,7 @@ npm run build                  # Clean build (~0.3s)
 
 ### Audio Pipeline
 
-- **Send**: `recorder-worker.js` (960 samples @ 48kHz) → Opus WASM → WebSocket
+- **Send**: `recorder-worker.js` (960 samples @ 48kHz) → [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) WASM → WebSocket
 - **Receive**: WebSocket → decoder pool → jitter buffer → speakers
 - **⚠️ Critical**: Sender MUST output 960-sample frames (20ms @ 48kHz)
 
@@ -156,7 +156,7 @@ app/
 
 - **#201**: Unbounded playback queue (memory leak risk)
 - **#202**: No configurable jitter buffer
-- **#203**: Missing Opus PLC (packet loss → clicks)
+- **#203**: Missing [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) PLC (packet loss → clicks)
 
 ---
 
@@ -176,7 +176,7 @@ app/
 
 ## 📄 License
 
-mumbling-mole is licensed under the **GNU Affero General Public License, version 3 only (AGPL-3.0-only)**. See the [LICENSE](LICENSE) file for the full text and the [NOTICE](NOTICE) file for copyright and attribution details.
+mumbling-mole is licensed under the **GNU Affero General Public License, version 3 only ([AGPL](https://en.wikipedia.org/wiki/GNU_Affero_General_Public_License)-3.0-only)**. See the [LICENSE](LICENSE) file for the full text and the [NOTICE](NOTICE) file for copyright and attribution details.
 
 Portions of this project are derived from the [mumble-web](https://github.com/johni0702/mumble-web) project by Jonas Herzig, licensed under the ISC License. The original ISC license text is preserved in [upstream/LICENSE](upstream/LICENSE).
 
