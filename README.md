@@ -6,7 +6,7 @@
 
 Mumbling Mole brings Mumble voice communication to modern browsers via Vue.js 3, Web Audio API with AudioWorklet, and [WebSocket](https://en.wikipedia.org/wiki/WebSocket) tunneling (NOT [WebRTC](https://en.wikipedia.org/wiki/WebRTC)). Built on [mumble-web](https://github.com/johni0702/mumble-web).
 
-**v4.0.3** · Vue.js 3.5.25 · [esbuild](https://en.wikipedia.org/wiki/Esbuild) 0.27.0 · 1,477 unit tests
+**v4.0.3** · Vue.js 3.5.32 · [esbuild](https://en.wikipedia.org/wiki/Esbuild) 0.28.0 · 1,477 unit tests
 
 ## ✨ Features
 

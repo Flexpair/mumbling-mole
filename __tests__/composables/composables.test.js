@@ -250,6 +250,8 @@ describe('vTooltip directive', () => {
   let mockElement;
   let appendedElements;
   let vTooltip;
+  let createElementSpy;
+  let appendChildSpy;
 
   beforeEach(async () => {
     appendedElements = [];
@@ -266,25 +268,17 @@ describe('vTooltip directive', () => {
       removeEventListener: jest.fn(),
     };
 
-    // Mock document.createElement
-    globalThis.document = {
-      createElement: jest.fn(() => ({
-        className: '',
-        textContent: '',
-        style: {
-          cssText: '',
-          left: '',
-          top: '',
-          opacity: '',
-        },
-        offsetWidth: 100,
-        offsetHeight: 30,
-        remove: jest.fn(),
-      })),
-      body: {
-        appendChild: jest.fn((el) => appendedElements.push(el)),
-      },
-    };
+    const originalCreateElement = document.createElement.bind(document);
+    createElementSpy = jest.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      const element = originalCreateElement(tagName);
+      Object.defineProperty(element, 'offsetWidth', { configurable: true, value: 100 });
+      Object.defineProperty(element, 'offsetHeight', { configurable: true, value: 30 });
+      return element;
+    });
+    appendChildSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((el) => {
+      appendedElements.push(el);
+      return Node.prototype.appendChild.call(document.body, el);
+    });
 
     globalThis.innerWidth = 1024;
     globalThis.innerHeight = 768;
@@ -294,9 +288,9 @@ describe('vTooltip directive', () => {
   });
 
   afterEach(() => {
-    if (globalThis.document?.body) {
-      globalThis.document.body.innerHTML = '';
-    }
+    createElementSpy?.mockRestore();
+    appendChildSpy?.mockRestore();
+    document.body.innerHTML = '';
     delete globalThis.innerWidth;
     delete globalThis.innerHeight;
   });

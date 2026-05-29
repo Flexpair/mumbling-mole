@@ -83,46 +83,46 @@ jest.unstable_mockModule('../../app/utils/promise-cache-utils.js', () => ({
 
 const { useAudioStore } = await import('../../app/stores/audioStore.js');
 
+function createMockAudioContext(state = 'running') {
+  const oscillator = {
+    frequency: { setValueAtTime: jest.fn() },
+    connect: jest.fn(),
+    start: jest.fn(),
+    type: ''
+  };
+  const gainNodes = [];
+
+  const audioContext = {
+    state,
+    currentTime: 10,
+    destination: {},
+    resume: jest.fn().mockImplementation(function resume() {
+      this.state = 'running';
+      return Promise.resolve();
+    }),
+    createOscillator: jest.fn(() => oscillator),
+    createGain: jest.fn(() => {
+      const node = {
+        gain: {
+          cancelScheduledValues: jest.fn(),
+          setValueAtTime: jest.fn(),
+          linearRampToValueAtTime: jest.fn(),
+          exponentialRampToValueAtTime: jest.fn()
+        },
+        connect: jest.fn(),
+        context: audioContext
+      };
+      gainNodes.push(node);
+      return node;
+    }),
+    oscillator,
+    gainNodes
+  };
+  return audioContext;
+}
+
 describe('audioStore', () => {
   let store;
-
-  function createMockAudioContext(state = 'running') {
-    const oscillator = {
-      frequency: { setValueAtTime: jest.fn() },
-      connect: jest.fn(),
-      start: jest.fn(),
-      type: ''
-    };
-    const gainNodes = [];
-
-    const audioContext = {
-      state,
-      currentTime: 10,
-      destination: {},
-      resume: jest.fn().mockImplementation(function resume() {
-        this.state = 'running';
-        return Promise.resolve();
-      }),
-      createOscillator: jest.fn(() => oscillator),
-      createGain: jest.fn(() => {
-        const node = {
-          gain: {
-            cancelScheduledValues: jest.fn(),
-            setValueAtTime: jest.fn(),
-            linearRampToValueAtTime: jest.fn(),
-            exponentialRampToValueAtTime: jest.fn()
-          },
-          connect: jest.fn(),
-          context: audioContext
-        };
-        gainNodes.push(node);
-        return node;
-      }),
-      oscillator,
-      gainNodes
-    };
-    return audioContext;
-  }
 
   beforeEach(() => {
     jest.clearAllMocks();
