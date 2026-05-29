@@ -21,6 +21,68 @@ function getGuacamoleLogin(roles = []) {
 }
 
 /**
+ * Get Guacamole credentials from server or legacy fallback
+ * @param {Object} serverCredentials
+ * @param {string} password
+ * @param {Object} auth
+ * @returns {Object} {user, password}
+ */
+export function getGuacamoleCredentials(serverCredentials, password, auth) {
+  const roles = auth?.currentUser()?.app_metadata?.roles || [];
+  return {
+    user: serverCredentials?.guacamoleUser || getGuacamoleLogin(roles),
+    password: serverCredentials?.guacamolePassword || password
+  };
+}
+
+/**
+ * Register existing users in the channel
+ * @param {Object} client
+ * @param {Object} userStore
+ */
+export function registerExistingUsers(client, userStore) {
+  for (const user of client.users.values()) {
+    if (user !== client.self) {
+      userStore.registerUser(user);
+    }
+  }
+}
+
+/**
+ * Setup Guacamole frame if needed
+ * @param {string|false} guac_login
+ * @param {string} password
+ * @param {boolean} isLoopbackMode
+ * @param {Object} uiStore
+ */
+export function setupGuacamoleFrame(guac_login, password, isLoopbackMode, uiStore) {
+  if (guac_login && !isLoopbackMode) {
+    if (uiStore.guacamoleFrame) {
+      uiStore.guacamoleFrame.start(guac_login, password);
+      uiStore.guacamoleFrame.show();
+    }
+  } else if (!guac_login && !isLoopbackMode) {
+    alert('For visual access please ask your administrator.');
+  }
+}
+
+/**
+ * Reset UI state for new connection
+ * @param {Object} audioStore
+ * @param {Object} userStore
+ * @param {Object} voiceStore
+ */
+export function resetUIForConnection(audioStore, userStore, voiceStore) {
+  audioStore.stopBeep();
+  userStore.thisUser = null;
+  
+  if (!voiceStore.isLoopbackMode) {
+    audioStore.beeperReady = false;
+    voiceStore.voiceHandlerReady = false;
+  }
+}
+
+/**
  * Composable for connection orchestration logic
  * Replaces the connection logic previously in AppState.js
  * 
@@ -156,25 +218,23 @@ export function useConnectionLogic({ auth } = {}) {
     _currentConnectionId = connectionId;
     
     if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          // RACE-SAFE: Only update state if this connection is still active
-          if (_currentConnectionId === connectionId) {
-            audioStore.micPermissionDenied = false;
-          }
-          // Always stop tracks to avoid mic staying active
-          for (const track of stream.getTracks()) {
-            track.stop();
-          }
-        })
-        .catch((err) => {
-          console.warn('Microphone permission denied:', err);
-          // RACE-SAFE: Only update state if this connection is still active
-          if (_currentConnectionId === connectionId) {
-            audioStore.micPermissionDenied = true;
-          }
-        });
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // RACE-SAFE: Only update state if this connection is still active
+        if (_currentConnectionId === connectionId) {
+          audioStore.micPermissionDenied = false;
+        }
+        // Always stop tracks to avoid mic staying active
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+      } catch (err) {
+        console.warn('Microphone permission denied:', err);
+        // RACE-SAFE: Only update state if this connection is still active
+        if (_currentConnectionId === connectionId) {
+          audioStore.micPermissionDenied = true;
+        }
+      }
     }
 
     // Clear audio lock
@@ -207,7 +267,7 @@ export function useConnectionLogic({ auth } = {}) {
     await voiceStore.setupVoiceForConnection(audioEnabled, sampleRate);
 
     // Reset UI state
-    _resetUIForConnection();
+    resetUIForConnection(audioStore, userStore, voiceStore);
 
     try {
       await _establishClientConnection(host, port, username, password, tokens, serverCredentials);
@@ -222,53 +282,14 @@ export function useConnectionLogic({ auth } = {}) {
   }
 
   /**
-   * Reset UI state for new connection
-   * @private
-   */
-  function _resetUIForConnection() {
-    audioStore.stopBeep();
-    userStore.thisUser = null;
-    
-    const wasLoopback = voiceStore.isLoopbackMode;
-    if (!wasLoopback) {
-      audioStore.beeperReady = false;
-      voiceStore.voiceHandlerReady = false;
-    }
-  }
-
-  /**
-   * Get Guacamole credentials from server or legacy fallback
-   * @private
-   */
-  function _getGuacamoleCredentials(serverCredentials, password) {
-    const roles = auth?.currentUser()?.app_metadata?.roles || [];
-    return {
-      user: serverCredentials?.guacamoleUser || getGuacamoleLogin(roles),
-      password: serverCredentials?.guacamolePassword || password
-    };
-  }
-
-  /**
-   * Register existing users in the channel
-   * @private
-   */
-  function _registerExistingUsers(client) {
-    for (const user of client.users.values()) {
-      if (user !== client.self) {
-        userStore.registerUser(user);
-      }
-    }
-  }
-
-  /**
    * Establish client connection and setup
    * @private
    */
   async function _establishClientConnection(host, port, username, password, tokens, serverCredentials) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
     
-    const guacCreds = _getGuacamoleCredentials(serverCredentials, password);
-    _setupGuacamoleFrame(guacCreds.user, guacCreds.password);
+    const guacCreds = getGuacamoleCredentials(serverCredentials, password, auth);
+    setupGuacamoleFrame(guacCreds.user, guacCreds.password, voiceStore.isLoopbackMode, uiStore);
     
     const logKey = voiceStore.isLoopbackMode ? 'logentry.connected_loopback' : 'logentry.connected';
     console.log(translate(logKey));
@@ -281,7 +302,7 @@ export function useConnectionLogic({ auth } = {}) {
       userStore.thisUser = client.self.__ui;
     }
 
-    _registerExistingUsers(client);
+    registerExistingUsers(client, userStore);
     _setupClientHandlers(client);
     
     // CRITICAL: Set audio quality BEFORE creating voice handler
@@ -292,21 +313,6 @@ export function useConnectionLogic({ auth } = {}) {
 
     // Initialize voice handler
     updateVoiceHandler();
-  }
-
-  /**
-   * Setup Guacamole frame if needed
-   * @private
-   */
-  function _setupGuacamoleFrame(guac_login, password) {
-    if (guac_login && !voiceStore.isLoopbackMode) {
-      if (uiStore.guacamoleFrame) {
-        uiStore.guacamoleFrame.start(guac_login, password);
-        uiStore.guacamoleFrame.show();
-      }
-    } else if (!guac_login && !voiceStore.isLoopbackMode) {
-      alert('For visual access please ask your administrator.');
-    }
   }
 
   /**

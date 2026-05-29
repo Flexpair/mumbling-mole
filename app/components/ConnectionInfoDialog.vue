@@ -234,6 +234,7 @@ import { storeToRefs } from 'pinia';
 import MumbleClient from '../mumble-client/index.js';
 import buildInfo from '../build-info.json';
 import { useClipboard } from '../composables';
+import { useSlider } from '../composables/ui/useSlider.js';
 import keyboardjs from 'keyboardjs';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
@@ -454,145 +455,22 @@ const grossBandwidth = computed({
   }
 });
 
-// Custom Slider Logic
-const sliderTrack = useTemplateRef('sliderTrack');
-const isDragging = ref(false);
-
-const onDragStart = (event) => {
-  isDragging.value = true;
-  updateSliderFromEvent(event);
-  globalThis.addEventListener('mousemove', onDragMove);
-  globalThis.addEventListener('mouseup', onDragEnd);
-  globalThis.addEventListener('touchmove', onDragMove);
-  globalThis.addEventListener('touchend', onDragEnd);
-};
-
-const onDragMove = (event) => {
-  if (!isDragging.value) return;
-  updateSliderFromEvent(event);
-};
-
-const onDragEnd = () => {
-  isDragging.value = false;
-  globalThis.removeEventListener('mousemove', onDragMove);
-  globalThis.removeEventListener('mouseup', onDragEnd);
-  globalThis.removeEventListener('touchmove', onDragMove);
-  globalThis.removeEventListener('touchend', onDragEnd);
-};
-
-// Keyboard navigation for slider
-const onKeyDown = (event) => {
-  const step = 1000; // 1 kbps step
-  let newValue;
-  
-  switch(event.key) {
-    case 'ArrowRight':
-    case 'ArrowUp':
-      event.preventDefault();
-      newValue = Math.min(maxAllowedBandwidth.value, grossBandwidth.value + step);
-      break;
-    case 'ArrowLeft':
-    case 'ArrowDown':
-      event.preventDefault();
-      newValue = Math.max(minGrossBandwidth.value, grossBandwidth.value - step);
-      break;
-    case 'Home':
-      event.preventDefault();
-      newValue = minGrossBandwidth.value;
-      break;
-    case 'End':
-      event.preventDefault();
-      newValue = maxAllowedBandwidth.value;
-      break;
-    default:
-      return;
-  }
-  
-  grossBandwidth.value = newValue;
-};
+const {
+  isDragging,
+  onDragStart,
+  onKeyDown,
+  thumbStyle,
+  trackFillStyle,
+  grossBadgeStyle,
+  netBadgeStyle
+} = useSlider(maxAllowedBandwidth, grossBandwidth, overheadBandwidth, minGrossBandwidth, sliderTrack);
 
 // Cleanup on unmount
 onUnmounted(() => {
-  globalThis.removeEventListener('mousemove', onDragMove);
-  globalThis.removeEventListener('mouseup', onDragEnd);
-  globalThis.removeEventListener('touchmove', onDragMove);
-  globalThis.removeEventListener('touchend', onDragEnd);
-
   if (statsInterval) {
     clearInterval(statsInterval);
     statsInterval = null;
   }
-});
-
-const updateSliderFromEvent = (event) => {
-  if (!sliderTrack.value) return;
-  const rect = sliderTrack.value.getBoundingClientRect();
-  const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-  
-  let x = clientX - rect.left;
-  // Clamp to track
-  if (x < 0) x = 0;
-  if (x > rect.width) x = rect.width;
-  
-  const percentage = x / rect.width;
-  const max = maxAllowedBandwidth.value;
-  
-  // The user is dragging the RIGHT edge of the overhead block (Total Bandwidth)
-  let newGross = percentage * max;
-  
-  grossBandwidth.value = Math.round(newGross);
-};
-
-const thumbStyle = computed(() => {
-  const max = maxAllowedBandwidth.value;
-  if (!max) return { width: '0%', left: '0%' };
-  
-  const overhead = overheadBandwidth.value;
-  const gross = grossBandwidth.value;
-  
-  // Width is proportional to overhead
-  const widthPct = (overhead / max) * 100;
-  
-  // Right edge is at gross/max
-  // Left edge is at (gross - overhead)/max
-  const net = gross - overhead;
-  const leftPct = (net / max) * 100;
-  
-  return {
-    width: `${widthPct}%`,
-    left: `${leftPct}%`
-  };
-});
-
-const trackFillStyle = computed(() => {
-   const max = maxAllowedBandwidth.value;
-   if (!max) return { width: '0%' };
-   
-   const overhead = overheadBandwidth.value;
-   const gross = grossBandwidth.value;
-   const net = gross - overhead;
-   
-   // Fill up to the start of the thumb (Net Bandwidth)
-   const widthPct = (net / max) * 100;
-   return { width: `${widthPct}%` };
-});
-
-const grossBadgeStyle = computed(() => {
-  const max = maxAllowedBandwidth.value;
-  if (!max) return { left: '0%' };
-  const gross = grossBandwidth.value;
-  const pct = (gross / max) * 100;
-  return { left: `${pct}%` };
-});
-
-const netBadgeStyle = computed(() => {
-  const max = maxAllowedBandwidth.value;
-  if (!max) return { left: '0%' };
-  const overhead = overheadBandwidth.value;
-  const gross = grossBandwidth.value;
-  const net = gross - overhead;
-  const pct = (net / max) * 100;
-  return { left: `${pct}%` };
 });
 
 const minGrossBandwidth = computed(() => {
