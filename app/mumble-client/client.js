@@ -1,15 +1,18 @@
 /* global Buffer, console, setInterval, clearInterval, process */
 import mumbleStreams from '../mumble-streams/index.js'
+import { calcEnforcableBandwidth, getMaxBitrate, getPreferredBitrate, getActualBitrate } from '../utils/AudioBandwidthCalculator.js'
+import { handlePermissionDenied } from './handlers/PermissionDeniedHandler.js'
 import duplexer from '../utils/duplexer-lite.js'
 import { EventEmitter } from 'node:events'
 import through2 from '../utils/through2-lite.js'
 import { getOSName, getOSVersion } from './utils.js'
-import User from './user.js'
-import Channel from './channel.js'
+import { handleTextMessage } from './handlers/MessageHandler.js'
+import { handleChannelState, handleChannelRemove } from './handlers/ChannelHandler.js'
+import { handleUserState, handleUserRemove } from './handlers/UserHandler.js'
+import { handleServerSync, handlePing } from './handlers/NetworkStatsHandler.js'
+import { handleServerConfig, handleCodecVersion, handleCryptSetup, handlePermissionQuery, handleUserStats, handleSuggestConfig } from './handlers/ServerConfigHandler.js'
 import Stats from '../utils/stats-lite.js'
 import { debugLog } from '../utils/debug-utils.js'
-
-const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
 
 /*
  * @typedef {'Opus'} Codec
@@ -75,7 +78,7 @@ const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
  * speaking), as such it must not be expensive.
  *
  * @function Codecs#createDecoderStream
- * @param {User} user - The user
+ * @param {import('./user.js').default} user - The user
  * @return {DecoderStream} The decoder stream
  */
 
@@ -389,137 +392,38 @@ class MumbleClient extends EventEmitter {
   }
 
   _onServerSync (payload) {
-    // This packet finishes the initialization phase
-    const maxBandwidth = payload.maxBandwidth
-    this.self = this._userById[payload.session]
-    this.maxBandwidth = maxBandwidth
-    this.welcomeMessage = payload.welcomeText
-    
-    // Emit maxBandwidth change
-    if (maxBandwidth !== undefined) {
-      this.emit('maxBandwidthChange', maxBandwidth)
-    }
-
-    // Make sure we send regular ping packets to not get disconnected
-    this._pinger = setInterval(() => {
-      if (this._inFlightDataPings >= this._maxInFlightDataPings) {
-        this._error('timeout')
-        return
-      }
-      const dataStats = this._dataStats.getAll()
-      const voiceStats = this._voiceStats.getAll()
-      const timestamp = Date.now()
-      const payload = {
-        timestamp: timestamp
-      }
-      if (dataStats) {
-        payload.tcpPackets = dataStats.n
-        payload.tcpPingAvg = dataStats.mean
-        payload.tcpPingVar = dataStats.variance
-      }
-      if (voiceStats) {
-        payload.udpPackets = voiceStats.n
-        payload.udpPingAvg = voiceStats.mean
-        payload.udpPingVar = voiceStats.variance
-      }
-      this._send({
-        name: 'Ping',
-        payload: payload
-      })
-      this._inFlightDataPings++
-    }, this._dataPingInterval)
-
-    // We are now connected
-    this.emit('connected')
+    handleServerSync(this, payload);
   }
 
   _onPing (payload) {
-    if (this._inFlightDataPings <= 0) {
-      console.warn('Got unexpected ping message:', payload)
-      return
-    }
-    this._inFlightDataPings--
-
-    const now = Date.now()
-    // Handle both Long objects and plain numbers
-    const timestamp = payload.timestamp?.toNumber ? payload.timestamp.toNumber() : payload.timestamp
-    const duration = now - timestamp
-    this._dataStats.update(duration)
-    this.emit('dataPing', duration)
+    handlePing(this, payload);
   }
 
   // Handlers for server-sent informational packets
   // These packets don't require action but we log their contents for debugging
   
   _onServerConfig (payload) {
-    // Server configuration (max message length, max bandwidth, etc.)
-    debugLog('[ServerConfig]', {
-      maxBandwidth: payload.maxBandwidth,
-      maxMessageLength: payload.messageLength,
-      maxImageLength: payload.imageMessageLength,
-      maxUsers: payload.maxUsers,
-      welcomeText: payload.welcomeText,
-      allowHtml: payload.allowHtml,
-      recordingAllowed: payload.recordingAllowed
-    })
+    handleServerConfig(this, payload);
   }
 
   _onCodecVersion (payload) {
-    // Server codec capabilities announcement
-    debugLog('[CodecVersion]', {
-      alpha: payload.alpha,
-      beta: payload.beta,
-      preferAlpha: payload.preferAlpha,
-      opus: payload.opus
-    })
+    handleCodecVersion(this, payload);
   }
 
   _onCryptSetup (payload) {
-    // UDP encryption setup (not used by WebSocket-based client)
-    // Only log if client/server nonce present (indicates encryption handshake)
-    if (payload.client_nonce || payload.server_nonce || payload.key) {
-      debugLog('[CryptSetup]', 'UDP encryption keys exchanged (not used by WebSocket client)')
-    }
+    handleCryptSetup(this, payload);
   }
 
   _onPermissionQuery (payload) {
-    // Server response to permission queries
-    debugLog('[PermissionQuery]', {
-      channelId: payload.channelId,
-      permissions: payload.permissions,
-      flush: payload.flush
-    })
+    handlePermissionQuery(this, payload);
   }
 
   _onUserStats (payload) {
-    // Detailed user statistics (bandwidth, packets, etc.)
-    const session = payload.session
-    const user = this._userById[session]
-    debugLog('[UserStats]', {
-      user: user ? user.name : `session ${session}`,
-      version: payload.version,
-      certificates: payload.certificates?.length || 0,
-      fromClient: payload.fromClient,
-      fromServer: payload.fromServer,
-      udpPackets: payload.udpPackets,
-      tcpPackets: payload.tcpPackets,
-      udpPingAvg: payload.udpPingAvg,
-      tcpPingAvg: payload.tcpPingAvg,
-      onlineSeconds: payload.onlinesecs,
-      idleSeconds: payload.idlesecs,
-      bandwidth: payload.bandwidth,
-      opus: payload.opus,
-      strongCertificate: payload.strongCertificate
-    })
+    handleUserStats(this, payload);
   }
 
   _onSuggestConfig (payload) {
-    // Server suggestions for client configuration
-    debugLog('[SuggestConfig]', {
-      version: payload.version,
-      positional: payload.positional,
-      pushToTalk: payload.pushToTalk
-    })
+    handleSuggestConfig(this, payload);
   }
 
 
@@ -530,106 +434,27 @@ class MumbleClient extends EventEmitter {
   }
 
   _onPermissionDenied (payload) {
-    if (payload.type === DenyType.Text) {
-      this.emit('denied', 'Text', null, null, payload.reason)
-    } else if (payload.type === DenyType.Permission) {
-      const channelId = payload.channelId;
-      const user = this._userById[payload.session]
-      const channel = this._channelById[channelId]
-      this.emit('denied', 'Permission', user, channel, payload.permission)
-    } else if (payload.type === DenyType.SuperUser) {
-      this.emit('denied', 'SuperUser', null, null, null)
-    } else if (payload.type === DenyType.ChannelName) {
-      this.emit('denied', 'ChannelName', null, null, payload.name)
-    } else if (payload.type === DenyType.TextTooLong) {
-      this.emit('denied', 'TextTooLong', null, null, null)
-    } else if (payload.type === DenyType.TemporaryChannel) {
-      this.emit('denied', 'TemporaryChannel', null, null, null)
-    } else if (payload.type === DenyType.MissingCertificate) {
-      const user = this._userById[payload.session]
-      this.emit('denied', 'MissingCertificate', user, null, null)
-    } else if (payload.type === DenyType.UserName) {
-      this.emit('denied', 'UserName', null, null, payload.name)
-    } else if (payload.type === DenyType.ChannelFull) {
-      this.emit('denied', 'ChannelFull', null, null, null)
-    } else if (payload.type === DenyType.NestingLimit) {
-      this.emit('denied', 'NestingLimit', null, null, null)
-    } else {
-      throw new Error('Invalid DenyType: ' + payload.type)
-    }
+    handlePermissionDenied(this, payload);
   }
 
   _onTextMessage (payload) {
-    const channelIds = payload.channelId ?? [];
-    const treeIds = payload.treeId ?? [];
-    this.emit(
-      'message',
-      this._userById[payload.actor],
-      payload.message,
-      payload.session.map(id => this._userById[id]),
-      channelIds.map(id => this._channelById[id]),
-      treeIds.map(id => this._channelById[id])
-    )
+    handleTextMessage(this, payload);
   }
 
   _onChannelState (payload) {
-    const channelId = payload.channelId;
-    let channel = this._channelById[channelId]
-    if (!channel) {
-      channel = new Channel(this, channelId)
-      this._channelById[channel._id] = channel
-      this.channels.push(channel)
-      this.emit('newChannel', channel)
-    }
-    for (const otherId of (payload.linksRemove || [])) {
-      const otherChannel = this._channelById[otherId]
-      if (otherChannel?.links.includes(channel)) {
-        otherChannel._update({
-          linksRemove: [channelId]
-        })
-      }
-    }
-    channel._update(payload)
+    handleChannelState(this, payload);
   }
 
   _onChannelRemove (payload) {
-    const channelId = payload.channelId;
-    const channel = this._channelById[channelId]
-    if (channel) {
-      channel._remove()
-      delete this._channelById[channel._id]
-      const index = this.channels.indexOf(channel)
-      if (index !== -1) {
-        this.channels.splice(index, 1)
-      }
-    }
+    handleChannelRemove(this, payload);
   }
 
   _onUserState (payload) {
-    let user = this._userById[payload.session]
-    if (!user) {
-      user = new User(this, payload.session)
-      this._userById[user._id] = user
-      this.users.push(user)
-      this.emit('newUser', user)
-
-      // For some reason, the mumble protocol does not send the initial
-      // channel of a client if it is the root channel
-      payload.channelId = payload.channelId ?? 0
-    }
-    user._update(payload)
+    handleUserState(this, payload);
   }
 
   _onUserRemove (payload) {
-    const user = this._userById[payload.session]
-    if (user) {
-      user._remove(this._userById[payload.actor], payload.reason, payload.ban)
-      delete this._userById[user._id]
-      const index = this.users.indexOf(user)
-      if (index !== -1) {
-        this.users.splice(index, 1)
-      }
-    }
+    handleUserRemove(this, payload);
   }
 
   /**
@@ -672,23 +497,7 @@ class MumbleClient extends EventEmitter {
    * Calculate the actual bitrate taking into account maximum and preferred bitrate.
    */
   getActualBitrate (samplesPerPacket, sendPosition) {
-    const bitrate = this.getPreferredBitrate(samplesPerPacket, sendPosition)
-    
-    // If server doesn't send maxBandwidth, use preferred bitrate
-    if (this.maxBandwidth === undefined) {
-      return bitrate
-    }
-    
-    const bandwidth = MumbleClient.calcEnforcableBandwidth(
-      bitrate,
-      samplesPerPacket,
-      sendPosition
-    )
-    if (bandwidth <= this.maxBandwidth) {
-      return bitrate
-    } else {
-      return this.getMaxBitrate(samplesPerPacket, sendPosition)
-    }
+    return getActualBitrate(this._preferredBitrate, this.maxBandwidth, samplesPerPacket, sendPosition)
   }
 
   /**
@@ -696,26 +505,14 @@ class MumbleClient extends EventEmitter {
    * {@link getMaxBitrate} if not set.
    */
   getPreferredBitrate (samplesPerPacket, sendPosition) {
-    if (this._preferredBitrate) {
-      return this._preferredBitrate
-    }
-    // If server doesn't send maxBandwidth, use a reasonable default (40000 bps = 40 kbit/s)
-    if (this.maxBandwidth === undefined) {
-      return 40000
-    }
-    return this.getMaxBitrate(samplesPerPacket, sendPosition)
+    return getPreferredBitrate(this._preferredBitrate, this.maxBandwidth, samplesPerPacket, sendPosition)
   }
 
   /**
    * Calculate the maximum bitrate possible given the current server bandwidth limit.
    */
   getMaxBitrate (samplesPerPacket, sendPosition) {
-    const overhead = MumbleClient.calcEnforcableBandwidth(
-      0,
-      samplesPerPacket,
-      sendPosition
-    )
-    return this.maxBandwidth - overhead
+    return getMaxBitrate(this.maxBandwidth, samplesPerPacket, sendPosition)
   }
 
   /**
@@ -724,15 +521,7 @@ class MumbleClient extends EventEmitter {
    * @returns {number} bits per second
    */
   static calcEnforcableBandwidth (bitrate, samplesPerPacket, sendPosition) {
-    // IP + UDP + Crypt + Header + SeqNum (VarInt) + Codec Header + Optional Position
-    // Codec Header depends on codec:
-    //  - Opus is always 4 (just the length as VarInt)
-    //  - CELT/Speex depends on frames (10ms) per packet (1 byte each)
-    const codecHeaderBytes = Math.max(4, samplesPerPacket / 480)
-    const packetBytes =
-      20 + 8 + 4 + 1 + 4 + codecHeaderBytes + (sendPosition ? 12 : 0)
-    const packetsPerSecond = 48000 / samplesPerPacket
-    return Math.round(packetBytes * 8 * packetsPerSecond + bitrate)
+    return calcEnforcableBandwidth(bitrate, samplesPerPacket, sendPosition)
   }
 
   /**
@@ -740,7 +529,7 @@ class MumbleClient extends EventEmitter {
    * If no such channel exists, return null.
    *
    * @param {string} name - The full name of the channel
-   * @returns {?Channel}
+   * @returns {?import('./channel.js').default}
    */
   getChannel (name) {
     for (const channel of this.channels) {
