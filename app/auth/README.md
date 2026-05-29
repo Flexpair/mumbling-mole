@@ -4,7 +4,7 @@ Provider-agnostic authentication system for mumbling-mole.
 
 ## Purpose
 
-This authentication abstraction layer provides a unified interface for different authentication providers. The current production provider is **Netlify Identity**. The abstraction enables future migration to other auth services without changing application code.
+This authentication abstraction layer provides a unified interface for different authentication providers. The current production provider is **[Netlify](https://en.wikipedia.org/wiki/Netlify) Identity**. The abstraction enables future migration to other auth services without changing application code.
 
 ## Netlify Identity Status
 
@@ -12,7 +12,7 @@ This authentication abstraction layer provides a unified interface for different
 
 **Source**: https://www.netlify.com/blog/auth0-extension-identity-changes/
 
-Auth0 is available as an alternative for teams needing enterprise features (MFA, SSO), but migration is **not required**.
+Auth0 is available as an alternative for teams needing enterprise features ([MFA](https://en.wikipedia.org/wiki/Multi-factor_authentication), [SSO](https://en.wikipedia.org/wiki/Single_sign-on)), but migration is **not required**.
 
 ## Architecture
 

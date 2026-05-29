@@ -4,7 +4,7 @@ Browser-based Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 
 ## 🚨 Critical Constraints
 
-1. **48 kHz / 960-sample frames** – Audio SENDING uses fixed 20ms @ 48kHz. Never change without coordinating `recorder-worker.js`, worker resampler, and Opus encoder.
+1. **48 kHz / 960-sample frames** – Audio SENDING uses fixed 20ms @ 48kHz. Never change without coordinating `recorder-worker.js`, worker resampler, and [Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) encoder.
 2. **Dev container environment** – We run INSIDE a container; Murmur is at `murmur:64738`. Never suggest `docker-compose` or `docker ps`.
 3. **AudioContext singleton** – Always `ensureAudioContext()` from `audio-context-manager.js`, never `new AudioContext()`.
 4. **AudioWorklet = vanilla ES5** – `recorder-worker.js` and `playback-buffer-processor.js` cannot use imports/requires.
@@ -16,6 +16,8 @@ Browser-based Mumble voice client using Vue.js 3, Web Audio API, and WebSocket t
 10. **Playwright locators** – Use role-based (`getByRole`, `getByLabel`) with `.or()` fallbacks.
 11. **Never edit mumble-proto-minimal.js** – Auto-generated; modify `Mumble.proto` or `scripts/generate-proto.sh`.
 12. **Git remote policy** – Never interact with the `upstream` repo/remote. Assume all git operations (push/PR base/merge targets) refer to the Flexpair fork (`origin`, e.g. `Flexpair/mumbling-mole`) unless explicitly instructed otherwise.
+13. **Jest CI dependencies** – Do not omit optional npm dependencies for Jest 30.x CI. Clean Linux CI reproduced resolver failures for local `<rootDir>` config paths when using `npm ci --omit=optional`; prefer the workflow pattern `npm ci || npm i` unless a new clean-container test proves otherwise.
+14. **Dependabot PR search** – Dependabot development-dependency PRs use the title prefix `build(deps-dev)`, not `build(deps/dev)`. Search both variants only when investigating historical mentions.
 
 ## 🎯 Quick Start
 
@@ -75,7 +77,7 @@ const { connected, client } = storeToRefs(store); // Reactive refs
 **Migration complete**: `AppState.js` removed. Use direct Pinia stores only. Legacy `window.mumbleUi` remains for automation compatibility.
 
 ### Audio Pipeline
-- **Send**: `recorder-worker.js` (AudioWorklet, 960 samples) → `encode-worker.js` (Opus WASM) → WebSocket
+- **Send**: `recorder-worker.js` (AudioWorklet, 960 samples) → `encode-worker.js` ([Opus](<https://en.wikipedia.org/wiki/Opus_(audio_format)>) WASM) → WebSocket
 - **Receive**: WebSocket → `decode-worker.js` pool → `buffer-queue-node.js` (jitter buffer) → speakers
 - **Constraint**: Sender MUST output 960-sample frames (20ms @ 48kHz)
 
@@ -100,6 +102,11 @@ npm run test:unit:coverage     # With coverage report
 npm run test:loopback:headed   # Playwright with visible browser
 npm run test:loopback:debug    # Step-through debugging
 ```
+
+### CI Reproduction
+
+- Local `node_modules` can hide dependency-resolution failures. Reproduce CI-only Jest issues in a clean Linux container with a fresh `npm ci` before changing Jest config or custom transformers.
+- If Jest reports that an existing local transformer such as `<rootDir>/jest.text-transformer.cjs` cannot be found, check the install mode first; the file may exist while Jest resolution is broken by omitted optional dependencies.
 
 ### Loopback Test Limitation
 ⚠️ Loopback (`target=31`) tests same-client audio path only. Does NOT validate:
