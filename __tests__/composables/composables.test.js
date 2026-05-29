@@ -294,7 +294,9 @@ describe('vTooltip directive', () => {
   });
 
   afterEach(() => {
-    delete globalThis.document;
+    if (globalThis.document?.body) {
+      globalThis.document.body.innerHTML = '';
+    }
     delete globalThis.innerWidth;
     delete globalThis.innerHeight;
   });

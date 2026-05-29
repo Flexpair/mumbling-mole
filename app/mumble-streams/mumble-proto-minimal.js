@@ -1,4 +1,4 @@
-/*eslint-disable block-scoped-var, id-length, no-control-regex, no-magic-numbers, no-prototype-builtins, no-redeclare, no-shadow, no-var, sort-vars*/
+/*eslint-disable block-scoped-var, id-length, no-control-regex, no-magic-numbers, no-mixed-operators, no-prototype-builtins, no-redeclare, no-shadow, no-var, sort-vars, default-case, jsdoc/require-param*/
 import $protobuf from "protobufjs/minimal.js";
 
 const $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
@@ -14,7 +14,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function Version(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -27,9 +27,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new Version(properties);
         };
 
-        Version.encode = function encode(message, writer) {
+        Version.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.version != null && Object.hasOwnProperty.call(message, "version"))
                 writer.uint32(8).uint32(message.version);
             if (message.release != null && Object.hasOwnProperty.call(message, "release"))
@@ -38,38 +42,67 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(26).string(message.os);
             if (message.osVersion != null && Object.hasOwnProperty.call(message, "osVersion"))
                 writer.uint32(34).string(message.osVersion);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        Version.decode = function decode(reader, length) {
+        Version.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Version();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Version();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.version = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.release = reader.string();
-                        break;
-                    }
-                case 3: {
-                        message.os = reader.string();
-                        break;
-                    }
-                case 4: {
-                        message.osVersion = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.version = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        message.release = reader.string();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.os = reader.string();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 2)
+                            break;
+                        message.osVersion = reader.string();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        Version.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.Version";
         };
 
         return Version;
@@ -80,7 +113,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function UDPTunnel(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -90,32 +123,59 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new UDPTunnel(properties);
         };
 
-        UDPTunnel.encode = function encode(message, writer) {
+        UDPTunnel.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             writer.uint32(10).bytes(message.packet);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        UDPTunnel.decode = function decode(reader, length) {
+        UDPTunnel.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UDPTunnel();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UDPTunnel();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.packet = reader.bytes();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        message.packet = reader.bytes();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("packet"))
                 throw $util.ProtocolError("missing required 'packet'", { instance: message });
             return message;
+        };
+
+        UDPTunnel.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.UDPTunnel";
         };
 
         return UDPTunnel;
@@ -128,7 +188,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.celtVersions = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -142,9 +202,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new Authenticate(properties);
         };
 
-        Authenticate.encode = function encode(message, writer) {
+        Authenticate.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.username != null && Object.hasOwnProperty.call(message, "username"))
                 writer.uint32(10).string(message.username);
             if (message.password != null && Object.hasOwnProperty.call(message, "password"))
@@ -157,51 +221,85 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     writer.uint32(32).int32(message.celtVersions[i]);
             if (message.opus != null && Object.hasOwnProperty.call(message, "opus"))
                 writer.uint32(40).bool(message.opus);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        Authenticate.decode = function decode(reader, length) {
+        Authenticate.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Authenticate();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Authenticate();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
                 case 1: {
+                        if (wireType !== 2)
+                            break;
                         message.username = reader.string();
-                        break;
+                        continue;
                     }
                 case 2: {
+                        if (wireType !== 2)
+                            break;
                         message.password = reader.string();
-                        break;
+                        continue;
                     }
                 case 3: {
+                        if (wireType !== 2)
+                            break;
                         if (!(message.tokens && message.tokens.length))
                             message.tokens = [];
                         message.tokens.push(reader.string());
-                        break;
+                        continue;
                     }
                 case 4: {
-                        if (!(message.celtVersions && message.celtVersions.length))
-                            message.celtVersions = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.celtVersions && message.celtVersions.length))
+                                message.celtVersions = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.celtVersions.push(reader.int32());
-                        } else
-                            message.celtVersions.push(reader.int32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.celtVersions && message.celtVersions.length))
+                            message.celtVersions = [];
+                        message.celtVersions.push(reader.int32());
+                        continue;
                     }
                 case 5: {
+                        if (wireType !== 0)
+                            break;
                         message.opus = reader.bool();
-                        break;
+                        continue;
                     }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
                 }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        Authenticate.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.Authenticate";
         };
 
         return Authenticate;
@@ -212,7 +310,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function Ping(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -232,9 +330,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new Ping(properties);
         };
 
-        Ping.encode = function encode(message, writer) {
+        Ping.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.timestamp != null && Object.hasOwnProperty.call(message, "timestamp"))
                 writer.uint32(8).uint64(message.timestamp);
             if (message.good != null && Object.hasOwnProperty.call(message, "good"))
@@ -257,66 +359,109 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(85).float(message.tcpPingAvg);
             if (message.tcpPingVar != null && Object.hasOwnProperty.call(message, "tcpPingVar"))
                 writer.uint32(93).float(message.tcpPingVar);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        Ping.decode = function decode(reader, length) {
+        Ping.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Ping();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Ping();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.timestamp = reader.uint64();
-                        break;
-                    }
-                case 2: {
-                        message.good = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.late = reader.uint32();
-                        break;
-                    }
-                case 4: {
-                        message.lost = reader.uint32();
-                        break;
-                    }
-                case 5: {
-                        message.resync = reader.uint32();
-                        break;
-                    }
-                case 6: {
-                        message.udpPackets = reader.uint32();
-                        break;
-                    }
-                case 7: {
-                        message.tcpPackets = reader.uint32();
-                        break;
-                    }
-                case 8: {
-                        message.udpPingAvg = reader.float();
-                        break;
-                    }
-                case 9: {
-                        message.udpPingVar = reader.float();
-                        break;
-                    }
-                case 10: {
-                        message.tcpPingAvg = reader.float();
-                        break;
-                    }
-                case 11: {
-                        message.tcpPingVar = reader.float();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.timestamp = reader.uint64();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.good = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.late = reader.uint32();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.lost = reader.uint32();
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 0)
+                            break;
+                        message.resync = reader.uint32();
+                        continue;
+                    }
+                case 6: {
+                        if (wireType !== 0)
+                            break;
+                        message.udpPackets = reader.uint32();
+                        continue;
+                    }
+                case 7: {
+                        if (wireType !== 0)
+                            break;
+                        message.tcpPackets = reader.uint32();
+                        continue;
+                    }
+                case 8: {
+                        if (wireType !== 5)
+                            break;
+                        message.udpPingAvg = reader.float();
+                        continue;
+                    }
+                case 9: {
+                        if (wireType !== 5)
+                            break;
+                        message.udpPingVar = reader.float();
+                        continue;
+                    }
+                case 10: {
+                        if (wireType !== 5)
+                            break;
+                        message.tcpPingAvg = reader.float();
+                        continue;
+                    }
+                case 11: {
+                        if (wireType !== 5)
+                            break;
+                        message.tcpPingVar = reader.float();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        Ping.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.Ping";
         };
 
         return Ping;
@@ -327,7 +472,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function Reject(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -338,37 +483,66 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new Reject(properties);
         };
 
-        Reject.encode = function encode(message, writer) {
+        Reject.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.type != null && Object.hasOwnProperty.call(message, "type"))
                 writer.uint32(8).int32(message.type);
             if (message.reason != null && Object.hasOwnProperty.call(message, "reason"))
                 writer.uint32(18).string(message.reason);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        Reject.decode = function decode(reader, length) {
+        Reject.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.Reject();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Reject();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.type = reader.int32();
-                        break;
-                    }
-                case 2: {
-                        message.reason = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.type = reader.int32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        message.reason = reader.string();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        Reject.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.Reject";
         };
 
         Reject.RejectType = (function() {
@@ -393,7 +567,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function ServerSync(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -406,9 +580,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ServerSync(properties);
         };
 
-        ServerSync.encode = function encode(message, writer) {
+        ServerSync.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.session != null && Object.hasOwnProperty.call(message, "session"))
                 writer.uint32(8).uint32(message.session);
             if (message.maxBandwidth != null && Object.hasOwnProperty.call(message, "maxBandwidth"))
@@ -417,38 +595,67 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(26).string(message.welcomeText);
             if (message.permissions != null && Object.hasOwnProperty.call(message, "permissions"))
                 writer.uint32(32).uint64(message.permissions);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ServerSync.decode = function decode(reader, length) {
+        ServerSync.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ServerSync();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ServerSync();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.session = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.maxBandwidth = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.welcomeText = reader.string();
-                        break;
-                    }
-                case 4: {
-                        message.permissions = reader.uint64();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.session = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.maxBandwidth = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.welcomeText = reader.string();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.permissions = reader.uint64();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        ServerSync.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ServerSync";
         };
 
         return ServerSync;
@@ -459,7 +666,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function ChannelRemove(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -469,32 +676,59 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ChannelRemove(properties);
         };
 
-        ChannelRemove.encode = function encode(message, writer) {
+        ChannelRemove.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             writer.uint32(8).uint32(message.channelId);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ChannelRemove.decode = function decode(reader, length) {
+        ChannelRemove.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ChannelRemove();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ChannelRemove();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.channelId = reader.uint32();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.channelId = reader.uint32();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("channelId"))
                 throw $util.ProtocolError("missing required 'channelId'", { instance: message });
             return message;
+        };
+
+        ChannelRemove.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ChannelRemove";
         };
 
         return ChannelRemove;
@@ -508,7 +742,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.linksRemove = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -528,9 +762,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ChannelState(properties);
         };
 
-        ChannelState.encode = function encode(message, writer) {
+        ChannelState.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.channelId != null && Object.hasOwnProperty.call(message, "channelId"))
                 writer.uint32(8).uint32(message.channelId);
             if (message.parent != null && Object.hasOwnProperty.call(message, "parent"))
@@ -556,87 +794,139 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(82).bytes(message.descriptionHash);
             if (message.maxUsers != null && Object.hasOwnProperty.call(message, "maxUsers"))
                 writer.uint32(88).uint32(message.maxUsers);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ChannelState.decode = function decode(reader, length) {
+        ChannelState.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ChannelState();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ChannelState();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
                 case 1: {
+                        if (wireType !== 0)
+                            break;
                         message.channelId = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 2: {
+                        if (wireType !== 0)
+                            break;
                         message.parent = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 3: {
+                        if (wireType !== 2)
+                            break;
                         message.name = reader.string();
-                        break;
+                        continue;
                     }
                 case 4: {
-                        if (!(message.links && message.links.length))
-                            message.links = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.links && message.links.length))
+                                message.links = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.links.push(reader.uint32());
-                        } else
-                            message.links.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.links && message.links.length))
+                            message.links = [];
+                        message.links.push(reader.uint32());
+                        continue;
                     }
                 case 5: {
+                        if (wireType !== 2)
+                            break;
                         message.description = reader.string();
-                        break;
+                        continue;
                     }
                 case 6: {
-                        if (!(message.linksAdd && message.linksAdd.length))
-                            message.linksAdd = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.linksAdd && message.linksAdd.length))
+                                message.linksAdd = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.linksAdd.push(reader.uint32());
-                        } else
-                            message.linksAdd.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.linksAdd && message.linksAdd.length))
+                            message.linksAdd = [];
+                        message.linksAdd.push(reader.uint32());
+                        continue;
                     }
                 case 7: {
-                        if (!(message.linksRemove && message.linksRemove.length))
-                            message.linksRemove = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.linksRemove && message.linksRemove.length))
+                                message.linksRemove = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.linksRemove.push(reader.uint32());
-                        } else
-                            message.linksRemove.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.linksRemove && message.linksRemove.length))
+                            message.linksRemove = [];
+                        message.linksRemove.push(reader.uint32());
+                        continue;
                     }
                 case 8: {
+                        if (wireType !== 0)
+                            break;
                         message.temporary = reader.bool();
-                        break;
+                        continue;
                     }
                 case 9: {
+                        if (wireType !== 0)
+                            break;
                         message.position = reader.int32();
-                        break;
+                        continue;
                     }
                 case 10: {
+                        if (wireType !== 2)
+                            break;
                         message.descriptionHash = reader.bytes();
-                        break;
+                        continue;
                     }
                 case 11: {
+                        if (wireType !== 0)
+                            break;
                         message.maxUsers = reader.uint32();
-                        break;
+                        continue;
                     }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
                 }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        ChannelState.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ChannelState";
         };
 
         return ChannelState;
@@ -647,7 +937,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function UserRemove(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -660,9 +950,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new UserRemove(properties);
         };
 
-        UserRemove.encode = function encode(message, writer) {
+        UserRemove.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             writer.uint32(8).uint32(message.session);
             if (message.actor != null && Object.hasOwnProperty.call(message, "actor"))
                 writer.uint32(16).uint32(message.actor);
@@ -670,40 +964,69 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(26).string(message.reason);
             if (message.ban != null && Object.hasOwnProperty.call(message, "ban"))
                 writer.uint32(32).bool(message.ban);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        UserRemove.decode = function decode(reader, length) {
+        UserRemove.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserRemove();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserRemove();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.session = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.actor = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.reason = reader.string();
-                        break;
-                    }
-                case 4: {
-                        message.ban = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.session = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.actor = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.reason = reader.string();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.ban = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("session"))
                 throw $util.ProtocolError("missing required 'session'", { instance: message });
             return message;
+        };
+
+        UserRemove.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.UserRemove";
         };
 
         return UserRemove;
@@ -714,7 +1037,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function UserState(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -742,9 +1065,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new UserState(properties);
         };
 
-        UserState.encode = function encode(message, writer) {
+        UserState.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.session != null && Object.hasOwnProperty.call(message, "session"))
                 writer.uint32(8).uint32(message.session);
             if (message.actor != null && Object.hasOwnProperty.call(message, "actor"))
@@ -783,98 +1110,157 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(144).bool(message.prioritySpeaker);
             if (message.recording != null && Object.hasOwnProperty.call(message, "recording"))
                 writer.uint32(152).bool(message.recording);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        UserState.decode = function decode(reader, length) {
+        UserState.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserState();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserState();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.session = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.actor = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.name = reader.string();
-                        break;
-                    }
-                case 4: {
-                        message.userId = reader.uint32();
-                        break;
-                    }
-                case 5: {
-                        message.channelId = reader.uint32();
-                        break;
-                    }
-                case 6: {
-                        message.mute = reader.bool();
-                        break;
-                    }
-                case 7: {
-                        message.deaf = reader.bool();
-                        break;
-                    }
-                case 8: {
-                        message.suppress = reader.bool();
-                        break;
-                    }
-                case 9: {
-                        message.selfMute = reader.bool();
-                        break;
-                    }
-                case 10: {
-                        message.selfDeaf = reader.bool();
-                        break;
-                    }
-                case 11: {
-                        message.texture = reader.bytes();
-                        break;
-                    }
-                case 12: {
-                        message.pluginContext = reader.bytes();
-                        break;
-                    }
-                case 13: {
-                        message.pluginIdentity = reader.string();
-                        break;
-                    }
-                case 14: {
-                        message.comment = reader.string();
-                        break;
-                    }
-                case 15: {
-                        message.hash = reader.string();
-                        break;
-                    }
-                case 16: {
-                        message.commentHash = reader.bytes();
-                        break;
-                    }
-                case 17: {
-                        message.textureHash = reader.bytes();
-                        break;
-                    }
-                case 18: {
-                        message.prioritySpeaker = reader.bool();
-                        break;
-                    }
-                case 19: {
-                        message.recording = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.session = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.actor = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.name = reader.string();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.userId = reader.uint32();
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 0)
+                            break;
+                        message.channelId = reader.uint32();
+                        continue;
+                    }
+                case 6: {
+                        if (wireType !== 0)
+                            break;
+                        message.mute = reader.bool();
+                        continue;
+                    }
+                case 7: {
+                        if (wireType !== 0)
+                            break;
+                        message.deaf = reader.bool();
+                        continue;
+                    }
+                case 8: {
+                        if (wireType !== 0)
+                            break;
+                        message.suppress = reader.bool();
+                        continue;
+                    }
+                case 9: {
+                        if (wireType !== 0)
+                            break;
+                        message.selfMute = reader.bool();
+                        continue;
+                    }
+                case 10: {
+                        if (wireType !== 0)
+                            break;
+                        message.selfDeaf = reader.bool();
+                        continue;
+                    }
+                case 11: {
+                        if (wireType !== 2)
+                            break;
+                        message.texture = reader.bytes();
+                        continue;
+                    }
+                case 12: {
+                        if (wireType !== 2)
+                            break;
+                        message.pluginContext = reader.bytes();
+                        continue;
+                    }
+                case 13: {
+                        if (wireType !== 2)
+                            break;
+                        message.pluginIdentity = reader.string();
+                        continue;
+                    }
+                case 14: {
+                        if (wireType !== 2)
+                            break;
+                        message.comment = reader.string();
+                        continue;
+                    }
+                case 15: {
+                        if (wireType !== 2)
+                            break;
+                        message.hash = reader.string();
+                        continue;
+                    }
+                case 16: {
+                        if (wireType !== 2)
+                            break;
+                        message.commentHash = reader.bytes();
+                        continue;
+                    }
+                case 17: {
+                        if (wireType !== 2)
+                            break;
+                        message.textureHash = reader.bytes();
+                        continue;
+                    }
+                case 18: {
+                        if (wireType !== 0)
+                            break;
+                        message.prioritySpeaker = reader.bool();
+                        continue;
+                    }
+                case 19: {
+                        if (wireType !== 0)
+                            break;
+                        message.recording = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        UserState.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.UserState";
         };
 
         return UserState;
@@ -886,7 +1272,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.bans = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -897,40 +1283,69 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new BanList(properties);
         };
 
-        BanList.encode = function encode(message, writer) {
+        BanList.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.bans != null && message.bans.length)
                 for (let i = 0; i < message.bans.length; ++i)
-                    $root.MumbleProto.BanList.BanEntry.encode(message.bans[i], writer.uint32(10).fork()).ldelim();
+                    $root.MumbleProto.BanList.BanEntry.encode(message.bans[i], writer.uint32(10).fork(), _depth + 1).ldelim();
             if (message.query != null && Object.hasOwnProperty.call(message, "query"))
                 writer.uint32(16).bool(message.query);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        BanList.decode = function decode(reader, length) {
+        BanList.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.BanList();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.BanList();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        if (!(message.bans && message.bans.length))
-                            message.bans = [];
-                        message.bans.push($root.MumbleProto.BanList.BanEntry.decode(reader, reader.uint32()));
-                        break;
-                    }
-                case 2: {
-                        message.query = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.bans && message.bans.length))
+                            message.bans = [];
+                        message.bans.push($root.MumbleProto.BanList.BanEntry.decode(reader, reader.uint32(), undefined, _depth + 1));
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.query = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        BanList.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.BanList";
         };
 
         BanList.BanEntry = (function() {
@@ -938,7 +1353,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             function BanEntry(properties) {
                 if (properties)
                     for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
                             this[keys[i]] = properties[keys[i]];
             }
 
@@ -954,9 +1369,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return new BanEntry(properties);
             };
 
-            BanEntry.encode = function encode(message, writer) {
+            BanEntry.encode = function encode(message, writer, _depth) {
                 if (!writer)
                     writer = $Writer.create();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw Error("max depth exceeded");
                 writer.uint32(10).bytes(message.address);
                 writer.uint32(16).uint32(message.mask);
                 if (message.name != null && Object.hasOwnProperty.call(message, "name"))
@@ -969,54 +1388,89 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     writer.uint32(50).string(message.start);
                 if (message.duration != null && Object.hasOwnProperty.call(message, "duration"))
                     writer.uint32(56).uint32(message.duration);
+                if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
                 return writer;
             };
 
-            BanEntry.decode = function decode(reader, length) {
+            BanEntry.decode = function decode(reader, length, _end, _depth, _target) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
-                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.BanList.BanEntry();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw Error("max depth exceeded");
+                let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.BanList.BanEntry();
                 while (reader.pos < end) {
-                    let tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1: {
-                            message.address = reader.bytes();
-                            break;
-                        }
-                    case 2: {
-                            message.mask = reader.uint32();
-                            break;
-                        }
-                    case 3: {
-                            message.name = reader.string();
-                            break;
-                        }
-                    case 4: {
-                            message.hash = reader.string();
-                            break;
-                        }
-                    case 5: {
-                            message.reason = reader.string();
-                            break;
-                        }
-                    case 6: {
-                            message.start = reader.string();
-                            break;
-                        }
-                    case 7: {
-                            message.duration = reader.uint32();
-                            break;
-                        }
-                    default:
-                        reader.skipType(tag & 7);
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = undefined;
                         break;
                     }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            message.address = reader.bytes();
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 0)
+                                break;
+                            message.mask = reader.uint32();
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            message.name = reader.string();
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 2)
+                                break;
+                            message.hash = reader.string();
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 2)
+                                break;
+                            message.reason = reader.string();
+                            continue;
+                        }
+                    case 6: {
+                            if (wireType !== 2)
+                                break;
+                            message.start = reader.string();
+                            continue;
+                        }
+                    case 7: {
+                            if (wireType !== 0)
+                                break;
+                            message.duration = reader.uint32();
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
+                if (_end !== undefined)
+                    throw Error("missing end group");
                 if (!message.hasOwnProperty("address"))
                     throw $util.ProtocolError("missing required 'address'", { instance: message });
                 if (!message.hasOwnProperty("mask"))
                     throw $util.ProtocolError("missing required 'mask'", { instance: message });
                 return message;
+            };
+
+            BanEntry.getTypeUrl = function getTypeUrl(prefix) {
+                if (prefix === undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/MumbleProto.BanList.BanEntry";
             };
 
             return BanEntry;
@@ -1033,7 +1487,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.treeId = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1047,9 +1501,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new TextMessage(properties);
         };
 
-        TextMessage.encode = function encode(message, writer) {
+        TextMessage.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.actor != null && Object.hasOwnProperty.call(message, "actor"))
                 writer.uint32(8).uint32(message.actor);
             if (message.session != null && message.session.length)
@@ -1062,65 +1520,105 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 for (let i = 0; i < message.treeId.length; ++i)
                     writer.uint32(32).uint32(message.treeId[i]);
             writer.uint32(42).string(message.message);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        TextMessage.decode = function decode(reader, length) {
+        TextMessage.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.TextMessage();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.TextMessage();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
                 case 1: {
+                        if (wireType !== 0)
+                            break;
                         message.actor = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 2: {
-                        if (!(message.session && message.session.length))
-                            message.session = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.session && message.session.length))
+                                message.session = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.session.push(reader.uint32());
-                        } else
-                            message.session.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.session && message.session.length))
+                            message.session = [];
+                        message.session.push(reader.uint32());
+                        continue;
                     }
                 case 3: {
-                        if (!(message.channelId && message.channelId.length))
-                            message.channelId = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.channelId && message.channelId.length))
+                                message.channelId = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.channelId.push(reader.uint32());
-                        } else
-                            message.channelId.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.channelId && message.channelId.length))
+                            message.channelId = [];
+                        message.channelId.push(reader.uint32());
+                        continue;
                     }
                 case 4: {
-                        if (!(message.treeId && message.treeId.length))
-                            message.treeId = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.treeId && message.treeId.length))
+                                message.treeId = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.treeId.push(reader.uint32());
-                        } else
-                            message.treeId.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.treeId && message.treeId.length))
+                            message.treeId = [];
+                        message.treeId.push(reader.uint32());
+                        continue;
                     }
                 case 5: {
+                        if (wireType !== 2)
+                            break;
                         message.message = reader.string();
-                        break;
+                        continue;
                     }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
                 }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("message"))
                 throw $util.ProtocolError("missing required 'message'", { instance: message });
             return message;
+        };
+
+        TextMessage.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.TextMessage";
         };
 
         return TextMessage;
@@ -1131,7 +1629,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function PermissionDenied(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1146,9 +1644,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new PermissionDenied(properties);
         };
 
-        PermissionDenied.encode = function encode(message, writer) {
+        PermissionDenied.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.permission != null && Object.hasOwnProperty.call(message, "permission"))
                 writer.uint32(8).uint32(message.permission);
             if (message.channelId != null && Object.hasOwnProperty.call(message, "channelId"))
@@ -1161,46 +1663,79 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(40).int32(message.type);
             if (message.name != null && Object.hasOwnProperty.call(message, "name"))
                 writer.uint32(50).string(message.name);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        PermissionDenied.decode = function decode(reader, length) {
+        PermissionDenied.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.PermissionDenied();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.PermissionDenied();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.permission = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.channelId = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.session = reader.uint32();
-                        break;
-                    }
-                case 4: {
-                        message.reason = reader.string();
-                        break;
-                    }
-                case 5: {
-                        message.type = reader.int32();
-                        break;
-                    }
-                case 6: {
-                        message.name = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.permission = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.channelId = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.session = reader.uint32();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 2)
+                            break;
+                        message.reason = reader.string();
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 0)
+                            break;
+                        message.type = reader.int32();
+                        continue;
+                    }
+                case 6: {
+                        if (wireType !== 2)
+                            break;
+                        message.name = reader.string();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        PermissionDenied.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.PermissionDenied";
         };
 
         PermissionDenied.DenyType = (function() {
@@ -1229,7 +1764,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.acls = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1243,62 +1778,97 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ACL(properties);
         };
 
-        ACL.encode = function encode(message, writer) {
+        ACL.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             writer.uint32(8).uint32(message.channelId);
             if (message.inheritAcls != null && Object.hasOwnProperty.call(message, "inheritAcls"))
                 writer.uint32(16).bool(message.inheritAcls);
             if (message.groups != null && message.groups.length)
                 for (let i = 0; i < message.groups.length; ++i)
-                    $root.MumbleProto.ACL.ChanGroup.encode(message.groups[i], writer.uint32(26).fork()).ldelim();
+                    $root.MumbleProto.ACL.ChanGroup.encode(message.groups[i], writer.uint32(26).fork(), _depth + 1).ldelim();
             if (message.acls != null && message.acls.length)
                 for (let i = 0; i < message.acls.length; ++i)
-                    $root.MumbleProto.ACL.ChanACL.encode(message.acls[i], writer.uint32(34).fork()).ldelim();
+                    $root.MumbleProto.ACL.ChanACL.encode(message.acls[i], writer.uint32(34).fork(), _depth + 1).ldelim();
             if (message.query != null && Object.hasOwnProperty.call(message, "query"))
                 writer.uint32(40).bool(message.query);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ACL.decode = function decode(reader, length) {
+        ACL.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ACL();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ACL();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.channelId = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.inheritAcls = reader.bool();
-                        break;
-                    }
-                case 3: {
-                        if (!(message.groups && message.groups.length))
-                            message.groups = [];
-                        message.groups.push($root.MumbleProto.ACL.ChanGroup.decode(reader, reader.uint32()));
-                        break;
-                    }
-                case 4: {
-                        if (!(message.acls && message.acls.length))
-                            message.acls = [];
-                        message.acls.push($root.MumbleProto.ACL.ChanACL.decode(reader, reader.uint32()));
-                        break;
-                    }
-                case 5: {
-                        message.query = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.channelId = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.inheritAcls = reader.bool();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.groups && message.groups.length))
+                            message.groups = [];
+                        message.groups.push($root.MumbleProto.ACL.ChanGroup.decode(reader, reader.uint32(), undefined, _depth + 1));
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.acls && message.acls.length))
+                            message.acls = [];
+                        message.acls.push($root.MumbleProto.ACL.ChanACL.decode(reader, reader.uint32(), undefined, _depth + 1));
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 0)
+                            break;
+                        message.query = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("channelId"))
                 throw $util.ProtocolError("missing required 'channelId'", { instance: message });
             return message;
+        };
+
+        ACL.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ACL";
         };
 
         ACL.ChanGroup = (function() {
@@ -1309,7 +1879,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 this.inheritedMembers = [];
                 if (properties)
                     for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
                             this[keys[i]] = properties[keys[i]];
             }
 
@@ -1325,9 +1895,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return new ChanGroup(properties);
             };
 
-            ChanGroup.encode = function encode(message, writer) {
+            ChanGroup.encode = function encode(message, writer, _depth) {
                 if (!writer)
                     writer = $Writer.create();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw Error("max depth exceeded");
                 writer.uint32(10).string(message.name);
                 if (message.inherited != null && Object.hasOwnProperty.call(message, "inherited"))
                     writer.uint32(16).bool(message.inherited);
@@ -1344,73 +1918,117 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 if (message.inheritedMembers != null && message.inheritedMembers.length)
                     for (let i = 0; i < message.inheritedMembers.length; ++i)
                         writer.uint32(56).uint32(message.inheritedMembers[i]);
+                if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
                 return writer;
             };
 
-            ChanGroup.decode = function decode(reader, length) {
+            ChanGroup.decode = function decode(reader, length, _end, _depth, _target) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
-                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ACL.ChanGroup();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw Error("max depth exceeded");
+                let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ACL.ChanGroup();
                 while (reader.pos < end) {
-                    let tag = reader.uint32();
-                    switch (tag >>> 3) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
                     case 1: {
+                            if (wireType !== 2)
+                                break;
                             message.name = reader.string();
-                            break;
+                            continue;
                         }
                     case 2: {
+                            if (wireType !== 0)
+                                break;
                             message.inherited = reader.bool();
-                            break;
+                            continue;
                         }
                     case 3: {
+                            if (wireType !== 0)
+                                break;
                             message.inherit = reader.bool();
-                            break;
+                            continue;
                         }
                     case 4: {
+                            if (wireType !== 0)
+                                break;
                             message.inheritable = reader.bool();
-                            break;
+                            continue;
                         }
                     case 5: {
-                            if (!(message.add && message.add.length))
-                                message.add = [];
-                            if ((tag & 7) === 2) {
+                            if (wireType === 2) {
+                                if (!(message.add && message.add.length))
+                                    message.add = [];
                                 let end2 = reader.uint32() + reader.pos;
                                 while (reader.pos < end2)
                                     message.add.push(reader.uint32());
-                            } else
-                                message.add.push(reader.uint32());
-                            break;
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.add && message.add.length))
+                                message.add = [];
+                            message.add.push(reader.uint32());
+                            continue;
                         }
                     case 6: {
-                            if (!(message.remove && message.remove.length))
-                                message.remove = [];
-                            if ((tag & 7) === 2) {
+                            if (wireType === 2) {
+                                if (!(message.remove && message.remove.length))
+                                    message.remove = [];
                                 let end2 = reader.uint32() + reader.pos;
                                 while (reader.pos < end2)
                                     message.remove.push(reader.uint32());
-                            } else
-                                message.remove.push(reader.uint32());
-                            break;
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.remove && message.remove.length))
+                                message.remove = [];
+                            message.remove.push(reader.uint32());
+                            continue;
                         }
                     case 7: {
-                            if (!(message.inheritedMembers && message.inheritedMembers.length))
-                                message.inheritedMembers = [];
-                            if ((tag & 7) === 2) {
+                            if (wireType === 2) {
+                                if (!(message.inheritedMembers && message.inheritedMembers.length))
+                                    message.inheritedMembers = [];
                                 let end2 = reader.uint32() + reader.pos;
                                 while (reader.pos < end2)
                                     message.inheritedMembers.push(reader.uint32());
-                            } else
-                                message.inheritedMembers.push(reader.uint32());
-                            break;
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.inheritedMembers && message.inheritedMembers.length))
+                                message.inheritedMembers = [];
+                            message.inheritedMembers.push(reader.uint32());
+                            continue;
                         }
-                    default:
-                        reader.skipType(tag & 7);
-                        break;
                     }
+                    reader.skipType(wireType, _depth, tag);
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
+                if (_end !== undefined)
+                    throw Error("missing end group");
                 if (!message.hasOwnProperty("name"))
                     throw $util.ProtocolError("missing required 'name'", { instance: message });
                 return message;
+            };
+
+            ChanGroup.getTypeUrl = function getTypeUrl(prefix) {
+                if (prefix === undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/MumbleProto.ACL.ChanGroup";
             };
 
             return ChanGroup;
@@ -1421,7 +2039,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             function ChanACL(properties) {
                 if (properties)
                     for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
                             this[keys[i]] = properties[keys[i]];
             }
 
@@ -1437,9 +2055,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return new ChanACL(properties);
             };
 
-            ChanACL.encode = function encode(message, writer) {
+            ChanACL.encode = function encode(message, writer, _depth) {
                 if (!writer)
                     writer = $Writer.create();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw Error("max depth exceeded");
                 if (message.applyHere != null && Object.hasOwnProperty.call(message, "applyHere"))
                     writer.uint32(8).bool(message.applyHere);
                 if (message.applySubs != null && Object.hasOwnProperty.call(message, "applySubs"))
@@ -1454,50 +2076,85 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     writer.uint32(48).uint32(message.grant);
                 if (message.deny != null && Object.hasOwnProperty.call(message, "deny"))
                     writer.uint32(56).uint32(message.deny);
+                if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
                 return writer;
             };
 
-            ChanACL.decode = function decode(reader, length) {
+            ChanACL.decode = function decode(reader, length, _end, _depth, _target) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
-                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ACL.ChanACL();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw Error("max depth exceeded");
+                let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ACL.ChanACL();
                 while (reader.pos < end) {
-                    let tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1: {
-                            message.applyHere = reader.bool();
-                            break;
-                        }
-                    case 2: {
-                            message.applySubs = reader.bool();
-                            break;
-                        }
-                    case 3: {
-                            message.inherited = reader.bool();
-                            break;
-                        }
-                    case 4: {
-                            message.userId = reader.uint32();
-                            break;
-                        }
-                    case 5: {
-                            message.group = reader.string();
-                            break;
-                        }
-                    case 6: {
-                            message.grant = reader.uint32();
-                            break;
-                        }
-                    case 7: {
-                            message.deny = reader.uint32();
-                            break;
-                        }
-                    default:
-                        reader.skipType(tag & 7);
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = undefined;
                         break;
                     }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 0)
+                                break;
+                            message.applyHere = reader.bool();
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 0)
+                                break;
+                            message.applySubs = reader.bool();
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 0)
+                                break;
+                            message.inherited = reader.bool();
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 0)
+                                break;
+                            message.userId = reader.uint32();
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 2)
+                                break;
+                            message.group = reader.string();
+                            continue;
+                        }
+                    case 6: {
+                            if (wireType !== 0)
+                                break;
+                            message.grant = reader.uint32();
+                            continue;
+                        }
+                    case 7: {
+                            if (wireType !== 0)
+                                break;
+                            message.deny = reader.uint32();
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
+                if (_end !== undefined)
+                    throw Error("missing end group");
                 return message;
+            };
+
+            ChanACL.getTypeUrl = function getTypeUrl(prefix) {
+                if (prefix === undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/MumbleProto.ACL.ChanACL";
             };
 
             return ChanACL;
@@ -1513,7 +2170,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.names = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1524,48 +2181,80 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new QueryUsers(properties);
         };
 
-        QueryUsers.encode = function encode(message, writer) {
+        QueryUsers.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.ids != null && message.ids.length)
                 for (let i = 0; i < message.ids.length; ++i)
                     writer.uint32(8).uint32(message.ids[i]);
             if (message.names != null && message.names.length)
                 for (let i = 0; i < message.names.length; ++i)
                     writer.uint32(18).string(message.names[i]);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        QueryUsers.decode = function decode(reader, length) {
+        QueryUsers.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.QueryUsers();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.QueryUsers();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
                 case 1: {
-                        if (!(message.ids && message.ids.length))
-                            message.ids = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.ids && message.ids.length))
+                                message.ids = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.ids.push(reader.uint32());
-                        } else
-                            message.ids.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.ids && message.ids.length))
+                            message.ids = [];
+                        message.ids.push(reader.uint32());
+                        continue;
                     }
                 case 2: {
+                        if (wireType !== 2)
+                            break;
                         if (!(message.names && message.names.length))
                             message.names = [];
                         message.names.push(reader.string());
-                        break;
+                        continue;
                     }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
                 }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        QueryUsers.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.QueryUsers";
         };
 
         return QueryUsers;
@@ -1576,7 +2265,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function CryptSetup(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1588,43 +2277,74 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new CryptSetup(properties);
         };
 
-        CryptSetup.encode = function encode(message, writer) {
+        CryptSetup.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.key != null && Object.hasOwnProperty.call(message, "key"))
                 writer.uint32(10).bytes(message.key);
             if (message.clientNonce != null && Object.hasOwnProperty.call(message, "clientNonce"))
                 writer.uint32(18).bytes(message.clientNonce);
             if (message.serverNonce != null && Object.hasOwnProperty.call(message, "serverNonce"))
                 writer.uint32(26).bytes(message.serverNonce);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        CryptSetup.decode = function decode(reader, length) {
+        CryptSetup.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.CryptSetup();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.CryptSetup();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.key = reader.bytes();
-                        break;
-                    }
-                case 2: {
-                        message.clientNonce = reader.bytes();
-                        break;
-                    }
-                case 3: {
-                        message.serverNonce = reader.bytes();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        message.key = reader.bytes();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        message.clientNonce = reader.bytes();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.serverNonce = reader.bytes();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        CryptSetup.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.CryptSetup";
         };
 
         return CryptSetup;
@@ -1635,7 +2355,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function ContextActionModify(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1648,9 +2368,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ContextActionModify(properties);
         };
 
-        ContextActionModify.encode = function encode(message, writer) {
+        ContextActionModify.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             writer.uint32(10).string(message.action);
             if (message.text != null && Object.hasOwnProperty.call(message, "text"))
                 writer.uint32(18).string(message.text);
@@ -1658,40 +2382,69 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(24).uint32(message.context);
             if (message.operation != null && Object.hasOwnProperty.call(message, "operation"))
                 writer.uint32(32).int32(message.operation);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ContextActionModify.decode = function decode(reader, length) {
+        ContextActionModify.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ContextActionModify();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ContextActionModify();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.action = reader.string();
-                        break;
-                    }
-                case 2: {
-                        message.text = reader.string();
-                        break;
-                    }
-                case 3: {
-                        message.context = reader.uint32();
-                        break;
-                    }
-                case 4: {
-                        message.operation = reader.int32();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        message.action = reader.string();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        message.text = reader.string();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.context = reader.uint32();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.operation = reader.int32();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("action"))
                 throw $util.ProtocolError("missing required 'action'", { instance: message });
             return message;
+        };
+
+        ContextActionModify.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ContextActionModify";
         };
 
         ContextActionModify.Context = (function() {
@@ -1717,7 +2470,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function ContextAction(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1729,44 +2482,75 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ContextAction(properties);
         };
 
-        ContextAction.encode = function encode(message, writer) {
+        ContextAction.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.session != null && Object.hasOwnProperty.call(message, "session"))
                 writer.uint32(8).uint32(message.session);
             if (message.channelId != null && Object.hasOwnProperty.call(message, "channelId"))
                 writer.uint32(16).uint32(message.channelId);
             writer.uint32(26).string(message.action);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ContextAction.decode = function decode(reader, length) {
+        ContextAction.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ContextAction();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ContextAction();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.session = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.channelId = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.action = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.session = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.channelId = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.action = reader.string();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("action"))
                 throw $util.ProtocolError("missing required 'action'", { instance: message });
             return message;
+        };
+
+        ContextAction.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ContextAction";
         };
 
         return ContextAction;
@@ -1778,7 +2562,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.users = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1788,34 +2572,61 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new UserList(properties);
         };
 
-        UserList.encode = function encode(message, writer) {
+        UserList.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.users != null && message.users.length)
                 for (let i = 0; i < message.users.length; ++i)
-                    $root.MumbleProto.UserList.User.encode(message.users[i], writer.uint32(10).fork()).ldelim();
+                    $root.MumbleProto.UserList.User.encode(message.users[i], writer.uint32(10).fork(), _depth + 1).ldelim();
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        UserList.decode = function decode(reader, length) {
+        UserList.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserList();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserList();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        if (!(message.users && message.users.length))
-                            message.users = [];
-                        message.users.push($root.MumbleProto.UserList.User.decode(reader, reader.uint32()));
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.users && message.users.length))
+                            message.users = [];
+                        message.users.push($root.MumbleProto.UserList.User.decode(reader, reader.uint32(), undefined, _depth + 1));
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        UserList.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.UserList";
         };
 
         UserList.User = (function() {
@@ -1823,7 +2634,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             function User(properties) {
                 if (properties)
                     for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
                             this[keys[i]] = properties[keys[i]];
             }
 
@@ -1836,9 +2647,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return new User(properties);
             };
 
-            User.encode = function encode(message, writer) {
+            User.encode = function encode(message, writer, _depth) {
                 if (!writer)
                     writer = $Writer.create();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw Error("max depth exceeded");
                 writer.uint32(8).uint32(message.userId);
                 if (message.name != null && Object.hasOwnProperty.call(message, "name"))
                     writer.uint32(18).string(message.name);
@@ -1846,40 +2661,69 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     writer.uint32(26).string(message.lastSeen);
                 if (message.lastChannel != null && Object.hasOwnProperty.call(message, "lastChannel"))
                     writer.uint32(32).uint32(message.lastChannel);
+                if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
                 return writer;
             };
 
-            User.decode = function decode(reader, length) {
+            User.decode = function decode(reader, length, _end, _depth, _target) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
-                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserList.User();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw Error("max depth exceeded");
+                let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserList.User();
                 while (reader.pos < end) {
-                    let tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1: {
-                            message.userId = reader.uint32();
-                            break;
-                        }
-                    case 2: {
-                            message.name = reader.string();
-                            break;
-                        }
-                    case 3: {
-                            message.lastSeen = reader.string();
-                            break;
-                        }
-                    case 4: {
-                            message.lastChannel = reader.uint32();
-                            break;
-                        }
-                    default:
-                        reader.skipType(tag & 7);
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = undefined;
                         break;
                     }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 0)
+                                break;
+                            message.userId = reader.uint32();
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 2)
+                                break;
+                            message.name = reader.string();
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            message.lastSeen = reader.string();
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 0)
+                                break;
+                            message.lastChannel = reader.uint32();
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
+                if (_end !== undefined)
+                    throw Error("missing end group");
                 if (!message.hasOwnProperty("userId"))
                     throw $util.ProtocolError("missing required 'userId'", { instance: message });
                 return message;
+            };
+
+            User.getTypeUrl = function getTypeUrl(prefix) {
+                if (prefix === undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/MumbleProto.UserList.User";
             };
 
             return User;
@@ -1894,7 +2738,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.targets = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -1905,40 +2749,69 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new VoiceTarget(properties);
         };
 
-        VoiceTarget.encode = function encode(message, writer) {
+        VoiceTarget.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.id != null && Object.hasOwnProperty.call(message, "id"))
                 writer.uint32(8).uint32(message.id);
             if (message.targets != null && message.targets.length)
                 for (let i = 0; i < message.targets.length; ++i)
-                    $root.MumbleProto.VoiceTarget.Target.encode(message.targets[i], writer.uint32(18).fork()).ldelim();
+                    $root.MumbleProto.VoiceTarget.Target.encode(message.targets[i], writer.uint32(18).fork(), _depth + 1).ldelim();
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        VoiceTarget.decode = function decode(reader, length) {
+        VoiceTarget.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.VoiceTarget();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.VoiceTarget();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.id = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        if (!(message.targets && message.targets.length))
-                            message.targets = [];
-                        message.targets.push($root.MumbleProto.VoiceTarget.Target.decode(reader, reader.uint32()));
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.id = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.targets && message.targets.length))
+                            message.targets = [];
+                        message.targets.push($root.MumbleProto.VoiceTarget.Target.decode(reader, reader.uint32(), undefined, _depth + 1));
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        VoiceTarget.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.VoiceTarget";
         };
 
         VoiceTarget.Target = (function() {
@@ -1947,7 +2820,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 this.session = [];
                 if (properties)
                     for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
                             this[keys[i]] = properties[keys[i]];
             }
 
@@ -1961,9 +2834,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return new Target(properties);
             };
 
-            Target.encode = function encode(message, writer) {
+            Target.encode = function encode(message, writer, _depth) {
                 if (!writer)
                     writer = $Writer.create();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw Error("max depth exceeded");
                 if (message.session != null && message.session.length)
                     for (let i = 0; i < message.session.length; ++i)
                         writer.uint32(8).uint32(message.session[i]);
@@ -1975,49 +2852,83 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     writer.uint32(32).bool(message.links);
                 if (message.children != null && Object.hasOwnProperty.call(message, "children"))
                     writer.uint32(40).bool(message.children);
+                if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
                 return writer;
             };
 
-            Target.decode = function decode(reader, length) {
+            Target.decode = function decode(reader, length, _end, _depth, _target) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
-                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.VoiceTarget.Target();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw Error("max depth exceeded");
+                let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.VoiceTarget.Target();
                 while (reader.pos < end) {
-                    let tag = reader.uint32();
-                    switch (tag >>> 3) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
                     case 1: {
-                            if (!(message.session && message.session.length))
-                                message.session = [];
-                            if ((tag & 7) === 2) {
+                            if (wireType === 2) {
+                                if (!(message.session && message.session.length))
+                                    message.session = [];
                                 let end2 = reader.uint32() + reader.pos;
                                 while (reader.pos < end2)
                                     message.session.push(reader.uint32());
-                            } else
-                                message.session.push(reader.uint32());
-                            break;
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.session && message.session.length))
+                                message.session = [];
+                            message.session.push(reader.uint32());
+                            continue;
                         }
                     case 2: {
+                            if (wireType !== 0)
+                                break;
                             message.channelId = reader.uint32();
-                            break;
+                            continue;
                         }
                     case 3: {
+                            if (wireType !== 2)
+                                break;
                             message.group = reader.string();
-                            break;
+                            continue;
                         }
                     case 4: {
+                            if (wireType !== 0)
+                                break;
                             message.links = reader.bool();
-                            break;
+                            continue;
                         }
                     case 5: {
+                            if (wireType !== 0)
+                                break;
                             message.children = reader.bool();
-                            break;
+                            continue;
                         }
-                    default:
-                        reader.skipType(tag & 7);
-                        break;
                     }
+                    reader.skipType(wireType, _depth, tag);
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
+                if (_end !== undefined)
+                    throw Error("missing end group");
                 return message;
+            };
+
+            Target.getTypeUrl = function getTypeUrl(prefix) {
+                if (prefix === undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/MumbleProto.VoiceTarget.Target";
             };
 
             return Target;
@@ -2031,7 +2942,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function PermissionQuery(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -2043,43 +2954,74 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new PermissionQuery(properties);
         };
 
-        PermissionQuery.encode = function encode(message, writer) {
+        PermissionQuery.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.channelId != null && Object.hasOwnProperty.call(message, "channelId"))
                 writer.uint32(8).uint32(message.channelId);
             if (message.permissions != null && Object.hasOwnProperty.call(message, "permissions"))
                 writer.uint32(16).uint32(message.permissions);
             if (message.flush != null && Object.hasOwnProperty.call(message, "flush"))
                 writer.uint32(24).bool(message.flush);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        PermissionQuery.decode = function decode(reader, length) {
+        PermissionQuery.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.PermissionQuery();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.PermissionQuery();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.channelId = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.permissions = reader.uint32();
-                        break;
-                    }
-                case 3: {
-                        message.flush = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.channelId = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.permissions = reader.uint32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.flush = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        PermissionQuery.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.PermissionQuery";
         };
 
         return PermissionQuery;
@@ -2090,7 +3032,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function CodecVersion(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -2103,45 +3045,72 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new CodecVersion(properties);
         };
 
-        CodecVersion.encode = function encode(message, writer) {
+        CodecVersion.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             writer.uint32(8).int32(message.alpha);
             writer.uint32(16).int32(message.beta);
             writer.uint32(24).bool(message.preferAlpha);
             if (message.opus != null && Object.hasOwnProperty.call(message, "opus"))
                 writer.uint32(32).bool(message.opus);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        CodecVersion.decode = function decode(reader, length) {
+        CodecVersion.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.CodecVersion();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.CodecVersion();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.alpha = reader.int32();
-                        break;
-                    }
-                case 2: {
-                        message.beta = reader.int32();
-                        break;
-                    }
-                case 3: {
-                        message.preferAlpha = reader.bool();
-                        break;
-                    }
-                case 4: {
-                        message.opus = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.alpha = reader.int32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.beta = reader.int32();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.preferAlpha = reader.bool();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.opus = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             if (!message.hasOwnProperty("alpha"))
                 throw $util.ProtocolError("missing required 'alpha'", { instance: message });
             if (!message.hasOwnProperty("beta"))
@@ -2149,6 +3118,12 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (!message.hasOwnProperty("preferAlpha"))
                 throw $util.ProtocolError("missing required 'preferAlpha'", { instance: message });
             return message;
+        };
+
+        CodecVersion.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.CodecVersion";
         };
 
         return CodecVersion;
@@ -2161,7 +3136,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.celtVersions = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -2189,9 +3164,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new UserStats(properties);
         };
 
-        UserStats.encode = function encode(message, writer) {
+        UserStats.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.session != null && Object.hasOwnProperty.call(message, "session"))
                 writer.uint32(8).uint32(message.session);
             if (message.statsOnly != null && Object.hasOwnProperty.call(message, "statsOnly"))
@@ -2200,9 +3179,9 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 for (let i = 0; i < message.certificates.length; ++i)
                     writer.uint32(26).bytes(message.certificates[i]);
             if (message.fromClient != null && Object.hasOwnProperty.call(message, "fromClient"))
-                $root.MumbleProto.UserStats.Stats.encode(message.fromClient, writer.uint32(34).fork()).ldelim();
+                $root.MumbleProto.UserStats.Stats.encode(message.fromClient, writer.uint32(34).fork(), _depth + 1).ldelim();
             if (message.fromServer != null && Object.hasOwnProperty.call(message, "fromServer"))
-                $root.MumbleProto.UserStats.Stats.encode(message.fromServer, writer.uint32(42).fork()).ldelim();
+                $root.MumbleProto.UserStats.Stats.encode(message.fromServer, writer.uint32(42).fork(), _depth + 1).ldelim();
             if (message.udpPackets != null && Object.hasOwnProperty.call(message, "udpPackets"))
                 writer.uint32(48).uint32(message.udpPackets);
             if (message.tcpPackets != null && Object.hasOwnProperty.call(message, "tcpPackets"))
@@ -2216,7 +3195,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (message.tcpPingVar != null && Object.hasOwnProperty.call(message, "tcpPingVar"))
                 writer.uint32(93).float(message.tcpPingVar);
             if (message.version != null && Object.hasOwnProperty.call(message, "version"))
-                $root.MumbleProto.Version.encode(message.version, writer.uint32(98).fork()).ldelim();
+                $root.MumbleProto.Version.encode(message.version, writer.uint32(98).fork(), _depth + 1).ldelim();
             if (message.celtVersions != null && message.celtVersions.length)
                 for (let i = 0; i < message.celtVersions.length; ++i)
                     writer.uint32(104).int32(message.celtVersions[i]);
@@ -2232,107 +3211,169 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(144).bool(message.strongCertificate);
             if (message.opus != null && Object.hasOwnProperty.call(message, "opus"))
                 writer.uint32(152).bool(message.opus);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        UserStats.decode = function decode(reader, length) {
+        UserStats.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserStats();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserStats();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
                 case 1: {
+                        if (wireType !== 0)
+                            break;
                         message.session = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 2: {
+                        if (wireType !== 0)
+                            break;
                         message.statsOnly = reader.bool();
-                        break;
+                        continue;
                     }
                 case 3: {
+                        if (wireType !== 2)
+                            break;
                         if (!(message.certificates && message.certificates.length))
                             message.certificates = [];
                         message.certificates.push(reader.bytes());
-                        break;
+                        continue;
                     }
                 case 4: {
-                        message.fromClient = $root.MumbleProto.UserStats.Stats.decode(reader, reader.uint32());
-                        break;
+                        if (wireType !== 2)
+                            break;
+                        message.fromClient = $root.MumbleProto.UserStats.Stats.decode(reader, reader.uint32(), undefined, _depth + 1, message.fromClient);
+                        continue;
                     }
                 case 5: {
-                        message.fromServer = $root.MumbleProto.UserStats.Stats.decode(reader, reader.uint32());
-                        break;
+                        if (wireType !== 2)
+                            break;
+                        message.fromServer = $root.MumbleProto.UserStats.Stats.decode(reader, reader.uint32(), undefined, _depth + 1, message.fromServer);
+                        continue;
                     }
                 case 6: {
+                        if (wireType !== 0)
+                            break;
                         message.udpPackets = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 7: {
+                        if (wireType !== 0)
+                            break;
                         message.tcpPackets = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 8: {
+                        if (wireType !== 5)
+                            break;
                         message.udpPingAvg = reader.float();
-                        break;
+                        continue;
                     }
                 case 9: {
+                        if (wireType !== 5)
+                            break;
                         message.udpPingVar = reader.float();
-                        break;
+                        continue;
                     }
                 case 10: {
+                        if (wireType !== 5)
+                            break;
                         message.tcpPingAvg = reader.float();
-                        break;
+                        continue;
                     }
                 case 11: {
+                        if (wireType !== 5)
+                            break;
                         message.tcpPingVar = reader.float();
-                        break;
+                        continue;
                     }
                 case 12: {
-                        message.version = $root.MumbleProto.Version.decode(reader, reader.uint32());
-                        break;
+                        if (wireType !== 2)
+                            break;
+                        message.version = $root.MumbleProto.Version.decode(reader, reader.uint32(), undefined, _depth + 1, message.version);
+                        continue;
                     }
                 case 13: {
-                        if (!(message.celtVersions && message.celtVersions.length))
-                            message.celtVersions = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.celtVersions && message.celtVersions.length))
+                                message.celtVersions = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.celtVersions.push(reader.int32());
-                        } else
-                            message.celtVersions.push(reader.int32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.celtVersions && message.celtVersions.length))
+                            message.celtVersions = [];
+                        message.celtVersions.push(reader.int32());
+                        continue;
                     }
                 case 14: {
+                        if (wireType !== 2)
+                            break;
                         message.address = reader.bytes();
-                        break;
+                        continue;
                     }
                 case 15: {
+                        if (wireType !== 0)
+                            break;
                         message.bandwidth = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 16: {
+                        if (wireType !== 0)
+                            break;
                         message.onlinesecs = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 17: {
+                        if (wireType !== 0)
+                            break;
                         message.idlesecs = reader.uint32();
-                        break;
+                        continue;
                     }
                 case 18: {
+                        if (wireType !== 0)
+                            break;
                         message.strongCertificate = reader.bool();
-                        break;
+                        continue;
                     }
                 case 19: {
+                        if (wireType !== 0)
+                            break;
                         message.opus = reader.bool();
-                        break;
+                        continue;
                     }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
                 }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        UserStats.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.UserStats";
         };
 
         UserStats.Stats = (function() {
@@ -2340,7 +3381,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             function Stats(properties) {
                 if (properties)
                     for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
                             this[keys[i]] = properties[keys[i]];
             }
 
@@ -2353,9 +3394,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 return new Stats(properties);
             };
 
-            Stats.encode = function encode(message, writer) {
+            Stats.encode = function encode(message, writer, _depth) {
                 if (!writer)
                     writer = $Writer.create();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw Error("max depth exceeded");
                 if (message.good != null && Object.hasOwnProperty.call(message, "good"))
                     writer.uint32(8).uint32(message.good);
                 if (message.late != null && Object.hasOwnProperty.call(message, "late"))
@@ -2364,38 +3409,67 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     writer.uint32(24).uint32(message.lost);
                 if (message.resync != null && Object.hasOwnProperty.call(message, "resync"))
                     writer.uint32(32).uint32(message.resync);
+                if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
                 return writer;
             };
 
-            Stats.decode = function decode(reader, length) {
+            Stats.decode = function decode(reader, length, _end, _depth, _target) {
                 if (!(reader instanceof $Reader))
                     reader = $Reader.create(reader);
-                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.UserStats.Stats();
+                if (_depth === undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw Error("max depth exceeded");
+                let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserStats.Stats();
                 while (reader.pos < end) {
-                    let tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1: {
-                            message.good = reader.uint32();
-                            break;
-                        }
-                    case 2: {
-                            message.late = reader.uint32();
-                            break;
-                        }
-                    case 3: {
-                            message.lost = reader.uint32();
-                            break;
-                        }
-                    case 4: {
-                            message.resync = reader.uint32();
-                            break;
-                        }
-                    default:
-                        reader.skipType(tag & 7);
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = undefined;
                         break;
                     }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 0)
+                                break;
+                            message.good = reader.uint32();
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 0)
+                                break;
+                            message.late = reader.uint32();
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 0)
+                                break;
+                            message.lost = reader.uint32();
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 0)
+                                break;
+                            message.resync = reader.uint32();
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
+                if (_end !== undefined)
+                    throw Error("missing end group");
                 return message;
+            };
+
+            Stats.getTypeUrl = function getTypeUrl(prefix) {
+                if (prefix === undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/MumbleProto.UserStats.Stats";
             };
 
             return Stats;
@@ -2412,7 +3486,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             this.channelDescription = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -2424,9 +3498,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new RequestBlob(properties);
         };
 
-        RequestBlob.encode = function encode(message, writer) {
+        RequestBlob.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.sessionTexture != null && message.sessionTexture.length)
                 for (let i = 0; i < message.sessionTexture.length; ++i)
                     writer.uint32(8).uint32(message.sessionTexture[i]);
@@ -2436,55 +3514,91 @@ export const MumbleProto = $root.MumbleProto = (() => {
             if (message.channelDescription != null && message.channelDescription.length)
                 for (let i = 0; i < message.channelDescription.length; ++i)
                     writer.uint32(24).uint32(message.channelDescription[i]);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        RequestBlob.decode = function decode(reader, length) {
+        RequestBlob.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.RequestBlob();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.RequestBlob();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
                 case 1: {
-                        if (!(message.sessionTexture && message.sessionTexture.length))
-                            message.sessionTexture = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.sessionTexture && message.sessionTexture.length))
+                                message.sessionTexture = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.sessionTexture.push(reader.uint32());
-                        } else
-                            message.sessionTexture.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.sessionTexture && message.sessionTexture.length))
+                            message.sessionTexture = [];
+                        message.sessionTexture.push(reader.uint32());
+                        continue;
                     }
                 case 2: {
-                        if (!(message.sessionComment && message.sessionComment.length))
-                            message.sessionComment = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.sessionComment && message.sessionComment.length))
+                                message.sessionComment = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.sessionComment.push(reader.uint32());
-                        } else
-                            message.sessionComment.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.sessionComment && message.sessionComment.length))
+                            message.sessionComment = [];
+                        message.sessionComment.push(reader.uint32());
+                        continue;
                     }
                 case 3: {
-                        if (!(message.channelDescription && message.channelDescription.length))
-                            message.channelDescription = [];
-                        if ((tag & 7) === 2) {
+                        if (wireType === 2) {
+                            if (!(message.channelDescription && message.channelDescription.length))
+                                message.channelDescription = [];
                             let end2 = reader.uint32() + reader.pos;
                             while (reader.pos < end2)
                                 message.channelDescription.push(reader.uint32());
-                        } else
-                            message.channelDescription.push(reader.uint32());
-                        break;
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.channelDescription && message.channelDescription.length))
+                            message.channelDescription = [];
+                        message.channelDescription.push(reader.uint32());
+                        continue;
                     }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
                 }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        RequestBlob.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.RequestBlob";
         };
 
         return RequestBlob;
@@ -2495,7 +3609,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function ServerConfig(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -2510,9 +3624,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new ServerConfig(properties);
         };
 
-        ServerConfig.encode = function encode(message, writer) {
+        ServerConfig.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.maxBandwidth != null && Object.hasOwnProperty.call(message, "maxBandwidth"))
                 writer.uint32(8).uint32(message.maxBandwidth);
             if (message.welcomeText != null && Object.hasOwnProperty.call(message, "welcomeText"))
@@ -2525,46 +3643,79 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 writer.uint32(40).uint32(message.imageMessageLength);
             if (message.maxUsers != null && Object.hasOwnProperty.call(message, "maxUsers"))
                 writer.uint32(48).uint32(message.maxUsers);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        ServerConfig.decode = function decode(reader, length) {
+        ServerConfig.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.ServerConfig();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ServerConfig();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.maxBandwidth = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.welcomeText = reader.string();
-                        break;
-                    }
-                case 3: {
-                        message.allowHtml = reader.bool();
-                        break;
-                    }
-                case 4: {
-                        message.messageLength = reader.uint32();
-                        break;
-                    }
-                case 5: {
-                        message.imageMessageLength = reader.uint32();
-                        break;
-                    }
-                case 6: {
-                        message.maxUsers = reader.uint32();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.maxBandwidth = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        message.welcomeText = reader.string();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.allowHtml = reader.bool();
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.messageLength = reader.uint32();
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 0)
+                            break;
+                        message.imageMessageLength = reader.uint32();
+                        continue;
+                    }
+                case 6: {
+                        if (wireType !== 0)
+                            break;
+                        message.maxUsers = reader.uint32();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        ServerConfig.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.ServerConfig";
         };
 
         return ServerConfig;
@@ -2575,7 +3726,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         function SuggestConfig(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
                         this[keys[i]] = properties[keys[i]];
         }
 
@@ -2587,43 +3738,74 @@ export const MumbleProto = $root.MumbleProto = (() => {
             return new SuggestConfig(properties);
         };
 
-        SuggestConfig.encode = function encode(message, writer) {
+        SuggestConfig.encode = function encode(message, writer, _depth) {
             if (!writer)
                 writer = $Writer.create();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw Error("max depth exceeded");
             if (message.version != null && Object.hasOwnProperty.call(message, "version"))
                 writer.uint32(8).uint32(message.version);
             if (message.positional != null && Object.hasOwnProperty.call(message, "positional"))
                 writer.uint32(16).bool(message.positional);
             if (message.pushToTalk != null && Object.hasOwnProperty.call(message, "pushToTalk"))
                 writer.uint32(24).bool(message.pushToTalk);
+            if (message.$unknowns != null && Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
             return writer;
         };
 
-        SuggestConfig.decode = function decode(reader, length) {
+        SuggestConfig.decode = function decode(reader, length, _end, _depth, _target) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.MumbleProto.SuggestConfig();
+            if (_depth === undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw Error("max depth exceeded");
+            let end = length === undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.SuggestConfig();
             while (reader.pos < end) {
-                let tag = reader.uint32();
-                switch (tag >>> 3) {
-                case 1: {
-                        message.version = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.positional = reader.bool();
-                        break;
-                    }
-                case 3: {
-                        message.pushToTalk = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = undefined;
                     break;
                 }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        message.version = reader.uint32();
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 0)
+                            break;
+                        message.positional = reader.bool();
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        message.pushToTalk = reader.bool();
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                $util.makeProp(message, "$unknowns", false);
+                (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
             }
+            if (_end !== undefined)
+                throw Error("missing end group");
             return message;
+        };
+
+        SuggestConfig.getTypeUrl = function getTypeUrl(prefix) {
+            if (prefix === undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/MumbleProto.SuggestConfig";
         };
 
         return SuggestConfig;
@@ -2632,4 +3814,6 @@ export const MumbleProto = $root.MumbleProto = (() => {
     return MumbleProto;
 })();
 
-export { $root as default };
+export {
+  $root as default
+};
