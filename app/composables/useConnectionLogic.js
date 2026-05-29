@@ -218,23 +218,24 @@ export function useConnectionLogic({ auth } = {}) {
     _currentConnectionId = connectionId;
     
     if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // RACE-SAFE: Only update state if this connection is still active
-        if (_currentConnectionId === connectionId) {
-          audioStore.micPermissionDenied = false;
-        }
-        // Always stop tracks to avoid mic staying active
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-      } catch (err) {
-        console.warn('Microphone permission denied:', err);
-        // RACE-SAFE: Only update state if this connection is still active
-        if (_currentConnectionId === connectionId) {
-          audioStore.micPermissionDenied = true;
-        }
-      }
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          // RACE-SAFE: Only update state if this connection is still active
+          if (_currentConnectionId === connectionId) {
+            audioStore.micPermissionDenied = false;
+          }
+          // Always stop tracks to avoid mic staying active
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+        })
+        .catch(err => {
+          console.warn('Microphone permission denied:', err);
+          // RACE-SAFE: Only update state if this connection is still active
+          if (_currentConnectionId === connectionId) {
+            audioStore.micPermissionDenied = true;
+          }
+        });
     }
 
     // Clear audio lock

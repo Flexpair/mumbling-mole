@@ -442,36 +442,7 @@ const MS_PER_PACKET = 20;
 const MIN_AUDIO_BITRATE = 8000;
 const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
 
-const grossBandwidth = computed({
-  get: () => totalBandwidth.value,
-  set: (val) => {
-    // Clamp to max allowed
-    if (val > maxAllowedBandwidth.value) val = maxAllowedBandwidth.value;
-    
-    const overhead = overheadBandwidth.value;
-    let newNet = val - overhead;
-    if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
-    audioBitrate.value = newNet;
-  }
-});
-
-const {
-  isDragging,
-  onDragStart,
-  onKeyDown,
-  thumbStyle,
-  trackFillStyle,
-  grossBadgeStyle,
-  netBadgeStyle
-} = useSlider(maxAllowedBandwidth, grossBandwidth, overheadBandwidth, minGrossBandwidth, sliderTrack);
-
-// Cleanup on unmount
-onUnmounted(() => {
-  if (statsInterval) {
-    clearInterval(statsInterval);
-    statsInterval = null;
-  }
-});
+const sliderTrack = useTemplateRef('sliderTrack');
 
 const minGrossBandwidth = computed(() => {
   // Opus minimum useful bitrate is ~8 kbps
@@ -493,9 +464,40 @@ const isServerLimited = computed(() => {
   return client?.maxBandwidth != null;
 });
 
+const grossBandwidth = computed({
+  get: () => totalBandwidth.value,
+  set: (val) => {
+    // Clamp to max allowed
+    if (val > maxAllowedBandwidth.value) val = maxAllowedBandwidth.value;
+    
+    const overhead = overheadBandwidth.value;
+    let newNet = val - overhead;
+    if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
+    audioBitrate.value = newNet;
+  }
+});
+
 watch(maxAllowedBandwidth, (newMax) => {
   if (grossBandwidth.value > newMax) {
     grossBandwidth.value = newMax;
+  }
+});
+
+const {
+  isDragging,
+  onDragStart,
+  onKeyDown,
+  thumbStyle,
+  trackFillStyle,
+  grossBadgeStyle,
+  netBadgeStyle
+} = useSlider(maxAllowedBandwidth, grossBandwidth, overheadBandwidth, minGrossBandwidth, sliderTrack);
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
   }
 });
 
