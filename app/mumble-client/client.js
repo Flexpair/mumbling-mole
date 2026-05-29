@@ -6,17 +6,13 @@ import duplexer from '../utils/duplexer-lite.js'
 import { EventEmitter } from 'node:events'
 import through2 from '../utils/through2-lite.js'
 import { getOSName, getOSVersion } from './utils.js'
-import User from './user.js'
 import { handleTextMessage } from './handlers/MessageHandler.js'
 import { handleChannelState, handleChannelRemove } from './handlers/ChannelHandler.js'
 import { handleUserState, handleUserRemove } from './handlers/UserHandler.js'
 import { handleServerSync, handlePing } from './handlers/NetworkStatsHandler.js'
 import { handleServerConfig, handleCodecVersion, handleCryptSetup, handlePermissionQuery, handleUserStats, handleSuggestConfig } from './handlers/ServerConfigHandler.js'
-import Channel from './channel.js'
 import Stats from '../utils/stats-lite.js'
 import { debugLog } from '../utils/debug-utils.js'
-
-const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
 
 /*
  * @typedef {'Opus'} Codec
@@ -82,7 +78,7 @@ const DenyType = mumbleStreams.data.messages.PermissionDenied.DenyType
  * speaking), as such it must not be expensive.
  *
  * @function Codecs#createDecoderStream
- * @param {User} user - The user
+ * @param {import('./user.js').default} user - The user
  * @return {DecoderStream} The decoder stream
  */
 
@@ -533,7 +529,7 @@ class MumbleClient extends EventEmitter {
    * If no such channel exists, return null.
    *
    * @param {string} name - The full name of the channel
-   * @returns {?Channel}
+   * @returns {?import('./channel.js').default}
    */
   getChannel (name) {
     for (const channel of this.channels) {
