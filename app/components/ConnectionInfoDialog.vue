@@ -77,151 +77,10 @@
 
         <!-- Main Content Area -->
         <div class="dialog-main" @keydown="handlePanelKeydown">
-            <!-- Client Tab -->
-            <div v-show="activeTab === 'client'" class="content-panel" role="tabpanel" id="client-panel" :aria-labelledby="activeTab === 'client' ? 'tab-client' : undefined">
-              <h2 class="panel-title">Client Settings</h2>
-              
-              <div class="setting-group">
-                <label class="setting-label" for="voice-mode-select">{{ t('settingsdialog.transmission') }}</label>
-                <div class="control-wrapper">
-                  <select id="voice-mode-select" v-model="voiceMode" class="modern-select">
-                    <option value="cont">{{ t('settingsdialog.cont') }}</option>
-                    <option value="ptt" disabled>{{ t('settingsdialog.ptt') }} {{ t('settingsdialog.ptt_disabled') }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div v-if="voiceMode === 'ptt'" class="setting-group">
-                <label class="setting-label" for="ptt-key-button">{{ t('settingsdialog.ptt_key') }}</label>
-                <div class="control-wrapper">
-                  <button id="ptt-key-button" class="ptt-record-btn" @click="recordPttKey">
-                    {{ pttKeyDisplay }}
-                  </button>
-                </div>
-              </div>
-
-              <div class="setting-group version-group">
-                <span class="setting-label">Client Version</span>
-                <button @click="copyCommitHash" class="action-button" :title="copyButtonTitle">
-                  {{ copyButtonText }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Audio Delay Tab -->
-            <div v-show="activeTab === 'latency'" class="content-panel" role="tabpanel" id="latency-panel">
-              <h2 class="panel-title">Audio Delay</h2>
-
-              <div class="stat-card">
-                <div class="stat-label">Network Latency (Ping)</div>
-                <div class="stat-value-large">
-                  <template v-if="latencyMs && !Number.isNaN(latencyMs)">
-                    {{ latencyMs.toFixed(1) }} <span class="unit">ms</span>
-                  </template>
-                  <template v-else>--</template>
-                </div>
-                <div class="stat-sub" v-if="latencyMs">
-                  Deviation: ±{{ latencyDeviation.toFixed(1) }} ms
-                </div>
-              </div>
-
-              <div class="setting-group">
-                <label class="setting-label" for="jitter-buffer-select">Jitter Buffer Strategy</label>
-                <div class="control-wrapper">
-                  <select id="jitter-buffer-select" v-model="jitterBufferMode" class="modern-select">
-                    <option value="low-latency">Low Latency</option>
-                    <option value="balanced">Balanced</option>
-                    <option value="high-quality">High Quality</option>
-                  </select>
-                </div>
-                <div class="info-note">
-                  Current buffer: {{ jitterBufferMs }} ms = {{ jitterBufferSize }} Audio Packets
-                </div>
-              </div>
-            </div>
-
-            <!-- Bandwidth Tab -->
-            <div v-show="activeTab === 'bandwidth'" class="content-panel" role="tabpanel" id="bandwidth-panel">
-              <h2 class="panel-title">Outgoing Audio Bandwidth</h2>
-
-              <div class="setting-group">
-                <div class="label-row">
-                  <p class="setting-label info top-info">
-                    <span v-if="isServerLimited">
-                      Gross bandwidth is limited by server to {{ (maxAllowedBandwidth / 1000).toFixed(0) }} kbps.
-                    </span>
-                    <span v-else>
-                      Gross bandwidth includes audio data and protocol overhead.
-                    </span>
-                  </p>
-                </div>
-                <div class="slider-container bandwidth-slider">
-                  <!-- Floating Badges -->
-                  <div class="floating-badge top" :style="grossBadgeStyle">
-                    {{ (grossBandwidth / 1000).toFixed(1) }} kbps
-                  </div>
-                  <div class="floating-badge bottom" :style="netBadgeStyle">
-                    {{ (audioBitrate / 1000).toFixed(1) }} kbps
-                  </div>
-
-                  <div 
-                    class="custom-slider" 
-                    ref="sliderTrack"
-                    @mousedown="onDragStart"
-                    @touchstart.prevent="onDragStart"
-                  >
-                    <input
-                      type="range"
-                      class="slider-input"
-                      :min="minGrossBandwidth"
-                      :max="maxAllowedBandwidth"
-                      :value="grossBandwidth"
-                      @input="grossBandwidth = Number($event.target.value)"
-                      @keydown="onKeyDown"
-                      aria-label="Gross bandwidth slider"
-                    />
-                    <!-- Net Bandwidth Fill -->
-                    <div class="slider-track-fill" :style="trackFillStyle"></div>
-                    
-                    <!-- Overhead Thumb -->
-                    <div class="slider-thumb" :style="thumbStyle">
-                      <span class="slider-label-inner">
-                        Overhead
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div class="slider-labels">
-                    <span>Low</span>
-                    <span>High</span>
-                  </div>
-                </div>
-
-                <div class="label-row bottom-spacing">
-                   <p class="setting-label info">
-                     Net bandwidth minimum is 8 kbps for audio transmission.
-                   </p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Server Tab -->
-            <div v-show="activeTab === 'server'" class="content-panel" role="tabpanel" id="server-panel">
-              <h2 class="panel-title">Server Version Info</h2>
-
-              <div class="info-section">
-                <div class="info-row">
-                  <span class="label">Version:</span>
-                  <span class="value" v-if="serverVersion">{{ serverVersion.release }}</span>
-                  <span class="value" v-else>Unknown</span>
-                </div>
-                <div class="info-row">
-                  <span class="label">OS:</span>
-                  <span class="value" v-if="serverVersion">{{ serverVersion.os }} {{ serverVersion.osVersion }}</span>
-                  <span class="value" v-else>Unknown</span>
-                </div>
-              </div>
-            </div>
+            <ClientTab v-show="activeTab === 'client'" />
+            <LatencyTab v-show="activeTab === 'latency'" :latencyMs="latencyMs" :latencyDeviation="latencyDeviation" />
+            <BandwidthTab v-show="activeTab === 'bandwidth'" />
+            <ServerTab v-show="activeTab === 'server'" :serverVersion="serverVersion" />
         </div>
       </dialog>
     </Transition>
@@ -229,31 +88,24 @@
 </template>
 
 <script setup>
-import { Teleport, Transition, computed, inject, watch, ref, onMounted, onUnmounted, useTemplateRef, toRefs, nextTick } from 'vue';
-import { storeToRefs } from 'pinia';
-import MumbleClient from '../mumble-client/index.js';
-import buildInfo from '../build-info.json';
-import { useClipboard } from '../composables';
-import { useSlider } from '../composables/ui/useSlider.js';
-import keyboardjs from 'keyboardjs';
+import { Teleport, Transition, computed, inject, watch, ref, onUnmounted, nextTick } from 'vue';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
-import { useUserStore } from '../stores/userStore';
-import { useDialogStore } from '../stores/dialogStore';
-import { useSettingsStore } from '../stores/settingsStore';
+
+import ClientTab from './connection-info/ClientTab.vue';
+import LatencyTab from './connection-info/LatencyTab.vue';
+import BandwidthTab from './connection-info/BandwidthTab.vue';
+import ServerTab from './connection-info/ServerTab.vue';
 
 const t = inject('translate');
 
-// Active tab state - default to first tab (latency)
 const activeTab = ref('latency');
 
-// Tab refs for keyboard navigation
 const tabLatency = ref(null);
 const tabBandwidth = ref(null);
 const tabClient = ref(null);
 const tabServer = ref(null);
 
-// Tab order for navigation
 const tabOrder = ['latency', 'bandwidth', 'client', 'server'];
 const tabRefs = computed(() => ({
   latency: tabLatency,
@@ -262,7 +114,6 @@ const tabRefs = computed(() => ({
   server: tabServer
 }));
 
-// Select tab and focus it
 const selectTab = (tabName) => {
   activeTab.value = tabName;
   nextTick(() => {
@@ -270,7 +121,6 @@ const selectTab = (tabName) => {
   });
 };
 
-// Navigate to previous/next tab
 const navigateTab = (direction) => {
   const currentIndex = tabOrder.indexOf(activeTab.value);
   let newIndex;
@@ -284,7 +134,6 @@ const navigateTab = (direction) => {
   selectTab(tabOrder[newIndex]);
 };
 
-// Focus first focusable element in active panel
 const focusPanel = () => {
   nextTick(() => {
     const panelId = `${activeTab.value}-panel`;
@@ -298,53 +147,32 @@ const focusPanel = () => {
   });
 };
 
-// Focus current tab in sidebar
 const focusTabList = () => {
   nextTick(() => {
     tabRefs.value[activeTab.value]?.value?.focus();
   });
 };
 
-// Called after dialog transition completes - reliable focus point
 const onDialogShown = () => {
   tabRefs.value.latency?.value?.focus();
 };
 
-// Check if focus is in the tab list (sidebar navigation)
-const isFocusInTabList = () => {
-  const activeElement = document.activeElement;
-  // Check if it's one of our tab buttons in the sidebar
-  return activeElement?.closest('.sidebar-nav') !== null;
-};
-
-// Check if focus is in the content panel (main area, not sidebar)
-const isFocusInPanel = () => {
-  const activeElement = document.activeElement;
-  // Check if element is inside the main content area (not sidebar)
-  return activeElement?.closest('.dialog-main') !== null;
-};
-
-// Main dialog keyboard handler
 const handleDialogKeydown = (event) => {
   if (event.key === 'Escape') {
-    // Check where the event originated (event.target, not activeElement)
     const target = event.target;
     const isInPanel = target?.closest('.dialog-main') !== null;
     
     if (isInPanel) {
-      // In panel: go back to tab list
       event.preventDefault();
       event.stopPropagation();
       focusTabList();
     } else {
-      // In tab list or elsewhere: close dialog
       event.preventDefault();
       visible.value = false;
     }
   }
 };
 
-// Handle keyboard navigation in tab list (sidebar)
 const handleTabListKeydown = (event) => {
   switch (event.key) {
     case 'ArrowUp':
@@ -370,15 +198,12 @@ const handleTabListKeydown = (event) => {
   }
 };
 
-// Handle keyboard navigation in content panel
-// ArrowLeft returns to tab list only from non-interactive elements
 const handlePanelKeydown = (event) => {
   if (event.key === 'ArrowLeft') {
     const activeElement = document.activeElement;
     const tagName = activeElement?.tagName?.toLowerCase();
     const role = activeElement?.getAttribute('role');
     
-    // Skip navigation if focused on elements that use ArrowLeft
     if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || 
         role === 'slider' || role === 'spinbutton' || role === 'textbox' ||
         role === 'combobox' || role === 'listbox') {
@@ -390,29 +215,8 @@ const handlePanelKeydown = (event) => {
   }
 };
 
-// Clipboard composable
-const { copy: copyToClipboard, copied } = useClipboard({ timeout: 2000 });
-const commitHash = buildInfo.commit;
-
-const copyButtonText = computed(() => 
-  copied.value ? '✓ Copied' : `Commit: ${commitHash.substring(0, 7)}`
-);
-
-const copyButtonTitle = computed(() =>
-  copied.value ? 'Copied!' : `Copy full hash: ${commitHash}`
-);
-
-const copyCommitHash = () => copyToClipboard(commitHash);
-
-// Pinia stores
-const settingsStore = useSettingsStore();
 const uiStore = useUIStore();
 const connectionStore = useConnectionStore();
-const userStore = useUserStore();
-const dialogStore = useDialogStore();
-
-// Use toRefs to get reactive refs from nested dialog store object
-const infoDialog = toRefs(dialogStore.infoDialog);
 
 const visible = computed({
   get: () => uiStore.currentOpenModal === 'connectionInfo' || uiStore.currentOpenModal === 'settings',
@@ -421,79 +225,10 @@ const visible = computed({
   }
 });
 
-// Connection Stats (Local refs)
 const serverVersion = ref(null);
 const latencyMs = ref(Number.NaN);
 const latencyDeviation = ref(Number.NaN);
 
-// Settings: use storeToRefs for direct two-way binding
-const { 
-  voiceMode, 
-  pttKeyDisplay, 
-  audioBitrate, 
-  samplesPerPacket, 
-  jitterBufferSize, 
-  jitterBufferMode,
-  totalBandwidth,
-  overheadBandwidth
-} = storeToRefs(settingsStore);
-
-const MS_PER_PACKET = 20;
-const MIN_AUDIO_BITRATE = 8000;
-const jitterBufferMs = computed(() => jitterBufferSize.value * MS_PER_PACKET);
-
-const sliderTrack = useTemplateRef('sliderTrack');
-
-const minGrossBandwidth = computed(() => {
-  // Opus minimum useful bitrate is ~8 kbps
-  // We allow the slider to go exactly down to this limit + overhead
-  return MIN_AUDIO_BITRATE + overheadBandwidth.value;
-});
-
-const maxAllowedBandwidth = computed(() => {
-  const isConnected = userStore.thisUser != null;
-  const client = isConnected ? connectionStore.client : null;
-  if (!client || client.maxBandwidth === undefined || client.maxBandwidth === null) {
-    return 130000; // Default max gross (~128k net + overhead)
-  }
-  return client.maxBandwidth;
-});
-
-const isServerLimited = computed(() => {
-  const client = connectionStore.client;
-  return client?.maxBandwidth != null;
-});
-
-const grossBandwidth = computed({
-  get: () => totalBandwidth.value,
-  set: (val) => {
-    // Clamp to max allowed
-    if (val > maxAllowedBandwidth.value) val = maxAllowedBandwidth.value;
-    
-    const overhead = overheadBandwidth.value;
-    let newNet = val - overhead;
-    if (newNet < MIN_AUDIO_BITRATE) newNet = MIN_AUDIO_BITRATE;
-    audioBitrate.value = newNet;
-  }
-});
-
-watch(maxAllowedBandwidth, (newMax) => {
-  if (grossBandwidth.value > newMax) {
-    grossBandwidth.value = newMax;
-  }
-});
-
-const {
-  isDragging,
-  onDragStart,
-  onKeyDown,
-  thumbStyle,
-  trackFillStyle,
-  grossBadgeStyle,
-  netBadgeStyle
-} = useSlider(maxAllowedBandwidth, grossBandwidth, overheadBandwidth, minGrossBandwidth, sliderTrack);
-
-// Cleanup on unmount
 onUnmounted(() => {
   if (statsInterval) {
     clearInterval(statsInterval);
@@ -518,28 +253,12 @@ function updateStats() {
     latencyMs.value = Number.NaN;
     latencyDeviation.value = Number.NaN;
   }
-  
-  const spp = samplesPerPacket.value;
-  if (client && spp) {
-    const maxBandwidthValue = client.maxBandwidth;
-    const maxBitrateValue = maxBandwidthValue === null || maxBandwidthValue === undefined 
-      ? Number.NaN 
-      : client.getMaxBitrate(spp, false);
-    const actualBitrate = client.getActualBitrate(spp, false);
-    const actualBandwidth = MumbleClient.calcEnforcableBandwidth(actualBitrate, spp, false);
-    
-    infoDialog.maxBitrate.value = maxBitrateValue;
-    infoDialog.currentBitrate.value = actualBitrate;
-    infoDialog.maxBandwidth.value = maxBandwidthValue;
-    infoDialog.currentBandwidth.value = actualBandwidth;
-  }
 }
 
 let statsInterval = null;
 
 watch(visible, (val) => {
   if (val) {
-    // Reset to first tab when dialog opens and focus it
     activeTab.value = 'latency';
     nextTick(() => {
       tabRefs.value.latency?.value?.focus();
@@ -552,30 +271,18 @@ watch(visible, (val) => {
   }
 });
 
-const recordPttKey = () => {
-  settingsStore.recordPttKey(keyboardjs);
-};
-
 const handleHide = () => {
   visible.value = false;
-  // Settings are auto-saved via settingsStore watch() - no manual save needed
 };
 
-// Watch for modal opening to reset tab and focus
 watch(() => uiStore.currentOpenModal, (newVal) => {
   if (newVal === 'connectionInfo' || newVal === 'settings') {
     updateStats();
     activeTab.value = 'latency';
-    // Focus the first tab after Vue updates the DOM
     nextTick(() => {
       tabRefs.value.latency?.value?.focus();
     });
   }
-});
-
-onMounted(() => {
-  // No longer need to register appState.connectionInfo.show or appState.openSettings
-  // Visibility is driven by uiStore.currentOpenModal
 });
 </script>
 
@@ -683,192 +390,6 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.content-panel {
-  padding: 30px;
-  min-height: 400px; /* Prevent height flickering when switching tabs */
-}
-
-.panel-title {
-  margin: 0 0 25px 0;
-  font-size: 24px;
-  font-weight: 300;
-  color: #fff;
-}
-
-/* Settings Groups */
-.setting-group {
-  margin-bottom: 25px;
-}
-
-.setting-group.version-group {
-  margin-top: 30px;
-}
-
-.setting-label {
-  display: block;
-  margin-bottom: 8px;
-  color: #ccc;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.setting-label.info {
-  font-weight: normal;
-  opacity: 0.8;
-}
-
-.setting-label.info.top-info {
-  margin-bottom: 15px;
-}
-
-.control-wrapper {
-  position: relative;
-}
-
-.modern-select {
-  width: 100%;
-  padding: 10px;
-  background: #2d2d2d;
-  border: 1px solid #444;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 14px;
-  outline: none;
-  cursor: pointer;
-}
-
-.modern-select:focus {
-  border-color: #00ffff;
-}
-
-.ptt-record-btn,
-.action-button {
-  padding: 10px 16px;
-  background: #2d2d2d;
-  border: 1px solid #444;
-  border-radius: 6px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.ptt-record-btn {
-  width: 100%;
-  color: #00ffff;
-  font-weight: 600;
-}
-
-.ptt-record-btn:hover {
-  background: #333;
-  border-color: #00ffff;
-}
-
-.action-button {
-  font-size: 13px;
-}
-
-/* Slider */
-.slider-container {
-  margin: 15px 0;
-}
-
-.slider-container.bandwidth-slider {
-  position: relative;
-  margin: 50px 0;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #666;
-  margin-top: 5px;
-}
-
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.label-row.bottom-spacing {
-  margin-top: 15px;
-}
-
-/* Stats */
-.stat-card {
-  background: #252526;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  text-align: center;
-  border: 1px solid #333;
-}
-
-.stat-value-large {
-  font-size: 36px;
-  font-weight: 300;
-  color: #00ffff;
-  margin: 10px 0;
-}
-
-.stat-sub {
-  font-size: 12px;
-  color: #888;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 5px;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.unit {
-  font-size: 12px;
-  color: #666;
-  font-weight: normal;
-}
-
-/* Info Section */
-.info-section {
-  background: #252526;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #333;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #333;
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-row .label {
-  color: #888;
-}
-
-.info-row .value {
-  color: #fff;
-}
-
-/* Notes & Helpers */
-.info-note {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #888;
-}
-
 /* Transitions */
 .dialog-fade-enter-active,
 .dialog-fade-leave-active {
@@ -881,8 +402,189 @@ onMounted(() => {
   transform: translate(-50%, -48%) scale(0.98);
 }
 
-/* Custom Slider */
-.custom-slider {
+/* Default inner styles passed down with :deep() */
+:deep(.content-panel) {
+  padding: 30px;
+  min-height: 400px;
+}
+
+:deep(.panel-title) {
+  margin: 0 0 25px 0;
+  font-size: 24px;
+  font-weight: 300;
+  color: #fff;
+}
+
+:deep(.setting-group) {
+  margin-bottom: 25px;
+}
+
+:deep(.setting-group.version-group) {
+  margin-top: 30px;
+}
+
+:deep(.setting-label) {
+  display: block;
+  margin-bottom: 8px;
+  color: #ccc;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:deep(.setting-label.info) {
+  font-weight: normal;
+  opacity: 0.8;
+}
+
+:deep(.setting-label.info.top-info) {
+  margin-bottom: 15px;
+}
+
+:deep(.control-wrapper) {
+  position: relative;
+}
+
+:deep(.modern-select) {
+  width: 100%;
+  padding: 10px;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+:deep(.modern-select:focus) {
+  border-color: #00ffff;
+}
+
+:deep(.ptt-record-btn),
+:deep(.action-button) {
+  padding: 10px 16px;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+:deep(.ptt-record-btn) {
+  width: 100%;
+  color: #00ffff;
+  font-weight: 600;
+}
+
+:deep(.ptt-record-btn:hover) {
+  background: #333;
+  border-color: #00ffff;
+}
+
+:deep(.action-button) {
+  font-size: 13px;
+}
+
+:deep(.slider-container) {
+  margin: 15px 0;
+}
+
+:deep(.slider-container.bandwidth-slider) {
+  position: relative;
+  margin: 50px 0;
+}
+
+:deep(.slider-labels) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+}
+
+:deep(.label-row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:deep(.label-row.bottom-spacing) {
+  margin-top: 15px;
+}
+
+:deep(.stat-card) {
+  background: #252526;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+  border: 1px solid #333;
+}
+
+:deep(.stat-value-large) {
+  font-size: 36px;
+  font-weight: 300;
+  color: #00ffff;
+  margin: 10px 0;
+}
+
+:deep(.stat-sub) {
+  font-size: 12px;
+  color: #888;
+}
+
+:deep(.stat-label) {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 5px;
+}
+
+:deep(.stat-value) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+:deep(.unit) {
+  font-size: 12px;
+  color: #666;
+  font-weight: normal;
+}
+
+:deep(.info-section) {
+  background: #252526;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+:deep(.info-row) {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+
+:deep(.info-row:last-child) {
+  border-bottom: none;
+}
+
+:deep(.info-row .label) {
+  color: #888;
+}
+
+:deep(.info-row .value) {
+  color: #fff;
+}
+
+:deep(.info-note) {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+}
+
+:deep(.custom-slider) {
   position: relative;
   height: 24px;
   background: #1e1e1e;
@@ -890,15 +592,15 @@ onMounted(() => {
   cursor: pointer;
   margin: 10px 0;
   border: 1px solid #333;
-  touch-action: none; /* Prevent scrolling while dragging */
+  touch-action: none;
 }
 
-.slider-track-fill {
+:deep(.slider-track-fill) {
   position: absolute;
   top: 0;
   left: 0;
   height: 100%;
-  background: #157878; /* Corporate Teal */
+  background: #157878;
   border-radius: 1px 0 0 1px;
   pointer-events: none;
   display: flex;
@@ -907,18 +609,17 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.slider-thumb {
+:deep(.slider-thumb) {
   position: absolute;
-  top: -2px; /* Slightly larger than track */
+  top: -2px;
   height: 26px;
   box-sizing: border-box;
-  background: #a84444; /* Muted Red for Overhead */
+  background: #a84444;
   border: 1px solid #ccc;
   border-radius: 2px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   cursor: grab;
   z-index: 10;
-  /* Add stripes to indicate it's a "block" */
   background-image: linear-gradient(45deg, rgba(255,255,255,.1) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.1) 50%, rgba(255,255,255,.1) 75%, transparent 75%, transparent);
   background-size: 10px 10px;
   display: flex;
@@ -926,7 +627,7 @@ onMounted(() => {
   justify-content: center;
 }
 
-.slider-label-inner {
+:deep(.slider-label-inner) {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
@@ -937,13 +638,12 @@ onMounted(() => {
   -webkit-user-select: none;
 }
 
-.slider-thumb:active {
+:deep(.slider-thumb:active) {
   cursor: grabbing;
   transform: scale(1.02);
 }
 
-/* Floating Badges */
-.floating-badge {
+:deep(.floating-badge) {
   position: absolute;
   color: #ccc;
   font-size: 12px;
@@ -958,45 +658,42 @@ onMounted(() => {
   line-height: 14px;
 }
 
-/* Top Badge (Gross) - Text Left of Line */
-.floating-badge.top {
+:deep(.floating-badge.top) {
   top: -52px;
   transform: translateX(-100%);
   padding-right: 8px;
 }
 
-.floating-badge.top::after {
+:deep(.floating-badge.top::after) {
   content: '';
   position: absolute;
   right: 0;
   top: 100%;
   width: 1px;
-  height: 50px; /* Line from -38px to 12px, matching bottom spacing */
+  height: 50px;
   background: #666;
   display: block;
   z-index: 25;
 }
 
-/* Bottom Badge (Net) - Text Right of Line */
-.floating-badge.bottom {
+:deep(.floating-badge.bottom) {
   top: 62px;
   transform: translateX(0);
   padding-left: 8px;
 }
 
-.floating-badge.bottom::before {
+:deep(.floating-badge.bottom::before) {
   content: '';
   position: absolute;
   left: 0;
   bottom: 100%;
   width: 1px;
-  height: 50px; /* Line from 62px to 12px, matching top line length */
+  height: 50px;
   background: #666;
   display: block;
   z-index: 25;
 }
 
-/* Mobile responsive layout */
 @media only screen and (max-width: 768px) {
   .dialog-container {
     flex-direction: column;
@@ -1048,30 +745,28 @@ onMounted(() => {
     min-height: 0;
   }
   
-  .content-panel {
+  :deep(.content-panel) {
     padding: 20px 16px;
   }
   
-  .panel-title {
+  :deep(.panel-title) {
     font-size: 20px;
     margin-bottom: 20px;
   }
   
-  .stat-card {
+  :deep(.stat-card) {
     padding: 16px;
   }
   
-  .stat-value-large {
+  :deep(.stat-value-large) {
     font-size: 28px;
   }
   
-  /* Hide complex slider badges on mobile for cleaner UI */
-  .floating-badge {
+  :deep(.floating-badge) {
     display: none;
   }
 }
 
-/* Small mobile adjustments */
 @media only screen and (max-width: 480px) {
   .dialog-container {
     border-radius: 8px;
@@ -1087,20 +782,19 @@ onMounted(() => {
     font-size: 13px;
   }
   
-  .content-panel {
+  :deep(.content-panel) {
     padding: 16px 12px;
   }
   
-  .panel-title {
+  :deep(.panel-title) {
     font-size: 18px;
   }
   
-  .setting-group {
+  :deep(.setting-group) {
     margin-bottom: 20px;
   }
 }
 
-/* Landscape mobile - reduce vertical spacing */
 @media only screen and (max-height: 500px) and (orientation: landscape) {
   .dialog-container {
     flex-direction: row;
@@ -1141,11 +835,11 @@ onMounted(() => {
     padding: 10px;
   }
   
-  .content-panel {
+  :deep(.content-panel) {
     padding: 16px;
   }
   
-  .panel-title {
+  :deep(.panel-title) {
     font-size: 18px;
     margin-bottom: 16px;
   }
