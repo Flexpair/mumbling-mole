@@ -15,7 +15,7 @@ import socketserver
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from time import time
+from time import time, sleep
 from typing import Any, Optional
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
@@ -61,10 +61,17 @@ class RateLimiter:
         self.store: dict = defaultdict(list)
         self.window = window_seconds
         self.max_requests = max_requests
+        self.last_cleanup = time()
 
     def check(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit. Returns True if allowed."""
         now = time()
+        
+        # Opportunistic cleanup every minute to prevent unbounded memory growth
+        if now - self.last_cleanup > 60:
+            self.cleanup()
+            self.last_cleanup = now
+            
         # Clean old entries for this IP
         self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
         
@@ -149,7 +156,6 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
         return None
 
-    import time as time_mod
     max_retries = 3
     base_delay = 0.5
 
@@ -159,12 +165,15 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         except urllib.error.HTTPError as e:
             print(f'[AUTH] Token validation failed: {e.code}')
             return None
-        except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, OSError) as e:
+        except json.JSONDecodeError as e:
+            print(f'[AUTH] Token validation JSON error: {e}')
+            return None  # Fail fast, deterministic error
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             err_details = getattr(e, 'reason', e)
             print(f'[AUTH] Token validation error on attempt {attempt + 1}: {err_details}')
             if attempt == max_retries - 1:
                 return None
-            time_mod.sleep(base_delay * (2 ** attempt))
+            sleep(base_delay * (2 ** attempt))
     
     return None
 
