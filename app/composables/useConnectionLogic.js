@@ -7,80 +7,8 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { translate } from '../localize';
 import { fetchCredentials } from '../auth/credentials-service.js';
-
-/**
- * Determine Guacamole login role from user roles
- * @param {Array} roles - User roles array
- * @returns {string|false} - 'admin', 'editor', 'watcher', or false
- */
-function getGuacamoleLogin(roles = []) {
-  if (roles.includes('admin')) return 'admin';
-  if (roles.includes('edit')) return 'editor';
-  if (roles.includes('watch')) return 'watcher';
-  return false;
-}
-
-/**
- * Get Guacamole credentials from server or legacy fallback
- * @param {Object} serverCredentials
- * @param {string} password
- * @param {Object} auth
- * @returns {Object} {user, password}
- */
-export function getGuacamoleCredentials(serverCredentials, password, auth) {
-  const roles = auth?.currentUser()?.app_metadata?.roles || [];
-  return {
-    user: serverCredentials?.guacamoleUser || getGuacamoleLogin(roles),
-    password: serverCredentials?.guacamolePassword || password
-  };
-}
-
-/**
- * Register existing users in the channel
- * @param {Object} client
- * @param {Object} userStore
- */
-export function registerExistingUsers(client, userStore) {
-  for (const user of client.users.values()) {
-    if (user !== client.self) {
-      userStore.registerUser(user);
-    }
-  }
-}
-
-/**
- * Setup Guacamole frame if needed
- * @param {string|false} guac_login
- * @param {string} password
- * @param {boolean} isLoopbackMode
- * @param {Object} uiStore
- */
-export function setupGuacamoleFrame(guac_login, password, isLoopbackMode, uiStore) {
-  if (guac_login && !isLoopbackMode) {
-    if (uiStore.guacamoleFrame) {
-      uiStore.guacamoleFrame.start(guac_login, password);
-      uiStore.guacamoleFrame.show();
-    }
-  } else if (!guac_login && !isLoopbackMode) {
-    alert('For visual access please ask your administrator.');
-  }
-}
-
-/**
- * Reset UI state for new connection
- * @param {Object} audioStore
- * @param {Object} userStore
- * @param {Object} voiceStore
- */
-export function resetUIForConnection(audioStore, userStore, voiceStore) {
-  audioStore.stopBeep();
-  userStore.thisUser = null;
-  
-  if (!voiceStore.isLoopbackMode) {
-    audioStore.beeperReady = false;
-    voiceStore.voiceHandlerReady = false;
-  }
-}
+import { getGuacamoleLogin, getGuacamoleCredentials, setupGuacamoleFrame } from './useGuacamole';
+import { registerExistingUsers, resetUIForConnection } from './useMumbleHelpers';
 
 /**
  * Composable for connection orchestration logic

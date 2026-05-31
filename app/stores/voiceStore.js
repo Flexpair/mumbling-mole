@@ -3,29 +3,9 @@ import { ref, shallowRef } from 'vue';
 import { useAudioStore } from './audioStore';
 import { useConnectionStore } from './connectionStore';
 import { useSettingsStore } from './settingsStore';
-import {
-  ContinuousVoiceHandler,
-  PushToTalkVoiceHandler,
-  initVoice,
-  onAudioMixerReady,
-} from '../audio/voice';
 import { translate } from '../localize';
 import { debugLog } from '../utils/debug-utils';
-
-/**
- * Initialize voice input capture
- * @param {Function} onData - Callback for voice data
- * @param {Function} onError - Callback for errors
- * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
- */
-function initVoiceInput(onData, onError, onMixerReady) {
-  initVoice(onData, onError);
-  
-  // Register for mixer ready notification if callback provided
-  if (onMixerReady) {
-    onAudioMixerReady(onMixerReady);
-  }
-}
+import { initVoiceInput, createVoiceHandlerInstance } from '../composables/useVoiceHandler';
 
 export const useVoiceStore = defineStore('voice', () => {
   const audioStore = useAudioStore();
@@ -111,23 +91,14 @@ export const useVoiceStore = defineStore('voice', () => {
     voiceHandlerReady.value = false;
     debugLog('[VOICE-HANDLER]', 'Recreating voice handler...');
     
-    let mode = settingsStore.voiceMode;
-    
-    // Determine voice routing target
-    // target=31 routes to server loopback for echo testing
-    // target=0 routes normally to channel/user
-    let target = isLoopbackMode.value ? 31 : 0;
-    
-    // Create appropriate handler based on voice activation mode
-    let newHandler;
-    if (mode === 'cont') {
-      newHandler = new ContinuousVoiceHandler(client, settingsStore, target);
-    } else if (mode === 'ptt') {
-      newHandler = new PushToTalkVoiceHandler(client, settingsStore, target);
-    } else {
-      debugLog('[VOICE]', translate('logentry.unknown_voice_mode'), mode);
-      return;
-    }
+    const newHandler = createVoiceHandlerInstance(
+      settingsStore.voiceMode, 
+      client, 
+      settingsStore, 
+      isLoopbackMode.value
+    );
+
+    if (!newHandler) return;
     
     voiceHandler.value = newHandler;
     
