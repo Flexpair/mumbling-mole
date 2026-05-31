@@ -118,18 +118,8 @@ def _is_valid_url_scheme(url: str) -> bool:
     return False
 
 
-def validate_token(token: str, provider_config: dict) -> Optional[dict]:
-    """Validate JWT by calling the auth provider's user endpoint."""
-    endpoint = provider_config.get('userEndpoint')
-    if not endpoint:
-        print('[AUTH] Provider endpoint not configured')
-        return None
-
-    url = f"{endpoint}/user"
-    if not _is_valid_url_scheme(url):
-        print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
-        return None
-
+def _execute_auth_request(url: str, token: str) -> Optional[dict]:
+    """Execute the HTTP request to the auth provider with retry logic."""
     import time as time_mod
     max_retries = 3
     base_delay = 0.5
@@ -166,6 +156,21 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
             time_mod.sleep(base_delay * (2 ** attempt))
     
     return None
+
+
+def validate_token(token: str, provider_config: dict) -> Optional[dict]:
+    """Validate JWT by calling the auth provider's user endpoint."""
+    endpoint = provider_config.get('userEndpoint')
+    if not endpoint:
+        print('[AUTH] Provider endpoint not configured')
+        return None
+
+    url = f"{endpoint}/user"
+    if not _is_valid_url_scheme(url):
+        print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
+        return None
+
+    return _execute_auth_request(url, token)
 
 
 def hash_email(email: str) -> str:
@@ -233,39 +238,45 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_json(404, {'error': 'Not found'})
 
+    def _check_rate_limit(self) -> bool:
+        client_ip = self.client_address[0]
+        if not rate_limiter.check(client_ip):
+            self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+            return False
+        return True
+
+    def _get_token_from_header(self) -> Optional[str]:
+        auth_header = self.headers.get('Authorization', '')
+        token = _extract_token(auth_header)
+        if not token:
+            self.send_json(401, {'error': 'Missing authorization header'})
+            return None
+        return token
+
     def do_POST(self):
         """Handle POST requests (credentials endpoint)."""
         if self.path != '/api/credentials':
             self.send_json(404, {'error': 'Not found'})
             return
 
-        # Rate limiting
-        client_ip = self.client_address[0]
-        if not rate_limiter.check(client_ip):
-            self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+        if not self._check_rate_limit():
             return
 
-        # Check authorization header
-        auth_header = self.headers.get('Authorization', '')
-        token = _extract_token(auth_header)
+        token = self._get_token_from_header()
         if not token:
-            self.send_json(401, {'error': 'Missing authorization header'})
             return
 
         provider_config = AUTH_PROVIDERS.get(AUTH_PROVIDER)
-
         if not provider_config:
             print(f'[AUTH] Unknown provider: {AUTH_PROVIDER}')
             self.send_json(500, {'error': 'Auth provider misconfigured'})
             return
 
-        # Validate token
         user = validate_token(token, provider_config)
         if not user:
             self.send_json(401, {'error': 'Invalid or expired token'})
             return
 
-        # Extract roles and determine access level
         roles = _extract_roles(user, provider_config['rolesClaim'])
         guacamole_user = get_guacamole_user(roles)
 

@@ -217,30 +217,34 @@ export function useConnectionLogic({ auth } = {}) {
   async function _establishClientConnection(host, port, username, password, tokens, serverCredentials) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
     
-    const guacCreds = getGuacamoleCredentials(serverCredentials, password, auth);
-    setupGuacamoleFrame(guacCreds.user, guacCreds.password, voiceStore.isLoopbackMode, uiStore);
+    _initializeGuacamole(serverCredentials, password);
     
     const logKey = voiceStore.isLoopbackMode ? 'logentry.connected_loopback' : 'logentry.connected';
     console.log(translate(logKey));
 
-    // Register root channel and self user
+    _initializeClientState(client);
+    _initializeAudio(client);
+  }
+
+  function _initializeGuacamole(serverCredentials, password) {
+    const guacCreds = getGuacamoleCredentials(serverCredentials, password, auth);
+    setupGuacamoleFrame(guacCreds.user, guacCreds.password, voiceStore.isLoopbackMode, uiStore);
+  }
+
+  function _initializeClientState(client) {
     connectionStore.registerChannel(client.root);
-    
     if (client.self) {
       userStore.registerUser(client.self);
       userStore.thisUser = client.self.__ui;
     }
-
     registerExistingUsers(client, userStore);
     _setupClientHandlers(client);
-    
-    // CRITICAL: Set audio quality BEFORE creating voice handler
+  }
+
+  function _initializeAudio(client) {
     const samplesPerPacket = settingsStore.samplesPerPacket || 960;
     const audioBitrate = settingsStore.audioBitrate || 40000;
-    
     client.setAudioQuality(audioBitrate, samplesPerPacket);
-
-    // Initialize voice handler
     updateVoiceHandler();
   }
 

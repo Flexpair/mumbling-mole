@@ -342,21 +342,16 @@ class ClientInitializer {
   }
 }
 
-function setupClient(id, client) {
-  const ROOT_CHECK_INTERVAL_MS = 500;
-  const ROOT_CHECK_MAX_COUNT = 20;
-  const ROOT_CHECK_TIMEOUT_SECONDS = (ROOT_CHECK_MAX_COUNT * ROOT_CHECK_INTERVAL_MS) / 1000;
-  
-  id = { client: id };
-
-  // Register event proxies with extracted transform functions
+function _registerClientEventProxies(id, client) {
   registerEventProxy(id, client, "error");
   registerEventProxy(id, client, "denied", (it) => [it]);
   registerEventProxy(id, client, "newChannel", (it) => [setupChannel(id, it)]);
   registerEventProxy(id, client, "newUser", (it) => [setupUser(id, it)]);
   registerEventProxy(id, client, "messageSent", (messageText) => [messageText]);
   registerEventProxy(id, client, "message", transformMessageEvent);
-  
+}
+
+function _registerClientStatsMonitors(id, client) {
   // STATS-MONITORING: Push data statistics when ping responses arrive
   client.on("dataPing", () => {
     pushProp(id, client, "dataStats");
@@ -372,6 +367,17 @@ function setupClient(id, client) {
   client.on("serverVersion", () => {
     pushProp(id, client, "serverVersion");
   });
+}
+
+function setupClient(id, client) {
+  const ROOT_CHECK_INTERVAL_MS = 500;
+  const ROOT_CHECK_MAX_COUNT = 20;
+  const ROOT_CHECK_TIMEOUT_SECONDS = (ROOT_CHECK_MAX_COUNT * ROOT_CHECK_INTERVAL_MS) / 1000;
+  
+  id = { client: id };
+
+  _registerClientEventProxies(id, client);
+  _registerClientStatsMonitors(id, client);
 
   // Initialize client state with extracted class
   const initializer = new ClientInitializer(
