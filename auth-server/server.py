@@ -12,6 +12,7 @@ import json
 import os
 import secrets
 import socketserver
+import threading
 import urllib.request
 import urllib.error
 from collections import defaultdict
@@ -62,27 +63,33 @@ class RateLimiter:
         self.window = window_seconds
         self.max_requests = max_requests
         self.last_cleanup = time()
+        self.lock = threading.Lock()
 
     def check(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit. Returns True if allowed."""
         now = time()
         
-        # Opportunistic cleanup every minute to prevent unbounded memory growth
-        if now - self.last_cleanup > 60:
-            self.cleanup()
-            self.last_cleanup = now
+        with self.lock:
+            # Opportunistic cleanup every minute to prevent unbounded memory growth
+            if now - self.last_cleanup > 60:
+                self._cleanup_unsafe()
+                self.last_cleanup = now
+                
+            # Clean old entries for this IP
+            self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
             
-        # Clean old entries for this IP
-        self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
-        
-        if len(self.store[client_ip]) >= self.max_requests:
-            return False
-            
-        self.store[client_ip].append(now)
-        return True
+            if len(self.store[client_ip]) >= self.max_requests:
+                return False
+                
+            self.store[client_ip].append(now)
+            return True
 
     def cleanup(self):
         """Periodically remove empty IPs to prevent memory leaks."""
+        with self.lock:
+            self._cleanup_unsafe()
+
+    def _cleanup_unsafe(self):
         empty_ips = [ip for ip, timestamps in self.store.items() if not timestamps]
         for ip in empty_ips:
             del self.store[ip]
@@ -164,7 +171,9 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
             return _execute_token_request(url, token)
         except urllib.error.HTTPError as e:
             print(f'[AUTH] Token validation failed: {e.code}')
-            return None
+            if e.code < 500 or attempt == max_retries - 1:
+                return None
+            sleep(base_delay * (2 ** attempt))
         except json.JSONDecodeError as e:
             print(f'[AUTH] Token validation JSON error: {e}')
             return None  # Fail fast, deterministic error
