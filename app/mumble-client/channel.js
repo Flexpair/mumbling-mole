@@ -21,6 +21,15 @@ class Channel extends EventEmitter {
     this.emit('remove')
   }
 
+  _updateField (msg, msgKey, changeKey, privateKey, invalidateCallback) {
+    if (msg[msgKey] != null) {
+      this[privateKey] = msg[msgKey]
+      if (invalidateCallback) invalidateCallback.call(this)
+      return { [changeKey]: msg[msgKey] }
+    }
+    return {}
+  }
+
   _updateLinks (msg, changes) {
     if (msg.links) {
       this._links = msg.links
@@ -41,25 +50,14 @@ class Channel extends EventEmitter {
 
   _update (msg) {
     const changes = {}
-    if (msg.name != null) {
-      changes.name = this._name = msg.name
-    }
-    if (msg.description != null) {
-      changes.description = this._description = msg.description
-    }
-    if (msg.descriptionHash != null) {
-      changes.descriptionHash = this._descriptionHash = msg.descriptionHash
-      this._haveRequestedDescription = false // invalidate previous request
-    }
-    if (msg.temporary != null) {
-      changes.temporary = this._temporary = msg.temporary
-    }
-    if (msg.position != null) {
-      changes.position = this._position = msg.position
-    }
-    if (msg.maxUsers != null) {
-      changes.maxUsers = this._maxUsers = msg.maxUsers
-    }
+    Object.assign(changes,
+      this._updateField(msg, 'name', 'name', '_name'),
+      this._updateField(msg, 'description', 'description', '_description'),
+      this._updateField(msg, 'descriptionHash', 'descriptionHash', '_descriptionHash', () => { this._haveRequestedDescription = false }),
+      this._updateField(msg, 'temporary', 'temporary', '_temporary'),
+      this._updateField(msg, 'position', 'position', '_position'),
+      this._updateField(msg, 'maxUsers', 'maxUsers', '_maxUsers')
+    )
     this._updateLinks(msg, changes)
     if (msg.parent != null) {
       if (this.parent) {

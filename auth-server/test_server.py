@@ -18,11 +18,8 @@ from server import (
     get_nested_property,
     get_guacamole_user,
     hash_email,
-    check_rate_limit,
+    rate_limiter,
     generate_secure_password,
-    rate_limit_store,
-    RATE_LIMIT_MAX,
-    RATE_LIMIT_WINDOW,
 )
 
 
@@ -143,37 +140,37 @@ class TestRateLimiting(unittest.TestCase):
 
     def setUp(self):
         # Clear rate limit store before each test
-        rate_limit_store.clear()
+        rate_limiter.store.clear()
 
     def test_allows_first_request(self):
-        self.assertTrue(check_rate_limit('192.168.1.1'))
+        self.assertTrue(rate_limiter.check('192.168.1.1'))
 
     def test_allows_multiple_requests_under_limit(self):
-        for _ in range(RATE_LIMIT_MAX - 1):
-            self.assertTrue(check_rate_limit('192.168.1.2'))
+        for _ in range(rate_limiter.max_requests - 1):
+            self.assertTrue(rate_limiter.check('192.168.1.2'))
 
     def test_blocks_after_limit(self):
-        for _ in range(RATE_LIMIT_MAX):
-            check_rate_limit('192.168.1.3')
-        self.assertFalse(check_rate_limit('192.168.1.3'))
+        for _ in range(rate_limiter.max_requests):
+            rate_limiter.check('192.168.1.3')
+        self.assertFalse(rate_limiter.check('192.168.1.3'))
 
     def test_different_ips_independent(self):
-        for _ in range(RATE_LIMIT_MAX):
-            check_rate_limit('192.168.1.4')
+        for _ in range(rate_limiter.max_requests):
+            rate_limiter.check('192.168.1.4')
         # Different IP should still be allowed
-        self.assertTrue(check_rate_limit('192.168.1.5'))
+        self.assertTrue(rate_limiter.check('192.168.1.5'))
 
     def test_old_requests_expire(self):
         # Fill up rate limit
-        for _ in range(RATE_LIMIT_MAX):
-            check_rate_limit('192.168.1.6')
+        for _ in range(rate_limiter.max_requests):
+            rate_limiter.check('192.168.1.6')
         
         # Simulate time passing
-        old_time = time() - RATE_LIMIT_WINDOW - 1
-        rate_limit_store['192.168.1.6'] = [old_time] * RATE_LIMIT_MAX
+        old_time = time() - rate_limiter.window - 1
+        rate_limiter.store['192.168.1.6'] = [old_time] * rate_limiter.max_requests
         
         # Should be allowed again
-        self.assertTrue(check_rate_limit('192.168.1.6'))
+        self.assertTrue(rate_limiter.check('192.168.1.6'))
 
 
 class TestAuthProviderConfig(unittest.TestCase):
