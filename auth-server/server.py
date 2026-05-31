@@ -12,10 +12,11 @@ import json
 import os
 import secrets
 import socketserver
+import threading
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from time import time
+from time import time, sleep
 from typing import Any, Optional
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
@@ -61,21 +62,32 @@ class RateLimiter:
         self.store: dict = defaultdict(list)
         self.window = window_seconds
         self.max_requests = max_requests
+        self.last_cleanup = time()
+        self.lock = threading.Lock()
 
     def check(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit. Returns True if allowed."""
         now = time()
-        # Clean old entries for this IP
-        self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
-        
-        if len(self.store[client_ip]) >= self.max_requests:
-            return False
+        with self.lock:
+            # Clean old entries for this IP
+            self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
             
-        self.store[client_ip].append(now)
-        return True
+            if len(self.store[client_ip]) >= self.max_requests:
+                return False
+                
+            self.store[client_ip].append(now)
+            return True
 
     def cleanup(self):
         """Periodically remove empty IPs to prevent memory leaks."""
+
+    def cleanup(self):
+        """Periodically remove empty IPs to prevent memory leaks."""
+        with self.lock:
+            self._cleanup_unsafe()
+
+    def _cleanup_unsafe(self):
+>>>>>>> origin/lite
         empty_ips = [ip for ip, timestamps in self.store.items() if not timestamps]
         for ip in empty_ips:
             del self.store[ip]
@@ -118,6 +130,7 @@ def _is_valid_url_scheme(url: str) -> bool:
     return False
 
 
+
 def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     """Execute the HTTP request to the auth provider with retry logic."""
     import time as time_mod
@@ -158,6 +171,7 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     return None
 
 
+
 def validate_token(token: str, provider_config: dict) -> Optional[dict]:
     """Validate JWT by calling the auth provider's user endpoint."""
     endpoint = provider_config.get('userEndpoint')
@@ -170,7 +184,9 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
         return None
 
+
     return _execute_auth_request(url, token)
+
 
 
 def hash_email(email: str) -> str:
@@ -259,7 +275,9 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(404, {'error': 'Not found'})
             return
 
+
         if not self._check_rate_limit():
+
             return
 
         token = self._get_token_from_header()
