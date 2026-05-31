@@ -238,7 +238,7 @@ class MumbleClient extends EventEmitter {
         password: this._password,
         tokens: this._tokens,
         celt_versions: [],
-        opus: (this._codecs || { opus: false }).opus
+        opus: (this._codecs ?? { opus: false }).opus
       }
     })
 
@@ -350,26 +350,18 @@ class MumbleClient extends EventEmitter {
    * @param {object} chunk - The data packet
    */
   _onData (chunk) {
-    switch (chunk.name) {
-      case 'UDPTunnel': this._onUDPTunnel(chunk.payload); break;
-      case 'Version': this._onVersion(chunk.payload); break;
-      case 'ServerSync': this._onServerSync(chunk.payload); break;
-      case 'Ping': this._onPing(chunk.payload); break;
-      case 'ServerConfig': this._onServerConfig(chunk.payload); break;
-      case 'CodecVersion': this._onCodecVersion(chunk.payload); break;
-      case 'CryptSetup': this._onCryptSetup(chunk.payload); break;
-      case 'PermissionQuery': this._onPermissionQuery(chunk.payload); break;
-      case 'UserStats': this._onUserStats(chunk.payload); break;
-      case 'SuggestConfig': this._onSuggestConfig(chunk.payload); break;
-      case 'Reject': this._onReject(chunk.payload); break;
-      case 'PermissionDenied': this._onPermissionDenied(chunk.payload); break;
-      case 'TextMessage': this._onTextMessage(chunk.payload); break;
-      case 'ChannelState': this._onChannelState(chunk.payload); break;
-      case 'ChannelRemove': this._onChannelRemove(chunk.payload); break;
-      case 'UserState': this._onUserState(chunk.payload); break;
-      case 'UserRemove': this._onUserRemove(chunk.payload); break;
-      default:
-        console.warn('Unhandled data packet:', chunk)
+    const allowedPackets = new Set([
+      'UDPTunnel', 'Version', 'ServerSync', 'Ping', 'ServerConfig',
+      'CodecVersion', 'CryptSetup', 'PermissionQuery', 'UserStats',
+      'SuggestConfig', 'Reject', 'PermissionDenied', 'TextMessage',
+      'ChannelState', 'ChannelRemove', 'UserState', 'UserRemove'
+    ])
+
+    const handlerName = `_on${chunk.name}`
+    if (allowedPackets.has(chunk.name) && typeof this[handlerName] === 'function') {
+      this[handlerName](chunk.payload)
+    } else {
+      console.warn('Unhandled data packet:', chunk)
     }
   }
 

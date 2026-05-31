@@ -12,10 +12,11 @@ import json
 import os
 import secrets
 import socketserver
+import threading
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from time import time
+from time import time, sleep
 from typing import Any, Optional
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
@@ -55,10 +56,46 @@ AUTH_PROVIDERS = {
     }
 }
 
-# Rate limiting: track requests per IP (OWASP A07)
-rate_limit_store: dict = defaultdict(list)
-RATE_LIMIT_WINDOW = 15 * 60  # 15 minutes
-RATE_LIMIT_MAX = 30
+class RateLimiter:
+    """Manages rate limiting with thread-safe timestamp tracking."""
+    def __init__(self, window_seconds: int = 15 * 60, max_requests: int = 30):
+        self.store: dict = defaultdict(list)
+        self.window = window_seconds
+        self.max_requests = max_requests
+        self.last_cleanup = time()
+        self.lock = threading.Lock()
+
+    def check(self, client_ip: str) -> bool:
+        """Check if client has exceeded rate limit. Returns True if allowed."""
+        now = time()
+        
+        with self.lock:
+            # Opportunistic cleanup every minute to prevent unbounded memory growth
+            if now - self.last_cleanup > 60:
+                self._cleanup_unsafe()
+                self.last_cleanup = now
+                
+            # Clean old entries for this IP
+            self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
+            
+            if len(self.store[client_ip]) >= self.max_requests:
+                return False
+                
+            self.store[client_ip].append(now)
+            return True
+
+    def cleanup(self):
+        """Periodically remove empty IPs to prevent memory leaks."""
+        with self.lock:
+            self._cleanup_unsafe()
+
+    def _cleanup_unsafe(self):
+        empty_ips = [ip for ip, timestamps in self.store.items() if not timestamps]
+        for ip in empty_ips:
+            del self.store[ip]
+
+# Initialize global rate limiter
+rate_limiter = RateLimiter()
 
 
 def get_nested_property(obj: dict, path: str) -> Any:
@@ -95,6 +132,25 @@ def _is_valid_url_scheme(url: str) -> bool:
     return False
 
 
+def _execute_token_request(url: str, token: str) -> Optional[dict]:
+    """Execute a single HTTP request for token validation."""
+    req = urllib.request.Request(
+        url,
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+    )
+    # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
+    with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
+        if response.status != 200:
+            print(f'[AUTH] Token validation failed: {response.status}')
+            return None
+        return json.loads(response.read().decode('utf-8'))
+
+
 def validate_token(token: str, provider_config: dict) -> Optional[dict]:
     """Validate JWT by calling the auth provider's user endpoint."""
     endpoint = provider_config.get('userEndpoint')
@@ -107,31 +163,28 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
         return None
 
-    try:
-        req = urllib.request.Request(
-            url,
-            headers={
-                'Authorization': f'Bearer {token}',
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-        )
-        # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
-        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
-        with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
-            if response.status != 200:
-                print(f'[AUTH] Token validation failed: {response.status}')
+    max_retries = 3
+    base_delay = 0.5
+
+    for attempt in range(max_retries):
+        try:
+            return _execute_token_request(url, token)
+        except urllib.error.HTTPError as e:
+            print(f'[AUTH] Token validation failed: {e.code}')
+            if e.code < 500 or attempt == max_retries - 1:
                 return None
-            return json.loads(response.read().decode('utf-8'))
-    except urllib.error.HTTPError as e:
-        print(f'[AUTH] Token validation failed: {e.code}')
-        return None
-    except urllib.error.URLError as e:
-        print(f'[AUTH] Token validation network error: {e.reason}')
-        return None
-    except (json.JSONDecodeError, TimeoutError, OSError) as e:
-        print(f'[AUTH] Token validation error: {e}')
-        return None
+            sleep(base_delay * (2 ** attempt))
+        except json.JSONDecodeError as e:
+            print(f'[AUTH] Token validation JSON error: {e}')
+            return None  # Fail fast, deterministic error
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            err_details = getattr(e, 'reason', e)
+            print(f'[AUTH] Token validation error on attempt {attempt + 1}: {err_details}')
+            if attempt == max_retries - 1:
+                return None
+            sleep(base_delay * (2 ** attempt))
+    
+    return None
 
 
 def hash_email(email: str) -> str:
@@ -141,21 +194,7 @@ def hash_email(email: str) -> str:
     return hashlib.sha256(email.encode()).hexdigest()[:8]
 
 
-def check_rate_limit(client_ip: str) -> bool:
-    """Check if client has exceeded rate limit. Returns True if allowed."""
-    now = time()
-    # Clean old entries for this IP
-    rate_limit_store[client_ip] = [t for t in rate_limit_store[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    
-    # Remove IPs with empty timestamp lists to prevent memory leak
-    if not rate_limit_store[client_ip]:
-        del rate_limit_store[client_ip]
-    
-    if len(rate_limit_store.get(client_ip, [])) >= RATE_LIMIT_MAX:
-        return False
-    
-    rate_limit_store[client_ip].append(now)
-    return True
+
 
 
 def _extract_token(auth_header: str) -> Optional[str]:
@@ -221,7 +260,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
         # Rate limiting
         client_ip = self.client_address[0]
-        if not check_rate_limit(client_ip):
+        if not rate_limiter.check(client_ip):
             self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
             return
 
