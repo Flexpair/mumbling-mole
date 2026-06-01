@@ -80,14 +80,10 @@ class RateLimiter:
 
     def cleanup(self):
         """Periodically remove empty IPs to prevent memory leaks."""
-
-    def cleanup(self):
-        """Periodically remove empty IPs to prevent memory leaks."""
         with self.lock:
             self._cleanup_unsafe()
 
     def _cleanup_unsafe(self):
->>>>>>> origin/lite
         empty_ips = [ip for ip, timestamps in self.store.items() if not timestamps]
         for ip in empty_ips:
             del self.store[ip]
