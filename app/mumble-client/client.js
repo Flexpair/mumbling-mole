@@ -359,6 +359,7 @@ class MumbleClient extends EventEmitter {
 
     const handlerName = `_on${chunk.name}`
     if (allowedPackets.has(chunk.name) && typeof this[handlerName] === 'function') {
+
       this[handlerName](chunk.payload)
     } else {
       console.warn('Unhandled data packet:', chunk)

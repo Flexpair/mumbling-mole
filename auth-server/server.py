@@ -68,13 +68,7 @@ class RateLimiter:
     def check(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit. Returns True if allowed."""
         now = time()
-        
         with self.lock:
-            # Opportunistic cleanup every minute to prevent unbounded memory growth
-            if now - self.last_cleanup > 60:
-                self._cleanup_unsafe()
-                self.last_cleanup = now
-                
             # Clean old entries for this IP
             self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
             
@@ -132,23 +126,46 @@ def _is_valid_url_scheme(url: str) -> bool:
     return False
 
 
-def _execute_token_request(url: str, token: str) -> Optional[dict]:
-    """Execute a single HTTP request for token validation."""
-    req = urllib.request.Request(
-        url,
-        headers={
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-    )
-    # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
-    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
-    with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
-        if response.status != 200:
-            print(f'[AUTH] Token validation failed: {response.status}')
+
+def _execute_auth_request(url: str, token: str) -> Optional[dict]:
+    """Execute the HTTP request to the auth provider with retry logic."""
+    import time as time_mod
+    max_retries = 3
+    base_delay = 0.5
+
+    for attempt in range(max_retries):
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    'Authorization': f'Bearer {token}',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
+            # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
+            with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
+                if response.status != 200:
+                    print(f'[AUTH] Token validation failed: {response.status}')
+                    return None
+                return json.loads(response.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            print(f'[AUTH] Token validation failed: {e.code}')
             return None
-        return json.loads(response.read().decode('utf-8'))
+        except urllib.error.URLError as e:
+            print(f'[AUTH] Token validation network error on attempt {attempt + 1}: {e.reason}')
+            if attempt == max_retries - 1:
+                return None
+            time_mod.sleep(base_delay * (2 ** attempt))
+        except (json.JSONDecodeError, TimeoutError, OSError) as e:
+            print(f'[AUTH] Token validation error on attempt {attempt + 1}: {e}')
+            if attempt == max_retries - 1:
+                return None
+            time_mod.sleep(base_delay * (2 ** attempt))
+    
+    return None
+
 
 
 def validate_token(token: str, provider_config: dict) -> Optional[dict]:
@@ -163,28 +180,9 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
         return None
 
-    max_retries = 3
-    base_delay = 0.5
 
-    for attempt in range(max_retries):
-        try:
-            return _execute_token_request(url, token)
-        except urllib.error.HTTPError as e:
-            print(f'[AUTH] Token validation failed: {e.code}')
-            if e.code < 500 or attempt == max_retries - 1:
-                return None
-            sleep(base_delay * (2 ** attempt))
-        except json.JSONDecodeError as e:
-            print(f'[AUTH] Token validation JSON error: {e}')
-            return None  # Fail fast, deterministic error
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            err_details = getattr(e, 'reason', e)
-            print(f'[AUTH] Token validation error on attempt {attempt + 1}: {err_details}')
-            if attempt == max_retries - 1:
-                return None
-            sleep(base_delay * (2 ** attempt))
-    
-    return None
+    return _execute_auth_request(url, token)
+
 
 
 def hash_email(email: str) -> str:
@@ -252,39 +250,47 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_json(404, {'error': 'Not found'})
 
+    def _check_rate_limit(self) -> bool:
+        client_ip = self.client_address[0]
+        if not rate_limiter.check(client_ip):
+            self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+            return False
+        return True
+
+    def _get_token_from_header(self) -> Optional[str]:
+        auth_header = self.headers.get('Authorization', '')
+        token = _extract_token(auth_header)
+        if not token:
+            self.send_json(401, {'error': 'Missing authorization header'})
+            return None
+        return token
+
     def do_POST(self):
         """Handle POST requests (credentials endpoint)."""
         if self.path != '/api/credentials':
             self.send_json(404, {'error': 'Not found'})
             return
 
-        # Rate limiting
-        client_ip = self.client_address[0]
-        if not rate_limiter.check(client_ip):
-            self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+
+        if not self._check_rate_limit():
+
             return
 
-        # Check authorization header
-        auth_header = self.headers.get('Authorization', '')
-        token = _extract_token(auth_header)
+        token = self._get_token_from_header()
         if not token:
-            self.send_json(401, {'error': 'Missing authorization header'})
             return
 
         provider_config = AUTH_PROVIDERS.get(AUTH_PROVIDER)
-
         if not provider_config:
             print(f'[AUTH] Unknown provider: {AUTH_PROVIDER}')
             self.send_json(500, {'error': 'Auth provider misconfigured'})
             return
 
-        # Validate token
         user = validate_token(token, provider_config)
         if not user:
             self.send_json(401, {'error': 'Invalid or expired token'})
             return
 
-        # Extract roles and determine access level
         roles = _extract_roles(user, provider_config['rolesClaim'])
         guacamole_user = get_guacamole_user(roles)
 
