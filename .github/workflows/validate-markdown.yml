@@ -40,5 +40,5 @@ jobs:
           echo "Please ensure:"
           echo "  1. Maximum ONE markdown file per directory"
           echo "  2. Markdown files are named 'README.md'"
-          echo "  3. Exception: .github/copilot-instructions.md"
+          echo "  3. Exception: AGENTS.md, CLAUDE.md, .github/copilot-instructions.md"
           exit 1
