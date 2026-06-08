@@ -18,6 +18,10 @@ MARKDOWN_FILES=$(find . -name "*.md" -type f \
     -not -path "*/.git/*" \
     -not -path "*/.vscode-remote/*" \
     -not -path "*/.vscode/*" \
+    -not -path "./coverage/*" \
+    -not -path "./playwright-report/*" \
+    -not -path "./test-results/*" \
+    -not -path "./dist/*" \
     | sort)
 
 ERRORS=0
@@ -52,6 +56,8 @@ declare -A DIR_MD_FILES
 # Special allowed files (not README.md or LICENSE.md)
 # These are exceptions to the "one README.md per folder" rule
 ALLOWED_SPECIAL_FILES=(
+    "./AGENTS.md"
+    "./CLAUDE.md"
     "./.github/copilot-instructions.md"
     "./.github/SECURITY.md"
 )
