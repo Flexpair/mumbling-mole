@@ -68,18 +68,31 @@ test.describe('Loopback Frequency Test', () => {
     
     await page.goto('/?debug-audio', { waitUntil: 'networkidle', timeout: 30000 });
     
-    // Handle GitHub Codespaces "Continue" button if present
+    // Handle the GitHub Codespaces interstitial only when the current page is
+    // actually on the forwarded Codespaces domain. This avoids false positives
+    // on the real app page.
     console.log('🔍 Checking for GitHub Codespaces interstitial page...');
     try {
-      const continueButton = page.locator('button:has-text("Continue"), a:has-text("Continue")');
-      await expect(continueButton).toBeVisible({ timeout: 2000 });
-      console.log('✅ Found Codespaces Continue button, clicking...');
-      await continueButton.click();
-      await page.waitForLoadState('networkidle', { timeout: 10000 });
-      console.log('✅ Passed Codespaces interstitial');
+      const isCodespacesInterstitial = /(?:app\.github\.dev|github\.dev)/i.test(page.url());
+      if (!isCodespacesInterstitial) {
+        console.log('ℹ️  Not on a Codespaces forwarding URL; skipping interstitial handling');
+      } else {
+        const continueButton = page
+          .getByRole('button', { name: /open in browser/i })
+          .or(page.getByRole('link', { name: /open in browser/i }))
+          .first();
+
+        if (await continueButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+          console.log('✅ Found Codespaces interstitial action, clicking...');
+          await continueButton.click();
+          await page.waitForLoadState('networkidle', { timeout: 10000 });
+          console.log('✅ Passed Codespaces interstitial');
+        } else {
+          console.log('ℹ️  No Codespaces interstitial action button found');
+        }
+      }
     } catch {
-      // Expected when not running in Codespaces environment
-      console.log('ℹ️  No Codespaces interstitial page');
+      console.log('ℹ️  No Codespaces interstitial page detected');
     }
     
     // Handle Netlify Identity login

@@ -22,20 +22,17 @@ import { config } from 'dotenv';
 // Load test credentials from .env.test
 config({ path: '.env.test' });
 
-// Auto-detect the appropriate base URL for testing
+// Prefer the local reverse-proxy URL that the dev container exposes.
+// This avoids the GitHub Codespaces forwarding page, which can redirect to
+// GitHub authentication instead of the app itself.
 const getBaseURL = () => {
   if (process.env.PLAYWRIGHT_BASE_URL) {
     return process.env.PLAYWRIGHT_BASE_URL;
   }
-  
-  // In GitHub Codespaces, use nginx reverse proxy (port 443)
-  if (process.env.CODESPACES === 'true' && process.env.CODESPACE_NAME) {
-    const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN || 'app.github.dev';
-    return `https://${process.env.CODESPACE_NAME}-443.${domain}`;
-  }
-  
-  // Default: Use nginx reverse proxy (tests full stack with TLS)
-  // Works in both dev container and CI
+
+  // Default: Use the nginx reverse proxy for the full TLS path.
+  // Override with PLAYWRIGHT_BASE_URL when you intentionally want a
+  // different target (for example, a forwarded Codespaces URL).
   return 'https://local.flexpair.app';
 };
 
@@ -118,12 +115,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         channel: 'chromium', // Use system Chromium if available
-        // Force headed mode in CI for audio tests (fake devices need rendering context)
-        // In Codespace, headless works fine since it has proper audio context
-        headless: !process.env.CI
+        // Default to headless for CI/container environments. Use `--headed` explicitly
+        // when you really want a visible browser on a machine with an X server.
+        headless: process.env.PLAYWRIGHT_HEADLESS !== 'false'
       }
     }
   ],
