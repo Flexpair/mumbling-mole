@@ -41,7 +41,7 @@
     "@playwright/test": "1.60.0",
     "depcheck": "1.4.7",
     "dotenv": "17.4.2",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "esbuild-plugin-vue3": "0.5.1",
     "esbuild-sass-plugin": "3.7.0",
     "jest": "30.4.2",
