@@ -17,6 +17,7 @@ import {
 import {
   translate,
 } from "./localize";
+import { resolveConnectAddress } from "./utils/connect-address.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -133,27 +134,27 @@ function applyQueryParamsToConnectDialog() {
   let queryParams = Object.fromEntries(urlObj.searchParams.entries());
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   
-  if (queryParams.address) {
-    // SECURITY: The address is used to open a WebSocket connection to the
-    // Mumble server. Only the raw URL query parameter is untrusted input from
-    // the page visitor; `mumbleWebConfig.defaults.address` (merged in above)
-    // is operator-configured and always trusted. Validate the URL-supplied
-    // value against an allowlist (or this page's own hostname) before using
-    // it, otherwise an attacker-crafted link could hijack the streaming
-    // connection to a server they control (CWE-346 / connection hijacking).
-    const addressFromQuery = urlObj.searchParams.get('address');
-    if (addressFromQuery) {
-      const allowedHosts = globalThis.mumbleWebConfig.allowedServerHosts || [globalThis.location.hostname];
-      if (allowedHosts.includes(addressFromQuery)) {
-        dialogStore.connectDialog.address = addressFromQuery;
-      } else {
-        console.warn('[SECURITY] Ignoring untrusted "address" query parameter:', addressFromQuery);
-      }
-    } else {
-      // No query override - this is the operator-configured default, which is trusted.
-      dialogStore.connectDialog.address = queryParams.address;
-    }
+  // SECURITY: The address is used to open a WebSocket connection to the
+  // Mumble server. Only the raw URL query parameter is untrusted input from
+  // the page visitor; `mumbleWebConfig.defaults.address` is operator-
+  // configured and always trusted. See resolveConnectAddress() for the
+  // allowlisting logic that prevents an attacker-crafted link from
+  // hijacking the streaming connection to a server they control
+  // (CWE-346 / connection hijacking).
+  const allowedHosts = globalThis.mumbleWebConfig.allowedServerHosts || [globalThis.location.hostname];
+  const addressFromQuery = urlObj.searchParams.get('address');
+  const { address, rejected } = resolveConnectAddress(
+    addressFromQuery,
+    globalThis.mumbleWebConfig.defaults?.address,
+    allowedHosts
+  );
+  if (rejected) {
+    console.warn('[SECURITY] Ignoring untrusted "address" query parameter:', addressFromQuery);
   }
+  if (address) {
+    dialogStore.connectDialog.address = address;
+  }
+
   if (queryParams.port) {
     dialogStore.connectDialog.port = queryParams.port;
   }
