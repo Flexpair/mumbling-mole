@@ -6,8 +6,11 @@ Run with: python3 -m pytest auth-server/test_server.py -v
 Or standalone: python3 auth-server/test_server.py
 """
 
+import json
 import unittest
+import urllib.error
 from time import time
+from unittest.mock import patch, MagicMock
 
 # Import functions from server module
 import sys
@@ -20,6 +23,7 @@ from server import (
     hash_email,
     rate_limiter,
     generate_secure_password,
+    _execute_auth_request,
 )
 
 
@@ -206,6 +210,60 @@ class TestCredentialGeneration(unittest.TestCase):
         self.assertIn('admin', GUACAMOLE_PASSWORDS)
         self.assertIn('editor', GUACAMOLE_PASSWORDS)
         self.assertIn('watcher', GUACAMOLE_PASSWORDS)
+
+
+class TestExecuteAuthRequest(unittest.TestCase):
+    """Tests for _execute_auth_request retry/error handling."""
+
+    def _mock_response(self, status=200, body=b'{"ok": true}'):
+        response = MagicMock()
+        response.status = status
+        response.read.return_value = body
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+        return response
+
+    @patch('server.urllib.request.urlopen')
+    def test_success_on_first_attempt(self, mock_urlopen):
+        mock_urlopen.return_value = self._mock_response()
+        result = _execute_auth_request('https://example.com', 'token')
+        self.assertEqual(result, {'ok': True})
+        self.assertEqual(mock_urlopen.call_count, 1)
+
+    @patch('server.urllib.request.urlopen')
+    def test_http_error_returns_none_immediately(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            'https://example.com', 401, 'Unauthorized', {}, None
+        )
+        result = _execute_auth_request('https://example.com', 'token')
+        self.assertIsNone(result)
+        self.assertEqual(mock_urlopen.call_count, 1)
+
+    @patch('time.sleep', return_value=None)
+    @patch('server.urllib.request.urlopen')
+    def test_url_error_retries_then_succeeds(self, mock_urlopen, mock_sleep):
+        mock_urlopen.side_effect = [
+            urllib.error.URLError('network down'),
+            self._mock_response(),
+        ]
+        result = _execute_auth_request('https://example.com', 'token')
+        self.assertEqual(result, {'ok': True})
+        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(mock_sleep.call_count, 1)
+
+    @patch('time.sleep', return_value=None)
+    @patch('server.urllib.request.urlopen')
+    def test_exhausted_retries_returns_none(self, mock_urlopen, mock_sleep):
+        mock_urlopen.side_effect = urllib.error.URLError('network down')
+        result = _execute_auth_request('https://example.com', 'token')
+        self.assertIsNone(result)
+        self.assertEqual(mock_urlopen.call_count, 3)
+
+    @patch('server.urllib.request.urlopen')
+    def test_non_200_status_returns_none(self, mock_urlopen):
+        mock_urlopen.return_value = self._mock_response(status=500, body=b'')
+        result = _execute_auth_request('https://example.com', 'token')
+        self.assertIsNone(result)
 
 
 if __name__ == '__main__':
