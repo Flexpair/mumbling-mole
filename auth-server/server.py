@@ -133,38 +133,42 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     max_retries = 3
     base_delay = 0.5
 
+    req = urllib.request.Request(
+        url,
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+    )
+
     for attempt in range(max_retries):
         try:
-            req = urllib.request.Request(
-                url,
-                headers={
-                    'Authorization': f'Bearer {token}',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            )
-            # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
-            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
-            with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
-                if response.status != 200:
-                    print(f'[AUTH] Token validation failed: {response.status}')
-                    return None
-                return json.loads(response.read().decode('utf-8'))
+            return _make_single_request(req)
         except urllib.error.HTTPError as e:
             print(f'[AUTH] Token validation failed: {e.code}')
             return None
         except urllib.error.URLError as e:
             print(f'[AUTH] Token validation network error on attempt {attempt + 1}: {e.reason}')
-            if attempt == max_retries - 1:
-                return None
-            time_mod.sleep(base_delay * (2 ** attempt))
         except (json.JSONDecodeError, TimeoutError, OSError) as e:
             print(f'[AUTH] Token validation error on attempt {attempt + 1}: {e}')
-            if attempt == max_retries - 1:
-                return None
-            time_mod.sleep(base_delay * (2 ** attempt))
+
+        if attempt == max_retries - 1:
+            return None
+        time_mod.sleep(base_delay * (2 ** attempt))
     
     return None
+
+
+def _make_single_request(req: urllib.request.Request) -> Optional[dict]:
+    """Helper to perform a single urlopen request and parse JSON."""
+    # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
+    with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
+        if response.status != 200:
+            print(f'[AUTH] Token validation failed: {response.status}')
+            return None
+        return json.loads(response.read().decode('utf-8'))
 
 
 
