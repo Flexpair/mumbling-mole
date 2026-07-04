@@ -124,7 +124,7 @@
           type="button"
           class="dialog-logout-button"
           @click="handleLogout"
-          :aria-label="translate('connectdialog.logout') + ' of application'"
+          :aria-label="translate('connectdialog.logout')"
         >
           {{ translate('connectdialog.logout') }}
         </button>

@@ -141,7 +141,15 @@ function applyQueryParamsToConnectDialog() {
   // allowlisting logic that prevents an attacker-crafted link from
   // hijacking the streaming connection to a server they control
   // (CWE-346 / connection hijacking).
-  const allowedHosts = globalThis.mumbleWebConfig.allowedServerHosts || [globalThis.location.hostname];
+  // Config values can arrive as a non-array (e.g. a single string from JSON/env
+  // config); coerce here so resolveConnectAddress()'s `.includes()` check is
+  // always an array membership test, never a substring match.
+  const configuredHosts = globalThis.mumbleWebConfig.allowedServerHosts;
+  const allowedHosts = Array.isArray(configuredHosts)
+    ? configuredHosts
+    : configuredHosts
+      ? [configuredHosts]
+      : [globalThis.location.hostname];
   const addressFromQuery = urlObj.searchParams.get('address');
   const { address, rejected } = resolveConnectAddress(
     addressFromQuery,
