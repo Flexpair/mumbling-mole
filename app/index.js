@@ -135,15 +135,23 @@ function applyQueryParamsToConnectDialog() {
   
   if (queryParams.address) {
     // SECURITY: The address is used to open a WebSocket connection to the
-    // Mumble server. Only accept it if it matches an explicitly configured
-    // allowlist (or falls back to this page's own hostname); otherwise an
-    // attacker-crafted link could hijack the streaming connection to a
-    // server they control (CWE-346 / connection hijacking).
-    const allowedHosts = globalThis.mumbleWebConfig.allowedServerHosts || [globalThis.location.hostname];
-    if (allowedHosts.includes(queryParams.address)) {
-      dialogStore.connectDialog.address = queryParams.address;
+    // Mumble server. Only the raw URL query parameter is untrusted input from
+    // the page visitor; `mumbleWebConfig.defaults.address` (merged in above)
+    // is operator-configured and always trusted. Validate the URL-supplied
+    // value against an allowlist (or this page's own hostname) before using
+    // it, otherwise an attacker-crafted link could hijack the streaming
+    // connection to a server they control (CWE-346 / connection hijacking).
+    const addressFromQuery = urlObj.searchParams.get('address');
+    if (addressFromQuery) {
+      const allowedHosts = globalThis.mumbleWebConfig.allowedServerHosts || [globalThis.location.hostname];
+      if (allowedHosts.includes(addressFromQuery)) {
+        dialogStore.connectDialog.address = addressFromQuery;
+      } else {
+        console.warn('[SECURITY] Ignoring untrusted "address" query parameter:', addressFromQuery);
+      }
     } else {
-      console.warn('[SECURITY] Ignoring untrusted "address" query parameter:', queryParams.address);
+      // No query override - this is the operator-configured default, which is trusted.
+      dialogStore.connectDialog.address = queryParams.address;
     }
   }
   if (queryParams.port) {
