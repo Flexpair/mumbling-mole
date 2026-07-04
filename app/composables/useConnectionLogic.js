@@ -7,7 +7,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { translate } from '../localize';
 import { fetchCredentials } from '../auth/credentials-service.js';
-import { getGuacamoleLogin, getGuacamoleCredentials, setupGuacamoleFrame } from './useGuacamole';
+import { getGuacamoleLogin, getGuacamoleCredentials, startGuacamoleFrame, notifyGuacamoleUnavailable } from './useGuacamole';
 import { registerExistingUsers, resetUIForConnection } from './useMumbleHelpers';
 
 /**
@@ -227,8 +227,14 @@ export function useConnectionLogic({ auth } = {}) {
   }
 
   function _initializeGuacamole(serverCredentials, password) {
+    if (voiceStore.isLoopbackMode) return;
+
     const guacCreds = getGuacamoleCredentials(serverCredentials, password, auth);
-    setupGuacamoleFrame(guacCreds.user, guacCreds.password, voiceStore.isLoopbackMode, uiStore);
+    if (guacCreds.user) {
+      startGuacamoleFrame(guacCreds.user, guacCreds.password, uiStore);
+    } else {
+      notifyGuacamoleUnavailable();
+    }
   }
 
   function _initializeClientState(client) {

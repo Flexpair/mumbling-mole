@@ -109,7 +109,7 @@ describe('AudioContextManager', () => {
     await audioContextManager.getAudioContext();
     await audioContextManager.closeAudioContext();
     expect(mockAudioContext.close).toHaveBeenCalled();
-    expect(audioContextManager.audioContext).toBe(null);
+    expect(audioContextManager.audioContext).toBeNull();
   });
 
   test('onReady callback fires', async () => {

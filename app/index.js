@@ -134,7 +134,17 @@ function applyQueryParamsToConnectDialog() {
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   
   if (queryParams.address) {
-    dialogStore.connectDialog.address = queryParams.address;
+    // SECURITY: The address is used to open a WebSocket connection to the
+    // Mumble server. Only accept it if it matches an explicitly configured
+    // allowlist (or falls back to this page's own hostname); otherwise an
+    // attacker-crafted link could hijack the streaming connection to a
+    // server they control (CWE-346 / connection hijacking).
+    const allowedHosts = globalThis.mumbleWebConfig.allowedServerHosts || [globalThis.location.hostname];
+    if (allowedHosts.includes(queryParams.address)) {
+      dialogStore.connectDialog.address = queryParams.address;
+    } else {
+      console.warn('[SECURITY] Ignoring untrusted "address" query parameter:', queryParams.address);
+    }
   }
   if (queryParams.port) {
     dialogStore.connectDialog.port = queryParams.port;

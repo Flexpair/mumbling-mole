@@ -48,7 +48,7 @@
             </td>
           </tr>
           <tr v-if="type === 2 || type === 3 || type === 5">
-            <td class="alternate-username">{{ translate('connectdialog.username') }}</td>
+            <td class="alternate-username"><label for="alternate-username">{{ translate('connectdialog.username') }}</label></td>
             <td>
               <input
                 id="alternate-username"
@@ -60,7 +60,7 @@
             </td>
           </tr>
           <tr v-if="type === 3 || type === 4">
-            <td class="alternate-password">{{ translate('connectdialog.password') }}</td>
+            <td class="alternate-password"><label for="alternate-password">{{ translate('connectdialog.password') }}</label></td>
             <td>
               <input
                 id="alternate-password"

@@ -216,7 +216,7 @@ describe('Multi-Stream Voice Handling', () => {
     );
 
     // Verify all streams were initialized
-    expect(mockBufferQueueNodeInstances.length).toBe(3);
+    expect(mockBufferQueueNodeInstances).toHaveLength(3);
     expect(mockStreamManagerSet).toHaveBeenCalledTimes(3);
     
     // Verify stream manager has 3 active streams

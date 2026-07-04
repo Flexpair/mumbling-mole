@@ -132,6 +132,7 @@ describe('websocket-stream-lite', () => {
     const stream = websocketStream('wss://example.com');
     
     stream.on('connect', () => {
+      expect(stream.destroyed).toBe(false);
       done();
     });
     
@@ -143,6 +144,7 @@ describe('websocket-stream-lite', () => {
     const stream = websocketStream(mockSocket);
     
     stream.on('connect', () => {
+      expect(stream.destroyed).toBe(false);
       done();
     });
   });
@@ -154,6 +156,7 @@ describe('websocket-stream-lite', () => {
     stream.on('data', () => {});
     
     stream.on('end', () => {
+      expect(stream.readableEnded).toBe(true);
       done();
     });
     
@@ -228,6 +231,7 @@ describe('duplexer-lite', () => {
     duplex.on('data', () => {}); // consume data
     
     duplex.on('end', () => {
+      expect(duplex.readableEnded).toBe(true);
       done();
     });
     
@@ -240,6 +244,7 @@ describe('duplexer-lite', () => {
     const duplex = duplexer(writable, readable);
     
     writable.on('finish', () => {
+      expect(writable.writableFinished).toBe(true);
       done();
     });
     
@@ -288,7 +293,10 @@ describe('duplexer-lite', () => {
         writeCount++;
       } else {
         clearInterval(interval);
-        duplex.end(() => done());
+        duplex.end(() => {
+          expect(writeCount).toBe(5);
+          done();
+        });
       }
     }, 5);
   });
@@ -368,10 +376,10 @@ describe('chunker-lite', () => {
     stream.on('data', (chunk) => chunks.push(chunk));
     stream.on('end', () => {
       // "hello world" = 11 bytes, chunks of 4 = 4, 4, 3
-      expect(chunks.length).toBe(3);
-      expect(chunks[0].length).toBe(4);
-      expect(chunks[1].length).toBe(4);
-      expect(chunks[2].length).toBe(3); // Remaining (11 - 8 = 3)
+      expect(chunks).toHaveLength(3);
+      expect(chunks[0]).toHaveLength(4);
+      expect(chunks[1]).toHaveLength(4);
+      expect(chunks[2]).toHaveLength(3); // Remaining (11 - 8 = 3)
       done();
     });
     
@@ -386,9 +394,9 @@ describe('chunker-lite', () => {
     
     stream.on('data', (chunk) => chunks.push(chunk));
     stream.on('end', () => {
-      expect(chunks.length).toBe(2);
-      expect(chunks[0].length).toBe(4);
-      expect(chunks[1].length).toBe(4);
+      expect(chunks).toHaveLength(2);
+      expect(chunks[0]).toHaveLength(4);
+      expect(chunks[1]).toHaveLength(4);
       done();
     });
     
@@ -402,7 +410,7 @@ describe('chunker-lite', () => {
     
     stream.on('data', (chunk) => chunks.push(chunk));
     stream.on('end', () => {
-      expect(chunks.length).toBe(1);
+      expect(chunks).toHaveLength(1);
       expect(chunks[0].toString()).toBe('small');
       done();
     });
@@ -516,6 +524,7 @@ describe('drop-stream', () => {
     const stream = new DropStream();
     
     stream.on('finish', () => {
+      expect(stream.writableFinished).toBe(true);
       done();
     });
     

@@ -100,7 +100,7 @@
     <script>
       (function() {
         if (/^#(recovery_token|confirmation_token|invite_token)=/.test(location.hash)) {
-          window.__savedIdentityHash = location.hash;
+          globalThis.__savedIdentityHash = location.hash;
           history.replaceState(null, '', location.pathname + location.search);
         }
       })();

@@ -60,9 +60,9 @@ describe('Float32ArrayWrapper', () => {
     
     const result = wrapper.toChannelData();
     
-    expect(result.channels.length).toBe(1);
+    expect(result.channels).toHaveLength(1);
     expect(result.channels[0]).toEqual(new Float32Array([0.1, 0.2, 0.3, 0.4]));
-    expect(result.length).toBe(4);
+    expect(result).toHaveLength(4);
   });
 
   test('converts non-interleaved stereo to channel data', () => {
@@ -72,10 +72,10 @@ describe('Float32ArrayWrapper', () => {
     
     const result = wrapper.toChannelData();
     
-    expect(result.channels.length).toBe(2);
+    expect(result.channels).toHaveLength(2);
     expect(result.channels[0]).toEqual(new Float32Array([0.1, 0.2]));
     expect(result.channels[1]).toEqual(new Float32Array([0.3, 0.4]));
-    expect(result.length).toBe(2);
+    expect(result).toHaveLength(2);
   });
 
   test('converts interleaved stereo to channel data', () => {
@@ -85,10 +85,10 @@ describe('Float32ArrayWrapper', () => {
     
     const result = wrapper.toChannelData();
     
-    expect(result.channels.length).toBe(2);
+    expect(result.channels).toHaveLength(2);
     expect(result.channels[0]).toEqual(new Float32Array([0.1, 0.2]));
     expect(result.channels[1]).toEqual(new Float32Array([0.3, 0.4]));
-    expect(result.length).toBe(2);
+    expect(result).toHaveLength(2);
   });
 
   test('handles Buffer input', () => {
@@ -109,7 +109,7 @@ describe('Float32ArrayWrapper', () => {
     const data = new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
     const wrapper = new Float32ArrayWrapper(2, false, data);
     
-    expect(wrapper.length).toBe(3); // 6 samples / 2 channels
+    expect(wrapper).toHaveLength(3); // 6 samples / 2 channels
   });
 });
 
@@ -134,8 +134,8 @@ describe('Int16ArrayWrapper', () => {
     
     const result = wrapper.toChannelData();
     
-    expect(result.channels.length).toBe(2);
-    expect(result.length).toBe(2);
+    expect(result.channels).toHaveLength(2);
+    expect(result).toHaveLength(2);
   });
 
   test('handles Buffer input', () => {
@@ -147,7 +147,7 @@ describe('Int16ArrayWrapper', () => {
       const wrapper = new Int16ArrayWrapper(1, false, buffer);
       const result = wrapper.toChannelData();
       
-      expect(result.channels[0].length).toBe(4);
+      expect(result.channels[0]).toHaveLength(4);
     }
   });
 });
@@ -167,10 +167,10 @@ describe('AudioBufferWrapper', () => {
     const wrapper = new AudioBufferWrapper(mockAudioBuffer);
     const result = wrapper.toChannelData();
     
-    expect(result.channels.length).toBe(2);
+    expect(result.channels).toHaveLength(2);
     expect(result.channels[0]).toEqual(new Float32Array([0.1, 0.2, 0.3]));
     expect(result.channels[1]).toEqual(new Float32Array([0.4, 0.5, 0.6]));
-    expect(result.length).toBe(3);
+    expect(result).toHaveLength(3);
   });
 
   test('exposes length property', () => {
@@ -182,7 +182,7 @@ describe('AudioBufferWrapper', () => {
     
     const wrapper = new AudioBufferWrapper(mockAudioBuffer);
     
-    expect(wrapper.length).toBe(100);
+    expect(wrapper).toHaveLength(100);
   });
 });
 
@@ -398,7 +398,7 @@ describe('BufferQueueNode - Stream Events', () => {
     // Simulate worklet sending close message
     mockWorkletNode.port.onmessage({ data: { type: 'close' } });
     
-    await closePromise;
+    await expect(closePromise).resolves.toBeUndefined();
   });
 
   test('handles closed confirmation from worklet', async () => {
@@ -652,7 +652,7 @@ describe('BufferQueueNode - end() method', () => {
     const finishPromise = new Promise(resolve => node.on('finish', resolve));
     node.end();
     
-    await finishPromise;
+    await expect(finishPromise).resolves.toBeUndefined();
   });
 
   test('calls callback when called without chunk', async () => {

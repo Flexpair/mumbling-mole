@@ -306,7 +306,7 @@ describe('Frequency Analyzer', () => {
       // Should not analyze when muted
       const callsBeforeMute = mockAnalyserNode.getByteFrequencyData.mock.calls.length;
       jest.advanceTimersByTime(100);
-      expect(mockAnalyserNode.getByteFrequencyData.mock.calls.length).toBe(callsBeforeMute);
+      expect(mockAnalyserNode.getByteFrequencyData.mock.calls).toHaveLength(callsBeforeMute);
     });
   });
 

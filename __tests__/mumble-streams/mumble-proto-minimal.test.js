@@ -369,7 +369,7 @@ describe('MumbleProto', () => {
       const encoded = BanList.encode(original).finish();
       const decoded = BanList.decode(encoded);
       
-      expect(decoded.bans.length).toBe(1);
+      expect(decoded.bans).toHaveLength(1);
       expect(decoded.bans[0].name).toBe('BadUser');
       expect(decoded.bans[0].mask).toBe(32);
       expect(decoded.query).toBe(true);
@@ -506,9 +506,9 @@ describe('MumbleProto', () => {
       const decoded = ACL.decode(encoded);
       
       expect(decoded.channelId).toBe(1);
-      expect(decoded.groups.length).toBe(1);
+      expect(decoded.groups).toHaveLength(1);
       expect(decoded.groups[0].name).toBe('admin');
-      expect(decoded.acls.length).toBe(1);
+      expect(decoded.acls).toHaveLength(1);
       expect(decoded.acls[0].grant).toBe(255);
     });
 
@@ -666,7 +666,7 @@ describe('MumbleProto', () => {
       const encoded = UserList.encode(original).finish();
       const decoded = UserList.decode(encoded);
       
-      expect(decoded.users.length).toBe(2);
+      expect(decoded.users).toHaveLength(2);
       expect(decoded.users[0].name).toBe('User1');
       expect(decoded.users[1].userId).toBe(2);
     });
@@ -711,7 +711,7 @@ describe('MumbleProto', () => {
       const decoded = VoiceTarget.decode(encoded);
       
       expect(decoded.id).toBe(1);
-      expect(decoded.targets.length).toBe(1);
+      expect(decoded.targets).toHaveLength(1);
       expect(decoded.targets[0].session).toEqual([1, 2]);
     });
 
@@ -1214,7 +1214,7 @@ describe('MumbleProto', () => {
       const encoded = UserStats.encode(original).finish();
       const decoded = UserStats.decode(encoded);
       
-      expect(decoded.certificates.length).toBe(2);
+      expect(decoded.certificates).toHaveLength(2);
       expect(decoded.fromClient.late).toBe(5);
       expect(decoded.fromServer.lost).toBe(1);
       expect(decoded.version.os).toBe('Linux');

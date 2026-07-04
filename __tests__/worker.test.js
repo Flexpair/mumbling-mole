@@ -686,6 +686,7 @@ describe("worker.js", () => {
       
       messageHandler({ data: { clientId, userId: 42, method: "sendMessage", payload: ["test"] } });
       
+      expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
     });
   });
@@ -695,20 +696,32 @@ describe("worker.js", () => {
       const { client, clientId } = await connectClient();
       const mockStream = new MockPassThrough();
       client.createVoiceStream.mockReturnValue(mockStream);
+      const writeSpy = jest.spyOn(MockPassThrough.prototype, 'write');
 
       messageHandler({ data: { clientId, method: "createVoiceStream", payload: [5, 960, 0] } });
       
       const voiceData = new ArrayBuffer(960 * 4);
       messageHandler({ data: { voiceId: 5, chunk: voiceData } });
+
+      // handleVoiceStream writes to the internal resampler (a PassThrough),
+      // which then pipes through chunker/transform stages to the user stream.
+      expect(writeSpy).toHaveBeenCalledTimes(1);
+      expect(writeSpy.mock.calls[0][0]).toHaveLength(960 * 4);
+      writeSpy.mockRestore();
     });
 
     test("should end voice stream when chunk is null", async () => {
       const { client, clientId } = await connectClient();
       const mockStream = new MockPassThrough();
       client.createVoiceStream.mockReturnValue(mockStream);
+      const endSpy = jest.spyOn(MockPassThrough.prototype, 'end');
 
       messageHandler({ data: { clientId, method: "createVoiceStream", payload: [6, 960, 0] } });
       messageHandler({ data: { voiceId: 6, chunk: null } });
+
+      // handleVoiceStream ends the internal resampler (a PassThrough) when chunk is null
+      expect(endSpy).toHaveBeenCalledTimes(1);
+      endSpy.mockRestore();
     });
   });
 });

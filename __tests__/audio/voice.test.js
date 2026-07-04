@@ -211,6 +211,7 @@ describe('ContinuousVoiceHandler', () => {
       handler = new ContinuousVoiceHandler(mockClient, settings);
       
       handler.on('started_talking', () => {
+        expect(mockClient.createVoiceStream).toHaveBeenCalled();
         done();
       });
 
@@ -236,7 +237,7 @@ describe('ContinuousVoiceHandler', () => {
       const mockStream = {
         write: jest.fn((data, cb) => {
           expect(data).toBeInstanceOf(Buffer);
-          expect(data.length).toBe(960 * 4);
+          expect(data).toHaveLength(960 * 4);
           cb();
           done();
         }),
@@ -657,7 +658,7 @@ describe('enumMicrophones', () => {
             select.appendChild(option);
           }
         }
-        expect(select.options.length).toBe(2);
+        expect(select.options).toHaveLength(2);
         done();
         return devices;
       });
@@ -854,7 +855,7 @@ describe('initVoice Integration Tests', () => {
         expect(onData).toHaveBeenCalled();
         const callArg = onData.mock.calls[0][0];
         expect(callArg).toBeInstanceOf(Buffer);
-        expect(callArg.length).toBe(960 * 4); // Float32 = 4 bytes per sample
+        expect(callArg).toHaveLength(960 * 4); // Float32 = 4 bytes per sample
       }
     });
 

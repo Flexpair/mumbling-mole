@@ -103,7 +103,7 @@ def get_nested_property(obj: dict, path: str) -> Any:
     return result
 
 
-def get_guacamole_user(roles: list) -> str:
+def get_guacamole_user(roles: Any) -> str:
     """Determine Guacamole user from roles."""
     if not roles or not isinstance(roles, list):
         return 'watcher'
@@ -150,7 +150,7 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
             return None
         except urllib.error.URLError as e:
             print(f'[AUTH] Token validation network error on attempt {attempt + 1}: {e.reason}')
-        except (json.JSONDecodeError, TimeoutError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             print(f'[AUTH] Token validation error on attempt {attempt + 1}: {e}')
 
         if attempt == max_retries - 1:
@@ -189,7 +189,7 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
 
 
 
-def hash_email(email: str) -> str:
+def hash_email(email: Optional[str]) -> str:
     """Hash email for privacy-compliant logging (GDPR/CCPA)."""
     if not email:
         return 'unknown'

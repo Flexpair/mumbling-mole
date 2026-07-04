@@ -188,7 +188,7 @@ describe('EncoderStream - Worker Messages', () => {
         frame: expect.any(Buffer),
         position: 200
       });
-      expect(chunk.frame.length).toBe(50);
+      expect(chunk.frame).toHaveLength(50);
       done();
     });
 
@@ -304,7 +304,7 @@ describe('EncoderStream - Integration', () => {
     mockWorker.onmessage({ data: { buffer: new ArrayBuffer(50), byteOffset: 0, byteLength: 50, target: 0, position: 960 } });
     mockWorker.onmessage({ data: { buffer: new ArrayBuffer(50), byteOffset: 0, byteLength: 50, target: 0, position: 1920 } });
 
-    expect(results.length).toBe(3);
+    expect(results).toHaveLength(3);
     expect(results[0].position).toBe(0);
     expect(results[1].position).toBe(960);
     expect(results[2].position).toBe(1920);

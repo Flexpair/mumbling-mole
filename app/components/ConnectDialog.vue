@@ -117,14 +117,14 @@
           type="submit"
           class="connect-dialog-submit"
           :value="isTestActive && connected ? 'Exit Test & Connect' : 'Connect'"
-          :aria-label="isTestActive && connected ? 'Exit test mode and connect to voice server' : 'Connect to voice server'"
+          :aria-label="(isTestActive && connected ? 'Exit Test & Connect' : 'Connect') + ' to voice server'"
         />
         <button
           v-if="auth?.logout && username"
           type="button"
           class="dialog-logout-button"
           @click="handleLogout"
-          aria-label="Log out of application"
+          :aria-label="translate('connectdialog.logout') + ' of application'"
         >
           {{ translate('connectdialog.logout') }}
         </button>

@@ -923,7 +923,7 @@ describe('mumble-streams Unit Tests', () => {
         const cipherText = crypt.encrypt(plainText);
 
         // OCB adds 4 bytes: 1 IV byte + 3 tag bytes
-        expect(cipherText.length).toBe(plainText.length + 4);
+        expect(cipherText).toHaveLength(plainText.length + 4);
       });
 
       test('encryption changes IV', () => {
@@ -1005,9 +1005,9 @@ describe('mumble-streams Unit Tests', () => {
         await generateKeyAsync(crypt);
         
         expect(crypt.ready()).toBeTruthy();
-        expect(crypt.getKey().length).toBe(16);
-        expect(crypt.getEncryptIV().length).toBe(16);
-        expect(crypt.getDecryptIV().length).toBe(16);
+        expect(crypt.getKey()).toHaveLength(16);
+        expect(crypt.getEncryptIV()).toHaveLength(16);
+        expect(crypt.getDecryptIV()).toHaveLength(16);
       });
 
       test('generates different keys on each call', async () => {

@@ -87,7 +87,7 @@ describe('WorkerBasedMumbleConnector', () => {
     });
 
     test('attaches message listener', () => {
-      expect(mockWorker.listeners.message.length).toBe(1);
+      expect(mockWorker.listeners.message).toHaveLength(1);
     });
   });
 
@@ -165,7 +165,7 @@ describe('WorkerBasedMumbleConnector', () => {
       const reqId = connector._reqId - 1;
 
       expect(connector._requests[reqId]).toBeDefined();
-      expect(connector._requests[reqId].length).toBe(2);
+      expect(connector._requests[reqId]).toHaveLength(2);
     });
 
     test('resolves promise on successful response', async () => {
@@ -552,7 +552,7 @@ describe('WorkerBasedMumbleClient', () => {
       client._user('user-2');
 
       const users = client.users;
-      expect(users.length).toBe(2);
+      expect(users).toHaveLength(2);
     });
   });
 
@@ -585,7 +585,7 @@ describe('WorkerBasedMumbleClient', () => {
       client._channel('channel-2');
 
       const channels = client.channels;
-      expect(channels.length).toBe(2);
+      expect(channels).toHaveLength(2);
     });
   });
 
@@ -742,7 +742,7 @@ describe('WorkerBasedMumbleChannel', () => {
     test('_setProp resolves link IDs to channel objects', () => {
       channel._setProp('links', ['link1', 'link2']);
 
-      expect(channel.links.length).toBe(2);
+      expect(channel.links).toHaveLength(2);
       expect(channel.links[0]._id).toBe('link1');
     });
 
@@ -777,7 +777,7 @@ describe('WorkerBasedMumbleChannel', () => {
 
       const children = channel.children;
 
-      expect(children.length).toBe(2);
+      expect(children).toHaveLength(2);
       expect(children).toContain(child1);
       expect(children).toContain(child2);
     });
