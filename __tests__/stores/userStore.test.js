@@ -604,7 +604,7 @@ describe('useUserStore Request Methods Branch Coverage', () => {
       userStore.reset();
       
       // After reset, thisUser becomes null (ref gets replaced)
-      expect(userStore.thisUser).toBe(null);
+      expect(userStore.thisUser).toBeNull();
       expect(userStore.selfMute).toBe(false);
       expect(userStore.selfDeaf).toBe(false);
     });

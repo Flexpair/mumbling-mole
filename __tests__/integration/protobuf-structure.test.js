@@ -296,7 +296,7 @@ describe('Proto Structure Compatibility Tests', () => {
       // In Node.js, protobufjs returns Buffer; in browser, Uint8Array
       // Both are array-like and can be converted with Array.from
       expect(decoded.packet).toBeDefined();
-      expect(decoded.packet.length).toBe(4);
+      expect(decoded.packet).toHaveLength(4);
       expect(Array.from(decoded.packet)).toEqual([0x01, 0x02, 0x03, 0x04]);
     });
   });

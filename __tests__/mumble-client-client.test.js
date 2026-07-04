@@ -890,8 +890,9 @@ describe('mumble-client Client', () => {
           linksRemove: [2]
         });
 
-        // The channel2 should have its link to channel1 removed
-        // (via otherChannel._update({ linksRemove: [channelId] }))
+        // channel2 had a link to channel1 (id 1); handleChannelState should
+        // propagate the removal via otherChannel._update({ linksRemove: [channelId] })
+        expect(channel2._links).not.toContain(1);
       });
     });
 

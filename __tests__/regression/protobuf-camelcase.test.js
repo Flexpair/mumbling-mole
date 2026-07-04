@@ -165,12 +165,6 @@ describe('Protobuf camelCase Field Name Regression Tests', () => {
       expect(visited.has(channelId)).toBe(false);
       visited.add(channelId);
       expect(visited.has(channelId)).toBe(true);
-      
-      // Second visit should be detected
-      if (visited.has(channelId)) {
-        // Should return early to prevent infinite recursion
-        expect(true).toBe(true);
-      }
     });
   });
 

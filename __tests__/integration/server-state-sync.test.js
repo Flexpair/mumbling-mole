@@ -219,21 +219,19 @@ describe('Server-State Synchronization - Critical Integration Test', () => {
   });
 
   describe('Documentation: Server as Single Source of Truth', () => {
-    test('Architecture: Server state always wins', () => {
-      // This test documents the architecture decision:
-      // The Mumble server is the SINGLE SOURCE OF TRUTH for user state.
-      // The client UI must ALWAYS reflect what the server thinks.
-      // 
-      // Flow:
-      // 1. User clicks mute button → UI optimistically updates → Send to server
-      // 2. Server processes request → Updates its state → Sends UserState message back
-      // 3. Client receives UserState → Forces UI to match (via server-state-sync)
-      // 
-      // This guarantees:
-      // - No desync between UI and server
-      // - Other clients see correct state
-      // - Server policy (e.g., force-mute) is respected
-      expect(true).toBe(true); // Documentation test
-    });
+    // Architecture decision (no executable assertion applies here):
+    // The Mumble server is the SINGLE SOURCE OF TRUTH for user state.
+    // The client UI must ALWAYS reflect what the server thinks.
+    //
+    // Flow:
+    // 1. User clicks mute button → UI optimistically updates → Send to server
+    // 2. Server processes request → Updates its state → Sends UserState message back
+    // 3. Client receives UserState → Forces UI to match (via server-state-sync)
+    //
+    // This guarantees:
+    // - No desync between UI and server
+    // - Other clients see correct state
+    // - Server policy (e.g., force-mute) is respected
+    test.todo('Architecture: Server state always wins (see comment above)');
   });
 });

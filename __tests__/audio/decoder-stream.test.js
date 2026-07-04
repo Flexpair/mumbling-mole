@@ -73,7 +73,7 @@ describe('DecoderStream - Initialization', () => {
     
     expect(stream._ended).toBe(false);
     expect(stream._finalized).toBe(false);
-    expect(stream._finalCallback).toBe(null);
+    expect(stream._finalCallback).toBeNull();
     expect(stream._messageId).toBe(0);
   });
 
@@ -210,7 +210,7 @@ describe('DecoderStream - Worker Messages', () => {
         numberOfChannels: 1,
         position: 200
       });
-      expect(chunk.pcm.length).toBe(4);
+      expect(chunk.pcm).toHaveLength(4);
       expect(chunk.pcm[0]).toBeCloseTo(0.1, 5);
       done();
     });
@@ -395,7 +395,7 @@ describe('DecoderStream - Cleanup', () => {
     mockWorker.onmessage({ data: { action: 'reset' } });
 
     expect(mockPool.recycle).toHaveBeenCalledWith(mockWorker);
-    expect(stream._worker).toBe(null);
+    expect(stream._worker).toBeNull();
   });
 
   test('handles missing worker gracefully', () => {
@@ -456,7 +456,7 @@ describe('DecoderStream - Integration', () => {
     mockWorker.onmessage({ data: { action: 'decoded', buffer: new Float32Array(960).buffer, target: 0, numberOfChannels: 1, position: 960 } });
     mockWorker.onmessage({ data: { action: 'decoded', buffer: new Float32Array(960).buffer, target: 0, numberOfChannels: 1, position: 1920 } });
 
-    expect(results.length).toBe(3);
+    expect(results).toHaveLength(3);
     expect(results[0].position).toBe(0);
     expect(results[1].position).toBe(960);
     expect(results[2].position).toBe(1920);
@@ -485,10 +485,10 @@ describe('DecoderStream - Integration', () => {
     mockWorker.onmessage({ data: { action: 'decoded', buffer: new Float32Array(960).buffer, target: 0, numberOfChannels: 1, position: 960 } });
     mockWorker.onmessage({ data: { action: 'decoded', buffer: new Float32Array(960).buffer, target: 0, numberOfChannels: 1, position: 1920 } });
 
-    expect(results.length).toBe(3);
+    expect(results).toHaveLength(3);
     // Second chunk should have null frame in input but still produce output (PLC)
     const nullFrameCall = mockWorker.postMessage.mock.calls[1][0];
-    expect(nullFrameCall.buffer).toBe(null);
+    expect(nullFrameCall.buffer).toBeNull();
   });
 });
 

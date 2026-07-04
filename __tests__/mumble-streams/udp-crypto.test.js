@@ -331,7 +331,7 @@ describe('UdpCrypt', () => {
       
       const encrypted = crypt1.encrypt(plainText);
       expect(encrypted).not.toBeNull();
-      expect(encrypted.length).toBe(plainText.length + 4);
+      expect(encrypted).toHaveLength(plainText.length + 4);
       
       const decrypted = crypt2.decrypt(encrypted);
       expect(decrypted).not.toBeNull();

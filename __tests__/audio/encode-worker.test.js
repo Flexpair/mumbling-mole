@@ -127,7 +127,7 @@ describe('encode-worker', () => {
       );
       
       const encodedArg = mockOpusEncoder.encode.mock.calls[0][0];
-      expect(encodedArg.length).toBe(4);
+      expect(encodedArg).toHaveLength(4);
     });
 
     test('posts encoded data with metadata', () => {

@@ -147,34 +147,34 @@ class TestRateLimiting(unittest.TestCase):
         rate_limiter.store.clear()
 
     def test_allows_first_request(self):
-        self.assertTrue(rate_limiter.check('192.168.1.1'))
+        self.assertTrue(rate_limiter.check('203.0.113.1'))
 
     def test_allows_multiple_requests_under_limit(self):
         for _ in range(rate_limiter.max_requests - 1):
-            self.assertTrue(rate_limiter.check('192.168.1.2'))
+            self.assertTrue(rate_limiter.check('203.0.113.2'))
 
     def test_blocks_after_limit(self):
         for _ in range(rate_limiter.max_requests):
-            rate_limiter.check('192.168.1.3')
-        self.assertFalse(rate_limiter.check('192.168.1.3'))
+            rate_limiter.check('203.0.113.3')
+        self.assertFalse(rate_limiter.check('203.0.113.3'))
 
     def test_different_ips_independent(self):
         for _ in range(rate_limiter.max_requests):
-            rate_limiter.check('192.168.1.4')
+            rate_limiter.check('203.0.113.4')
         # Different IP should still be allowed
-        self.assertTrue(rate_limiter.check('192.168.1.5'))
+        self.assertTrue(rate_limiter.check('203.0.113.5'))
 
     def test_old_requests_expire(self):
         # Fill up rate limit
         for _ in range(rate_limiter.max_requests):
-            rate_limiter.check('192.168.1.6')
+            rate_limiter.check('203.0.113.6')
         
         # Simulate time passing
         old_time = time() - rate_limiter.window - 1
-        rate_limiter.store['192.168.1.6'] = [old_time] * rate_limiter.max_requests
+        rate_limiter.store['203.0.113.6'] = [old_time] * rate_limiter.max_requests
         
         # Should be allowed again
-        self.assertTrue(rate_limiter.check('192.168.1.6'))
+        self.assertTrue(rate_limiter.check('203.0.113.6'))
 
 
 class TestAuthProviderConfig(unittest.TestCase):

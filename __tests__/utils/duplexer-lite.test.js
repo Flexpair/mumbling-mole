@@ -75,8 +75,10 @@ describe('duplexer-lite', () => {
       
       // Fill the duplex buffer to trigger backpressure
 
+      let pauseCallCount = 0;
       const origPause = readable.pause.bind(readable);
       readable.pause = () => {
+        pauseCallCount++;
         return origPause();
       };
       
@@ -86,6 +88,7 @@ describe('duplexer-lite', () => {
       }
       
       setTimeout(() => {
+        expect(pauseCallCount).toBeGreaterThan(0);
         // Drain the duplex to trigger resume
         duplex.resume();
         done();
@@ -101,6 +104,7 @@ describe('duplexer-lite', () => {
       const duplex = duplexer(writable, readable);
       
       duplex.on('end', () => {
+        expect(duplex.readableEnded).toBe(true);
         done();
       });
       
@@ -115,6 +119,7 @@ describe('duplexer-lite', () => {
       const duplex = duplexer(writable, readable);
       
       writable.on('finish', () => {
+        expect(writable.writableFinished).toBe(true);
         done();
       });
       

@@ -40,13 +40,13 @@ describe('Protobuf.js Field Name Convention Tests', () => {
 
     test('documents that Protobuf.js converts snake_case → camelCase on incoming', () => {
       // Proto file defines: optional uint32 channel_id = 1;
-      // Protobuf.js converts to: channelId (camelCase)
-      
-      const protoDefinition = 'channel_id';  // In .proto file
-      const jsField = 'channelId';            // In JavaScript after Protobuf.js parsing
-      
-      expect(jsField).not.toBe(protoDefinition);
-      expect(jsField).toBe('channelId');
+      // Protobuf.js converts it to camelCase (channelId) when parsing incoming messages.
+      const decodedPayload = {
+        channelId: 5  // What Protobuf.js actually produces after parsing `channel_id`
+      };
+
+      expect(decodedPayload).toHaveProperty('channelId');
+      expect(decodedPayload).not.toHaveProperty('channel_id');
       
       // This is why our handlers must use:
       // const channelId = payload.channelId ?? payload.channel_id;
@@ -279,10 +279,6 @@ describe('Protobuf.js Field Name Convention Tests', () => {
       if (wrongPattern.hasOwnProperty('self_mute')) {
         // Field exists, but it's the WRONG name
         expect(wrongPattern).not.toHaveProperty('selfMute');
-        
-        // Document the fix needed
-        const fix = 'Change self_mute to selfMute (camelCase)';
-        expect(fix).toBeTruthy();
       }
     });
 

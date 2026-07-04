@@ -17,6 +17,7 @@ import {
 import {
   translate,
 } from "./localize";
+import { resolveConnectAddress } from "./utils/connect-address.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -133,9 +134,35 @@ function applyQueryParamsToConnectDialog() {
   let queryParams = Object.fromEntries(urlObj.searchParams.entries());
   queryParams = { ...globalThis.mumbleWebConfig.defaults, ...queryParams };
   
-  if (queryParams.address) {
-    dialogStore.connectDialog.address = queryParams.address;
+  // SECURITY: The address is used to open a WebSocket connection to the
+  // Mumble server. Only the raw URL query parameter is untrusted input from
+  // the page visitor; `mumbleWebConfig.defaults.address` is operator-
+  // configured and always trusted. See resolveConnectAddress() for the
+  // allowlisting logic that prevents an attacker-crafted link from
+  // hijacking the streaming connection to a server they control
+  // (CWE-346 / connection hijacking).
+  // Config values can arrive as a non-array (e.g. a single string from JSON/env
+  // config); coerce here so resolveConnectAddress()'s `.includes()` check is
+  // always an array membership test, never a substring match.
+  const configuredHosts = globalThis.mumbleWebConfig.allowedServerHosts;
+  const allowedHosts = Array.isArray(configuredHosts)
+    ? configuredHosts
+    : configuredHosts
+      ? [configuredHosts]
+      : [globalThis.location.hostname];
+  const addressFromQuery = urlObj.searchParams.get('address');
+  const { address, rejected } = resolveConnectAddress(
+    addressFromQuery,
+    globalThis.mumbleWebConfig.defaults?.address,
+    allowedHosts
+  );
+  if (rejected) {
+    console.warn('[SECURITY] Ignoring untrusted "address" query parameter:', addressFromQuery);
   }
+  if (address) {
+    dialogStore.connectDialog.address = address;
+  }
+
   if (queryParams.port) {
     dialogStore.connectDialog.port = queryParams.port;
   }

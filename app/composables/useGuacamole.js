@@ -26,19 +26,21 @@ export function getGuacamoleCredentials(serverCredentials, password, auth) {
 }
 
 /**
- * Setup Guacamole frame if needed
- * @param {string|false} guac_login
+ * Start the Guacamole remote-desktop frame for an authorized user.
+ * @param {string} guac_login
  * @param {string} password
- * @param {boolean} isLoopbackMode
  * @param {Object} uiStore
  */
-export function setupGuacamoleFrame(guac_login, password, isLoopbackMode, uiStore) {
-  if (guac_login && !isLoopbackMode) {
-    if (uiStore.guacamoleFrame) {
-      uiStore.guacamoleFrame.start(guac_login, password);
-      uiStore.guacamoleFrame.show();
-    }
-  } else if (!guac_login && !isLoopbackMode) {
-    alert('For visual access please ask your administrator.');
+export function startGuacamoleFrame(guac_login, password, uiStore) {
+  if (uiStore.guacamoleFrame) {
+    uiStore.guacamoleFrame.start(guac_login, password);
+    uiStore.guacamoleFrame.show();
   }
+}
+
+/**
+ * Notify the user that visual access is unavailable (no Guacamole role).
+ */
+export function notifyGuacamoleUnavailable() {
+  alert('For visual access please ask your administrator.');
 }

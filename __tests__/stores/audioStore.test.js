@@ -400,7 +400,7 @@ describe('audioStore', () => {
       
       const result = await store.initializePersistentBeeper();
       
-      expect(result).toBe(null);
+      expect(result).toBeNull();
       expect(store.beeperReady.value).toBe(false);
     });
 
@@ -412,7 +412,7 @@ describe('audioStore', () => {
       
       const result = await store.initializePersistentBeeper();
       
-      expect(result).toBe(null);
+      expect(result).toBeNull();
       expect(store.beeperReady.value).toBe(false);
     });
 

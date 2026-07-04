@@ -372,7 +372,7 @@ describe('vTooltip directive', () => {
       vTooltip.unmounted(mockElement);
       
       // Check tooltip is removed from DOM (parentNode should be null after remove())
-      expect(tooltip.parentNode).toBe(null);
+      expect(tooltip.parentNode).toBeNull();
     });
 
     it('should remove event listeners', () => {
