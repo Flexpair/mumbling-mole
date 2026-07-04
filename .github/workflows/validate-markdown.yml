@@ -21,7 +21,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       
       - name: Make validation script executable
         run: chmod +x scripts/validate-markdown-structure.sh
