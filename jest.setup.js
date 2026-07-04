@@ -6,6 +6,16 @@
  */
 
 import { jest } from '@jest/globals';
+import { TextEncoder, TextDecoder } from 'node:util';
+
+// jsdom does not expose TextEncoder/TextDecoder globally; protobufjs (used by
+// mumble-streams) requires them at import time for UTF-8 encoding/decoding.
+if (typeof globalThis.TextEncoder === 'undefined') {
+  globalThis.TextEncoder = TextEncoder;
+}
+if (typeof globalThis.TextDecoder === 'undefined') {
+  globalThis.TextDecoder = TextDecoder;
+}
 
 // Mock AudioContext (Web Audio API)
 class MockAudioContext {
