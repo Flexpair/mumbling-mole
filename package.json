@@ -65,6 +65,6 @@
     "markdown-it": "14.3.0"
   },
   "dependencies": {
-    "pinia": "3.0.4"
+    "pinia": "4.0.1"
   }
 }
