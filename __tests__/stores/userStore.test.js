@@ -65,6 +65,7 @@ jest.unstable_mockModule('vue', () => {
     getCurrentInstance: () => null,
     hasInjectionContext: () => false,
     isReactive: () => false,
+    isReadonly: (r) => r?.__v_isReadonly === true,
     shallowRef: (v) => ({ value: v, __v_isRef: true }),
     unref: (r) => r?.__v_isRef ? r.value : r,
     triggerRef: () => {},
