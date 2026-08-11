@@ -1,6 +1,5 @@
 {
   "name": "mumbling-mole",
-  "version": "4.0.3",
   "description": "An HTML5 Mumble client.",
   "type": "module",
   "scripts": {
