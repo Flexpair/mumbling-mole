@@ -209,14 +209,16 @@ Console log prefixes: `[VOICE]`, `[DEBUG-WORKER]`, `[DEBUG-DECODER]`, `[LOOPBACK
 
 ## 🔐 Authentication
 
-Auth abstraction layer supports provider migration (Netlify Identity → Supabase).
+The current implementation uses Netlify Identity. Auth0 is the decided target for the Flexpair hub-login migration, but Auth0 support is not implemented in this submodule and this file is not the migration authority.
 
 - Config: `app/config.js` → `auth.provider` setting
-- Adapters: `app/auth/NetlifyIdentityAdapter.js`, future `SupabaseAuthAdapter.js`
-- See `app/auth/README.md` for migration plan
+- Current adapter: `app/auth/NetlifyIdentityAdapter.js`
+- See `app/auth/README.md` for the current implementation boundary.
+- For an explicit Auth0/Corporate-IdP migration request, return to the Flexpair umbrella root and read `AGENTS.md`, `AUTH0-MIGRATION-RUNBOOK.md`, `AUTH0-MIGRATION-PLAN.md`, and decisions A-12, A-14, and A-15 in `DECISIONS.md` before changing this submodule.
+- Keep the current Netlify identity, invite, recovery, proxy, and rollback paths available until the umbrella acceptance matrix authorises otherwise. Do not follow stale Supabase migration instructions.
 
 ## 📚 Related Docs
 - `app/stores/README.md` – Pinia architecture diagrams
-- `app/audio/README.md` – Audio debugging guide  
-- `app/auth/README.md` – Auth abstraction (Netlify → Supabase migration)
+- `app/audio/README.md` – Audio debugging guide
+- `app/auth/README.md` – Current Netlify auth abstraction and migration boundary
 - `tests/README.md` – Testing strategy, multi-stream tests
