@@ -4,15 +4,19 @@ Provider-agnostic authentication system for mumbling-mole.
 
 ## Purpose
 
-This authentication abstraction layer provides a unified interface for different authentication providers. The current production provider is **[Netlify](https://en.wikipedia.org/wiki/Netlify) Identity**. The abstraction enables future migration to other auth services without changing application code.
+This authentication abstraction layer provides a unified interface for different authentication providers. The current production provider is **[Netlify](https://en.wikipedia.org/wiki/Netlify) Identity**. The abstraction is the intended integration boundary for a future provider without changing application code.
 
 ## Netlify Identity Status
 
-**Netlify Identity is fully supported.** Although a deprecation was announced in 2025, Netlify reversed that decision in February 2026 after community feedback. Identity remains a first-class Netlify service with ongoing reliability and security updates.
+**Netlify Identity is fully supported in the current implementation.** Although a deprecation was announced in 2025, Netlify reversed that decision in February 2026 after community feedback. Identity remains the current provider until a separately verified migration and cutover.
 
 **Source**: https://www.netlify.com/blog/auth0-extension-identity-changes/
 
-Auth0 is available as an alternative for teams needing enterprise features ([MFA](https://en.wikipedia.org/wiki/Multi-factor_authentication), [SSO](https://en.wikipedia.org/wiki/Single_sign-on)), but migration is **not required**.
+## Migration boundary
+
+Auth0 is the decided target for the Flexpair hub-login migration, not an optional alternative. Auth0 support is **not implemented in this submodule**. This README documents the current Netlify adapter and must not be used as migration authority.
+
+For an explicit migration-execution request, start in the Flexpair umbrella root and read `AGENTS.md`, `AUTH0-MIGRATION-RUNBOOK.md`, `AUTH0-MIGRATION-PLAN.md`, and decisions A-12, A-14, and A-15 in `DECISIONS.md` before changing this submodule. Keep the Netlify adapter, identity proxy, invite path, recovery path, and rollback path available until the umbrella acceptance matrix says otherwise.
 
 ## Architecture
 
@@ -21,7 +25,8 @@ Application code
      |
   AuthProvider interface (common API)
      |
-  NetlifyIdentityAdapter (production)
+  NetlifyIdentityAdapter (current production)
+  Auth0 adapter (planned; not implemented)
 ```
 
 ### Files
