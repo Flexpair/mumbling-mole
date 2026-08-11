@@ -201,6 +201,11 @@ export function isReactive(obj) {
   return obj?.__v_isReactive === true;
 }
 
+// isReadonly helper
+export function isReadonly(obj) {
+  return obj?.__v_isReadonly === true;
+}
+
 // shallowRef helper
 export function shallowRef(value) {
   return ref(value);
@@ -241,6 +246,7 @@ export default {
   getCurrentInstance,
   hasInjectionContext,
   isReactive,
+  isReadonly,
   shallowRef,
   useTemplateRef,
 };
