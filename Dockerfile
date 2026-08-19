@@ -1,7 +1,7 @@
 # =====================================================================
 # Stage 1: base-runtime (minimal runtime dependencies)
 # =====================================================================
-FROM ubuntu:24.04 AS base-runtime
+FROM ubuntu:25.10 AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
