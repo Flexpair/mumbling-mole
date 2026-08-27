@@ -11,6 +11,7 @@
       <span id="mic-permission-title">Microphone access denied</span>
       <p v-if="errorMessage" id="mic-permission-desc" class="mic-permission-message">{{ errorMessage }}</p>
       <button 
+        type="button"
         @click="handleRetry" 
         class="mic-permission-button"
       >
