@@ -6,6 +6,10 @@ updates:
       interval: daily
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 5
+    groups:
+      protobuf:
+        patterns:
+          - "protobufjs*"
     labels:
       - dependencies
       - npm
