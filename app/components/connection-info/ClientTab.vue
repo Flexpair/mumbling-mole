@@ -15,7 +15,7 @@
     <div v-if="voiceMode === 'ptt'" class="setting-group">
       <label class="setting-label" for="ptt-key-button">{{ t('settingsdialog.ptt_key') }}</label>
       <div class="control-wrapper">
-        <button id="ptt-key-button" class="ptt-record-btn" @click="recordPttKey">
+        <button id="ptt-key-button" class="ptt-record-btn" type="button" @click="recordPttKey">
           {{ pttKeyDisplay }}
         </button>
       </div>
@@ -23,7 +23,7 @@
 
     <div class="setting-group version-group">
       <span class="setting-label">Client Version</span>
-      <button @click="copyCommitHash" class="action-button" :title="copyButtonTitle">
+      <button type="button" @click="copyCommitHash" class="action-button" :title="copyButtonTitle">
         {{ copyButtonText }}
       </button>
     </div>

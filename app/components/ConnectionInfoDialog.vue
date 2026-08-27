@@ -21,55 +21,55 @@
           >
             <button 
               ref="tabLatency"
+              type="button"
               :class="['nav-item', { active: activeTab === 'latency' }]"
               @click="selectTab('latency')"
               :tabindex="activeTab === 'latency' ? 0 : -1"
               role="tab"
               :aria-selected="activeTab === 'latency'"
               aria-controls="latency-panel"
-              type="button"
             >
               <span>Audio Delay</span>
             </button>
             <button 
               ref="tabBandwidth"
+              type="button"
               :class="['nav-item', { active: activeTab === 'bandwidth' }]"
               @click="selectTab('bandwidth')"
               :tabindex="activeTab === 'bandwidth' ? 0 : -1"
               role="tab"
               :aria-selected="activeTab === 'bandwidth'"
               aria-controls="bandwidth-panel"
-              type="button"
             >
               <span>Bandwidth</span>
             </button>
             <button 
               ref="tabClient"
+              type="button"
               :class="['nav-item', { active: activeTab === 'client' }]"
               @click="selectTab('client')"
               :tabindex="activeTab === 'client' ? 0 : -1"
               role="tab"
               :aria-selected="activeTab === 'client'"
               aria-controls="client-panel"
-              type="button"
             >
               <span>Client</span>
             </button>
             <button 
               ref="tabServer"
+              type="button"
               :class="['nav-item', { active: activeTab === 'server' }]"
               @click="selectTab('server')"
               :tabindex="activeTab === 'server' ? 0 : -1"
               role="tab"
               :aria-selected="activeTab === 'server'"
               aria-controls="server-panel"
-              type="button"
             >
               <span>Server</span>
             </button>
           </div>
           <div class="sidebar-footer">
-            <button class="close-button" @click="handleHide">
+            <button class="close-button" type="button" @click="handleHide">
               {{ t('settingsdialog.close') }}
             </button>
           </div>
