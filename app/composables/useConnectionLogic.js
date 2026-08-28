@@ -102,6 +102,9 @@ export function useConnectionLogic({ auth } = {}) {
       }
       serverCredentials = await fetchCredentials(token);
     } catch (error) {
+      if (error?.code === 'CREDENTIALS_REQUEST_SUPERSEDED') {
+        return;
+      }
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
       alert('Failed to authenticate. Please log in again.');
       auth.logout();

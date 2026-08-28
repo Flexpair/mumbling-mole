@@ -113,8 +113,26 @@ describe('credentials-service', () => {
 
       await expect(secondRequest).resolves.toEqual({ user: 'second' });
       resolveFirst();
-      await expect(firstRequest).resolves.toEqual({ user: 'first' });
+      await expect(firstRequest).rejects.toMatchObject({
+        code: 'CREDENTIALS_REQUEST_SUPERSEDED'
+      });
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should reject an in-flight request invalidated by clearCredentials', async () => {
+      let resolveFetch;
+      mockFetch.mockImplementationOnce(() => new Promise(resolve => {
+        resolveFetch = resolve;
+      }));
+
+      const request = fetchCredentials('token');
+      clearCredentials();
+      resolveFetch(createMockResponse(validCredentials));
+
+      await expect(request).rejects.toMatchObject({
+        code: 'CREDENTIALS_REQUEST_SUPERSEDED'
+      });
+      expect(getCachedCredentials()).toBeNull();
     });
 
     it('should bypass cache when forceRefresh is true', async () => {

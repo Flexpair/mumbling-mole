@@ -45,6 +45,15 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 let pendingRequest = null;
 /** @type {string|null} */
 let pendingToken = null;
+let requestGeneration = 0;
+
+class SupersededCredentialsRequestError extends Error {
+  constructor() {
+    super('Credentials request superseded by a newer authentication session');
+    this.name = 'SupersededCredentialsRequestError';
+    this.code = 'CREDENTIALS_REQUEST_SUPERSEDED';
+  }
+}
 
 /**
  * Check if cache has expired
@@ -103,18 +112,26 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
   }
 
   // A different authenticated session must not await the previous session's
-  // request. Start an independent request for the new token.
+  // request. Invalidate its result so its caller cannot continue with stale
+  // Mumble or Guacamole credentials.
+  if (pendingRequest !== null && pendingToken !== token) {
+    requestGeneration += 1;
+  }
+
   const requestToken = token;
+  const requestGenerationAtStart = requestGeneration;
 
   const request = _fetchCredentialsFromServer(requestToken)
     .then(result => {
-      if (pendingRequest === request) {
-        cachedCredentials = result;
-        cachedToken = requestToken;
-        cacheTimestamp = Date.now();
-        pendingRequest = null;
-        pendingToken = null;
+      if (requestGenerationAtStart !== requestGeneration || pendingRequest !== request) {
+        throw new SupersededCredentialsRequestError();
       }
+
+      cachedCredentials = result;
+      cachedToken = requestToken;
+      cacheTimestamp = Date.now();
+      pendingRequest = null;
+      pendingToken = null;
       return result;
     })
     .catch(error => {
@@ -134,6 +151,7 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
  * Clear cached credentials (e.g., on logout)
  */
 export function clearCredentials() {
+  requestGeneration += 1;
   cachedCredentials = null;
   cachedToken = null;
   cacheTimestamp = null;
