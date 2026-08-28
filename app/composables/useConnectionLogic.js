@@ -192,13 +192,15 @@ export function useConnectionLogic({ auth } = {}) {
       voiceStore.isLoopbackMode = true;
     }
 
-    // Setup voice/audio
-    await voiceStore.setupVoiceForConnection(audioEnabled, sampleRate);
-
-    // Reset UI state
-    resetUIForConnection(audioStore, userStore, voiceStore);
-
     try {
+      // Setup voice/audio before opening the Mumble connection.
+      // Keep this inside the same error boundary so audio initialization
+      // failures are visible instead of silently aborting the handoff.
+      await voiceStore.setupVoiceForConnection(audioEnabled, sampleRate);
+
+      // Reset UI state
+      resetUIForConnection(audioStore, userStore, voiceStore);
+
       await _establishClientConnection(host, port, username, password, tokens, serverCredentials);
     } catch (err) {
       console.error('Connection failed:', err);

@@ -18,6 +18,7 @@ import {
   translate,
 } from "./localize";
 import { resolveConnectAddress } from "./utils/connect-address.js";
+import { clearCredentials } from "./auth/credentials-service.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -174,6 +175,9 @@ function applyQueryParamsToConnectDialog() {
  * Handle successful login event
  */
 function handleAuthLogin(user) {
+  // A login can replace an existing Identity session. Do not reuse
+  // credentials that were fetched with the previous token.
+  clearCredentials();
   const username = getUsernameFromMetadata(user);
   if (username) {
     dialogStore.connectDialog.username = username;
@@ -190,7 +194,12 @@ function handleAuthClose() {
   if (widgetHandlingToken) {
     widgetHandlingToken = false;
   }
-  if (dialogStore.connectDialog.username) {
+  const currentUser = auth.currentUser();
+  if (currentUser) {
+    const username = getUsernameFromMetadata(currentUser);
+    if (username) {
+      dialogStore.connectDialog.username = username;
+    }
     // Show connect dialog when auth modal is closed and user is authenticated
     dialogStore.connectDialog.visible = true;
   } else {

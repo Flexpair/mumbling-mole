@@ -88,6 +88,35 @@ describe('credentials-service', () => {
       expect(cachedResult).toEqual(validCredentials);
     });
 
+    it('should not reuse credentials for a different token', async () => {
+      const firstCredentials = { ...validCredentials, guacamoleUser: 'first-user' };
+      const secondCredentials = { ...validCredentials, guacamoleUser: 'second-user' };
+      mockFetch
+        .mockResolvedValueOnce(createMockResponse(firstCredentials))
+        .mockResolvedValueOnce(createMockResponse(secondCredentials));
+
+      await expect(fetchCredentials('token-a')).resolves.toEqual(firstCredentials);
+      await expect(fetchCredentials('token-b')).resolves.toEqual(secondCredentials);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not share a pending request between different tokens', async () => {
+      let resolveFirst;
+      const firstResponse = new Promise(resolve => { resolveFirst = resolve; });
+      mockFetch
+        .mockImplementationOnce(() => firstResponse.then(() => createMockResponse({ user: 'first' })))
+        .mockResolvedValueOnce(createMockResponse({ user: 'second' }));
+
+      const firstRequest = fetchCredentials('token-a');
+      const secondRequest = fetchCredentials('token-b');
+
+      await expect(secondRequest).resolves.toEqual({ user: 'second' });
+      resolveFirst();
+      await expect(firstRequest).resolves.toEqual({ user: 'first' });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
     it('should bypass cache when forceRefresh is true', async () => {
       mockFetch.mockResolvedValue(createMockResponse(validCredentials));
 

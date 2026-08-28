@@ -418,6 +418,22 @@ describe('useConnectionLogic', () => {
       expect(mockVoiceStore.setupVoiceForConnection).toHaveBeenCalledWith(true, null);
     });
 
+    it('should show an error when voice setup fails', async () => {
+      const setupError = new Error('Audio setup failed');
+      mockVoiceStore.setupVoiceForConnection.mockRejectedValueOnce(setupError);
+
+      await logic.performConnect(
+        { host: 'h', port: 1, username: 'u', password: 'p' },
+        { audioEnabled: true }
+      );
+
+      expect(mockDialogStore.showErrorDialog).toHaveBeenCalledWith(
+        setupError,
+        expect.objectContaining({ host: 'h', port: 1 })
+      );
+      expect(mockConnectionStore.connect).not.toHaveBeenCalled();
+    });
+
     it('should set loopback mode if specified', async () => {
       await logic.performConnect({ host: 'h', port: 1, username: 'u', password: 'p', isLoopback: true }, {});
       

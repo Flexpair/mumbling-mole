@@ -36,7 +36,7 @@
         :src="guacSource || 'about:blank'"
         @load="handleLoad"
         title="Remote Desktop - Interactive session"
-        loading="lazy"
+        loading="eager"
         allow="clipboard-read; clipboard-write"
         :aria-hidden="loading || !!error"
       ></iframe>

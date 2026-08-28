@@ -21,6 +21,13 @@
 let cachedCredentials = null;
 
 /**
+ * Token associated with the cached credentials. Credentials must not be
+ * reused across authenticated sessions.
+ * @type {string|null}
+ */
+let cachedToken = null;
+
+/**
  * Cache timestamp for TTL-based invalidation
  * @type {number|null}
  */
@@ -36,6 +43,8 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
  * @type {Promise<ServerCredentials>|null}
  */
 let pendingRequest = null;
+/** @type {string|null} */
+let pendingToken = null;
 
 /**
  * Check if cache has expired
@@ -65,8 +74,6 @@ async function _fetchCredentialsFromServer(token) {
   }
 
   const credentials = await response.json();
-  cachedCredentials = credentials;
-  cacheTimestamp = Date.now();
   return credentials;
 }
 
@@ -86,26 +93,41 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
   }
 
   // Return cached credentials if available, not expired, and not forcing refresh
-  if (cachedCredentials && !isCacheExpired() && !forceRefresh) {
+  if (cachedCredentials && cachedToken === token && !isCacheExpired() && !forceRefresh) {
     return cachedCredentials;
   }
 
   // Prevent concurrent requests
-  if (pendingRequest !== null) {
+  if (pendingRequest !== null && pendingToken === token) {
     return pendingRequest;
   }
 
-  pendingRequest = _fetchCredentialsFromServer(token)
+  // A different authenticated session must not await the previous session's
+  // request. Start an independent request for the new token.
+  const requestToken = token;
+
+  const request = _fetchCredentialsFromServer(requestToken)
     .then(result => {
-      pendingRequest = null;
+      if (pendingRequest === request) {
+        cachedCredentials = result;
+        cachedToken = requestToken;
+        cacheTimestamp = Date.now();
+        pendingRequest = null;
+        pendingToken = null;
+      }
       return result;
     })
     .catch(error => {
-      pendingRequest = null;
+      if (pendingRequest === request) {
+        pendingRequest = null;
+        pendingToken = null;
+      }
       throw error;
     });
 
-  return pendingRequest;
+  pendingRequest = request;
+  pendingToken = requestToken;
+  return request;
 }
 
 /**
@@ -113,8 +135,10 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
  */
 export function clearCredentials() {
   cachedCredentials = null;
+  cachedToken = null;
   cacheTimestamp = null;
   pendingRequest = null;
+  pendingToken = null;
 }
 
 /**
