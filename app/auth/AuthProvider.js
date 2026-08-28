@@ -40,6 +40,14 @@ class AuthProvider {
   }
 
   /**
+   * Get an access token for the Flexpair credentials endpoint
+   * @returns {Promise<string|null>} Access token or null if not authenticated
+   */
+  async getAccessToken() {
+    throw new Error('Method getAccessToken() must be implemented by subclass');
+  }
+
+  /**
    * Open login interface (modal, redirect, etc.)
    * Implementation depends on provider's UI/UX
    * @param {string} [view='login'] - 'login' or 'signup'

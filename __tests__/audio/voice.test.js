@@ -690,7 +690,8 @@ describe('initVoice Integration Tests', () => {
     // Mock MediaStreamTrack
     mockTrack = {
       addEventListener: jest.fn(),
-      removeEventListener: jest.fn()
+      removeEventListener: jest.fn(),
+      stop: jest.fn()
     };
 
     // Mock MediaStream
@@ -1014,6 +1015,35 @@ describe('initVoice Integration Tests', () => {
   });
 
   describe('Mixer Lifecycle & Race Conditions', () => {
+    test('should stop microphone tracks when capture is cancelled before permission resolves', async () => {
+      let resolveUserMedia;
+      mockGetUserMedia.mockImplementation(() => new Promise(resolve => {
+        resolveUserMedia = resolve;
+      }));
+
+      const stopCapture = initVoice(jest.fn(), jest.fn());
+      stopCapture();
+      resolveUserMedia(mockMediaStream);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockTrack.stop).toHaveBeenCalledTimes(1);
+      expect(mockAudioContext.createMediaStreamSource).not.toHaveBeenCalled();
+    });
+
+    test('should disconnect the audio graph and stop tracks when capture is cancelled', async () => {
+      mockGetUserMedia.mockResolvedValue(mockMediaStream);
+
+      const stopCapture = initVoice(jest.fn(), jest.fn());
+      await new Promise(resolve => setTimeout(resolve, 50));
+      stopCapture();
+
+      expect(mockTrack.stop).toHaveBeenCalledTimes(1);
+      expect(mockAudioWorkletNode.disconnect).toHaveBeenCalled();
+      expect(mockGainNode.disconnect).toHaveBeenCalled();
+      expect(mockMediaStreamSource.disconnect).toHaveBeenCalled();
+      expect(globalThis._audioMixer).toBeNull();
+    });
+
     test('should track current mixer instance', async () => {
       mockGetUserMedia.mockResolvedValue(mockMediaStream);
 

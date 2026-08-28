@@ -31,6 +31,7 @@ class AuthenticatedTestProvider extends AuthProvider {
   }
   async init() { return; }
   async getCurrentUser() { return this._currentUser; }
+  async getAccessToken() { return this._currentUser?.accessToken || null; }
   async openAuth() { return; }
   async closeAuth() { return; }
   async signup() { return {}; }
@@ -72,6 +73,11 @@ describe('AuthProvider', () => {
     test('requires getCurrentUser() implementation', async () => {
       const provider = new IncompleteProvider();
       await expect(provider.getCurrentUser()).rejects.toThrow('must be implemented');
+    });
+
+    test('requires getAccessToken() implementation', async () => {
+      const provider = new IncompleteProvider();
+      await expect(provider.getAccessToken()).rejects.toThrow('must be implemented');
     });
 
     test('requires openAuth() implementation', async () => {

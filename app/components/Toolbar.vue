@@ -220,7 +220,7 @@ const handleLogoutClick = async () => {
   const { clearCredentials } = await import('../auth/credentials-service.js');
   clearCredentials();
   
-  auth.logout();
+  await auth.logout();
   location.reload();
 };
 </script>

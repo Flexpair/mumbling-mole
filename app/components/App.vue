@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { Transition, ref, onMounted, useTemplateRef, watch } from 'vue';
+import { Transition, ref, onMounted, useTemplateRef } from 'vue';
 import { useUIStore } from '../stores/uiStore';
 
 // All components loaded synchronously (IIFE format doesn't support code-splitting)
@@ -80,16 +80,6 @@ const containerVisible = ref(true);
 
 // Ref to GuacamoleFrame component instance
 const guacamoleFrameRef = useTemplateRef('guacamoleFrameRef');
-const uiStore = useUIStore();
-
-// The child component ref may be populated after this component's mounted
-// hook. Keep the store reference synchronized so the first connection can
-// always hand off to Guacamole.
-watch(guacamoleFrameRef, (frame) => {
-  if (frame) {
-    uiStore.guacamoleFrame = frame;
-  }
-}, { immediate: true });
 
 // Handle preloader removal on window load
 onMounted(() => {
@@ -105,6 +95,9 @@ onMounted(() => {
   } else {
     globalThis.addEventListener('load', finalize, { once: true });
   }
+
+  const uiStore = useUIStore();
+  uiStore.guacamoleFrame = guacamoleFrameRef.value;
 });
 </script>
 

@@ -36,7 +36,7 @@
         :src="guacSource || 'about:blank'"
         @load="handleLoad"
         title="Remote Desktop - Interactive session"
-        loading="eager"
+        loading="lazy"
         allow="clipboard-read; clipboard-write"
         :aria-hidden="loading || !!error"
       ></iframe>
@@ -45,6 +45,11 @@
 
 <script setup>
 import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup } from 'vue';
+import {
+  buildGuacamoleSource,
+  clearGuacamoleSession,
+  waitForGuacamoleReady,
+} from '../composables/useGuacamole';
 
 /**
  * GuacamoleFrame Component
@@ -67,6 +72,8 @@ const loading = ref(false);
 
 /** @type {import('vue').Ref<string | null>} */
 const error = ref(null);
+let startupController = null;
+let startupSequence = 0;
 
 /**
  * Focus the iframe when it becomes visible
@@ -108,6 +115,10 @@ onMounted(() => {
  * @param {string} password - Guacamole password
  */
 function start(guacUser, password) {
+  startupController?.abort();
+  clearGuacamoleSession();
+  const controller = new AbortController();
+  startupController = controller;
   loading.value = true;
   error.value = null;
 
@@ -128,14 +139,29 @@ function start(guacUser, password) {
     console.warn("[Guac] localStorage sanitization failed", e);
   }
 
-  // Build Guacamole URL with credentials
-  const src =
-    "/guacamole/#/?username=" +
-    guacUser +
-    "&password=" +
-    encodeURIComponent(password || "");
+  const session = String(++startupSequence);
 
-  guacSource.value = src;
+  guacSource.value = buildGuacamoleSource(guacUser, password, session);
+  return waitForGuacamoleReady(iframeRef.value, {
+    expectedSession: session,
+    signal: controller.signal,
+  })
+    .then(() => {
+      if (startupController === controller) {
+        startupController = null;
+        loading.value = false;
+      }
+    })
+    .catch(startupError => {
+      if (startupController === controller) {
+        startupController = null;
+        loading.value = false;
+        if (startupError.code !== 'GUACAMOLE_START_CANCELLED') {
+          error.value = startupError.message;
+        }
+      }
+      throw startupError;
+    });
 }
 
 /**
@@ -154,10 +180,22 @@ function hide() {
 }
 
 /**
+ * Stop and unload the Guacamole session.
+ */
+function stop() {
+  startupController?.abort();
+  startupController = null;
+  clearGuacamoleSession();
+  visible.value = false;
+  guacSource.value = null;
+  loading.value = false;
+  error.value = null;
+}
+
+/**
  * Handle iframe load event
  */
 function handleLoad() {
-  loading.value = false;
   // Focus iframe after content loads
   focusIframe();
 }
@@ -169,9 +207,10 @@ function handleLoad() {
  * via template ref (e.g., guacamoleFrameRef.value.show())
  * 
  * @typedef {Object} GuacamoleFrameAPI
- * @property {(guacUser: string, password: string) => void} start - Start Guacamole session
+ * @property {(guacUser: string, password: string) => Promise<void>} start - Start Guacamole session
  * @property {() => void} show - Show the frame
  * @property {() => void} hide - Hide the frame
+ * @property {() => void} stop - Stop and unload the session
  * @property {() => void} handleLoad - Handle iframe load
  * @property {import('vue').Ref<string | null>} guacSource - Current iframe src
  * @property {import('vue').Ref<boolean>} visible - Visibility state
@@ -182,6 +221,7 @@ defineExpose({
   start,
   show,
   hide,
+  stop,
   handleLoad,
   guacSource,
   visible,

@@ -6,9 +6,25 @@ import { useUserStore } from '../stores/userStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { translate } from '../localize';
-import { fetchCredentials } from '../auth/credentials-service.js';
-import { getGuacamoleLogin, getGuacamoleCredentials, startGuacamoleFrame, notifyGuacamoleUnavailable } from './useGuacamole';
+import { clearCredentials, fetchCredentials } from '../auth/credentials-service.js';
+import { startGuacamoleFrame } from './useGuacamole';
 import { registerExistingUsers, resetUIForConnection } from './useMumbleHelpers';
+import {
+  beginConnectionAttempt,
+  invalidateConnectionAttempt,
+  isConnectionAttemptCurrent,
+} from './connectionAttempt.js';
+
+const CONNECTION_CANCELLED_CODES = new Set([
+  'CONNECTION_ATTEMPT_SUPERSEDED',
+  'CREDENTIALS_REQUEST_SUPERSEDED',
+  'GUACAMOLE_START_CANCELLED',
+  'VOICE_CAPTURE_CANCELLED',
+]);
+
+function isConnectionCancellation(error) {
+  return CONNECTION_CANCELLED_CODES.has(error?.code);
+}
 
 /**
  * Composable for connection orchestration logic
@@ -30,9 +46,6 @@ export function useConnectionLogic({ auth } = {}) {
   
   // External dependencies
   const config = globalThis.mumbleWebConfig || {};
-  
-  // Connection tracking for race safety
-  let _currentConnectionId = null;
   
   // Timer tracking for message confirmation
   let _messageConfirmationTimer = null;
@@ -79,6 +92,8 @@ export function useConnectionLogic({ auth } = {}) {
    */
   async function _setupConnection(params) {
     const { host, port, username, tokens = [], isLoopback = false } = params;
+    _resetConnection();
+    const attempt = beginConnectionAttempt();
 
     // Auth check
     if (!auth) {
@@ -87,36 +102,61 @@ export function useConnectionLogic({ auth } = {}) {
       return;
     }
     
-    const identity = auth.currentUser();
+    let identity;
+    try {
+      identity = await auth.getCurrentUser();
+    } catch (error) {
+      if (!isConnectionAttemptCurrent(attempt)) return;
+      console.error('[useConnectionLogic] Failed to read authentication session:', error);
+      await _requestLogin();
+      return;
+    }
+    if (!isConnectionAttemptCurrent(attempt)) return;
     if (!identity) {
-      alert('You do not have permission to connect to the server. Please contact the administrator.');
+      await _requestLogin();
       return;
     }
 
     // Fetch credentials from auth server (validates JWT server-side)
     let serverCredentials;
     try {
-      const token = identity.token?.access_token || identity.access_token;
+      const token = await auth.getAccessToken();
+      if (!isConnectionAttemptCurrent(attempt)) return;
       if (!token) {
         throw new Error('No access token available');
       }
       serverCredentials = await fetchCredentials(token);
+      if (!isConnectionAttemptCurrent(attempt)) return;
     } catch (error) {
-      if (error?.code === 'CREDENTIALS_REQUEST_SUPERSEDED') {
-        return;
-      }
+      if (isConnectionCancellation(error) || !isConnectionAttemptCurrent(attempt)) return;
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
-      alert('Failed to authenticate. Please log in again.');
-      auth.logout();
+      await _requestLogin({ logout: true });
       return;
     }
 
     // Use server-provided password
     const password = serverCredentials.mumblePassword;
 
-    // Initialize AudioContext
-    if (!audioStore.audioContext) {
-      await audioStore.initializeAudioContext();
+    const connectionParams = {
+      host,
+      port,
+      username,
+      password,
+      tokens,
+      isLoopback,
+      serverCredentials,
+      attempt,
+    };
+
+    try {
+      // Initialize AudioContext
+      if (!audioStore.audioContext) {
+        await audioStore.initializeAudioContext();
+        if (!isConnectionAttemptCurrent(attempt)) return;
+      }
+    } catch (error) {
+      _handleConnectionFailure(error, connectionParams, attempt);
+      return;
     }
 
     // Sample rate check (ONLY for normal mode, skip in loopback)
@@ -125,7 +165,6 @@ export function useConnectionLogic({ auth } = {}) {
       const audioCompatible = currentSampleRate === 48000;
       
       if (!audioCompatible) {
-        const connectionParams = { host, port, username, password, tokens, serverCredentials };
         dialogStore.sampleRateDialog.sampleRate = currentSampleRate;
         dialogStore.sampleRateDialog.connectionParams = connectionParams;
         dialogStore.showSampleRateDialog();
@@ -133,48 +172,11 @@ export function useConnectionLogic({ auth } = {}) {
       }
     }
 
-    // Prepare connection parameters
-    const connectionParams = {
-      host, 
-      port, 
-      username, 
-      password, 
-      tokens,
-      isLoopback,
-      serverCredentials
-    };
-
-    // Request microphone permission
-    const connectionId = isLoopback ? Symbol('loopback-connection') : Symbol('connection');
-    _currentConnectionId = connectionId;
-    
-    if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          // RACE-SAFE: Only update state if this connection is still active
-          if (_currentConnectionId === connectionId) {
-            audioStore.micPermissionDenied = false;
-          }
-          // Always stop tracks to avoid mic staying active
-          for (const track of stream.getTracks()) {
-            track.stop();
-          }
-        })
-        .catch(err => {
-          console.warn('Microphone permission denied:', err);
-          // RACE-SAFE: Only update state if this connection is still active
-          if (_currentConnectionId === connectionId) {
-            audioStore.micPermissionDenied = true;
-          }
-        });
-    }
-
     // Clear audio lock
     audioStore.clearAudioLock({ resetStates: true });
 
-    // Loopback-specific setup
+    voiceStore.isLoopbackMode = isLoopback;
     if (isLoopback) {
-      voiceStore.isLoopbackMode = true;
       // Ensure microphone is NOT muted for loopback test
       userStore.selfMute = false;
     }
@@ -188,8 +190,10 @@ export function useConnectionLogic({ auth } = {}) {
    * @private
    */
   async function _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { host, port, username, password, tokens = [], serverCredentials } = connectionParams;
+    const { host, port, username, password, tokens = [], serverCredentials, attempt } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
+
+    if (!attempt || !isConnectionAttemptCurrent(attempt)) return;
 
     if (isLoopback) {
       voiceStore.isLoopbackMode = true;
@@ -199,19 +203,18 @@ export function useConnectionLogic({ auth } = {}) {
       // Setup voice/audio before opening the Mumble connection.
       // Keep this inside the same error boundary so audio initialization
       // failures are visible instead of silently aborting the handoff.
-      await voiceStore.setupVoiceForConnection(audioEnabled, sampleRate);
+      const stopVoiceInput = await voiceStore.setupVoiceForConnection(audioEnabled, sampleRate);
+      if (!isConnectionAttemptCurrent(attempt)) {
+        stopVoiceInput?.();
+        return;
+      }
 
       // Reset UI state
       resetUIForConnection(audioStore, userStore, voiceStore);
 
-      await _establishClientConnection(host, port, username, password, tokens, serverCredentials);
+      await _establishClientConnection(host, port, username, password, tokens, serverCredentials, attempt);
     } catch (err) {
-      console.error('Connection failed:', err);
-      if (dialogStore) {
-         dialogStore.showErrorDialog(err, connectionParams);
-      } else {
-         alert('Connection failed: ' + err.message);
-      }
+      _handleConnectionFailure(err, connectionParams, attempt);
     }
   }
 
@@ -219,27 +222,91 @@ export function useConnectionLogic({ auth } = {}) {
    * Establish client connection and setup
    * @private
    */
-  async function _establishClientConnection(host, port, username, password, tokens, serverCredentials) {
+  async function _establishClientConnection(host, port, username, password, tokens, serverCredentials, attempt) {
     const client = await connectionStore.connect(host, port, username, password, tokens);
-    
-    _initializeGuacamole(serverCredentials, password);
-    
-    const logKey = voiceStore.isLoopbackMode ? 'logentry.connected_loopback' : 'logentry.connected';
-    console.log(translate(logKey));
+    if (!isConnectionAttemptCurrent(attempt)) {
+      if (connectionStore.getClient() === client) {
+        connectionStore.disconnect();
+      } else {
+        client.disconnect();
+      }
+      return;
+    }
 
     _initializeClientState(client);
     _initializeAudio(client);
+    await _initializeGuacamole(serverCredentials);
+    if (!isConnectionAttemptCurrent(attempt)) return;
+
+    const logKey = voiceStore.isLoopbackMode ? 'logentry.connected_loopback' : 'logentry.connected';
+    console.log(translate(logKey));
   }
 
-  function _initializeGuacamole(serverCredentials, password) {
+  function _resetConnection() {
+    if (_messageConfirmationTimer) {
+      clearTimeout(_messageConfirmationTimer);
+      _messageConfirmationTimer = null;
+    }
+
+    invalidateConnectionAttempt();
+    uiStore.guacamoleFrame?.stop?.();
+    audioStore.stopBeep();
+    voiceStore.reset();
+    userStore.thisUser = null;
+    dialogStore.connectDialog.isTestActive = false;
+    audioStore.beeperReady = false;
+    connectionStore.disconnect();
+  }
+
+  function cancelConnect(connectionParams) {
+    const attempt = connectionParams?.attempt;
+    if (!attempt || !isConnectionAttemptCurrent(attempt)) return;
+
+    clearCredentials();
+    _resetConnection();
+    dialogStore.showConnectDialog();
+  }
+
+  function _handleConnectionFailure(error, connectionParams, attempt) {
+    if (isConnectionCancellation(error) || !isConnectionAttemptCurrent(attempt)) return;
+
+    _resetConnection();
+    console.error('Connection failed:', error);
+    if (dialogStore) {
+      dialogStore.showErrorDialog(error, connectionParams);
+    } else {
+      alert('Connection failed: ' + error.message);
+    }
+  }
+
+  async function _requestLogin({ logout = false } = {}) {
+    clearCredentials();
+    _resetConnection();
+    alert('Failed to authenticate. Please log in again.');
+
+    if (logout) {
+      try {
+        await auth.logout();
+      } catch (error) {
+        console.error('[useConnectionLogic] Failed to clear authentication session:', error);
+      }
+    }
+
+    try {
+      await auth.openAuth('login');
+    } catch (error) {
+      console.error('[useConnectionLogic] Failed to open authentication:', error);
+    }
+  }
+
+  async function _initializeGuacamole(serverCredentials) {
     if (voiceStore.isLoopbackMode) return;
 
-    const guacCreds = getGuacamoleCredentials(serverCredentials, password, auth);
-    if (guacCreds.user) {
-      startGuacamoleFrame(guacCreds.user, guacCreds.password, uiStore);
-    } else {
-      notifyGuacamoleUnavailable();
-    }
+    await startGuacamoleFrame(
+      serverCredentials.guacamoleUser,
+      serverCredentials.guacamolePassword,
+      uiStore
+    );
   }
 
   function _initializeClientState(client) {
@@ -346,26 +413,7 @@ export function useConnectionLogic({ auth } = {}) {
   /**
    * Reset client and all state
    */
-  const resetClient = () => {
-    // Clear message confirmation timer
-    if (_messageConfirmationTimer) {
-      clearTimeout(_messageConfirmationTimer);
-      _messageConfirmationTimer = null;
-    }
-    
-    _currentConnectionId = null;
-    audioStore.stopBeep();
-    connectionStore.disconnect();
-    userStore.thisUser = null;
-    
-    const wasLoopback = voiceStore.isLoopbackMode;
-    voiceStore.isLoopbackMode = false;
-    
-    if (!wasLoopback) {
-      audioStore.beeperReady = false;
-      voiceStore.voiceHandlerReady = false;
-    }
-  };
+  const resetClient = () => _resetConnection();
 
   /**
    * Send message to channel or user
@@ -394,7 +442,7 @@ export function useConnectionLogic({ auth } = {}) {
     sendMessage,
     connected,
     updateVoiceHandler,
-    performConnect: _performConnect, // Export for SampleRateWarningDialog
-    getGuacamoleLogin // Export for ConnectDialog
+    cancelConnect,
+    performConnect: _performConnect // Export for SampleRateWarningDialog
   };
 }

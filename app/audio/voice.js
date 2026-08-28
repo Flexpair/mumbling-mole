@@ -214,7 +214,7 @@ export function getCurrentMixer() {
 export function onAudioMixerReady(callback) {
   if (typeof callback !== 'function') {
     console.error('[VOICE] onAudioMixerReady: callback must be a function');
-    return;
+    return () => {};
   }
   
   // If mixer is already available, call immediately
@@ -224,49 +224,80 @@ export function onAudioMixerReady(callback) {
     } catch (err) {
       console.error('[VOICE] Error in mixer ready callback:', err);
     }
+    return () => {};
   } else {
     // Otherwise, queue for later
     audioMixerReadyCallbacks.push(callback);
+    return () => {
+      const index = audioMixerReadyCallbacks.indexOf(callback);
+      if (index !== -1) audioMixerReadyCallbacks.splice(index, 1);
+    };
   }
 }
 
-function handleTrackEnded(track, mixer, node, src, mixerTimestamp) {
-  if (currentMixerInstance === mixer && currentMixerTimestamp === mixerTimestamp) {
+function cleanupVoiceCapture(capture) {
+  for (const [track, handler] of capture.trackEndedHandlers) {
+    try {
+      track.removeEventListener('ended', handler);
+    } catch (error_) {
+      console.warn('[VOICE] Error removing track listener:', error_);
+    }
+  }
+  capture.trackEndedHandlers.clear();
+
+  for (const track of capture.userMedia?.getTracks?.() || []) {
+    if (capture.stoppedTracks.has(track)) continue;
+    capture.stoppedTracks.add(track);
+    try {
+      track.stop();
+    } catch (error_) {
+      console.warn('[VOICE] Error stopping microphone track:', error_);
+    }
+  }
+
+  for (const [node, label] of [
+    [capture.node, 'AudioWorkletNode'],
+    [capture.mixer, 'mixer'],
+    [capture.src, 'source'],
+  ]) {
+    if (!node || capture.disconnectedNodes.has(node)) continue;
+    capture.disconnectedNodes.add(node);
     try {
       node.disconnect();
     } catch (error_) {
-      console.warn('[VOICE] Error disconnecting AudioWorkletNode:', error_);
+      console.warn(`[VOICE] Error disconnecting ${label}:`, error_);
     }
-    try {
-      mixer.disconnect();
-    } catch (error_) {
-      console.warn('[VOICE] Error disconnecting mixer:', error_);
-    }
-    try {
-      src.disconnect();
-    } catch (error_) {
-      console.warn('[VOICE] Error disconnecting source:', error_);
-    }
+  }
 
-    // Clear global references only if this is still the active instance
+  if (
+    capture.mixer &&
+    currentMixerInstance === capture.mixer &&
+    currentMixerTimestamp === capture.mixerTimestamp
+  ) {
     currentMixerInstance = null;
     globalThis._audioMixer = null;
 
-    // Don't close the shared/global AudioContext here. Suspending saves power without
-    // invalidating the shared instance held by the AudioContextManager.
-    try {
-      audioContextManager.suspendAudioContext();
-    } catch (error_) {
-      console.warn('[VOICE] Error suspending AudioContext:', error_);
+    if (!capture.suspended) {
+      capture.suspended = true;
+      try {
+        audioContextManager.suspendAudioContext();
+      } catch (error_) {
+        console.warn('[VOICE] Error suspending AudioContext:', error_);
+      }
     }
   }
 }
 
-async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
+async function handleUserMediaSuccess(userMedia, onData, onUserMediaError, onReady, capture) {
   const initStartTime = Date.now();
   debugLog('[VOICE-INIT]', 'Starting audio pipeline initialization');
 
   try {
+    if (capture.cancelled) {
+      cleanupVoiceCapture(capture);
+      return;
+    }
+
     // AUDIO-CONTEXT: Use managed AudioContext with autoplay policy handling
     // Sample rate must be 48kHz to match Mumble protocol requirements
     const acStartTime = Date.now();
@@ -274,19 +305,29 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
       sampleRate: 48000,
       latencyHint: 'interactive'
     });
+    if (capture.cancelled) {
+      cleanupVoiceCapture(capture);
+      return;
+    }
     debugLog('[VOICE-INIT]', `AudioContext ready after ${Date.now() - acStartTime}ms (state: ${ac.state}, sampleRate: ${ac.sampleRate}Hz)`);
 
     // AUDIOWORKLET: Load AudioWorklet processor for real-time audio capture
     // recorder-worker.js runs in audio thread for low-latency processing
     const workletStartTime = Date.now();
     await ac.audioWorklet.addModule("recorder-worker.js");
+    if (capture.cancelled) {
+      cleanupVoiceCapture(capture);
+      return;
+    }
     debugLog('[VOICE-INIT]', `AudioWorklet module loaded after ${Date.now() - workletStartTime}ms`);
 
     // AUDIO-SOURCE: Create audio source from microphone stream
     const src = ac.createMediaStreamSource(userMedia);
+    capture.src = src;
 
     // BEEP-MIXER: Create a mixer node to combine microphone + beep signals
     const mixer = ac.createGain();
+    capture.mixer = mixer;
     mixer.gain.setValueAtTime(1, ac.currentTime);
 
     // WORKLET-NODE: Create AudioWorklet node for mono audio processing
@@ -296,6 +337,12 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
       numberOfOutputs: 0, // No audio output needed - we only capture, not play back
       channelCount: 1, // Mono channel (Mumble protocol requirement)
     });
+    capture.node = node;
+
+    if (capture.cancelled) {
+      cleanupVoiceCapture(capture);
+      return;
+    }
 
     // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
     // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
@@ -313,6 +360,7 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
     mixer.connect(node);
 
     const mixerTimestamp = Date.now();
+    capture.mixerTimestamp = mixerTimestamp;
     currentMixerInstance = mixer;
     currentMixerTimestamp = mixerTimestamp;
 
@@ -328,11 +376,16 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
     }
     audioMixerReadyCallbacks.length = 0;
 
-    // optional: aufräumen, wenn das mediastream endet
-    for (const t of userMedia.getTracks()) {
-      t.addEventListener("ended", () => handleTrackEnded(t, mixer, node, src, mixerTimestamp));
+    for (const track of userMedia.getTracks()) {
+      const handleEnded = () => cleanupVoiceCapture(capture);
+      capture.trackEndedHandlers.set(track, handleEnded);
+      track.addEventListener('ended', handleEnded);
     }
+
+    onReady?.(mixer);
   } catch (e) {
+    cleanupVoiceCapture(capture);
+    if (capture.cancelled) return;
     console.error("AudioWorklet init failed:", e);
     onUserMediaError(e);
   }
@@ -342,7 +395,7 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError) {
  * Init microphone capture.
  * Liefert per onData PCM-Frames (Float32) weiter – wie bisher, nur stabil via AudioWorklet.
  */
-export function initVoice(onData, onUserMediaError) {
+export function initVoice(onData, onUserMediaError, onReady) {
   const audioInputSelect = getAudioInputSelect();
   const audioSource = audioInputSelect?.value;
 
@@ -357,18 +410,43 @@ export function initVoice(onData, onUserMediaError) {
     },
   };
 
+  const capture = {
+    cancelled: false,
+    userMedia: null,
+    src: null,
+    mixer: null,
+    node: null,
+    mixerTimestamp: 0,
+    stoppedTracks: new Set(),
+    disconnectedNodes: new Set(),
+    trackEndedHandlers: new Map(),
+    suspended: false,
+  };
+  const stopCapture = () => {
+    capture.cancelled = true;
+    cleanupVoiceCapture(capture);
+  };
+
   if (!navigator.mediaDevices?.getUserMedia) {
     const error = new Error("MediaStreamError");
     error.name = "NotSupportedError";
     onUserMediaError(error);
-    return;
+    return stopCapture;
   }
 
   navigator.mediaDevices.getUserMedia(constraints)
     .then(userMedia => {
-      handleUserMediaSuccess(userMedia, onData, onUserMediaError);
+      capture.userMedia = userMedia;
+      if (capture.cancelled) {
+        cleanupVoiceCapture(capture);
+        return;
+      }
+      return handleUserMediaSuccess(userMedia, onData, onUserMediaError, onReady, capture);
     })
     .catch(err => {
-      onUserMediaError(err);
+      cleanupVoiceCapture(capture);
+      if (!capture.cancelled) onUserMediaError(err);
     });
+
+  return stopCapture;
 }

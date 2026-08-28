@@ -23,6 +23,12 @@ export const useVoiceStore = defineStore('voice', () => {
   
   // Loopback frequency analysis - tracks dominant frequency in returned audio
   const loopbackDominantFrequency = ref(0);
+  let stopVoiceInput = null;
+
+  function stopVoiceCapture() {
+    stopVoiceInput?.();
+    stopVoiceInput = null;
+  }
 
   /**
    * Setup audio/voice for connection
@@ -30,8 +36,12 @@ export const useVoiceStore = defineStore('voice', () => {
    * @param {number} sampleRate - Current sample rate
    */
   async function setupVoiceForConnection(audioEnabled, sampleRate) {
+    stopVoiceCapture();
+    let attemptStopVoiceInput = null;
+    let captureReady = Promise.resolve();
+
     if (audioEnabled) {
-      initVoiceInput(
+      const capture = initVoiceInput(
         (data) => {
           if (connectionStore.getClient()) {
             writeVoiceData(data);
@@ -43,25 +53,43 @@ export const useVoiceStore = defineStore('voice', () => {
           debugLog('[VOICE]', translate('logentry.mic_init_error'), err);
         },
         () => {
-          audioStore.initializePersistentBeeper();
+          Promise.resolve()
+            .then(() => audioStore.initializePersistentBeeper())
+            .catch((err) => {
+              debugLog('[BEEP]', 'Optional beeper initialization failed:', err);
+            });
         }
       );
+      attemptStopVoiceInput = capture.stop;
+      captureReady = capture.ready;
+      stopVoiceInput = attemptStopVoiceInput;
     } else {
       audioStore.activateAudioLock('sample-rate', { sampleRate });
       endVoiceHandler();
     }
 
-    try {
-      await audioStore.resumeAudioContext();
-      
+    const playbackReady = (async () => {
       try {
-        await audioStore.loadAudioWorkletModule('playback-buffer-processor.js');
-      } catch (err) {
-        debugLog('[AUDIO-INIT]', 'Playback AudioWorklet pre-warm failed:', err);
+        await audioStore.resumeAudioContext();
+
+        try {
+          await audioStore.loadAudioWorkletModule('playback-buffer-processor.js');
+        } catch (err) {
+          debugLog('[AUDIO-INIT]', 'Playback AudioWorklet pre-warm failed:', err);
+        }
+      } catch (error) {
+        debugLog('[AUDIO-INIT]', 'AudioContext resume failed, continuing anyway:', error);
       }
-    } catch (error) {
-      debugLog('[AUDIO-INIT]', 'AudioContext resume failed, continuing anyway:', error);
-    }
+    })();
+
+    await Promise.all([captureReady, playbackReady]);
+
+    return () => {
+      attemptStopVoiceInput?.();
+      if (stopVoiceInput === attemptStopVoiceInput) {
+        stopVoiceInput = null;
+      }
+    };
   }
 
   /**
@@ -168,6 +196,7 @@ export const useVoiceStore = defineStore('voice', () => {
    * Reset voice state
    */
   function reset() {
+    stopVoiceCapture();
     endVoiceHandler();
     isLoopbackMode.value = false;
     voiceHandlerReady.value = false;
@@ -189,6 +218,7 @@ export const useVoiceStore = defineStore('voice', () => {
     writeVoiceData,
     getVoiceHandler,
     endVoiceHandler,
+    stopVoiceCapture,
     reset
   };
 });

@@ -189,6 +189,48 @@ describe('connectionStore', () => {
       
       expect(store.isConnected.value).toBe(true);
     });
+
+    it('should disconnect a client that resolves after the attempt was cancelled', async () => {
+      let resolveConnection;
+      const staleClient = { ...mockClient, disconnect: jest.fn() };
+      mockConnector.connect.mockReturnValueOnce(new Promise(resolve => {
+        resolveConnection = resolve;
+      }));
+
+      const connection = store.connect('host', 64738, 'user', 'pass');
+      store.disconnect();
+      resolveConnection(staleClient);
+
+      await expect(connection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+      expect(staleClient.disconnect).toHaveBeenCalled();
+      expect(store.client.value).toBeNull();
+    });
+
+    it('should retain only the newest concurrently resolved client', async () => {
+      let resolveFirst;
+      let resolveSecond;
+      const firstClient = { ...mockClient, disconnect: jest.fn() };
+      const secondClient = { ...mockClient, disconnect: jest.fn() };
+      mockConnector.connect
+        .mockReturnValueOnce(new Promise(resolve => { resolveFirst = resolve; }))
+        .mockReturnValueOnce(new Promise(resolve => { resolveSecond = resolve; }));
+
+      const firstConnection = store.connect('first', 64738, 'first', 'pass');
+      const secondConnection = store.connect('second', 64738, 'second', 'pass');
+      resolveSecond(secondClient);
+      await expect(secondConnection).resolves.toBe(secondClient);
+      resolveFirst(firstClient);
+      await expect(firstConnection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+
+      expect(firstClient.disconnect).toHaveBeenCalled();
+      expect(secondClient.disconnect).not.toHaveBeenCalled();
+      expect(store.client.value).toBe(secondClient);
+      expect(store.remoteHost.value).toBe('second');
+    });
   });
 
   describe('disconnect()', () => {

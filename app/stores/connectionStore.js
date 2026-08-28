@@ -10,6 +10,15 @@ export const useConnectionStore = defineStore('connection', () => {
   let _connector = null;
   const connector = shallowRef(null);
   const client = shallowRef(null);
+  let connectionGeneration = 0;
+
+  class SupersededConnectionAttemptError extends Error {
+    constructor() {
+      super('Connection attempt superseded');
+      this.name = 'SupersededConnectionAttemptError';
+      this.code = 'CONNECTION_ATTEMPT_SUPERSEDED';
+    }
+  }
   
   /**
    * Get or create the WorkerBasedMumbleConnector (lazy initialization)
@@ -46,6 +55,8 @@ export const useConnectionStore = defineStore('connection', () => {
    * @returns {Promise<MumbleClient>} Connected client instance
    */
   async function connect(host, port, username, password, tokens = []) {
+    const generation = ++connectionGeneration;
+
     // Disconnect existing client before creating new connection
     if (client.value) {
       client.value.disconnect();
@@ -69,13 +80,20 @@ export const useConnectionStore = defineStore('connection', () => {
         tokens: tokens,
       });
 
+      if (generation !== connectionGeneration) {
+        newClient.disconnect();
+        throw new SupersededConnectionAttemptError();
+      }
+
       client.value = newClient;
 
       logger(translate('logentry.connected'));
 
       return newClient;
     } catch (err) {
-      logger(translate('logentry.connection_failed'), err);
+      if (err?.code !== 'CONNECTION_ATTEMPT_SUPERSEDED') {
+        logger(translate('logentry.connection_failed'), err);
+      }
       throw err;
     }
   }
@@ -84,6 +102,7 @@ export const useConnectionStore = defineStore('connection', () => {
    * Disconnect from current server
    */
   function disconnect() {
+    connectionGeneration += 1;
     if (client.value) {
       client.value.disconnect();
       client.value = null;

@@ -341,6 +341,32 @@ describe('NetlifyIdentityAdapter - currentUser() sync version', () => {
   });
 });
 
+describe('NetlifyIdentityAdapter - getAccessToken()', () => {
+  beforeEach(async () => {
+    await setupTestEnvironment();
+    await createInitializedAdapter();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
+    delete globalThis.netlifyIdentity;
+  });
+
+  test('returns the provider access token', async () => {
+    adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue({
+      token: { access_token: 'access-token' },
+    });
+
+    await expect(adapter.getAccessToken()).resolves.toBe('access-token');
+  });
+
+  test('returns null when there is no authenticated user', async () => {
+    adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue(null);
+
+    await expect(adapter.getAccessToken()).resolves.toBeNull();
+  });
+});
+
 describe('NetlifyIdentityAdapter - openAuth()', () => {
   beforeEach(async () => {
     await setupTestEnvironment();

@@ -83,6 +83,10 @@ async function _fetchCredentialsFromServer(token) {
   }
 
   const credentials = await response.json();
+  const requiredFields = ['mumblePassword', 'guacamoleUser', 'guacamolePassword'];
+  if (!credentials || requiredFields.some(field => typeof credentials[field] !== 'string' || !credentials[field])) {
+    throw new Error('Credentials response is incomplete');
+  }
   return credentials;
 }
 
@@ -135,9 +139,13 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
       return result;
     })
     .catch(error => {
+      const superseded = requestGenerationAtStart !== requestGeneration || pendingRequest !== request;
       if (pendingRequest === request) {
         pendingRequest = null;
         pendingToken = null;
+      }
+      if (superseded && error?.code !== 'CREDENTIALS_REQUEST_SUPERSEDED') {
+        throw new SupersededCredentialsRequestError();
       }
       throw error;
     });

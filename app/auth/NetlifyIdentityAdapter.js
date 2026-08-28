@@ -90,7 +90,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
       delete globalThis.__savedIdentityHash;
     }
 
-    this.netlifyIdentity.init(config);
+    this.netlifyIdentity.init(config?.netlify ?? config);
 
     // Register any event handlers that were queued before init()
     for (const { event, callback } of this._pendingHandlers) {
@@ -107,6 +107,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
    */
   async getCurrentUser() {
     return this.netlifyIdentity.currentUser();
+  }
+
+  /**
+   * Get the current Netlify access token
+   * @returns {Promise<string|null>}
+   */
+  async getAccessToken() {
+    return this.netlifyIdentity.currentUser()?.token?.access_token || null;
   }
 
   /**
