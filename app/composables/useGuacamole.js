@@ -22,6 +22,42 @@ function isVisibleError(element, contentWindow) {
   return !style || (style.display !== 'none' && style.visibility !== 'hidden');
 }
 
+function isCurrentNavigation(iframe, expectedSession, navigationStartDocument) {
+  if (!expectedSession) return true;
+  let loadedSession;
+  try {
+    loadedSession = new URL(iframe.contentWindow?.location?.href)
+      .searchParams.get('flexpairSession');
+  } catch {
+    return false;
+  }
+  return loadedSession === String(expectedSession) &&
+    iframe.contentDocument !== navigationStartDocument;
+}
+
+function getGuacamoleAuthenticationService(iframe, document) {
+  try {
+    return iframe.contentWindow?.angular
+      ?.element(document.documentElement)
+      ?.injector?.()
+      ?.get('authenticationService');
+  } catch {
+    return undefined;
+  }
+}
+
+function hasVisibleGuacamoleError(document, contentWindow) {
+  return [...document.querySelectorAll(GUACAMOLE_ERROR_SELECTOR)]
+    .some(element => isVisibleError(element, contentWindow));
+}
+
+function hasLoadedNonGuacamoleDocument(document, href) {
+  const isComplete = document.readyState === 'complete';
+  const hasHref = href !== undefined && href !== null && href !== 'about:blank';
+  const isGuacamole = document.documentElement?.matches?.(GUACAMOLE_APP_SELECTOR) === true;
+  return isComplete && hasHref && !isGuacamole;
+}
+
 /**
  * Remove Guacamole's persisted authentication token so it cannot be reused
  * across Flexpair authentication sessions.
@@ -120,35 +156,16 @@ export function waitForGuacamoleReady(
 
       if (!document) return;
 
-      if (expectedSession) {
-        let loadedSession;
-        try {
-          loadedSession = new URL(href).searchParams.get('flexpairSession');
-        } catch {
-          return;
-        }
-        if (loadedSession !== String(expectedSession)) return;
-        // The new URL can be visible before the iframe swaps out its old document.
-        if (document === navigationStartDocument) return;
-      }
+      if (!isCurrentNavigation(iframe, expectedSession, navigationStartDocument)) return;
 
       const isGuacamole = document.documentElement?.matches?.(GUACAMOLE_APP_SELECTOR) === true;
-      let authenticationService;
-      try {
-        authenticationService = iframe.contentWindow?.angular
-          ?.element(document.documentElement)
-          ?.injector?.()
-          ?.get('authenticationService');
-      } catch {
-        return;
-      }
+      const authenticationService = getGuacamoleAuthenticationService(iframe, document);
 
       // Ignore the uncompiled Guacamole HTML. Its templates contain both
       // success and error elements before Angular has selected active views.
       if (isGuacamole && !authenticationService) return;
 
-      const errorElement = document.querySelector(GUACAMOLE_ERROR_SELECTOR);
-      if (isVisibleError(errorElement, iframe.contentWindow)) {
+      if (hasVisibleGuacamoleError(document, iframe.contentWindow)) {
         fail('Remote desktop authentication failed', 'GUACAMOLE_AUTH_FAILED');
         return;
       }
@@ -159,7 +176,7 @@ export function waitForGuacamoleReady(
         return;
       }
 
-      if (document.readyState === 'complete' && href && href !== 'about:blank' && !isGuacamole) {
+      if (hasLoadedNonGuacamoleDocument(document, href)) {
         fail('Remote desktop failed to load', 'GUACAMOLE_LOAD_FAILED');
       }
     }

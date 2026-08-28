@@ -274,6 +274,17 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(appContent).toContain('uiStore.guacamoleFrame = guacamoleFrameRef.value');
   });
 
+  test('VERIFICATION: Guacamole iframe loads eagerly for immediate handoff', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const frameContent = await fs.readFile(framePath, 'utf-8');
+
+    expect(frameContent).toContain('loading="eager"');
+    expect(frameContent).not.toContain('loading="lazy"');
+  });
+
   test('VERIFICATION: leaving audio test uses the authenticated connection pipeline', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');

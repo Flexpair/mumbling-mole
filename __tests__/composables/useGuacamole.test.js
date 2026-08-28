@@ -106,6 +106,7 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'complete',
       documentElement,
       querySelector: jest.fn(selector => selector === '#content' ? content : null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({ contentDocument });
 
@@ -118,6 +119,7 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'complete',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(selector => selector === '#content' ? {} : null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({ contentDocument, token: null });
     const ready = waitForGuacamoleReady(iframe, { timeoutMs: 100 });
@@ -133,6 +135,7 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'complete',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(selector => selector === '#content' ? {} : null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({
       contentDocument,
@@ -160,11 +163,13 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'complete',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(selector => selector === '#content' ? {} : null),
+      querySelectorAll: jest.fn(() => []),
     };
     const requestedDocument = {
       readyState: 'complete',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(selector => selector === '#content' ? {} : null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({
       contentDocument: previousDocument,
@@ -192,6 +197,7 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'complete',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(selector => selector.includes('.login-ui.error') ? errorElement : null),
+      querySelectorAll: jest.fn(() => [errorElement]),
     };
     const iframe = createIframe({ contentDocument });
 
@@ -210,6 +216,7 @@ describe('waitForGuacamoleReady', () => {
         if (selector.includes('.login-ui.error')) return hiddenError;
         return null;
       }),
+      querySelectorAll: jest.fn(() => [hiddenError]),
     };
     const iframe = createIframe({
       contentDocument,
@@ -221,11 +228,33 @@ describe('waitForGuacamoleReady', () => {
     await expect(waitForGuacamoleReady(iframe)).resolves.toBeUndefined();
   });
 
+  it('rejects when a later Guacamole error element is visible', async () => {
+    const content = {};
+    const hiddenError = {};
+    const visibleError = {};
+    const contentDocument = {
+      readyState: 'complete',
+      documentElement: { matches: jest.fn(() => true) },
+      querySelector: jest.fn(selector => selector === '#content' ? content : null),
+      querySelectorAll: jest.fn(() => [hiddenError, visibleError]),
+    };
+    const iframe = createIframe({
+      contentDocument,
+      getComputedStyle: jest.fn(element => element === hiddenError
+        ? { display: 'none', visibility: 'visible' }
+        : { display: 'block', visibility: 'visible' }),
+    });
+
+    await expect(waitForGuacamoleReady(iframe))
+      .rejects.toThrow('Remote desktop authentication failed');
+  });
+
   it('rejects a non-Guacamole response', async () => {
     const contentDocument = {
       readyState: 'complete',
       documentElement: { matches: jest.fn(() => false) },
       querySelector: jest.fn(() => null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({ contentDocument });
 
@@ -249,6 +278,7 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'loading',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(() => null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({ contentDocument, href: 'about:blank' });
     const ready = waitForGuacamoleReady(iframe, { signal: controller.signal });
@@ -267,6 +297,7 @@ describe('waitForGuacamoleReady', () => {
       readyState: 'loading',
       documentElement: { matches: jest.fn(() => true) },
       querySelector: jest.fn(() => null),
+      querySelectorAll: jest.fn(() => []),
     };
     const iframe = createIframe({ contentDocument, href: 'about:blank' });
     const ready = waitForGuacamoleReady(iframe, { timeoutMs: 100 });

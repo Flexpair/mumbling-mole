@@ -73,6 +73,7 @@ export const useAudioStore = defineStore('audio', () => {
           audioContext.value = new AudioContextClass({ latencyHint: 'interactive' });
         } catch (fallbackError) {
           console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
+          throw fallbackError;
         }
       }
       

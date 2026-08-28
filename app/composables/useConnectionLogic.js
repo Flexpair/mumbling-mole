@@ -86,6 +86,55 @@ export function useConnectionLogic({ auth } = {}) {
     });
   }
 
+  async function _ensureAuthenticated(attempt) {
+    let identity;
+    try {
+      identity = await auth.getCurrentUser();
+    } catch (error) {
+      if (!isConnectionAttemptCurrent(attempt)) return false;
+      console.error('[useConnectionLogic] Failed to read authentication session:', error);
+    }
+
+    if (!isConnectionAttemptCurrent(attempt)) return false;
+    if (identity) return true;
+
+    await _requestLogin();
+    return false;
+  }
+
+  async function _fetchServerCredentials(attempt) {
+    try {
+      const token = await auth.getAccessToken();
+      if (!isConnectionAttemptCurrent(attempt)) return null;
+      if (!token) throw new Error('No access token available');
+
+      const serverCredentials = await fetchCredentials(token);
+      if (!isConnectionAttemptCurrent(attempt)) return null;
+      return serverCredentials;
+    } catch (error) {
+      if (!isConnectionAttemptCurrent(attempt) || isConnectionCancellation(error)) return null;
+      console.error('[useConnectionLogic] Failed to fetch credentials:', error);
+      await _requestLogin({ logout: true });
+      return null;
+    }
+  }
+
+  async function _initializeAudioContext(attempt, connectionParams) {
+    if (audioStore.audioContext) return true;
+
+    try {
+      const audioContext = await audioStore.initializeAudioContext();
+      if (!isConnectionAttemptCurrent(attempt)) return false;
+      if (!audioContext && !audioStore.audioContext) {
+        throw new Error('AudioContext initialization failed');
+      }
+      return true;
+    } catch (error) {
+      _handleConnectionFailure(error, connectionParams, attempt);
+      return false;
+    }
+  }
+
   /**
    * Common connection setup for both normal and loopback modes
    * @private
@@ -101,38 +150,12 @@ export function useConnectionLogic({ auth } = {}) {
       alert('Authentication system not initialized. Please refresh the page.');
       return;
     }
-    
-    let identity;
-    try {
-      identity = await auth.getCurrentUser();
-    } catch (error) {
-      if (!isConnectionAttemptCurrent(attempt)) return;
-      console.error('[useConnectionLogic] Failed to read authentication session:', error);
-      await _requestLogin();
-      return;
-    }
-    if (!isConnectionAttemptCurrent(attempt)) return;
-    if (!identity) {
-      await _requestLogin();
-      return;
-    }
+
+    if (!(await _ensureAuthenticated(attempt))) return;
 
     // Fetch credentials from auth server (validates JWT server-side)
-    let serverCredentials;
-    try {
-      const token = await auth.getAccessToken();
-      if (!isConnectionAttemptCurrent(attempt)) return;
-      if (!token) {
-        throw new Error('No access token available');
-      }
-      serverCredentials = await fetchCredentials(token);
-      if (!isConnectionAttemptCurrent(attempt)) return;
-    } catch (error) {
-      if (isConnectionCancellation(error) || !isConnectionAttemptCurrent(attempt)) return;
-      console.error('[useConnectionLogic] Failed to fetch credentials:', error);
-      await _requestLogin({ logout: true });
-      return;
-    }
+    const serverCredentials = await _fetchServerCredentials(attempt);
+    if (!serverCredentials) return;
 
     // Use server-provided password
     const password = serverCredentials.mumblePassword;
@@ -148,16 +171,7 @@ export function useConnectionLogic({ auth } = {}) {
       attempt,
     };
 
-    try {
-      // Initialize AudioContext
-      if (!audioStore.audioContext) {
-        await audioStore.initializeAudioContext();
-        if (!isConnectionAttemptCurrent(attempt)) return;
-      }
-    } catch (error) {
-      _handleConnectionFailure(error, connectionParams, attempt);
-      return;
-    }
+    if (!(await _initializeAudioContext(attempt, connectionParams))) return;
 
     // Sample rate check (ONLY for normal mode, skip in loopback)
     if (!isLoopback) {

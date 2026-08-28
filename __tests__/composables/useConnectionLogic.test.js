@@ -261,12 +261,27 @@ describe('useConnectionLogic', () => {
       expect(mockAuth.openAuth).toHaveBeenCalledWith('login');
     });
 
-    it('should initialize AudioContext if not present', async () => {
+    it('should initialize audio context if not present', async () => {
       mockAudioStore.audioContext = null;
-      
+
       await logic.connect('host', 64738, 'user', 'pass');
-      
+
       expect(mockAudioStore.initializeAudioContext).toHaveBeenCalled();
+    });
+
+    it('should roll back when AudioContext initialization returns no context', async () => {
+      mockAudioStore.audioContext = null;
+      mockAudioStore.initializeAudioContext.mockResolvedValueOnce(null);
+
+      await logic.connect('host', 64738, 'user', 'pass');
+
+      expect(mockDialogStore.showErrorDialog).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('AudioContext') }),
+        expect.objectContaining({ host: 'host', port: 64738 })
+      );
+      expect(mockVoiceStore.endVoiceHandler).toHaveBeenCalled();
+      expect(mockConnectionStore.disconnect).toHaveBeenCalled();
+      expect(mockConnectionStore.connect).not.toHaveBeenCalled();
     });
 
     it('should roll back and show an error when AudioContext initialization fails', async () => {
@@ -790,9 +805,10 @@ describe('useConnectionLogic', () => {
       mockVoiceStore.setupVoiceForConnection.mockImplementationOnce(() => voiceSetup.promise);
 
       const connection = logic.connect('h', 1, 'u', 'p');
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      for (let attempt = 0; attempt < 10 && !mockVoiceStore.setupVoiceForConnection.mock.calls.length; attempt++) {
+        await Promise.resolve();
+      }
+      expect(mockVoiceStore.setupVoiceForConnection).toHaveBeenCalledTimes(1);
       logic.resetClient();
       voiceSetup.resolve(stopVoiceInput);
       await connection;

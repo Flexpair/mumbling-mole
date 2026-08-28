@@ -29,14 +29,14 @@
         {{ error }}
       </div>
 
-      <!-- iframe with lazy loading and clipboard permissions -->
+      <!-- iframe with clipboard permissions -->
       <iframe
         ref="guacamoleIframe"
         id="guacframe"
         :src="guacSource || 'about:blank'"
         @load="handleLoad"
         title="Remote Desktop - Interactive session"
-        loading="lazy"
+        loading="eager"
         allow="clipboard-read; clipboard-write"
         :aria-hidden="loading || !!error"
       ></iframe>
@@ -54,7 +54,7 @@ import {
 /**
  * GuacamoleFrame Component
  * 
- * Manages Guacamole remote desktop iframe with lazy loading and error handling.
+ * Manages the Guacamole remote desktop iframe and its error handling.
  * Exposes public API via defineExpose() for AppState integration.
  */
 

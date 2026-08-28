@@ -235,7 +235,7 @@ export function onAudioMixerReady(callback) {
   }
 }
 
-function cleanupVoiceCapture(capture) {
+function removeTrackEndedHandlers(capture) {
   for (const [track, handler] of capture.trackEndedHandlers) {
     try {
       track.removeEventListener('ended', handler);
@@ -244,7 +244,9 @@ function cleanupVoiceCapture(capture) {
     }
   }
   capture.trackEndedHandlers.clear();
+}
 
+function stopCaptureTracks(capture) {
   for (const track of capture.userMedia?.getTracks?.() || []) {
     if (capture.stoppedTracks.has(track)) continue;
     capture.stoppedTracks.add(track);
@@ -254,7 +256,9 @@ function cleanupVoiceCapture(capture) {
       console.warn('[VOICE] Error stopping microphone track:', error_);
     }
   }
+}
 
+function disconnectCaptureNodes(capture) {
   for (const [node, label] of [
     [capture.node, 'AudioWorkletNode'],
     [capture.mixer, 'mixer'],
@@ -268,24 +272,53 @@ function cleanupVoiceCapture(capture) {
       console.warn(`[VOICE] Error disconnecting ${label}:`, error_);
     }
   }
+}
 
-  if (
-    capture.mixer &&
+function releaseCurrentMixer(capture) {
+  const ownsCurrentMixer = capture.mixer &&
     currentMixerInstance === capture.mixer &&
-    currentMixerTimestamp === capture.mixerTimestamp
-  ) {
-    currentMixerInstance = null;
-    globalThis._audioMixer = null;
+    currentMixerTimestamp === capture.mixerTimestamp;
+  if (!ownsCurrentMixer) return;
 
-    if (!capture.suspended) {
-      capture.suspended = true;
-      try {
-        audioContextManager.suspendAudioContext();
-      } catch (error_) {
-        console.warn('[VOICE] Error suspending AudioContext:', error_);
-      }
-    }
+  currentMixerInstance = null;
+  globalThis._audioMixer = null;
+  if (capture.suspended) return;
+
+  capture.suspended = true;
+  try {
+    audioContextManager.suspendAudioContext();
+  } catch (error_) {
+    console.warn('[VOICE] Error suspending AudioContext:', error_);
   }
+}
+
+function cleanupVoiceCapture(capture) {
+  removeTrackEndedHandlers(capture);
+  stopCaptureTracks(capture);
+  disconnectCaptureNodes(capture);
+  releaseCurrentMixer(capture);
+}
+
+function createVoiceCapture() {
+  return {
+    cancelled: false,
+    userMedia: null,
+    src: null,
+    mixer: null,
+    node: null,
+    mixerTimestamp: 0,
+    stoppedTracks: new Set(),
+    disconnectedNodes: new Set(),
+    trackEndedHandlers: new Map(),
+    suspended: false,
+  };
+}
+
+function createStopCapture(capture) {
+  return () => {
+    capture.cancelled = true;
+    cleanupVoiceCapture(capture);
+  };
 }
 
 async function handleUserMediaSuccess(userMedia, onData, onUserMediaError, onReady, capture) {
@@ -410,28 +443,14 @@ export function initVoice(onData, onUserMediaError, onReady) {
     },
   };
 
-  const capture = {
-    cancelled: false,
-    userMedia: null,
-    src: null,
-    mixer: null,
-    node: null,
-    mixerTimestamp: 0,
-    stoppedTracks: new Set(),
-    disconnectedNodes: new Set(),
-    trackEndedHandlers: new Map(),
-    suspended: false,
-  };
-  const stopCapture = () => {
-    capture.cancelled = true;
-    cleanupVoiceCapture(capture);
-  };
+  const capture = createVoiceCapture();
+  const stopCapture = createStopCapture(capture);
 
   if (!navigator.mediaDevices?.getUserMedia) {
     const error = new Error("MediaStreamError");
     error.name = "NotSupportedError";
     onUserMediaError(error);
-    return stopCapture;
+    return;
   }
 
   navigator.mediaDevices.getUserMedia(constraints)

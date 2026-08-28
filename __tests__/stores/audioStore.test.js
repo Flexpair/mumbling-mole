@@ -52,14 +52,11 @@ const mockAudioContextManager = {
 };
 
 const mockGetCurrentMixer = jest.fn(() => null);
+const mockEnsureAudioContext = jest.fn();
 
 jest.unstable_mockModule('../../app/audio/audio-context-manager.js', () => ({
   default: mockAudioContextManager,
-  ensureAudioContext: jest.fn().mockResolvedValue({
-    state: 'running',
-    resume: jest.fn().mockResolvedValue(undefined),
-    audioWorklet: { addModule: jest.fn().mockResolvedValue(undefined) }
-  })
+  ensureAudioContext: mockEnsureAudioContext
 }));
 
 // Mock voice module
@@ -126,6 +123,11 @@ describe('audioStore', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEnsureAudioContext.mockResolvedValue({
+      state: 'running',
+      resume: jest.fn().mockResolvedValue(undefined),
+      audioWorklet: { addModule: jest.fn().mockResolvedValue(undefined) }
+    });
     mockGetCurrentMixer.mockReturnValue(null);
     delete globalThis.audioContextManager;
     store = useAudioStore();
@@ -320,6 +322,16 @@ describe('audioStore', () => {
       const result = await store.initializeAudioContext();
 
       expect(result).toBe(mockContext);
+    });
+
+    test('should reject when managed and legacy initialization both fail', async () => {
+      mockEnsureAudioContext.mockRejectedValueOnce(new Error('Managed initialization failed'));
+      delete globalThis.AudioContext;
+      delete globalThis.webkitAudioContext;
+
+      await expect(store.initializeAudioContext())
+        .rejects.toThrow('AudioContext is not supported in this browser');
+      expect(store.audioContext.value).toBeNull();
     });
   });
 
