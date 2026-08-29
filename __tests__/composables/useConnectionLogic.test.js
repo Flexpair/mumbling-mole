@@ -72,6 +72,17 @@ const mockAudioStore = {
   initializePersistentBeeper: jest.fn().mockResolvedValue(null),
   audioLockActive: false,
 };
+let cachedAudioContextRead;
+Object.defineProperty(mockAudioStore, 'audioContext', {
+  configurable: true,
+  get() {
+    cachedAudioContextRead?.();
+    return this._audioContext;
+  },
+  set(value) {
+    this._audioContext = value;
+  },
+});
 
 const mockVoiceStore = {
   isLoopbackMode: false,
@@ -176,6 +187,7 @@ describe('useConnectionLogic', () => {
     mockUserStore.thisUser = null;
     mockVoiceStore.isLoopbackMode = false;
     mockAudioStore.audioContext = { sampleRate: 48000 };
+    cachedAudioContextRead = undefined;
     mockAudioStore.micPermissionDenied = false;
     mockAudioStore.beeperReady = false;
     mockVoiceStore.voiceHandlerReady = false;
@@ -417,6 +429,16 @@ describe('useConnectionLogic', () => {
       expect(mockVoiceStore.setupVoiceForConnection).not.toHaveBeenCalled();
       expect(mockConnectionStore.connect).not.toHaveBeenCalled();
       expect(mockStartGuacamoleFrame).not.toHaveBeenCalled();
+    });
+
+    it('should stop before the sample-rate handoff when a cached AudioContext attempt is stale', async () => {
+      mockAudioStore.audioContext = { sampleRate: 44100 };
+      cachedAudioContextRead = () => logic.resetClient();
+
+      await logic.connect('old-host', 64738, 'old-user', 'pass');
+
+      expect(mockDialogStore.showSampleRateDialog).not.toHaveBeenCalled();
+      expect(mockConnectionStore.connect).not.toHaveBeenCalled();
     });
 
     it('should stop existing microphone capture as soon as a new attempt starts', async () => {

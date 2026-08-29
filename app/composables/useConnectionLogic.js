@@ -120,7 +120,7 @@ export function useConnectionLogic({ auth } = {}) {
   }
 
   async function _initializeAudioContext(attempt, connectionParams) {
-    if (audioStore.audioContext) return true;
+    if (audioStore.audioContext) return isConnectionAttemptCurrent(attempt);
 
     try {
       const audioContext = await audioStore.initializeAudioContext();
