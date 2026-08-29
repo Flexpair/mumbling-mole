@@ -34,7 +34,6 @@
         ref="guacamoleIframe"
         id="guacframe"
         :src="guacSource || 'about:blank'"
-        @load="handleLoad"
         title="Remote Desktop - Interactive session"
         loading="eager"
         allow="clipboard-read; clipboard-write"
@@ -44,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup } from 'vue';
+import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup, nextTick } from 'vue';
 import {
   buildGuacamoleSource,
   clearGuacamoleSession,
@@ -79,7 +78,7 @@ let startupSequence = 0;
  * Focus the iframe when it becomes visible
  */
 function focusIframe() {
-  if (iframeRef.value && visible.value) {
+  if (iframeRef.value && visible.value && !loading.value && !error.value) {
     try {
       iframeRef.value.focus();
     } catch (e) {
@@ -146,10 +145,12 @@ function start(guacUser, password) {
     expectedSession: session,
     signal: controller.signal,
   })
-    .then(() => {
+    .then(async () => {
       if (startupController === controller) {
         startupController = null;
         loading.value = false;
+        await nextTick();
+        focusIframe();
       }
     })
     .catch(startupError => {
@@ -193,14 +194,6 @@ function stop() {
 }
 
 /**
- * Handle iframe load event
- */
-function handleLoad() {
-  // Focus iframe after content loads
-  focusIframe();
-}
-
-/**
  * Exposed Public API
  * 
  * These methods and properties are accessible from parent components
@@ -211,7 +204,6 @@ function handleLoad() {
  * @property {() => void} show - Show the frame
  * @property {() => void} hide - Hide the frame
  * @property {() => void} stop - Stop and unload the session
- * @property {() => void} handleLoad - Handle iframe load
  * @property {import('vue').Ref<string | null>} guacSource - Current iframe src
  * @property {import('vue').Ref<boolean>} visible - Visibility state
  * @property {import('vue').Ref<boolean>} loading - Loading state
@@ -222,7 +214,6 @@ defineExpose({
   show,
   hide,
   stop,
-  handleLoad,
   guacSource,
   visible,
   loading,

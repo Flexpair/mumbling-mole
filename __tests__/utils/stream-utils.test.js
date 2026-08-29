@@ -182,6 +182,16 @@ describe('websocket-stream-lite', () => {
       done();
     });
   });
+
+  it('should close socket when the stream is destroyed', (done) => {
+    const stream = websocketStream('wss://example.com');
+
+    stream.destroy();
+    stream.on('close', () => {
+      expect(mockSocket.close).toHaveBeenCalled();
+      done();
+    });
+  });
 });
 
 describe('duplexer-lite', () => {

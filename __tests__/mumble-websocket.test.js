@@ -18,9 +18,13 @@ describe('mumble-websocket', () => {
         this._handlers[event] = handler;
         return this;
       }),
+      once: jest.fn(function(event, handler) {
+        return this.on(event, handler);
+      }),
       _trigger: function(event, ...args) {
         this._handlers?.[event]?.(...args);
-      }
+      },
+      destroy: jest.fn(),
     };
 
     mockWebsocketStream = jest.fn(() => mockWs);
@@ -170,6 +174,19 @@ describe('mumble-websocket', () => {
       await expect(connect('ws://localhost:64738', {})).rejects.toThrow('Network unreachable');
       
       // connectDataStream should not be called if websocket fails
+      expect(mockMumbleClient.connectDataStream).not.toHaveBeenCalled();
+    });
+
+    test('should destroy the pending websocket stream when aborted', async () => {
+      const controller = new AbortController();
+      const connection = connect('ws://localhost:64738', {}, {
+        signal: controller.signal,
+      });
+
+      controller.abort();
+
+      await expect(connection).rejects.toMatchObject({ name: 'AbortError' });
+      expect(mockWs.destroy).toHaveBeenCalled();
       expect(mockMumbleClient.connectDataStream).not.toHaveBeenCalled();
     });
 

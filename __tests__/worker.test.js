@@ -232,7 +232,8 @@ describe("worker.js", () => {
 
       expect(mumbleConnectMock).toHaveBeenCalledWith(
         "wss://example.com",
-        expect.objectContaining({ username: "test" })
+        expect.objectContaining({ username: "test" }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
       expect(globalThis.self.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({ reqId: 1, result: clientId }),
@@ -249,6 +250,39 @@ describe("worker.js", () => {
       expect(globalThis.self.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({ event: "denied", value: [denialReason] }),
         undefined
+      );
+    });
+
+    test("should abort and discard a cancelled pending connection", async () => {
+      let resolveConnection;
+      const client = createMockClient();
+      mumbleConnectMock.mockReturnValueOnce(new Promise(resolve => {
+        resolveConnection = resolve;
+      }));
+
+      messageHandler({
+        data: {
+          reqId: 77,
+          method: "_connect",
+          payload: { host: "wss://pending", args: {} },
+        },
+      });
+      const signal = mumbleConnectMock.mock.calls.at(-1)[2].signal;
+
+      messageHandler({
+        data: {
+          method: "_cancelConnect",
+          payload: { reqId: 77 },
+        },
+      });
+
+      expect(signal.aborted).toBe(true);
+      resolveConnection(client);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(client.disconnect).toHaveBeenCalled();
+      expect(postMessageCalls).not.toContainEqual(
+        expect.objectContaining({ reqId: 77 })
       );
     });
   });

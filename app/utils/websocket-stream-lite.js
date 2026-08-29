@@ -51,6 +51,10 @@ export default function websocketStream(target, protocols, options) {
     final(callback) {
       socket.close();
       callback();
+    },
+    destroy(error, callback) {
+      socket.close();
+      callback(error);
     }
   });
 

@@ -136,7 +136,8 @@ describe('connectionStore', () => {
           username: 'myuser',
           password: 'mypass',
           tokens: ['tok1', 'tok2'],
-        })
+        }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -145,7 +146,8 @@ describe('connectionStore', () => {
 
       expect(mockConnector.connect).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ tokens: [] })
+        expect.objectContaining({ tokens: [] }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -206,6 +208,29 @@ describe('connectionStore', () => {
       });
       expect(staleClient.disconnect).toHaveBeenCalled();
       expect(store.client.value).toBeNull();
+    });
+
+    it('should abort a pending worker connection when disconnected', async () => {
+      let capturedSignal;
+      mockConnector.connect.mockImplementationOnce((host, args, { signal }) => (
+        new Promise((resolve, reject) => {
+          capturedSignal = signal;
+          signal.addEventListener('abort', () => {
+            reject(Object.assign(new Error('Connection aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        })
+      ));
+
+      const connection = store.connect('host', 64738, 'user', 'pass');
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(capturedSignal).toBeDefined();
+
+      store.disconnect();
+
+      expect(capturedSignal.aborted).toBe(true);
+      await expect(connection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
     });
 
     it('should retain only the newest concurrently resolved client', async () => {

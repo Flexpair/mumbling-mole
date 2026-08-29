@@ -243,6 +243,29 @@ describe('WorkerBasedMumbleConnector', () => {
       expect(client).toBeDefined();
       expect(client._id).toBe('client-id-123');
     });
+
+    test('cancels the worker handshake when the abort signal fires', async () => {
+      const controller = new AbortController();
+      const connectPromise = connector.connect('test.server.com', {}, {
+        signal: controller.signal,
+      });
+      const reqId = connector._reqId - 1;
+
+      controller.abort();
+
+      await expect(connectPromise).rejects.toMatchObject({ name: 'AbortError' });
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: '_cancelConnect',
+          payload: { reqId },
+        }),
+        undefined
+      );
+      expect(connector._requests[reqId]).toBeUndefined();
+
+      mockWorker._simulateMessage({ reqId, result: 'stale-client' });
+      expect(connector._clients['stale-client']).toBeUndefined();
+    });
   });
 
   describe('_client', () => {

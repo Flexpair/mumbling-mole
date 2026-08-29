@@ -8,6 +8,7 @@ let nextClientId = 1;
 let nextVoiceId = 1;
 let voiceStreams = [];
 let clients = [];
+const pendingConnections = new Map();
 
 function postMessage(msg, transfer) {
   try {
@@ -405,9 +406,15 @@ function setupClient(id, client) {
 }
 
 function handleConnect(reqId, payload) {
+  const controller = new AbortController();
+  pendingConnections.set(reqId, controller);
   payload.args.codecs = require("./audio/codecs-browser.js");
-  mumbleConnect(payload.host, payload.args)
+  mumbleConnect(payload.host, payload.args, { signal: controller.signal })
     .then((client) => {
+      if (controller.signal.aborted) {
+        client.disconnect();
+        return null;
+      }
       let id = nextClientId++;
       clients[id] = client;
       setupClient(id, client);
@@ -423,12 +430,21 @@ function handleConnect(reqId, payload) {
     })
     .then(
       (id) => {
-        resolve(reqId, id);
+        if (!controller.signal.aborted && id !== null) {
+          resolve(reqId, id);
+        }
       },
       (err) => {
-        reject(reqId, err);
+        if (!controller.signal.aborted) {
+          reject(reqId, err);
+        }
       }
-    );
+    )
+    .finally(() => pendingConnections.delete(reqId));
+}
+
+function handleCancelConnect(payload) {
+  pendingConnections.get(payload.reqId)?.abort();
 }
 
 // Whitelist of allowed RPC methods to prevent arbitrary method invocation
@@ -443,6 +459,11 @@ const ALLOWED_CHANNEL_METHODS = new Set([
 ]);
 
 function handleClientMessage(data) {
+  if (data.method === "_cancelConnect") {
+    handleCancelConnect(data.payload);
+    return;
+  }
+
   const { clientId, userId, channelId, method, payload } = data;
   let client = clients[clientId];
 
@@ -527,6 +548,8 @@ function onMessage(data) {
   
   if (method === "_connect") {
     handleConnect(reqId, payload);
+  } else if (method === "_cancelConnect") {
+    handleCancelConnect(payload);
   } else if (data.clientId !== null && data.clientId !== undefined) {
     handleClientMessage(data);
   } else if (data.voiceId !== null && data.voiceId !== undefined) {

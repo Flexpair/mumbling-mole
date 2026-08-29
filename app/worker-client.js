@@ -67,15 +67,41 @@ class WorkerBasedMumbleConnector {
     });
   }
 
+  _abortError() {
+    return new DOMException("Connection aborted", "AbortError");
+  }
+
   _addCall(proxy, name, id) {
     proxy[name] = (...args) => {
       this._call(id, name, args);
     };
   }
 
-  async connect(host, args) {
-    const id = await this._query({}, "_connect", { host: host, args: args });
-    return this._client(id);
+  connect(host, args, { signal } = {}) {
+    if (signal?.aborted) {
+      return Promise.reject(this._abortError());
+    }
+
+    const reqId = this._call({}, "_connect", { host: host, args: args });
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        delete this._requests[reqId];
+        this._postMessage({ method: "_cancelConnect", payload: { reqId } });
+        reject(this._abortError());
+      };
+
+      this._requests[reqId] = [
+        (id) => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve(this._client(id));
+        },
+        (error) => {
+          signal?.removeEventListener("abort", onAbort);
+          reject(error);
+        },
+      ];
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
   }
 
   _client(id) {

@@ -285,6 +285,20 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(frameContent).not.toContain('loading="lazy"');
   });
 
+  test('VERIFICATION: Guacamole iframe focus waits for readiness and ARIA update', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const frameContent = await fs.readFile(framePath, 'utf-8');
+
+    expect(frameContent).toContain('if (iframeRef.value && visible.value && !loading.value && !error.value)');
+    expect(frameContent).toContain('await nextTick();');
+    expect(frameContent).toContain('focusIframe();');
+    expect(frameContent).not.toContain('@load="handleLoad"');
+    expect(frameContent).not.toContain('function handleLoad()');
+  });
+
   test('VERIFICATION: leaving audio test uses the authenticated connection pipeline', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
