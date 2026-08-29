@@ -582,6 +582,7 @@ globalThis.addEventListener("message", (ev) => {
   // - Voice stream data (has voiceId)
   const hasValidStructure = 
     (ev.data.reqId !== undefined && ev.data.method !== undefined) || // RPC call
+    ev.data.method === "_cancelConnect" || // Cancellation for a pending RPC
     ev.data.clientId !== undefined || // Client method invocation
     ev.data.voiceId !== undefined; // Voice stream chunk
   
