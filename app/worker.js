@@ -432,11 +432,15 @@ function handleConnect(reqId, payload) {
       (id) => {
         if (!controller.signal.aborted && id !== null) {
           resolve(reqId, id);
+        } else {
+          resolve(reqId, null);
         }
       },
       (err) => {
         if (!controller.signal.aborted) {
           reject(reqId, err);
+        } else {
+          resolve(reqId, null);
         }
       }
     )

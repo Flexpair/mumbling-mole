@@ -281,8 +281,8 @@ describe("worker.js", () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(client.disconnect).toHaveBeenCalled();
-      expect(postMessageCalls).not.toContainEqual(
-        expect.objectContaining({ reqId: 77 })
+      expect(postMessageCalls).toContainEqual(
+        expect.objectContaining({ reqId: 77, result: null })
       );
     });
   });

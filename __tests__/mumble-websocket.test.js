@@ -21,6 +21,12 @@ describe('mumble-websocket', () => {
       once: jest.fn(function(event, handler) {
         return this.on(event, handler);
       }),
+      removeListener: jest.fn(function(event, handler) {
+        if (this._handlers?.[event] === handler) {
+          delete this._handlers[event];
+        }
+        return this;
+      }),
       _trigger: function(event, ...args) {
         this._handlers?.[event]?.(...args);
       },
@@ -165,6 +171,19 @@ describe('mumble-websocket', () => {
       await expect(connect('ws://localhost:64738', {})).rejects.toThrow('Data stream connection failed');
     });
 
+    test('should destroy the websocket stream when connectDataStream throws', async () => {
+      const connectionError = new Error('Synchronous connection failure');
+      mockMumbleClient.connectDataStream.mockImplementationOnce(() => {
+        throw connectionError;
+      });
+      const connection = connect('ws://localhost:64738', {});
+
+      mockWs._trigger('connect');
+
+      await expect(connection).rejects.toThrow('Synchronous connection failure');
+      expect(mockWs.destroy).toHaveBeenCalled();
+    });
+
     test('should handle websocket error before connect', async () => {
       const networkError = new Error('Network unreachable');
       
@@ -188,6 +207,53 @@ describe('mumble-websocket', () => {
       await expect(connection).rejects.toMatchObject({ name: 'AbortError' });
       expect(mockWs.destroy).toHaveBeenCalled();
       expect(mockMumbleClient.connectDataStream).not.toHaveBeenCalled();
+    });
+
+    test('should destroy the websocket stream when aborted during the Mumble handshake', async () => {
+      let resolveHandshake;
+      mockMumbleClient.connectDataStream.mockReturnValueOnce(new Promise(resolve => {
+        resolveHandshake = resolve;
+      }));
+      const controller = new AbortController();
+      const connection = connect('ws://localhost:64738', {}, {
+        signal: controller.signal,
+      });
+      const rejection = expect(connection).rejects.toMatchObject({ name: 'AbortError' });
+
+      mockWs._trigger('connect');
+      await Promise.resolve();
+      controller.abort();
+      resolveHandshake({ connected: true });
+
+      await rejection;
+      expect(mockWs.destroy).toHaveBeenCalled();
+    });
+
+    test('should keep an established Mumble connection after its signal is aborted', async () => {
+      const controller = new AbortController();
+      const connection = connect('ws://localhost:64738', {}, {
+        signal: controller.signal,
+      });
+
+      mockWs._trigger('connect');
+      await expect(connection).resolves.toEqual({ connected: true });
+      mockWs.destroy.mockClear();
+
+      controller.abort();
+
+      expect(mockWs.destroy).not.toHaveBeenCalled();
+    });
+
+    test('should remove handshake listeners after the Mumble connection settles', async () => {
+      const connection = connect('ws://localhost:64738', {});
+
+      mockWs._trigger('connect');
+      await connection;
+
+      expect(mockWs.removeListener).toHaveBeenCalledWith('error', expect.any(Function));
+      expect(mockWs.removeListener).toHaveBeenCalledWith('connect', expect.any(Function));
+      expect(mockWs._handlers.error).toBeUndefined();
+      expect(mockWs._handlers.connect).toBeUndefined();
     });
 
     test('should handle concurrent connect calls independently', async () => {

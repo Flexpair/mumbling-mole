@@ -261,10 +261,37 @@ describe('WorkerBasedMumbleConnector', () => {
         }),
         undefined
       );
-      expect(connector._requests[reqId]).toBeUndefined();
+      expect(connector._requests[reqId]).toBeDefined();
 
       mockWorker._simulateMessage({ reqId, result: 'stale-client' });
       expect(connector._clients['stale-client']).toBeUndefined();
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'stale-client',
+          method: 'disconnect',
+        }),
+        undefined
+      );
+      expect(connector._requests[reqId]).toBeUndefined();
+    });
+
+    test('clears cancelled connection state after the worker acknowledges cancellation', async () => {
+      const controller = new AbortController();
+      const connectPromise = connector.connect('test.server.com', {}, {
+        signal: controller.signal,
+      });
+      const reqId = connector._reqId - 1;
+
+      controller.abort();
+      await expect(connectPromise).rejects.toMatchObject({ name: 'AbortError' });
+
+      mockWorker._simulateMessage({ reqId, result: null });
+
+      expect(connector._requests[reqId]).toBeUndefined();
+      expect(mockWorker.postMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'disconnect' }),
+        undefined
+      );
     });
   });
 

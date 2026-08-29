@@ -7,15 +7,20 @@ async function connect(address, options, { signal } = {}) {
   }
 
   let pendingStream;
-  const ws = await new Promise((resolve, reject) => {
+  const abortError = () => new DOMException("Connection aborted", "AbortError");
+  const handshake = new Promise((resolve, reject) => {
     let settled = false;
-    const cleanup = () => signal?.removeEventListener("abort", onAbort);
+    const cleanup = () => {
+      signal?.removeEventListener("abort", onAbort);
+      pendingStream?.removeListener("error", onError);
+      pendingStream?.removeListener("connect", onConnect);
+    };
     const onAbort = () => {
       if (settled) return;
       settled = true;
       cleanup();
       pendingStream.destroy();
-      reject(new DOMException("Connection aborted", "AbortError"));
+      reject(abortError());
     };
     const onError = (error) => {
       if (settled) return;
@@ -25,9 +30,31 @@ async function connect(address, options, { signal } = {}) {
     };
     const onConnect = () => {
       if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(pendingStream);
+      let connection;
+      try {
+        connection = new MumbleClient(options).connectDataStream(pendingStream);
+      } catch (error) {
+        settled = true;
+        cleanup();
+        pendingStream.destroy();
+        reject(error);
+        return;
+      }
+      connection.then(
+        (client) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(client);
+        },
+        (error) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          pendingStream.destroy();
+          reject(error);
+        }
+      );
     };
 
     pendingStream = websocketStream(address, ["binary"])
@@ -35,7 +62,7 @@ async function connect(address, options, { signal } = {}) {
       .once("connect", onConnect);
     signal?.addEventListener("abort", onAbort, { once: true });
   });
-  return new MumbleClient(options).connectDataStream(ws);
+  return handshake;
 }
 
 export default connect;

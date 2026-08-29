@@ -85,7 +85,6 @@ class WorkerBasedMumbleConnector {
     const reqId = this._call({}, "_connect", { host: host, args: args });
     return new Promise((resolve, reject) => {
       const onAbort = () => {
-        delete this._requests[reqId];
         this._postMessage({ method: "_cancelConnect", payload: { reqId } });
         reject(this._abortError());
       };
@@ -93,6 +92,12 @@ class WorkerBasedMumbleConnector {
       this._requests[reqId] = [
         (id) => {
           signal?.removeEventListener("abort", onAbort);
+          if (signal?.aborted) {
+            if (id !== null && id !== undefined) {
+              this._call({ client: id }, "disconnect", []);
+            }
+            return;
+          }
           resolve(this._client(id));
         },
         (error) => {
