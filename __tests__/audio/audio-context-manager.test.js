@@ -75,6 +75,7 @@ describe('AudioContextManager', () => {
     audioContextManager.onReadyCallbacks = [];
     audioContextManager.onSuspendCallbacks = [];
     audioContextManager.onResumeCallbacks = [];
+    audioContextManager.suspendRequest = null;
   });
 
   afterEach(() => {
@@ -138,6 +139,29 @@ describe('AudioContextManager', () => {
   test('should auto-resume on ensureAudioContext', async () => {
     const context = await ensureAudioContext({ sampleRate: 48000 });
     
+    expect(context.state).toBe('running');
+  });
+
+  test('waits for a pending suspension before resuming', async () => {
+    const context = await audioContextManager.getAudioContext();
+    await context.resume();
+    context.resume.mockClear();
+    let resolveSuspend;
+    context.suspend.mockImplementationOnce(() => new Promise(resolve => {
+      resolveSuspend = () => {
+        context.state = 'suspended';
+        resolve();
+      };
+    }));
+
+    const suspend = audioContextManager.suspendAudioContext();
+    const resume = audioContextManager.resumeAudioContext();
+    await Promise.resolve();
+    expect(context.resume).not.toHaveBeenCalled();
+
+    resolveSuspend();
+    await Promise.all([suspend, resume]);
+    expect(context.resume).toHaveBeenCalledTimes(1);
     expect(context.state).toBe('running');
   });
 

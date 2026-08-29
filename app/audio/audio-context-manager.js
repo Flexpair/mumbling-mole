@@ -20,6 +20,7 @@ class AudioContextManager {
   onReadyCallbacks = [];
   onSuspendCallbacks = [];
   onResumeCallbacks = [];
+  suspendRequest = null;
 
   constructor() {
     this.setupUserInteractionDetection();
@@ -195,6 +196,14 @@ class AudioContextManager {
   // RESUME-LOGIC: Attempt to resume suspended AudioContext with retry logic
   // Uses exponential backoff to handle transient browser restrictions
   async resumeAudioContext() {
+    if (this.suspendRequest) {
+      try {
+        await this.suspendRequest;
+      } catch {
+        return this.audioContext;
+      }
+    }
+
     if (this.audioContext?.state !== 'suspended') {
       return this.audioContext;
     }
@@ -237,11 +246,21 @@ class AudioContextManager {
       return;
     }
 
+    const context = this.audioContext;
+    const suspendRequest = (async () => {
+      try {
+        await context.suspend();
+      } catch (error) {
+        console.error('Failed to suspend AudioContext:', error);
+        throw error;
+      }
+    })();
+    this.suspendRequest = suspendRequest;
+
     try {
-      await this.audioContext.suspend();
-    } catch (error) {
-      console.error('Failed to suspend AudioContext:', error);
-      throw error;
+      await suspendRequest;
+    } finally {
+      if (this.suspendRequest === suspendRequest) this.suspendRequest = null;
     }
   }
 
