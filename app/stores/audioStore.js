@@ -85,11 +85,10 @@ export const useAudioStore = defineStore('audio', () => {
    * Resume AudioContext if suspended
    */
   async function resumeAudioContext() {
-    if (audioContext.value?.state === 'suspended') {
-      await audioContext.value.resume();
-    } else if (!audioContext.value) {
+    if (!audioContext.value) {
       await initializeAudioContext();
     }
+    await audioContextManager.resumeAudioContext();
   }
 
   /**

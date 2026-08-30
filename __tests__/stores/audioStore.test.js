@@ -48,7 +48,8 @@ const mockAudioContextManager = {
   audioContext: null,
   onReady: jest.fn(),
   onSuspend: jest.fn(),
-  onResume: jest.fn()
+  onResume: jest.fn(),
+  resumeAudioContext: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockGetCurrentMixer = jest.fn(() => null);
@@ -123,6 +124,7 @@ describe('audioStore', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAudioContextManager.resumeAudioContext.mockClear();
     mockEnsureAudioContext.mockResolvedValue({
       state: 'running',
       resume: jest.fn().mockResolvedValue(undefined),
@@ -209,15 +211,17 @@ describe('audioStore', () => {
 
       await store.resumeAudioContext();
 
-      expect(mockResume).toHaveBeenCalled();
+      expect(mockAudioContextManager.resumeAudioContext).toHaveBeenCalled();
+      expect(mockResume).not.toHaveBeenCalled();
     });
 
-    test('should not call resume on running context', async () => {
+    test('should route running context through the manager', async () => {
       const mockResume = jest.fn();
       store.audioContext.value = { state: 'running', resume: mockResume };
 
       await store.resumeAudioContext();
 
+      expect(mockAudioContextManager.resumeAudioContext).toHaveBeenCalled();
       expect(mockResume).not.toHaveBeenCalled();
     });
   });

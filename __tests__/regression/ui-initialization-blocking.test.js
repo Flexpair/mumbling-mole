@@ -364,20 +364,28 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(indexContent).not.toContain('uiStore.guacamoleFrame?.hide?.();');
   });
 
-  test('VERIFICATION: toolbar waits for logout before reloading', async () => {
+  test('VERIFICATION: toolbar clears local runtime before bounded provider logout', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
 
-    const toolbarPath = path.join(process.cwd(), 'app', 'components', 'Toolbar.vue');
-    const toolbarContent = await fs.readFile(toolbarPath, 'utf-8');
+    const toolbarPath = path.resolve(process.cwd(), 'app/components/Toolbar.vue');
+    const toolbarContent = await fs.readFile(toolbarPath, 'utf8');
     const logoutHandler = toolbarContent.slice(
       toolbarContent.indexOf('const handleLogoutClick'),
       toolbarContent.indexOf('</script>')
     );
 
-    expect(logoutHandler).toContain('await auth.logout();');
-    expect(logoutHandler.indexOf('await auth.logout();'))
-      .toBeLessThan(logoutHandler.indexOf('location.reload();'));
+    const voiceResetIndex = logoutHandler.indexOf('voiceStore.reset();');
+    const disconnectIndex = logoutHandler.indexOf('connectionStore.disconnect();');
+    const providerLogoutIndex = logoutHandler.indexOf('auth.logout().catch');
+    const reloadIndex = logoutHandler.indexOf('location.reload();');
+
+    expect(voiceResetIndex).toBeGreaterThanOrEqual(0);
+    expect(disconnectIndex).toBeGreaterThan(voiceResetIndex);
+    expect(providerLogoutIndex).toBeGreaterThan(disconnectIndex);
+    expect(reloadIndex).toBeGreaterThan(providerLogoutIndex);
+    expect(logoutHandler).toContain('Promise.race');
+    expect(logoutHandler).toContain('setTimeout(resolve, 1500)');
   });
 
   test('VERIFICATION: a replacement login tears down the previous connection', async () => {
