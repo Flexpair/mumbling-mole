@@ -242,6 +242,10 @@ class AudioContextManager {
    * Suspend the audio context to save resources
    */
   async suspendAudioContext() {
+    if (this.suspendRequest) {
+      return this.suspendRequest;
+    }
+
     if (!this.audioContext || this.audioContext.state === 'suspended') {
       return;
     }

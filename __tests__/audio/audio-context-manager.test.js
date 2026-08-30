@@ -165,6 +165,32 @@ describe('AudioContextManager', () => {
     expect(context.state).toBe('running');
   });
 
+  test('reuses a pending suspension before resuming', async () => {
+    const context = await audioContextManager.getAudioContext();
+    await context.resume();
+    context.resume.mockClear();
+    let resolveSuspend;
+    context.suspend.mockImplementationOnce(() => new Promise(resolve => {
+      resolveSuspend = () => {
+        context.state = 'suspended';
+        resolve();
+      };
+    }));
+
+    const firstSuspend = audioContextManager.suspendAudioContext();
+    const secondSuspend = audioContextManager.suspendAudioContext();
+    const resume = audioContextManager.resumeAudioContext();
+    await Promise.resolve();
+
+    expect(context.suspend).toHaveBeenCalledTimes(1);
+    expect(context.resume).not.toHaveBeenCalled();
+
+    resolveSuspend();
+    await Promise.all([firstSuspend, secondSuspend, resume]);
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    expect(context.state).toBe('running');
+  });
+
   test('should detect user interaction and auto-resume', async () => {
     const context = await audioContextManager.getAudioContext();
     expect(context.state).toBe('suspended');
