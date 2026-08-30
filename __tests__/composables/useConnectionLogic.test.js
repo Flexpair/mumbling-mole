@@ -112,6 +112,10 @@ const mockUserStore = {
   thisUser: null,
   selfMute: false,
   registerUser: jest.fn(),
+  reset: jest.fn(() => {
+    mockUserStore.thisUser = null;
+    mockUserStore.selfMute = false;
+  }),
 };
 
 const mockSettingsStore = {
@@ -782,9 +786,10 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.disconnect).toHaveBeenCalled();
     });
 
-    it('should clear thisUser', () => {
+    it('should release registered users and their resources', () => {
       mockUserStore.thisUser = { session: 1 };
       logic.resetClient();
+      expect(mockUserStore.reset).toHaveBeenCalledTimes(1);
       expect(mockUserStore.thisUser).toBeNull();
     });
 

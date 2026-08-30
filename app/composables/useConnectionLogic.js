@@ -268,7 +268,7 @@ export function useConnectionLogic({ auth } = {}) {
     uiStore.guacamoleFrame?.stop?.();
     audioStore.stopBeep();
     voiceStore.reset();
-    userStore.thisUser = null;
+    userStore.reset();
     dialogStore.connectDialog.isTestActive = false;
     audioStore.beeperReady = false;
     connectionStore.disconnect();
