@@ -50,7 +50,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Version.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Version.decode = function (reader, length, _end, _depth, _target) {
@@ -223,7 +223,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UDPTunnel.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UDPTunnel.decode = function (reader, length, _end, _depth, _target) {
@@ -380,7 +380,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Authenticate.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Authenticate.decode = function (reader, length, _end, _depth, _target) {
@@ -424,9 +424,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.celtVersions && message.celtVersions.length))
                                 message.celtVersions = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.celtVersions.push(reader.int32());
+                            reader.int32s(message.celtVersions);
                             continue;
                         }
                         if (wireType !== 0)
@@ -636,7 +634,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Ping.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Ping.decode = function (reader, length, _end, _depth, _target) {
@@ -927,7 +925,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Reject.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Reject.decode = function (reader, length, _end, _depth, _target) {
@@ -1151,7 +1149,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ServerSync.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ServerSync.decode = function (reader, length, _end, _depth, _target) {
@@ -1340,7 +1338,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ChannelRemove.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ChannelRemove.decode = function (reader, length, _end, _depth, _target) {
@@ -1508,7 +1506,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ChannelState.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ChannelState.decode = function (reader, length, _end, _depth, _target) {
@@ -1550,9 +1548,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.links && message.links.length))
                                 message.links = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.links.push(reader.uint32());
+                            reader.uint32s(message.links);
                             continue;
                         }
                         if (wireType !== 0)
@@ -1572,9 +1568,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.linksAdd && message.linksAdd.length))
                                 message.linksAdd = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.linksAdd.push(reader.uint32());
+                            reader.uint32s(message.linksAdd);
                             continue;
                         }
                         if (wireType !== 0)
@@ -1588,9 +1582,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.linksRemove && message.linksRemove.length))
                                 message.linksRemove = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.linksRemove.push(reader.uint32());
+                            reader.uint32s(message.linksRemove);
                             continue;
                         }
                         if (wireType !== 0)
@@ -1865,7 +1857,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserRemove.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserRemove.decode = function (reader, length, _end, _depth, _target) {
@@ -2094,7 +2086,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserState.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserState.decode = function (reader, length, _end, _depth, _target) {
@@ -2519,7 +2511,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         BanList.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         BanList.decode = function (reader, length, _end, _depth, _target) {
@@ -2697,7 +2689,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             BanEntry.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             BanEntry.decode = function (reader, length, _end, _depth, _target) {
@@ -2944,7 +2936,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         TextMessage.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         TextMessage.decode = function (reader, length, _end, _depth, _target) {
@@ -2974,9 +2966,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.session && message.session.length))
                                 message.session = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.session.push(reader.uint32());
+                            reader.uint32s(message.session);
                             continue;
                         }
                         if (wireType !== 0)
@@ -2990,9 +2980,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.channelId && message.channelId.length))
                                 message.channelId = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.channelId.push(reader.uint32());
+                            reader.uint32s(message.channelId);
                             continue;
                         }
                         if (wireType !== 0)
@@ -3006,9 +2994,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.treeId && message.treeId.length))
                                 message.treeId = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.treeId.push(reader.uint32());
+                            reader.uint32s(message.treeId);
                             continue;
                         }
                         if (wireType !== 0)
@@ -3216,7 +3202,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         PermissionDenied.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         PermissionDenied.decode = function (reader, length, _end, _depth, _target) {
@@ -3514,7 +3500,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ACL.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ACL.decode = function (reader, length, _end, _depth, _target) {
@@ -3763,7 +3749,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             ChanGroup.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             ChanGroup.decode = function (reader, length, _end, _depth, _target) {
@@ -3811,9 +3797,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.add && message.add.length))
                                     message.add = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.add.push(reader.uint32());
+                                reader.uint32s(message.add);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -3827,9 +3811,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.remove && message.remove.length))
                                     message.remove = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.remove.push(reader.uint32());
+                                reader.uint32s(message.remove);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -3843,9 +3825,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.inheritedMembers && message.inheritedMembers.length))
                                     message.inheritedMembers = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.inheritedMembers.push(reader.uint32());
+                                reader.uint32s(message.inheritedMembers);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -4066,7 +4046,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             ChanACL.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             ChanACL.decode = function (reader, length, _end, _depth, _target) {
@@ -4292,7 +4272,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         QueryUsers.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         QueryUsers.decode = function (reader, length, _end, _depth, _target) {
@@ -4316,9 +4296,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.ids && message.ids.length))
                                 message.ids = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.ids.push(reader.uint32());
+                            reader.uint32s(message.ids);
                             continue;
                         }
                         if (wireType !== 0)
@@ -4480,7 +4458,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         CryptSetup.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         CryptSetup.decode = function (reader, length, _end, _depth, _target) {
@@ -4675,7 +4653,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ContextActionModify.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ContextActionModify.decode = function (reader, length, _end, _depth, _target) {
@@ -4890,7 +4868,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ContextAction.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ContextAction.decode = function (reader, length, _end, _depth, _target) {
@@ -5053,7 +5031,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserList.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserList.decode = function (reader, length, _end, _depth, _target) {
@@ -5208,7 +5186,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             User.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             User.decode = function (reader, length, _end, _depth, _target) {
@@ -5391,7 +5369,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         VoiceTarget.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         VoiceTarget.decode = function (reader, length, _end, _depth, _target) {
@@ -5567,7 +5545,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             Target.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             Target.decode = function (reader, length, _end, _depth, _target) {
@@ -5591,9 +5569,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.session && message.session.length))
                                     message.session = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.session.push(reader.uint32());
+                                reader.uint32s(message.session);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -5787,7 +5763,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         PermissionQuery.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         PermissionQuery.decode = function (reader, length, _end, _depth, _target) {
@@ -5953,7 +5929,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         CodecVersion.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         CodecVersion.decode = function (reader, length, _end, _depth, _target) {
@@ -6188,7 +6164,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserStats.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserStats.decode = function (reader, length, _end, _depth, _target) {
@@ -6286,9 +6262,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.celtVersions && message.celtVersions.length))
                                 message.celtVersions = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.celtVersions.push(reader.int32());
+                            reader.int32s(message.celtVersions);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6643,7 +6617,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             Stats.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             Stats.decode = function (reader, length, _end, _depth, _target) {
@@ -6832,7 +6806,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         RequestBlob.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         RequestBlob.decode = function (reader, length, _end, _depth, _target) {
@@ -6856,9 +6830,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.sessionTexture && message.sessionTexture.length))
                                 message.sessionTexture = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.sessionTexture.push(reader.uint32());
+                            reader.uint32s(message.sessionTexture);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6872,9 +6844,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.sessionComment && message.sessionComment.length))
                                 message.sessionComment = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.sessionComment.push(reader.uint32());
+                            reader.uint32s(message.sessionComment);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6888,9 +6858,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.channelDescription && message.channelDescription.length))
                                 message.channelDescription = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.channelDescription.push(reader.uint32());
+                            reader.uint32s(message.channelDescription);
                             continue;
                         }
                         if (wireType !== 0)
@@ -7073,7 +7041,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ServerConfig.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ServerConfig.decode = function (reader, length, _end, _depth, _target) {
@@ -7281,7 +7249,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         SuggestConfig.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         SuggestConfig.decode = function (reader, length, _end, _depth, _target) {
