@@ -142,7 +142,11 @@ const joinWithoutAudio = () => {
 };
 
 const cancel = () => {
+  const params = connectionParams.value;
   hide();
+  if (params) {
+    connectionLogic.cancelConnect(params);
+  }
 };
 
 // Methods are now available directly on the Pinia store (sampleRateWarningDialogStore)

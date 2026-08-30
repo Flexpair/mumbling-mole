@@ -10,6 +10,7 @@ import { useVoiceStore } from "./stores/voiceStore";
 import { useUIStore } from "./stores/uiStore";
 import { useDialogStore } from "./stores/dialogStore";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useConnectionStore } from "./stores/connectionStore";
 
 import {
   enumMicrophones,
@@ -18,6 +19,9 @@ import {
   translate,
 } from "./localize";
 import { resolveConnectAddress } from "./utils/connect-address.js";
+import { clearCredentials } from "./auth/credentials-service.js";
+import { invalidateConnectionAttempt } from "./composables/connectionAttempt.js";
+import { shouldHandleProviderLogout } from "./composables/useAuthLogout.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -65,6 +69,7 @@ const voiceStore = useVoiceStore();
 const uiStore = useUIStore();
 const dialogStore = useDialogStore();
 const settingsStore = useSettingsStore();
+const connectionStore = useConnectionStore();
 
 // Initialize settings with config defaults
 settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
@@ -74,6 +79,7 @@ settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 // is true — the widget fires spurious errors (e.g. 404 from /.netlify/identity/)
 // that would otherwise show the connect dialog on top of the password-reset form.
 let widgetHandlingToken = false;
+let authSessionGeneration = 0;
 
 // Initialize auth - always use Netlify Identity in production
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
@@ -173,28 +179,73 @@ function applyQueryParamsToConnectDialog() {
 /**
  * Handle successful login event
  */
+function resetAuthenticatedConnection() {
+  authSessionGeneration += 1;
+  invalidateConnectionAttempt();
+  uiStore.guacamoleFrame?.stop?.();
+  audioStore.stopBeep();
+  voiceStore.reset();
+  userStore.reset();
+  connectionStore.disconnect();
+  dialogStore.connectDialog.isTestActive = false;
+  uiStore.reset();
+}
+
 function handleAuthLogin(user) {
+  // A login can replace an existing Identity session. Do not reuse
+  // credentials that were fetched with the previous token.
+  clearCredentials();
+  resetAuthenticatedConnection();
+  dialogStore.resetErrorDialog();
+  dialogStore.resetInfoDialog();
+  dialogStore.resetSampleRateDialog();
   const username = getUsernameFromMetadata(user);
   if (username) {
     dialogStore.connectDialog.username = username;
   }
-  auth.close();
+  auth.closeAuth();
   // Show connect dialog after successful authentication
   dialogStore.connectDialog.visible = true;
+}
+
+function handleAuthLogout() {
+  if (!shouldHandleProviderLogout()) return;
+  clearCredentials();
+  resetAuthenticatedConnection();
+  dialogStore.resetAll();
 }
 
 /**
  * Handle auth modal close event
  */
-function handleAuthClose() {
+async function handleAuthClose() {
   if (widgetHandlingToken) {
     widgetHandlingToken = false;
   }
-  if (dialogStore.connectDialog.username) {
+  const sessionGeneration = authSessionGeneration;
+  let currentUser;
+  try {
+    currentUser = await auth.getCurrentUser();
+  } catch (error) {
+    if (sessionGeneration !== authSessionGeneration) return;
+    console.warn('[Auth] Failed to read session after closing authentication:', error);
+    try {
+      await auth.openAuth('login');
+    } catch (openError) {
+      console.warn('[Auth] Failed to reopen authentication:', openError);
+    }
+    return;
+  }
+  if (sessionGeneration !== authSessionGeneration) return;
+  if (currentUser) {
+    const username = getUsernameFromMetadata(currentUser);
+    if (username) {
+      dialogStore.connectDialog.username = username;
+    }
     // Show connect dialog when auth modal is closed and user is authenticated
     dialogStore.connectDialog.visible = true;
   } else {
-    auth.open("login"); // open the modal to the login tab
+    auth.openAuth("login"); // open the modal to the login tab
   }
 }
 
@@ -223,6 +274,7 @@ function hasIdentityTokenInHash() {
  * Initialize authentication and handle initial user state
  */
 async function initializeAuth() {
+  const sessionGeneration = authSessionGeneration;
   let user = null;
   let initSucceeded = false;
 
@@ -232,12 +284,14 @@ async function initializeAuth() {
   const hadIdentityToken = hasIdentityTokenInHash();
 
   try {
-    await auth.init(globalThis.mumbleWebConfig.auth.netlify);
+    await auth.init(authConfig);
     initSucceeded = true;
-    user = auth.currentUser();
+    user = await auth.getCurrentUser();
   } catch (e) {
     console.warn('[Auth] Initialization failed; continuing without authentication', e);
   }
+
+  if (sessionGeneration !== authSessionGeneration) return;
 
   if (initSucceeded && hadIdentityToken) {
     // A recovery/confirmation/invite token is present — let the widget handle
@@ -253,7 +307,7 @@ async function initializeAuth() {
   } else if (user === null) {
     // Hide connect dialog when showing authentication modal
     dialogStore.connectDialog.visible = false;
-    auth.open("login");
+    auth.openAuth("login");
   } else {
     const username = getUsernameFromMetadata(user);
     if (username) {
@@ -269,6 +323,7 @@ function initializeUI() {
 
   // Register event handlers BEFORE init() so they catch auto-login events
   auth.on("login", handleAuthLogin);
+  auth.on("logout", handleAuthLogout);
   auth.on("close", handleAuthClose);
   auth.on("error", handleAuthError);
 

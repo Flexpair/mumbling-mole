@@ -263,6 +263,183 @@ describe('UI Freeze Regression (3.16.1)', () => {
     console.log('✅ Auth initializes async at position:', authInitIndex);
   });
 
+  test('VERIFICATION: Guacamole frame is registered after App mounts', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const appPath = path.join(process.cwd(), 'app', 'components', 'App.vue');
+    const appContent = await fs.readFile(appPath, 'utf-8');
+
+    expect(appContent).toContain('ref="guacamoleFrameRef"');
+    expect(appContent).toContain('uiStore.guacamoleFrame = guacamoleFrameRef.value');
+  });
+
+  test('VERIFICATION: Guacamole iframe loads eagerly for immediate handoff', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const frameContent = await fs.readFile(framePath, 'utf-8');
+
+    expect(frameContent).toContain('loading="eager"');
+    expect(frameContent).not.toContain('loading="lazy"');
+  });
+
+  it('should remove an unavailable Guacamole iframe from the tab order', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const frameContent = await fs.readFile(framePath, 'utf-8');
+
+    expect(frameContent).toContain(':tabindex="loading || !!error ? -1 : 0"');
+  });
+
+  test('VERIFICATION: Guacamole iframe focus waits for readiness and ARIA update', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const frameContent = await fs.readFile(framePath, 'utf-8');
+
+    expect(frameContent).toContain('if (iframeRef.value && visible.value && !loading.value && !error.value)');
+    expect(frameContent).toContain('await nextTick();');
+    expect(frameContent).toContain('focusIframe();');
+    expect(frameContent).not.toContain('@load="handleLoad"');
+    expect(frameContent).not.toContain('function handleLoad()');
+  });
+
+  test('VERIFICATION: leaving audio test uses the authenticated connection pipeline', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const dialogPath = path.join(process.cwd(), 'app', 'components', 'ConnectDialog.vue');
+    const dialogContent = await fs.readFile(dialogPath, 'utf-8');
+
+    expect(dialogContent).not.toContain('getGuacamoleLogin');
+    expect(dialogContent).not.toContain('app_metadata?.roles');
+    expect(dialogContent).not.toContain('guacamoleFrame.start');
+    expect(dialogContent).toContain('await connectionLogic.connect(');
+  });
+
+  test('VERIFICATION: cancelling sample-rate warning cancels the stored attempt', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const dialogPath = path.join(process.cwd(), 'app', 'components', 'SampleRateWarningDialog.vue');
+    const dialogContent = await fs.readFile(dialogPath, 'utf-8');
+
+    expect(dialogContent).toContain('connectionLogic.cancelConnect(params);');
+  });
+
+  test('VERIFICATION: stale auth-close continuation cannot reopen connection UI', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const authClose = indexContent.slice(
+      indexContent.indexOf('async function handleAuthClose'),
+      indexContent.indexOf('/**\n * Handle authentication error event')
+    );
+
+    expect(indexContent).toContain('let authSessionGeneration = 0;');
+    expect(authClose).toContain('const sessionGeneration = authSessionGeneration;');
+    expect(authClose).toContain('if (sessionGeneration !== authSessionGeneration) return;');
+    expect(authClose).toContain("await auth.openAuth('login');");
+    expect(authClose).toContain("console.warn('[Auth] Failed to read session after closing authentication:'");
+  });
+
+  test('VERIFICATION: auth reset unloads the Guacamole session', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const [frameContent, indexContent] = await Promise.all([
+      fs.readFile(framePath, 'utf-8'),
+      fs.readFile(indexPath, 'utf-8'),
+    ]);
+
+    expect(frameContent).toContain('function stop()');
+    expect(frameContent).toContain('guacSource.value = null;');
+    const authReset = indexContent.slice(
+      indexContent.indexOf('function resetAuthenticatedConnection'),
+      indexContent.indexOf('function handleAuthLogin')
+    );
+
+    expect(authReset).toContain('uiStore.guacamoleFrame?.stop?.();');
+    expect(authReset).toContain('audioStore.stopBeep();');
+    expect(authReset).toContain('dialogStore.connectDialog.isTestActive = false;');
+    expect(indexContent).not.toContain('uiStore.guacamoleFrame?.hide?.();');
+  });
+
+  test('VERIFICATION: shared logout clears local runtime before bounded provider logout', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const [logoutContent, toolbarContent, dialogContent] = await Promise.all([
+      fs.readFile(path.resolve(process.cwd(), 'app/composables/useAuthLogout.js'), 'utf8'),
+      fs.readFile(path.resolve(process.cwd(), 'app/components/Toolbar.vue'), 'utf8'),
+      fs.readFile(path.resolve(process.cwd(), 'app/components/ConnectDialog.vue'), 'utf8'),
+    ]);
+
+    const clearCredentialsIndex = logoutContent.indexOf('clearCredentials();');
+    const resetSessionIndex = logoutContent.indexOf('resetSessionState(dependencies);');
+    const providerLogoutIndex = logoutContent.indexOf('dependencies.auth.logout()');
+    const reloadIndex = logoutContent.indexOf('reload();');
+
+    expect(clearCredentialsIndex).toBeGreaterThanOrEqual(0);
+    expect(resetSessionIndex).toBeGreaterThan(clearCredentialsIndex);
+    expect(providerLogoutIndex).toBeGreaterThan(resetSessionIndex);
+    expect(reloadIndex).toBeGreaterThan(providerLogoutIndex);
+    expect(logoutContent).toContain('Promise.race');
+    expect(logoutContent).toContain('setTimeout(resolve, LOGOUT_TIMEOUT_MS)');
+    expect(toolbarContent).toContain('logoutSession({');
+    expect(dialogContent).toContain('logoutSession({');
+  });
+
+  test('VERIFICATION: a replacement login tears down the previous connection', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const loginHandler = indexContent.slice(
+      indexContent.indexOf('function handleAuthLogin'),
+      indexContent.indexOf('function handleAuthLogout')
+    );
+
+    expect(loginHandler).toContain('resetAuthenticatedConnection();');
+  });
+
+  test('VERIFICATION: replacement login preserves the configured connection target', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const authReset = indexContent.slice(
+      indexContent.indexOf('function resetAuthenticatedConnection'),
+      indexContent.indexOf('function handleAuthLogin')
+    );
+    const loginHandler = indexContent.slice(
+      indexContent.indexOf('function handleAuthLogin'),
+      indexContent.indexOf('function handleAuthLogout')
+    );
+    const logoutHandler = indexContent.slice(
+      indexContent.indexOf('function handleAuthLogout'),
+      indexContent.indexOf('function handleAuthClose')
+    );
+
+    expect(authReset).not.toContain('dialogStore.resetAll();');
+    expect(loginHandler).not.toContain('dialogStore.resetAll();');
+    expect(loginHandler).toContain('dialogStore.resetErrorDialog();');
+    expect(loginHandler).toContain('dialogStore.resetInfoDialog();');
+    expect(loginHandler).toContain('dialogStore.resetSampleRateDialog();');
+    expect(logoutHandler).toContain('dialogStore.resetAll();');
+  });
+
   /**
    * INTEGRATION TEST:
    * Verify AppState.js has been completely removed (migration complete)

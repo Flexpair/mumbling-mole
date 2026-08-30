@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals';
 
+const watcherCleanups = [];
+
 // Mock Vue with working reactivity for this test
 jest.unstable_mockModule('vue', () => {
   const listeners = new Map();
@@ -73,7 +75,7 @@ jest.unstable_mockModule('vue', () => {
       const { get, set } = factory(() => {}, () => {});
       return { get value() { return get(); }, set value(v) { set(v); }, __v_isRef: true };
     },
-    onWatcherCleanup: () => {},
+    onWatcherCleanup: (callback) => watcherCleanups.push(callback),
   };
 });
 
@@ -86,8 +88,23 @@ jest.unstable_mockModule('../../app/composables/useLocalStorage.js', async () =>
 });
 
 // Mock other dependencies
+let resolveNodeInitialization;
 jest.unstable_mockModule('../../app/audio/buffer-queue-node', () => ({
   default: class MockBufferQueueNode {
+    static instances = [];
+
+    constructor() {
+      this.initialize = jest.fn(() => (
+        resolveNodeInitialization
+          ? new Promise(resolve => { resolveNodeInitialization = resolve; })
+          : Promise.resolve()
+      ));
+      this.connect = jest.fn();
+      this.write = jest.fn();
+      this.end = jest.fn();
+      MockBufferQueueNode.instances.push(this);
+    }
+
     setJitterBufferSize() {
       // Mock implementation - no operation needed for tests
     }
@@ -167,7 +184,7 @@ function createMockClient() {
   return {
     dataStats: { mean: 200, variance: 25, n: 100 }, // High latency (200ms)
     on: jest.fn(),
-    off: jest.fn()
+    removeListener: jest.fn()
   };
 }
 
@@ -189,6 +206,7 @@ describe('useUserStore Jitter Buffer Calculation', () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
+    watcherCleanups.length = 0;
     
         // Reset settings store mock
     mockSettingsStore.jitterBufferSize = 3;
@@ -208,6 +226,15 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     };
 
     userStore = useUserStore();
+  });
+
+  test('should detach the jitter listener through the supported EventEmitter API', () => {
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
+
+    watcherCleanups.at(-1)();
+
+    expect(mockClient.removeListener).toHaveBeenCalledWith('dataPing', expect.any(Function));
   });
 
 
@@ -375,6 +402,8 @@ describe('useUserStore registerUser', () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
+    resolveNodeInitialization = null;
+    mockAudioState.getAudioContext.mockClear();
     userStore = useUserStore();
     
     mockUser = {
@@ -384,7 +413,7 @@ describe('useUserStore registerUser', () => {
       selfMute: false,
       selfDeaf: false,
       on: jest.fn(),
-      off: jest.fn()
+      removeListener: jest.fn()
     };
   });
 
@@ -409,11 +438,11 @@ describe('useUserStore registerUser', () => {
   test('should clean up previous UI wrapper if exists', () => {
     const oldSyncFn = jest.fn();
     mockUser.__ui = { old: true };
-    mockUser.__syncServerState = oldSyncFn;
+    mockUser.__uiListeners = { 'server-state-sync': oldSyncFn };
     
     userStore.registerUser(mockUser);
     
-    expect(mockUser.off).toHaveBeenCalledWith('server-state-sync', oldSyncFn);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('server-state-sync', oldSyncFn);
     expect(mockUser.__ui.old).toBeUndefined();
   });
 
@@ -460,6 +489,55 @@ describe('useUserStore registerUser', () => {
     
     expect(userStore.selfMute).toBe(true);
     expect(userStore.selfDeaf).toBe(true);
+  });
+
+  test('should ignore queued callbacks after registration ownership expires', async () => {
+    let isCurrent = true;
+    userStore.registerUser(mockUser, () => isCurrent);
+    const syncHandler = mockUser.on.mock.calls.find(c => c[0] === 'server-state-sync')[1];
+    const updateHandler = mockUser.on.mock.calls.find(c => c[0] === 'update')[1];
+    const voiceHandler = mockUser.on.mock.calls.find(c => c[0] === 'voice')[1];
+    const initialSelfMute = userStore.selfMute;
+    const initialSelfDeaf = userStore.selfDeaf;
+
+    isCurrent = false;
+    syncHandler({ selfMute: true, selfDeaf: true });
+    updateHandler(null, { selfMute: true, selfDeaf: true });
+    await voiceHandler({ on: jest.fn() });
+
+    expect(userStore.selfMute).toBe(initialSelfMute);
+    expect(userStore.selfDeaf).toBe(initialSelfDeaf);
+    expect(mockUser.__ui.selfMute.value).toBe(false);
+    expect(mockUser.__ui.selfDeaf.value).toBe(false);
+    expect(mockAudioState.getAudioContext).not.toHaveBeenCalled();
+  });
+
+  test('should dispose a voice node when ownership expires during initialization', async () => {
+    let isCurrent = true;
+    resolveNodeInitialization = true;
+    userStore.registerUser(mockUser, () => isCurrent);
+    const voiceHandler = mockUser.on.mock.calls.find(c => c[0] === 'voice')[1];
+
+    const pendingVoice = voiceHandler({ on: jest.fn() });
+    await Promise.resolve();
+    isCurrent = false;
+    resolveNodeInitialization();
+    await pendingVoice;
+
+    const { default: MockBufferQueueNode } = await import('../../app/audio/buffer-queue-node');
+    expect(MockBufferQueueNode.instances.at(-1).end).toHaveBeenCalledTimes(1);
+    expect(mockAudioState.getAudioContext).toHaveBeenCalledTimes(1);
+  });
+
+  test('reset should detach registered user listeners', () => {
+    userStore.registerUser(mockUser);
+    const listeners = Object.fromEntries(mockUser.on.mock.calls);
+
+    userStore.reset();
+
+    expect(mockUser.removeListener).toHaveBeenCalledWith('server-state-sync', listeners['server-state-sync']);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('update', listeners.update);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('voice', listeners.voice);
   });
 });
 

@@ -23,6 +23,10 @@ class NetlifyIdentityAdapter extends AuthProvider {
     this._pendingHandlers = [];
     // Promise cache for _waitForWidget to prevent race conditions
     this._waitPromise = null;
+    this._logoutQueue = null;
+    this._activeLogoutOperation = null;
+    this._logoutHandlerWrappers = new Map();
+    this.supportsLogoutEventSuppression = true;
   }
 
   /**
@@ -90,11 +94,11 @@ class NetlifyIdentityAdapter extends AuthProvider {
       delete globalThis.__savedIdentityHash;
     }
 
-    this.netlifyIdentity.init(config);
+    this.netlifyIdentity.init(config?.netlify ?? config);
 
     // Register any event handlers that were queued before init()
     for (const { event, callback } of this._pendingHandlers) {
-      this.netlifyIdentity.on(event, callback);
+      this.netlifyIdentity.on(event, this._wrapLogoutHandler(event, callback));
     }
     this._pendingHandlers = [];
 
@@ -107,6 +111,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
    */
   async getCurrentUser() {
     return this.netlifyIdentity.currentUser();
+  }
+
+  /**
+   * Get the current Netlify access token
+   * @returns {Promise<string|null>}
+   */
+  async getAccessToken() {
+    return this.netlifyIdentity.currentUser()?.token?.access_token || null;
   }
 
   /**
@@ -208,17 +220,57 @@ class NetlifyIdentityAdapter extends AuthProvider {
 
   /**
    * Log out current user
+   * @param {Object} [options]
+   * @param {boolean} [options.suppressProviderEvent=false] - Suppress the provider event
+   * that belongs to this logout operation
+   * @param {AbortSignal} [options.signal] - Stop waiting for this operation
    * @returns {Promise<void>}
    */
-  async logout() {
-    return new Promise((resolve) => {
-      const done = () => {
+  async logout({ suppressProviderEvent = false, signal } = {}) {
+    const run = () => new Promise((resolve, reject) => {
+      const operation = { suppressProviderEvent };
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
         this.netlifyIdentity.off('logout', done);
-        resolve();
+        signal?.removeEventListener('abort', abort);
+        if (this._activeLogoutOperation === operation) this._activeLogoutOperation = null;
+        if (error) reject(error);
+        else resolve();
       };
+      const done = () => finish();
+      const abort = () => finish(new DOMException('Logout aborted', 'AbortError'));
+
+      this._activeLogoutOperation = operation;
       this.netlifyIdentity.on('logout', done);
-      this.netlifyIdentity.logout();
+      if (signal?.aborted) {
+        abort();
+        return;
+      }
+      signal?.addEventListener('abort', abort, { once: true });
+      try {
+        Promise.resolve(this.netlifyIdentity.logout()).catch(finish);
+      } catch (error) {
+        finish(error);
+      }
     });
+
+    const operation = this._logoutQueue
+      ? this._logoutQueue.then(run, run)
+      : run();
+    this._logoutQueue = operation.catch(() => {});
+    return operation;
+  }
+
+  _wrapLogoutHandler(event, callback) {
+    if (event !== 'logout') return callback;
+    if (!this._logoutHandlerWrappers.has(callback)) {
+      this._logoutHandlerWrappers.set(callback, (...args) => {
+        if (!this._activeLogoutOperation?.suppressProviderEvent) callback(...args);
+      });
+    }
+    return this._logoutHandlerWrappers.get(callback);
   }
 
   /**
@@ -228,8 +280,9 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @param {Function} callback
    */
   on(event, callback) {
+    const handler = this._wrapLogoutHandler(event, callback);
     if (this.netlifyIdentity) {
-      this.netlifyIdentity.on(event, callback);
+      this.netlifyIdentity.on(event, handler);
     } else {
       // Queue for later registration after init()
       this._pendingHandlers.push({ event, callback });
@@ -242,14 +295,18 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @param {Function} callback
    */
   off(event, callback) {
+    const handler = event === 'logout'
+      ? this._logoutHandlerWrappers.get(callback) ?? callback
+      : callback;
     if (this.netlifyIdentity) {
-      this.netlifyIdentity.off(event, callback);
+      this.netlifyIdentity.off(event, handler);
     } else {
       // Remove from pending handlers if exists
       this._pendingHandlers = this._pendingHandlers.filter(
         h => !(h.event === event && h.callback === callback)
       );
     }
+    if (event === 'logout') this._logoutHandlerWrappers.delete(callback);
   }
 
   /**

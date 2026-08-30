@@ -23,6 +23,7 @@ jest.unstable_mockModule('vue', () => ({
     get value() { return fn(); },
     __v_isRef: true 
   }),
+  toRaw: jest.fn((value) => value.__raw ?? value),
 }));
 
 // Mock Pinia
@@ -136,7 +137,8 @@ describe('connectionStore', () => {
           username: 'myuser',
           password: 'mypass',
           tokens: ['tok1', 'tok2'],
-        })
+        }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -145,7 +147,21 @@ describe('connectionStore', () => {
 
       expect(mockConnector.connect).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ tokens: [] })
+        expect.objectContaining({ tokens: [] }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    it('should unwrap reactive token arrays before passing them to the worker connector', async () => {
+      const rawTokens = ['tok1', 'tok2'];
+      const reactiveTokens = { __raw: rawTokens };
+
+      await store.connect('host', 64738, 'user', 'pass', reactiveTokens);
+
+      expect(mockConnector.connect).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ tokens: rawTokens }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -188,6 +204,98 @@ describe('connectionStore', () => {
       await store.connect('host', 64738, 'user', 'pass');
       
       expect(store.isConnected.value).toBe(true);
+    });
+
+    it('should disconnect a client that resolves after the attempt was cancelled', async () => {
+      let resolveConnection;
+      const staleClient = { ...mockClient, disconnect: jest.fn() };
+      mockConnector.connect.mockReturnValueOnce(new Promise(resolve => {
+        resolveConnection = resolve;
+      }));
+
+      const connection = store.connect('host', 64738, 'user', 'pass');
+      store.disconnect();
+      resolveConnection(staleClient);
+
+      await expect(connection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+      expect(staleClient.disconnect).toHaveBeenCalled();
+      expect(store.client.value).toBeNull();
+    });
+
+    it('should abort a pending worker connection when disconnected', async () => {
+      let capturedSignal;
+      mockConnector.connect.mockImplementationOnce((host, args, { signal }) => (
+        new Promise((resolve, reject) => {
+          capturedSignal = signal;
+          signal.addEventListener('abort', () => {
+            reject(Object.assign(new Error('Connection aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        })
+      ));
+
+      const connection = store.connect('host', 64738, 'user', 'pass');
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(capturedSignal).toBeDefined();
+
+      store.disconnect();
+
+      expect(capturedSignal.aborted).toBe(true);
+      await expect(connection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+    });
+
+    it('should retain only the newest concurrently resolved client', async () => {
+      let resolveFirst;
+      let resolveSecond;
+      const firstClient = { ...mockClient, disconnect: jest.fn() };
+      const secondClient = { ...mockClient, disconnect: jest.fn() };
+      mockConnector.connect
+        .mockReturnValueOnce(new Promise(resolve => { resolveFirst = resolve; }))
+        .mockReturnValueOnce(new Promise(resolve => { resolveSecond = resolve; }));
+
+      const firstConnection = store.connect('first', 64738, 'first', 'pass');
+      const secondConnection = store.connect('second', 64738, 'second', 'pass');
+      resolveSecond(secondClient);
+      await expect(secondConnection).resolves.toBe(secondClient);
+      resolveFirst(firstClient);
+      await expect(firstConnection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+
+      expect(firstClient.disconnect).toHaveBeenCalled();
+      expect(secondClient.disconnect).not.toHaveBeenCalled();
+      expect(store.client.value).toBe(secondClient);
+      expect(store.remoteHost.value).toBe('second');
+    });
+
+    it('should share connector initialization between concurrent first connections', async () => {
+      const { default: WorkerBasedMumbleConnector } = await import('../../app/worker-client.js');
+
+      const firstConnection = store.connect('first', 64738, 'first', 'pass');
+      const secondConnection = store.connect('second', 64738, 'second', 'pass');
+
+      await expect(firstConnection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+      await expect(secondConnection).resolves.toBe(mockClient);
+      expect(WorkerBasedMumbleConnector).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry connector initialization after a transient failure', async () => {
+      const { default: WorkerBasedMumbleConnector } = await import('../../app/worker-client.js');
+      WorkerBasedMumbleConnector.mockImplementationOnce(() => {
+        throw new Error('Worker startup failed');
+      });
+
+      await expect(store.connect('first', 64738, 'first', 'pass'))
+        .rejects.toThrow('Worker startup failed');
+      await expect(store.connect('second', 64738, 'second', 'pass'))
+        .resolves.toBe(mockClient);
+
+      expect(WorkerBasedMumbleConnector).toHaveBeenCalledTimes(2);
     });
   });
 

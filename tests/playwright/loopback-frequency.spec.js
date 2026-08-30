@@ -495,6 +495,27 @@ test.describe('Loopback Frequency Test', () => {
       // Use web-first assertion instead of waitForTimeout + evaluate
       await expect(connectDialogForSwitch).toBeHidden({ timeout: 2000 });
       console.log('✅ Dialog closed - switched to normal mode');
+
+      // Browsers running at 44.1 kHz require an explicit choice before the
+      // normal connection continues. At 48 kHz, Guacamole starts directly.
+      const sampleRateDialog = page.locator('.sample-rate-dialog[role="alertdialog"]');
+      const guacamoleSection = page.getByRole('region', { name: /guacamole|remote/i }).or(page.locator('section.guacamole'));
+
+      await expect.poll(async () => (
+        await sampleRateDialog.isVisible() || await guacamoleSection.isVisible()
+      ), {
+        message: 'Expected a sample-rate warning or Guacamole handoff',
+        timeout: 10000,
+      }).toBe(true);
+
+      if (await sampleRateDialog.isVisible()) {
+        console.log('   ℹ️  Sample-rate warning shown; joining without audio...');
+        const joinWithoutAudioButton = sampleRateDialog.getByRole('button', { name: /join without audio/i });
+        await expect(joinWithoutAudioButton).toBeVisible();
+        await joinWithoutAudioButton.click();
+        await expect(sampleRateDialog).toBeHidden();
+        console.log('   ✅ Continued normal connection without audio');
+      }
     });
 
     await test.step('Send chat message and verify confirmation animation', async () => {
@@ -523,13 +544,6 @@ test.describe('Loopback Frequency Test', () => {
       // Note: Animation verification is skipped in test environment because
       // the chat server may not respond, and CSS transitions are timing-sensitive
     });
-
-    console.log('\n🎉 Full test flow validated successfully!');
-    console.log('   ✅ Piano button works');
-    console.log('   ✅ Frequency detection works (440 Hz)');
-    console.log('   ✅ Display updates in real-time');
-    console.log('   ✅ Mode switching works (test → normal)');
-    console.log('   ✅ Message input works');
 
     await test.step('Verify Guacamole frame loads (expected 404 in test environment)', async () => {
       console.log('\n🖥️  Step 14: Verifying Guacamole frame loads...');
@@ -577,6 +591,14 @@ test.describe('Loopback Frequency Test', () => {
       
       console.log('✅ Guacamole frame initialization verified');
     });
+
+    console.log('\n🎉 Full test flow validated successfully!');
+    console.log('   ✅ Piano button works');
+    console.log('   ✅ Frequency detection works (440 Hz)');
+    console.log('   ✅ Display updates in real-time');
+    console.log('   ✅ Mode switching works (test → normal)');
+    console.log('   ✅ Message input works');
+    console.log('   ✅ Guacamole frame initialization works');
 
     console.log('\n🧹 Cleaning up resources...');
     await page.evaluate(() => {

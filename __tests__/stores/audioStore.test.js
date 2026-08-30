@@ -48,18 +48,16 @@ const mockAudioContextManager = {
   audioContext: null,
   onReady: jest.fn(),
   onSuspend: jest.fn(),
-  onResume: jest.fn()
+  onResume: jest.fn(),
+  resumeAudioContext: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockGetCurrentMixer = jest.fn(() => null);
+const mockEnsureAudioContext = jest.fn();
 
 jest.unstable_mockModule('../../app/audio/audio-context-manager.js', () => ({
   default: mockAudioContextManager,
-  ensureAudioContext: jest.fn().mockResolvedValue({
-    state: 'running',
-    resume: jest.fn().mockResolvedValue(undefined),
-    audioWorklet: { addModule: jest.fn().mockResolvedValue(undefined) }
-  })
+  ensureAudioContext: mockEnsureAudioContext
 }));
 
 // Mock voice module
@@ -74,10 +72,10 @@ jest.unstable_mockModule('../../app/utils/debug-utils.js', () => ({
 
 // Mock promise-cache-utils
 jest.unstable_mockModule('../../app/utils/promise-cache-utils.js', () => ({
-  createCachedInitWithCheck: (check, init) => async () => {
+  createCachedInitWithCheck: (check, init) => async (...args) => {
     const existing = check();
     if (existing) return existing;
-    return init();
+    return init(...args);
   }
 }));
 
@@ -87,7 +85,9 @@ function createMockAudioContext(state = 'running') {
   const oscillator = {
     frequency: { setValueAtTime: jest.fn() },
     connect: jest.fn(),
+    disconnect: jest.fn(),
     start: jest.fn(),
+    stop: jest.fn(),
     type: ''
   };
   const gainNodes = [];
@@ -110,6 +110,7 @@ function createMockAudioContext(state = 'running') {
           exponentialRampToValueAtTime: jest.fn()
         },
         connect: jest.fn(),
+        disconnect: jest.fn(),
         context: audioContext
       };
       gainNodes.push(node);
@@ -126,6 +127,12 @@ describe('audioStore', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAudioContextManager.resumeAudioContext.mockClear();
+    mockEnsureAudioContext.mockResolvedValue({
+      state: 'running',
+      resume: jest.fn().mockResolvedValue(undefined),
+      audioWorklet: { addModule: jest.fn().mockResolvedValue(undefined) }
+    });
     mockGetCurrentMixer.mockReturnValue(null);
     delete globalThis.audioContextManager;
     store = useAudioStore();
@@ -207,15 +214,17 @@ describe('audioStore', () => {
 
       await store.resumeAudioContext();
 
-      expect(mockResume).toHaveBeenCalled();
+      expect(mockAudioContextManager.resumeAudioContext).toHaveBeenCalled();
+      expect(mockResume).not.toHaveBeenCalled();
     });
 
-    test('should not call resume on running context', async () => {
+    test('should route running context through the manager', async () => {
       const mockResume = jest.fn();
       store.audioContext.value = { state: 'running', resume: mockResume };
 
       await store.resumeAudioContext();
 
+      expect(mockAudioContextManager.resumeAudioContext).toHaveBeenCalled();
       expect(mockResume).not.toHaveBeenCalled();
     });
   });
@@ -321,6 +330,16 @@ describe('audioStore', () => {
 
       expect(result).toBe(mockContext);
     });
+
+    test('should reject when managed initialization fails', async () => {
+      mockEnsureAudioContext.mockRejectedValueOnce(new Error('Managed initialization failed'));
+      delete globalThis.AudioContext;
+      delete globalThis.webkitAudioContext;
+
+      await expect(store.initializeAudioContext())
+        .rejects.toThrow('Managed initialization failed');
+      expect(store.audioContext.value).toBeNull();
+    });
   });
 
   describe('retryMicrophonePermission', () => {
@@ -391,6 +410,25 @@ describe('audioStore', () => {
   });
 
   describe('initializePersistentBeeper edge cases', () => {
+    test('recreates the beeper when the mixer changes', async () => {
+      const firstMixer = {};
+      const secondMixer = {};
+      const audioContext = createMockAudioContext();
+      mockGetCurrentMixer.mockReturnValue(firstMixer);
+      globalThis.audioContextManager = {
+        getAudioContext: jest.fn().mockResolvedValue(audioContext)
+      };
+
+      const firstBeeper = await store.initializePersistentBeeper();
+      mockGetCurrentMixer.mockReturnValue(secondMixer);
+      const secondBeeper = await store.initializePersistentBeeper();
+
+      expect(secondBeeper).not.toBe(firstBeeper);
+      expect(firstBeeper.oscillator.stop).toHaveBeenCalledTimes(1);
+      expect(firstBeeper.gain.disconnect).toHaveBeenCalledTimes(1);
+      expect(secondBeeper.gain.connect).toHaveBeenCalledWith(secondMixer);
+    });
+
     test('should return null when AudioContext is closed', async () => {
       mockGetCurrentMixer.mockReturnValue({});
       // Mock global audioContextManager
@@ -470,6 +508,32 @@ describe('audioStore', () => {
       expect(store.isBeeping.value).toBe(true);
     });
 
+    test('does not start a beeper that was reset while the context resumed', async () => {
+      let resolveResume;
+      const audioContext = createMockAudioContext('suspended');
+      audioContext.resume.mockImplementation(() => new Promise(resolve => {
+        resolveResume = () => {
+          audioContext.state = 'running';
+          resolve();
+        };
+      }));
+      mockGetCurrentMixer.mockReturnValue({});
+      globalThis.audioContextManager = {
+        getAudioContext: jest.fn().mockResolvedValue(audioContext)
+      };
+
+      await store.initializePersistentBeeper();
+      const start = store.startBeep();
+      await Promise.resolve();
+      store.resetBeeper();
+      resolveResume();
+      await start;
+
+      expect(audioContext.gainNodes[0].gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+      expect(audioContext.gainNodes[1].gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+      expect(store.isBeeping.value).toBe(false);
+    });
+
     test('should stop initialized beeper with fade out', async () => {
       const audioContext = createMockAudioContext();
       mockGetCurrentMixer.mockReturnValue({});
@@ -484,6 +548,35 @@ describe('audioStore', () => {
       expect(audioContext.gainNodes[0].gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 11.3);
       expect(audioContext.gainNodes[1].gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 11.3);
       expect(store.isBeeping.value).toBe(false);
+    });
+
+    test('discards an initialization that completes after the mixer changes', async () => {
+      let resolveAudioContext;
+      const firstContext = new Promise(resolve => {
+        resolveAudioContext = resolve;
+      });
+      const staleAudioContext = createMockAudioContext();
+      const currentAudioContext = createMockAudioContext();
+      const firstMixer = {};
+      const secondMixer = {};
+      mockGetCurrentMixer.mockReturnValueOnce(firstMixer).mockReturnValue(secondMixer);
+      globalThis.audioContextManager = {
+        getAudioContext: jest.fn()
+          .mockReturnValueOnce(firstContext)
+          .mockResolvedValueOnce(currentAudioContext)
+      };
+
+      const staleInitialization = store.initializePersistentBeeper();
+      const currentInitialization = store.initializePersistentBeeper();
+      resolveAudioContext(staleAudioContext);
+
+      await staleInitialization;
+      await currentInitialization;
+
+      expect(staleAudioContext.oscillator.start).not.toHaveBeenCalled();
+      expect(currentAudioContext.oscillator.start).toHaveBeenCalledTimes(1);
+      expect(currentAudioContext.gainNodes[0].connect).toHaveBeenCalledWith(secondMixer);
+      expect(store.beeperReady.value).toBe(true);
     });
   });
 

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, shallowRef, computed } from 'vue';
+import { ref, shallowRef, computed, toRaw } from 'vue';
 import { translate } from '../localize';
 import { buildWebSocketUrl } from '../utils/websocket-url';
 
@@ -8,8 +8,19 @@ export const useConnectionStore = defineStore('connection', () => {
   
   // Lazy-loaded connector - only created when first connection is made
   let _connector = null;
+  let connectorInitialization = null;
   const connector = shallowRef(null);
   const client = shallowRef(null);
+  let connectionGeneration = 0;
+  let connectionController = null;
+
+  class SupersededConnectionAttemptError extends Error {
+    constructor() {
+      super('Connection attempt superseded');
+      this.name = 'SupersededConnectionAttemptError';
+      this.code = 'CONNECTION_ATTEMPT_SUPERSEDED';
+    }
+  }
   
   /**
    * Get or create the WorkerBasedMumbleConnector (lazy initialization)
@@ -17,9 +28,17 @@ export const useConnectionStore = defineStore('connection', () => {
    */
   async function getConnector() {
     if (!_connector) {
-      const { default: WorkerBasedMumbleConnector } = await import('../worker-client');
-      _connector = new WorkerBasedMumbleConnector();
-      connector.value = _connector;
+      connectorInitialization ??= import('../worker-client')
+        .then(({ default: WorkerBasedMumbleConnector }) => {
+          _connector = new WorkerBasedMumbleConnector();
+          connector.value = _connector;
+          return _connector;
+        })
+        .catch(error => {
+          connectorInitialization = null;
+          throw error;
+        });
+      await connectorInitialization;
     }
     return _connector;
   }
@@ -46,6 +65,11 @@ export const useConnectionStore = defineStore('connection', () => {
    * @returns {Promise<MumbleClient>} Connected client instance
    */
   async function connect(host, port, username, password, tokens = []) {
+    connectionController?.abort();
+    const controller = new AbortController();
+    connectionController = controller;
+    const generation = ++connectionGeneration;
+
     // Disconnect existing client before creating new connection
     if (client.value) {
       client.value.disconnect();
@@ -66,16 +90,32 @@ export const useConnectionStore = defineStore('connection', () => {
       const newClient = await conn.connect(wsUrl, {
         username: username,
         password: password,
-        tokens: tokens,
+        tokens: toRaw(tokens),
+      }, {
+        signal: controller.signal,
       });
 
+      if (generation !== connectionGeneration) {
+        newClient.disconnect();
+        throw new SupersededConnectionAttemptError();
+      }
+
       client.value = newClient;
+      connectionController = null;
 
       logger(translate('logentry.connected'));
 
       return newClient;
     } catch (err) {
-      logger(translate('logentry.connection_failed'), err);
+      if (connectionController === controller) {
+        connectionController = null;
+      }
+      if (controller.signal.aborted && generation !== connectionGeneration) {
+        throw new SupersededConnectionAttemptError();
+      }
+      if (err?.code !== 'CONNECTION_ATTEMPT_SUPERSEDED') {
+        logger(translate('logentry.connection_failed'), err);
+      }
       throw err;
     }
   }
@@ -84,6 +124,9 @@ export const useConnectionStore = defineStore('connection', () => {
    * Disconnect from current server
    */
   function disconnect() {
+    connectionController?.abort();
+    connectionController = null;
+    connectionGeneration += 1;
     if (client.value) {
       client.value.disconnect();
       client.value = null;

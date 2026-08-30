@@ -95,12 +95,9 @@ onMounted(() => {
   } else {
     globalThis.addEventListener('load', finalize, { once: true });
   }
-  
-  // Wire up GuacamoleFrame reference to uiStore
-  if (guacamoleFrameRef.value) {
-    const uiStore = useUIStore();
-    uiStore.guacamoleFrame = guacamoleFrameRef.value;
-  }
+
+  const uiStore = useUIStore();
+  uiStore.guacamoleFrame = guacamoleFrameRef.value;
 });
 </script>
 

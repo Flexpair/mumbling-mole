@@ -29,27 +29,32 @@
         {{ error }}
       </div>
 
-      <!-- iframe with lazy loading and clipboard permissions -->
+      <!-- iframe with clipboard permissions -->
       <iframe
         ref="guacamoleIframe"
         id="guacframe"
         :src="guacSource || 'about:blank'"
-        @load="handleLoad"
         title="Remote Desktop - Interactive session"
-        loading="lazy"
+        loading="eager"
         allow="clipboard-read; clipboard-write"
         :aria-hidden="loading || !!error"
+        :tabindex="loading || !!error ? -1 : 0"
       ></iframe>
   </section>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup } from 'vue';
+import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup, nextTick } from 'vue';
+import {
+  buildGuacamoleSource,
+  clearGuacamoleSession,
+  waitForGuacamoleReady,
+} from '../composables/useGuacamole';
 
 /**
  * GuacamoleFrame Component
  * 
- * Manages Guacamole remote desktop iframe with lazy loading and error handling.
+ * Manages the Guacamole remote desktop iframe and its error handling.
  * Exposes public API via defineExpose() for AppState integration.
  */
 
@@ -67,12 +72,14 @@ const loading = ref(false);
 
 /** @type {import('vue').Ref<string | null>} */
 const error = ref(null);
+let startupController = null;
+let startupSequence = 0;
 
 /**
  * Focus the iframe when it becomes visible
  */
 function focusIframe() {
-  if (iframeRef.value && visible.value) {
+  if (iframeRef.value && visible.value && !loading.value && !error.value) {
     try {
       iframeRef.value.focus();
     } catch (e) {
@@ -108,6 +115,10 @@ onMounted(() => {
  * @param {string} password - Guacamole password
  */
 function start(guacUser, password) {
+  startupController?.abort();
+  clearGuacamoleSession();
+  const controller = new AbortController();
+  startupController = controller;
   loading.value = true;
   error.value = null;
 
@@ -128,14 +139,31 @@ function start(guacUser, password) {
     console.warn("[Guac] localStorage sanitization failed", e);
   }
 
-  // Build Guacamole URL with credentials
-  const src =
-    "/guacamole/#/?username=" +
-    guacUser +
-    "&password=" +
-    encodeURIComponent(password || "");
+  const session = String(++startupSequence);
 
-  guacSource.value = src;
+  guacSource.value = buildGuacamoleSource(guacUser, password, session);
+  return waitForGuacamoleReady(iframeRef.value, {
+    expectedSession: session,
+    signal: controller.signal,
+  })
+    .then(async () => {
+      if (startupController === controller) {
+        startupController = null;
+        loading.value = false;
+        await nextTick();
+        focusIframe();
+      }
+    })
+    .catch(startupError => {
+      if (startupController === controller) {
+        startupController = null;
+        loading.value = false;
+        if (startupError.code !== 'GUACAMOLE_START_CANCELLED') {
+          error.value = startupError.message;
+        }
+      }
+      throw startupError;
+    });
 }
 
 /**
@@ -154,12 +182,16 @@ function hide() {
 }
 
 /**
- * Handle iframe load event
+ * Stop and unload the Guacamole session.
  */
-function handleLoad() {
+function stop() {
+  startupController?.abort();
+  startupController = null;
+  clearGuacamoleSession();
+  visible.value = false;
+  guacSource.value = null;
   loading.value = false;
-  // Focus iframe after content loads
-  focusIframe();
+  error.value = null;
 }
 
 /**
@@ -169,10 +201,10 @@ function handleLoad() {
  * via template ref (e.g., guacamoleFrameRef.value.show())
  * 
  * @typedef {Object} GuacamoleFrameAPI
- * @property {(guacUser: string, password: string) => void} start - Start Guacamole session
+ * @property {(guacUser: string, password: string) => Promise<void>} start - Start Guacamole session
  * @property {() => void} show - Show the frame
  * @property {() => void} hide - Hide the frame
- * @property {() => void} handleLoad - Handle iframe load
+ * @property {() => void} stop - Stop and unload the session
  * @property {import('vue').Ref<string | null>} guacSource - Current iframe src
  * @property {import('vue').Ref<boolean>} visible - Visibility state
  * @property {import('vue').Ref<boolean>} loading - Loading state
@@ -182,7 +214,7 @@ defineExpose({
   start,
   show,
   hide,
-  handleLoad,
+  stop,
   guacSource,
   visible,
   loading,

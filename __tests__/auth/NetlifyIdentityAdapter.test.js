@@ -231,7 +231,10 @@ describe('NetlifyIdentityAdapter - on() before init', () => {
     
     expect(adapter._pendingHandlers).toHaveLength(0);
     expect(mockNetlifyIdentity.on).toHaveBeenCalledWith('login', callback1);
-    expect(mockNetlifyIdentity.on).toHaveBeenCalledWith('logout', callback2);
+    const logoutHandler = mockNetlifyIdentity.on.mock.calls
+      .find(([event]) => event === 'logout')[1];
+    logoutHandler();
+    expect(callback2).toHaveBeenCalled();
   });
 });
 
@@ -338,6 +341,32 @@ describe('NetlifyIdentityAdapter - currentUser() sync version', () => {
     
     const user = adapter.currentUser();
     expect(user).toBeNull();
+  });
+});
+
+describe('NetlifyIdentityAdapter - getAccessToken()', () => {
+  beforeEach(async () => {
+    await setupTestEnvironment();
+    await createInitializedAdapter();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
+    delete globalThis.netlifyIdentity;
+  });
+
+  test('returns the provider access token', async () => {
+    adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue({
+      token: { access_token: 'access-token' },
+    });
+
+    await expect(adapter.getAccessToken()).resolves.toBe('access-token');
+  });
+
+  test('returns null when there is no authenticated user', async () => {
+    adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue(null);
+
+    await expect(adapter.getAccessToken()).resolves.toBeNull();
   });
 });
 
@@ -590,6 +619,13 @@ describe('NetlifyIdentityAdapter - login()', () => {
 });
 
 describe('NetlifyIdentityAdapter - logout()', () => {
+  const emitLogout = () => {
+    const callbacks = adapter.netlifyIdentity.on.mock.calls
+      .filter(([event]) => event === 'logout')
+      .map(([, callback]) => callback);
+    callbacks.forEach(callback => callback());
+  };
+
   beforeEach(async () => {
     await setupTestEnvironment();
     await createInitializedAdapter();
@@ -601,24 +637,76 @@ describe('NetlifyIdentityAdapter - logout()', () => {
   });
 
   test('calls netlifyIdentity.logout and resolves on logout event', async () => {
-    adapter.netlifyIdentity.logout.mockImplementation(() => {
-      // Simulate the widget firing the 'logout' event after logout completes
-      const logoutCallback = adapter.netlifyIdentity.on.mock.calls.find(c => c[0] === 'logout')[1];
-      logoutCallback();
-    });
+    adapter.netlifyIdentity.logout.mockImplementation(() => emitLogout());
     await adapter.logout();
     expect(adapter.netlifyIdentity.logout).toHaveBeenCalled();
     expect(adapter.netlifyIdentity.off).toHaveBeenCalledWith('logout', expect.any(Function));
   });
 
   test('resolves after logout', async () => {
-    adapter.netlifyIdentity.logout.mockImplementation(() => {
-      const logoutCallback = adapter.netlifyIdentity.on.mock.calls.find(c => c[0] === 'logout')[1];
-      logoutCallback();
-    });
+    adapter.netlifyIdentity.logout.mockImplementation(() => emitLogout());
     const result = await adapter.logout();
     expect(result).toBeUndefined();
   });
+
+  test('suppresses the provider event for a reauthentication logout', async () => {
+    const appLogout = jest.fn();
+    adapter.on('logout', appLogout);
+    adapter.netlifyIdentity.logout.mockImplementation(() => emitLogout());
+
+    await adapter.logout({ suppressProviderEvent: true });
+
+    expect(appLogout).not.toHaveBeenCalled();
+    const appHandler = adapter._logoutHandlerWrappers.get(appLogout);
+    appHandler();
+    expect(appLogout).toHaveBeenCalledTimes(1);
+  });
+
+  test('serializes an explicit logout behind a delayed reauthentication logout', async () => {
+    let emitDelayedLogout;
+    adapter.netlifyIdentity.logout
+      .mockImplementationOnce(() => {
+        emitDelayedLogout = emitLogout;
+      })
+      .mockImplementationOnce(() => emitLogout());
+
+    const reauthentication = adapter.logout({ suppressProviderEvent: true });
+    await Promise.resolve();
+    const explicitLogout = adapter.logout();
+    await Promise.resolve();
+
+    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(1);
+
+    emitDelayedLogout();
+    await reauthentication;
+    await explicitLogout;
+
+    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
+  });
+
+  test('aborting a stalled logout releases the queue and does not suppress its late event', async () => {
+    const appLogout = jest.fn();
+    const controller = new AbortController();
+    adapter.on('logout', appLogout);
+    adapter.netlifyIdentity.logout
+      .mockImplementationOnce(() => {})
+      .mockImplementationOnce(() => emitLogout());
+
+    const stalledLogout = adapter.logout({
+      suppressProviderEvent: true,
+      signal: controller.signal,
+    });
+    await Promise.resolve();
+    controller.abort();
+
+    await expect(stalledLogout).rejects.toMatchObject({ name: 'AbortError' });
+    emitLogout();
+    expect(appLogout).toHaveBeenCalledTimes(1);
+
+    await adapter.logout();
+    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
+  });
+
 });
 
 describe('NetlifyIdentityAdapter - on() after init', () => {
@@ -647,7 +735,8 @@ describe('NetlifyIdentityAdapter - on() after init', () => {
     adapter.on('logout', callback2);
     
     expect(adapter.netlifyIdentity.on).toHaveBeenCalledWith('login', callback1);
-    expect(adapter.netlifyIdentity.on).toHaveBeenCalledWith('logout', callback2);
+    const logoutHandler = adapter._logoutHandlerWrappers.get(callback2);
+    expect(adapter.netlifyIdentity.on).toHaveBeenCalledWith('logout', logoutHandler);
   });
 });
 

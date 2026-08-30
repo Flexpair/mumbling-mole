@@ -21,7 +21,7 @@ export const useUserStore = defineStore('user', () => {
   const selfDeaf = ref(false);
   
   // Use extracted voice stream logic
-  const { handleVoiceStream } = useUserVoiceStream({
+  const { handleVoiceStream, cleanupVoiceStream } = useUserVoiceStream({
     audioStore,
     voiceStore,
     settingsStore,
@@ -54,12 +54,27 @@ export const useUserStore = defineStore('user', () => {
    * Register a user with minimal UI wrapper
    * @param {object} user - User model from mumble-client
    */
-  function registerUser(user) {
+  const registeredUsers = new Set();
+
+  function unregisterUser(user) {
+    const listeners = user.__uiListeners;
+    if (!listeners) return;
+    for (const [event, listener] of Object.entries(listeners)) {
+      user.removeListener(event, listener);
+    }
+    if (user.__uiListeners === listeners) delete user.__uiListeners;
+    registeredUsers.delete(user);
+    cleanupVoiceStream(user.session);
+  }
+
+  function registerUser(user, isCurrent = () => true) {
+    unregisterUser(user);
     if (user.__ui) {
       delete user.__ui;
     }
 
     const syncServerState = (serverState) => {
+      if (!isCurrent()) return;
       debugLog('[SERVER-STATE-SYNC] Received server state:', serverState);
       debugLog('[SERVER-STATE-SYNC] Current UI state:', { selfMute: selfMute.value, selfDeaf: selfDeaf.value });
       
@@ -73,13 +88,6 @@ export const useUserStore = defineStore('user', () => {
       debugLog('[SERVER-STATE-SYNC] UI synchronized to:', { selfMute: selfMute.value, selfDeaf: selfDeaf.value });
     };
     
-    if (user.__syncServerState) {
-      user.off('server-state-sync', user.__syncServerState);
-    }
-    
-    user.__syncServerState = syncServerState;
-    user.on('server-state-sync', syncServerState);
-    
     let ui = (user.__ui = markRaw({
       model: user,
       name: ref(user.username),
@@ -89,9 +97,17 @@ export const useUserStore = defineStore('user', () => {
       talking: ref('off'),
     }));
     
-    user.on('update', (actor, properties) => handleUserUpdate(user, ui, properties));
-
-    user.on('voice', (stream) => handleVoiceStream(user, ui, stream));
+    const update = (actor, properties) => {
+      if (isCurrent()) handleUserUpdate(user, ui, properties);
+    };
+    const voice = (stream) => {
+      if (isCurrent()) return handleVoiceStream(user, ui, stream, isCurrent);
+    };
+    user.__uiListeners = { 'server-state-sync': syncServerState, update, voice };
+    registeredUsers.add(user);
+    for (const [event, listener] of Object.entries(user.__uiListeners)) {
+      user.on(event, listener);
+    }
   }
   
   function requestMute(user) {
@@ -149,6 +165,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function reset() {
+    for (const user of registeredUsers) unregisterUser(user);
     thisUser.value = null;
     selfMute.value = false;
     selfDeaf.value = false;

@@ -133,6 +133,8 @@ import { useUserStore } from '../stores/userStore';
 import { useAudioStore } from '../stores/audioStore';
 import { useUIStore } from '../stores/uiStore';
 import { useVoiceStore } from '../stores/voiceStore';
+import { useConnectionStore } from '../stores/connectionStore';
+import { logoutSession } from '../composables/useAuthLogout';
 import { translate } from '../localize';
 import MessageConfirmation from './MessageConfirmation.vue';
 import packageJson from '../../package.json';
@@ -141,6 +143,7 @@ const userStore = useUserStore();
 const audioStore = useAudioStore();
 const uiStore = useUIStore();
 const voiceStore = useVoiceStore();
+const connectionStore = useConnectionStore();
 
 // Inject auth for logout
 const auth = inject('auth');
@@ -216,12 +219,15 @@ const handleSourceCodeClick = () => {
 };
 
 const handleLogoutClick = async () => {
-  // Clear cached credentials before logout
-  const { clearCredentials } = await import('../auth/credentials-service.js');
-  clearCredentials();
-  
-  auth.logout();
-  location.reload();
+  await logoutSession({
+    auth,
+    uiStore,
+    audioStore,
+    voiceStore,
+    connectionStore,
+    userStore,
+    dialogStore: null,
+  });
 };
 </script>
 

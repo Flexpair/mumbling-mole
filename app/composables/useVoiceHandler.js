@@ -2,7 +2,6 @@ import {
   ContinuousVoiceHandler,
   PushToTalkVoiceHandler,
   initVoice,
-  onAudioMixerReady,
 } from '../audio/voice';
 import { translate } from '../localize';
 import { debugLog } from '../utils/debug-utils';
@@ -14,12 +13,48 @@ import { debugLog } from '../utils/debug-utils';
  * @param {Function} onMixerReady - Optional callback when audio mixer becomes ready
  */
 export function initVoiceInput(onData, onError, onMixerReady) {
-  initVoice(onData, onError);
+  let settled = false;
+  let resolveReady;
+  let rejectReady;
+  const ready = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+  const stopVoice = initVoice(
+    onData,
+    (error) => {
+      if (!settled) {
+        settled = true;
+        rejectReady(error);
+      }
+      onError(error);
+    },
+    (mixer) => {
+      if (settled) return;
+      try {
+        onMixerReady?.(mixer);
+        settled = true;
+        resolveReady();
+      } catch (error) {
+        settled = true;
+        rejectReady(error);
+        onError(error);
+      }
+    }
+  );
   
-  // Register for mixer ready notification if callback provided
-  if (onMixerReady) {
-    onAudioMixerReady(onMixerReady);
-  }
+  return {
+    ready,
+    stop() {
+      if (!settled) {
+        const error = new Error('Voice capture cancelled');
+        error.code = 'VOICE_CAPTURE_CANCELLED';
+        settled = true;
+        rejectReady(error);
+      }
+      stopVoice?.();
+    },
+  };
 }
 
 /**

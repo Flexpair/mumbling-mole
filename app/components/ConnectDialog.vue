@@ -140,9 +140,11 @@ import { storeToRefs } from 'pinia';
 import { useAudioStore } from '../stores/audioStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
-import { useUIStore } from '../stores/uiStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
+import { useConnectionStore } from '../stores/connectionStore';
+import { logoutSession } from '../composables/useAuthLogout';
+import { useUIStore } from '../stores/uiStore';
 import { announceToScreenReader } from '../composables/useAccessibility';
 
 /**
@@ -160,6 +162,8 @@ const auth = inject('auth');
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const userStore = useUserStore();
+const connectionStore = useConnectionStore();
+const uiStore = useUIStore();
 const dialogStore = useDialogStore();
 
 // Composables (for connection logic only)
@@ -240,41 +244,9 @@ onUnmounted(() => {
  * Handle form submission (Connect button)
  */
 async function handleConnect() {
-  // If in test mode and connected: exit test mode and switch to normal mode
-  if (isTestActive.value && connected.value) {
-    isTestActive.value = false;
-    voiceStore.isLoopbackMode = false;
-    
-    // Update voice handler to switch from loopback (target=31) to normal (target=0)
-    connectionLogic.updateVoiceHandler();
-    
-    // Setup and show Guacamole frame when exiting test mode
-    const uiStore = useUIStore();
-    if (uiStore.guacamoleFrame) {
-      // Get user roles to determine Guacamole access
-      const user_roles = (auth?.currentUser()?.app_metadata?.roles) || [];
-      const guac_login = connectionLogic.getGuacamoleLogin(user_roles);
-      
-      if (guac_login) {
-        uiStore.guacamoleFrame.start(guac_login, password.value);
-        uiStore.guacamoleFrame.show();
-      } else {
-        alert('For visual access please ask your administrator.');
-      }
-    }
-    
-    // Close dialog when switching from test to normal mode
-    visible.value = false;
-    return;
-  }
-  
-  // Normal connection flow (not in test mode)
-  if (!isTestActive.value) {
-    // Hide dialog before connecting
-    visible.value = false;
-    
-    await connectionLogic.connect(address.value, port.value, username.value, password.value);
-  }
+  isTestActive.value = false;
+  visible.value = false;
+  await connectionLogic.connect(address.value, port.value, username.value, password.value);
 }
 
 /**
@@ -331,15 +303,15 @@ function handleHide() {
 }
 
 async function handleLogout() {
-  try {
-    const { clearCredentials } = await import('../auth/credentials-service.js');
-    clearCredentials();
-    await auth.logout();
-  } catch (error) {
-    console.error('[ConnectDialog Vue] Logout failed', error);
-  } finally {
-    location.reload();
-  }
+  await logoutSession({
+    auth,
+    uiStore,
+    audioStore,
+    voiceStore,
+    connectionStore,
+    userStore,
+    dialogStore,
+  });
 }
 
 // Note: Escape key is intentionally disabled for Connect Dialog

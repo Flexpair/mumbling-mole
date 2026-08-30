@@ -21,6 +21,13 @@
 let cachedCredentials = null;
 
 /**
+ * Token associated with the cached credentials. Credentials must not be
+ * reused across authenticated sessions.
+ * @type {string|null}
+ */
+let cachedToken = null;
+
+/**
  * Cache timestamp for TTL-based invalidation
  * @type {number|null}
  */
@@ -36,6 +43,17 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
  * @type {Promise<ServerCredentials>|null}
  */
 let pendingRequest = null;
+/** @type {string|null} */
+let pendingToken = null;
+let requestGeneration = 0;
+
+class SupersededCredentialsRequestError extends Error {
+  constructor() {
+    super('Credentials request superseded by a newer authentication session');
+    this.name = 'SupersededCredentialsRequestError';
+    this.code = 'CREDENTIALS_REQUEST_SUPERSEDED';
+  }
+}
 
 /**
  * Check if cache has expired
@@ -65,8 +83,10 @@ async function _fetchCredentialsFromServer(token) {
   }
 
   const credentials = await response.json();
-  cachedCredentials = credentials;
-  cacheTimestamp = Date.now();
+  const requiredFields = ['mumblePassword', 'guacamoleUser', 'guacamolePassword'];
+  if (!credentials || requiredFields.some(field => typeof credentials[field] !== 'string' || !credentials[field])) {
+    throw new Error('Credentials response is incomplete');
+  }
   return credentials;
 }
 
@@ -86,35 +106,65 @@ export async function fetchCredentials(token, { forceRefresh = false } = {}) {
   }
 
   // Return cached credentials if available, not expired, and not forcing refresh
-  if (cachedCredentials && !isCacheExpired() && !forceRefresh) {
+  if (cachedCredentials && cachedToken === token && !isCacheExpired() && !forceRefresh) {
     return cachedCredentials;
   }
 
   // Prevent concurrent requests
-  if (pendingRequest !== null) {
+  if (pendingRequest !== null && pendingToken === token) {
     return pendingRequest;
   }
 
-  pendingRequest = _fetchCredentialsFromServer(token)
+  // A different authenticated session must not await the previous session's
+  // request. Invalidate its result so its caller cannot continue with stale
+  // Mumble or Guacamole credentials.
+  if (pendingRequest !== null && pendingToken !== token) {
+    requestGeneration += 1;
+  }
+
+  const requestToken = token;
+  const requestGenerationAtStart = requestGeneration;
+
+  const request = _fetchCredentialsFromServer(requestToken)
     .then(result => {
+      if (requestGenerationAtStart !== requestGeneration || pendingRequest !== request) {
+        throw new SupersededCredentialsRequestError();
+      }
+
+      cachedCredentials = result;
+      cachedToken = requestToken;
+      cacheTimestamp = Date.now();
       pendingRequest = null;
+      pendingToken = null;
       return result;
     })
     .catch(error => {
-      pendingRequest = null;
+      const superseded = requestGenerationAtStart !== requestGeneration || pendingRequest !== request;
+      if (pendingRequest === request) {
+        pendingRequest = null;
+        pendingToken = null;
+      }
+      if (superseded && error?.code !== 'CREDENTIALS_REQUEST_SUPERSEDED') {
+        throw new SupersededCredentialsRequestError();
+      }
       throw error;
     });
 
-  return pendingRequest;
+  pendingRequest = request;
+  pendingToken = requestToken;
+  return request;
 }
 
 /**
  * Clear cached credentials (e.g., on logout)
  */
 export function clearCredentials() {
+  requestGeneration += 1;
   cachedCredentials = null;
+  cachedToken = null;
   cacheTimestamp = null;
   pendingRequest = null;
+  pendingToken = null;
 }
 
 /**

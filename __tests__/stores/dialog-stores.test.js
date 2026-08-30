@@ -113,14 +113,14 @@ describe('useDialogStore', () => {
       expect(store.errorDialog.reason).toBe('');
     });
 
-    test('showErrorDialog() handles error without type (defaults to 0)', () => {
+    test('showErrorDialog() handles error without type as a generic setup failure', () => {
       const store = useDialogStore();
       
       const error = { reason: 'Some error' };
       store.showErrorDialog(error);
       
       expect(store.errorDialog.visible).toBe(true);
-      expect(store.errorDialog.type).toBe(0);
+      expect(store.errorDialog.type).toBe('generic');
       expect(store.errorDialog.reason).toBe('Some error');
     });
 
