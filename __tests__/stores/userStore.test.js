@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals';
 
+const watcherCleanups = [];
+
 // Mock Vue with working reactivity for this test
 jest.unstable_mockModule('vue', () => {
   const listeners = new Map();
@@ -73,7 +75,7 @@ jest.unstable_mockModule('vue', () => {
       const { get, set } = factory(() => {}, () => {});
       return { get value() { return get(); }, set value(v) { set(v); }, __v_isRef: true };
     },
-    onWatcherCleanup: () => {},
+    onWatcherCleanup: (callback) => watcherCleanups.push(callback),
   };
 });
 
@@ -182,7 +184,7 @@ function createMockClient() {
   return {
     dataStats: { mean: 200, variance: 25, n: 100 }, // High latency (200ms)
     on: jest.fn(),
-    off: jest.fn()
+    removeListener: jest.fn()
   };
 }
 
@@ -204,6 +206,7 @@ describe('useUserStore Jitter Buffer Calculation', () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
+    watcherCleanups.length = 0;
     
         // Reset settings store mock
     mockSettingsStore.jitterBufferSize = 3;
@@ -223,6 +226,15 @@ describe('useUserStore Jitter Buffer Calculation', () => {
     };
 
     userStore = useUserStore();
+  });
+
+  test('should detach the jitter listener through the supported EventEmitter API', () => {
+    const { thisUser } = storeToRefs(userStore);
+    thisUser.value = mockUIUser;
+
+    watcherCleanups.at(-1)();
+
+    expect(mockClient.removeListener).toHaveBeenCalledWith('dataPing', expect.any(Function));
   });
 
 

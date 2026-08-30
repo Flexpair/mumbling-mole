@@ -89,7 +89,7 @@ export function useUserVoiceStream({ audioStore, voiceStore, settingsStore, self
     // Cleanup runs automatically when watch re-runs or component unmounts
     onWatcherCleanup(() => {
       clearInterval(interval);
-      client.off('dataPing', recalculateJitterBuffer);
+      client.removeListener('dataPing', recalculateJitterBuffer);
     });
   });
 

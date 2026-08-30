@@ -165,7 +165,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function reset() {
-    for (const user of [...registeredUsers]) unregisterUser(user);
+    for (const user of registeredUsers) unregisterUser(user);
     thisUser.value = null;
     selfMute.value = false;
     selfDeaf.value = false;
