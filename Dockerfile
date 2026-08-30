@@ -110,12 +110,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Required for automated loopback frequency tests
 RUN npx playwright install-deps chromium
 
-# Grant sudo rights to node user (dev environment only)
-RUN echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/node \
-    && chmod 0440 /etc/sudoers.d/node
-
-RUN mkdir -p /home/node/.npm && chown -R node:node /home/node
-USER node
+# GitHub Codespaces' SSH broker targets its built-in `codespace` user.
+# Keep the existing home path so the development workspace remains unchanged.
+RUN usermod --login codespace node \
+    && groupmod --new-name codespace node \
+    && echo "codespace ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/codespace \
+    && chmod 0440 /etc/sudoers.d/codespace \
+    && mkdir -p /home/node/.npm \
+    && chown -R codespace:codespace /home/node
+USER codespace
 
 CMD ["bash", "-lc", "while :; do sleep 3600; done"]
 

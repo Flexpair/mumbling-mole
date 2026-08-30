@@ -32,7 +32,7 @@ services:
       context: ..              # Projektwurzel, enthält dein Dockerfile
       dockerfile: Dockerfile   # relativ zum context
       target: dev              # entspricht deinem Multi-Stage-Target
-    user: node
+    user: codespace
     init: true                 # ersetzt --init
     working_dir: /home/node
     volumes:
