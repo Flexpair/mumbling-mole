@@ -140,7 +140,8 @@ export function useUserVoiceStream({ audioStore, voiceStore, settingsStore, self
    * @param {object} ui - User UI object
    * @param {object} stream - Voice stream
    */
-  const handleVoiceStream = async (user, ui, stream) => {
+  const handleVoiceStream = async (user, ui, stream, isCurrent = () => true) => {
+    if (!isCurrent()) return;
     debugLog('[VOICE]', 'Voice stream received for user:', user.username, 'session:', user.session);
     
     const randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
@@ -156,6 +157,11 @@ export function useUserVoiceStream({ audioStore, voiceStore, settingsStore, self
       debugLog('[VOICE]', 'Initializing BufferQueueNode...');
       await userNode.initialize();
       debugLog('[VOICE]', '✅ BufferQueueNode initialized successfully');
+
+      if (!isCurrent()) {
+        userNode.end();
+        return;
+      }
       
       if (settingsStore.jitterBufferSize) {
          userNode.setJitterBufferSize(settingsStore.jitterBufferSize);
@@ -167,6 +173,11 @@ export function useUserVoiceStream({ audioStore, voiceStore, settingsStore, self
         message: err.message,
         stack: err.stack
       });
+      return;
+    }
+
+    if (!isCurrent()) {
+      userNode.end();
       return;
     }
     
@@ -215,6 +226,7 @@ export function useUserVoiceStream({ audioStore, voiceStore, settingsStore, self
 
     stream
       .on('data', (data) => {
+        if (!isCurrent()) return;
         debugLog('[VOICE]', 'Audio data received, target:', data.target);
         
         if (data.target === 'normal') {
@@ -231,6 +243,10 @@ export function useUserVoiceStream({ audioStore, voiceStore, settingsStore, self
         userNode.write(data.buffer);
       })
       .on('end', () => {
+        if (!isCurrent()) {
+          cleanupVoiceStream(streamId);
+          return;
+        }
         debugLog('[VOICE]', 'Voice stream ended for user:', user.username);
         ui.talking.value = 'off';
         

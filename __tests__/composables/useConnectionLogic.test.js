@@ -307,6 +307,38 @@ describe('useConnectionLogic', () => {
       expect(mockAuth.openAuth).not.toHaveBeenCalled();
     });
 
+    it('should not open stale reauthentication over a newer connection', async () => {
+      const staleLogout = deferred();
+      mockFetchCredentials
+        .mockRejectedValueOnce(new Error('Token expired'))
+        .mockResolvedValueOnce({
+          mumblePassword: 'current-password',
+          guacamoleUser: 'watcher',
+          guacamolePassword: 'current-guac-password',
+        });
+      mockLogoutForReauthentication.mockReturnValueOnce(staleLogout.promise);
+
+      const staleConnection = logic.connect('stale-host', 64738, 'stale-user', 'pass');
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      await useConnectionLogic({ auth: mockAuth })
+        .connect('current-host', 64738, 'current-user', 'pass');
+      staleLogout.resolve(true);
+      await staleConnection;
+
+      expect(mockAuth.openAuth).not.toHaveBeenCalled();
+      expect(mockConnectionStore.connect).toHaveBeenCalledTimes(1);
+      expect(mockConnectionStore.connect).toHaveBeenCalledWith(
+        'current-host',
+        64738,
+        'current-user',
+        'current-password',
+        []
+      );
+    });
+
     it('should initialize audio context if not present', async () => {
       mockAudioStore.audioContext = null;
 

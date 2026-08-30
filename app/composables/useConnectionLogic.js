@@ -99,7 +99,7 @@ export function useConnectionLogic({ auth } = {}) {
     if (!isConnectionAttemptCurrent(attempt)) return false;
     if (identity) return true;
 
-    await _requestLogin();
+    await _requestLogin({ attempt });
     return false;
   }
 
@@ -115,7 +115,7 @@ export function useConnectionLogic({ auth } = {}) {
     } catch (error) {
       if (!isConnectionAttemptCurrent(attempt) || isConnectionCancellation(error)) return null;
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
-      await _requestLogin({ logout: true });
+      await _requestLogin({ logout: true, attempt });
       return null;
     }
   }
@@ -295,20 +295,24 @@ export function useConnectionLogic({ auth } = {}) {
     }
   }
 
-  async function _requestLogin({ logout = false } = {}) {
+  async function _requestLogin({ logout = false, attempt } = {}) {
+    if (attempt && !isConnectionAttemptCurrent(attempt)) return;
     clearCredentials();
     _resetConnection();
+    const loginAttempt = beginConnectionAttempt();
     alert('Failed to authenticate. Please log in again.');
 
     if (logout) {
       try {
         if (!await logoutForReauthentication(auth)) return;
+        if (!isConnectionAttemptCurrent(loginAttempt)) return;
       } catch (error) {
         console.error('[useConnectionLogic] Failed to clear authentication session:', error);
       }
     }
 
     try {
+      if (!isConnectionAttemptCurrent(loginAttempt)) return;
       await auth.openAuth('login');
     } catch (error) {
       console.error('[useConnectionLogic] Failed to open authentication:', error);
@@ -327,11 +331,14 @@ export function useConnectionLogic({ auth } = {}) {
 
   function _initializeClientState(client, attempt) {
     connectionStore.registerChannel(client.root);
+    const isCurrent = () => (
+      isConnectionAttemptCurrent(attempt) && connectionStore.getClient() === client
+    );
     if (client.self) {
-      userStore.registerUser(client.self);
+      userStore.registerUser(client.self, isCurrent);
       userStore.thisUser = client.self.__ui;
     }
-    registerExistingUsers(client, userStore);
+    registerExistingUsers(client, userStore, isCurrent);
     _setupClientHandlers(client, attempt);
   }
 
@@ -350,7 +357,9 @@ export function useConnectionLogic({ auth } = {}) {
     // Register voice listeners for other users joining
     client.on('newUser', (user) => {
       if (!isConnectionAttemptCurrent(attempt)) return;
-      userStore.registerUser(user);
+      userStore.registerUser(user, () => (
+        isConnectionAttemptCurrent(attempt) && connectionStore.getClient() === client
+      ));
     });
     
     // Listen for messageSent event

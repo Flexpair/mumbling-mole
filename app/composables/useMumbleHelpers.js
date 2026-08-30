@@ -3,10 +3,10 @@
  * @param {Object} client
  * @param {Object} userStore
  */
-export function registerExistingUsers(client, userStore) {
+export function registerExistingUsers(client, userStore, isCurrent) {
   for (const user of client.users.values()) {
     if (user !== client.self) {
-      userStore.registerUser(user);
+      userStore.registerUser(user, isCurrent);
     }
   }
 }
