@@ -249,7 +249,7 @@ export function useConnectionLogic({ auth } = {}) {
       return;
     }
 
-    _initializeClientState(client);
+    _initializeClientState(client, attempt);
     _initializeAudio(client);
     await _initializeGuacamole(serverCredentials);
     if (!isConnectionAttemptCurrent(attempt)) return;
@@ -325,14 +325,14 @@ export function useConnectionLogic({ auth } = {}) {
     );
   }
 
-  function _initializeClientState(client) {
+  function _initializeClientState(client, attempt) {
     connectionStore.registerChannel(client.root);
     if (client.self) {
       userStore.registerUser(client.self);
       userStore.thisUser = client.self.__ui;
     }
     registerExistingUsers(client, userStore);
-    _setupClientHandlers(client);
+    _setupClientHandlers(client, attempt);
   }
 
   function _initializeAudio(client) {
@@ -346,14 +346,16 @@ export function useConnectionLogic({ auth } = {}) {
    * Setup minimal client event handlers
    * @private
    */
-  function _setupClientHandlers(client) {
+  function _setupClientHandlers(client, attempt) {
     // Register voice listeners for other users joining
     client.on('newUser', (user) => {
+      if (!isConnectionAttemptCurrent(attempt)) return;
       userStore.registerUser(user);
     });
     
     // Listen for messageSent event
     client.on('messageSent', (messageText) => {
+      if (!isConnectionAttemptCurrent(attempt)) return;
       if (_messageConfirmationTimer) {
         clearTimeout(_messageConfirmationTimer);
       }

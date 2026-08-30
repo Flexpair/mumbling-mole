@@ -534,6 +534,36 @@ describe('useConnectionLogic', () => {
       );
     });
 
+    it('should ignore queued client events after a replacement connection starts', async () => {
+      jest.useFakeTimers();
+      const staleClient = createClient('stale-user');
+      const currentClient = createClient('current-user');
+      mockConnectionStore.connect
+        .mockResolvedValueOnce(staleClient)
+        .mockResolvedValueOnce(currentClient);
+
+      try {
+        await logic.connect('stale-host', 64738, 'stale-user', 'pass');
+        const staleNewUserHandler = staleClient.on.mock.calls
+          .find(([eventName]) => eventName === 'newUser')[1];
+        const staleMessageHandler = staleClient.on.mock.calls
+          .find(([eventName]) => eventName === 'messageSent')[1];
+
+        await logic.connect('current-host', 64738, 'current-user', 'pass');
+        mockUserStore.registerUser.mockClear();
+        mockUIStore.messageConfirmed = false;
+
+        staleNewUserHandler({ session: 99, username: 'late-user' });
+        staleMessageHandler('late message');
+
+        expect(mockUserStore.registerUser).not.toHaveBeenCalled();
+        expect(mockUIStore.messageConfirmed).toBe(false);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('should ignore a stale unauthenticated session lookup after a newer connection succeeds', async () => {
       const staleIdentity = deferred();
       const staleAuth = {
