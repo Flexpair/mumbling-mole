@@ -273,6 +273,24 @@ describe('useConnectionLogic', () => {
       expect(mockAuth.openAuth).toHaveBeenCalledWith('login');
     });
 
+    it('should open login when provider logout never settles', async () => {
+      jest.useFakeTimers();
+      mockFetchCredentials.mockRejectedValue(new Error('Token expired'));
+      mockAuth.logout.mockReturnValue(new Promise(() => {}));
+
+      try {
+        const connection = logic.connect('host', 64738, 'user', 'pass');
+        await Promise.resolve();
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(1500);
+        await connection;
+
+        expect(mockAuth.openAuth).toHaveBeenCalledWith('login');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('should initialize audio context if not present', async () => {
       mockAudioStore.audioContext = null;
 

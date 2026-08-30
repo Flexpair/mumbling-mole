@@ -300,7 +300,10 @@ export function useConnectionLogic({ auth } = {}) {
 
     if (logout) {
       try {
-        await auth.logout();
+        await Promise.race([
+          auth.logout(),
+          new Promise(resolve => setTimeout(resolve, 1500)),
+        ]);
       } catch (error) {
         console.error('[useConnectionLogic] Failed to clear authentication session:', error);
       }
