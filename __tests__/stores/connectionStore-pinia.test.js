@@ -23,6 +23,7 @@ jest.unstable_mockModule('vue', () => ({
     get value() { return fn(); },
     __v_isRef: true 
   }),
+  toRaw: jest.fn((value) => value.__raw ?? value),
 }));
 
 // Mock Pinia
@@ -147,6 +148,19 @@ describe('connectionStore', () => {
       expect(mockConnector.connect).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ tokens: [] }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    it('should unwrap reactive token arrays before passing them to the worker connector', async () => {
+      const rawTokens = ['tok1', 'tok2'];
+      const reactiveTokens = { __raw: rawTokens };
+
+      await store.connect('host', 64738, 'user', 'pass', reactiveTokens);
+
+      expect(mockConnector.connect).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ tokens: rawTokens }),
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });

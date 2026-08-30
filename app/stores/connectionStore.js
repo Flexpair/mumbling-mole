@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, shallowRef, computed } from 'vue';
+import { ref, shallowRef, computed, toRaw } from 'vue';
 import { translate } from '../localize';
 import { buildWebSocketUrl } from '../utils/websocket-url';
 
@@ -90,7 +90,7 @@ export const useConnectionStore = defineStore('connection', () => {
       const newClient = await conn.connect(wsUrl, {
         username: username,
         password: password,
-        tokens: tokens,
+        tokens: toRaw(tokens),
       }, {
         signal: controller.signal,
       });
