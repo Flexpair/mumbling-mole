@@ -142,6 +142,9 @@ import { useVoiceStore } from '../stores/voiceStore';
 import { useUserStore } from '../stores/userStore';
 import { useDialogStore } from '../stores/dialogStore';
 import { useConnectionLogic } from '../composables/useConnectionLogic';
+import { useConnectionStore } from '../stores/connectionStore';
+import { logoutSession } from '../composables/useAuthLogout';
+import { useUIStore } from '../stores/uiStore';
 import { announceToScreenReader } from '../composables/useAccessibility';
 
 /**
@@ -159,6 +162,8 @@ const auth = inject('auth');
 const audioStore = useAudioStore();
 const voiceStore = useVoiceStore();
 const userStore = useUserStore();
+const connectionStore = useConnectionStore();
+const uiStore = useUIStore();
 const dialogStore = useDialogStore();
 
 // Composables (for connection logic only)
@@ -298,15 +303,15 @@ function handleHide() {
 }
 
 async function handleLogout() {
-  try {
-    const { clearCredentials } = await import('../auth/credentials-service.js');
-    clearCredentials();
-    await auth.logout();
-  } catch (error) {
-    console.error('[ConnectDialog Vue] Logout failed', error);
-  } finally {
-    location.reload();
-  }
+  await logoutSession({
+    auth,
+    uiStore,
+    audioStore,
+    voiceStore,
+    connectionStore,
+    userStore,
+    dialogStore,
+  });
 }
 
 // Note: Escape key is intentionally disabled for Connect Dialog

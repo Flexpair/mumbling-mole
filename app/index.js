@@ -21,6 +21,7 @@ import {
 import { resolveConnectAddress } from "./utils/connect-address.js";
 import { clearCredentials } from "./auth/credentials-service.js";
 import { invalidateConnectionAttempt } from "./composables/connectionAttempt.js";
+import { shouldHandleProviderLogout } from "./composables/useAuthLogout.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -208,6 +209,7 @@ function handleAuthLogin(user) {
 }
 
 function handleAuthLogout() {
+  if (!shouldHandleProviderLogout()) return;
   clearCredentials();
   resetAuthenticatedConnection();
   dialogStore.resetAll();

@@ -364,28 +364,29 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(indexContent).not.toContain('uiStore.guacamoleFrame?.hide?.();');
   });
 
-  test('VERIFICATION: toolbar clears local runtime before bounded provider logout', async () => {
+  test('VERIFICATION: shared logout clears local runtime before bounded provider logout', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
 
-    const toolbarPath = path.resolve(process.cwd(), 'app/components/Toolbar.vue');
-    const toolbarContent = await fs.readFile(toolbarPath, 'utf8');
-    const logoutHandler = toolbarContent.slice(
-      toolbarContent.indexOf('const handleLogoutClick'),
-      toolbarContent.indexOf('</script>')
-    );
+    const [logoutContent, toolbarContent, dialogContent] = await Promise.all([
+      fs.readFile(path.resolve(process.cwd(), 'app/composables/useAuthLogout.js'), 'utf8'),
+      fs.readFile(path.resolve(process.cwd(), 'app/components/Toolbar.vue'), 'utf8'),
+      fs.readFile(path.resolve(process.cwd(), 'app/components/ConnectDialog.vue'), 'utf8'),
+    ]);
 
-    const voiceResetIndex = logoutHandler.indexOf('voiceStore.reset();');
-    const disconnectIndex = logoutHandler.indexOf('connectionStore.disconnect();');
-    const providerLogoutIndex = logoutHandler.indexOf('auth.logout().catch');
-    const reloadIndex = logoutHandler.indexOf('location.reload();');
+    const clearCredentialsIndex = logoutContent.indexOf('clearCredentials();');
+    const resetSessionIndex = logoutContent.indexOf('resetSessionState(dependencies);');
+    const providerLogoutIndex = logoutContent.indexOf('dependencies.auth.logout()');
+    const reloadIndex = logoutContent.indexOf('reload();');
 
-    expect(voiceResetIndex).toBeGreaterThanOrEqual(0);
-    expect(disconnectIndex).toBeGreaterThan(voiceResetIndex);
-    expect(providerLogoutIndex).toBeGreaterThan(disconnectIndex);
+    expect(clearCredentialsIndex).toBeGreaterThanOrEqual(0);
+    expect(resetSessionIndex).toBeGreaterThan(clearCredentialsIndex);
+    expect(providerLogoutIndex).toBeGreaterThan(resetSessionIndex);
     expect(reloadIndex).toBeGreaterThan(providerLogoutIndex);
-    expect(logoutHandler).toContain('Promise.race');
-    expect(logoutHandler).toContain('setTimeout(resolve, 1500)');
+    expect(logoutContent).toContain('Promise.race');
+    expect(logoutContent).toContain('setTimeout(resolve, LOGOUT_TIMEOUT_MS)');
+    expect(toolbarContent).toContain('logoutSession({');
+    expect(dialogContent).toContain('logoutSession({');
   });
 
   test('VERIFICATION: a replacement login tears down the previous connection', async () => {

@@ -28,6 +28,7 @@ export const useVoiceStore = defineStore('voice', () => {
   function stopVoiceCapture() {
     stopVoiceInput?.();
     stopVoiceInput = null;
+    audioStore.resetBeeper();
   }
 
   /**

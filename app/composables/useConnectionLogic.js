@@ -14,6 +14,7 @@ import {
   invalidateConnectionAttempt,
   isConnectionAttemptCurrent,
 } from './connectionAttempt.js';
+import { logoutForReauthentication } from './useAuthLogout.js';
 
 const CONNECTION_CANCELLED_CODES = new Set([
   'CONNECTION_ATTEMPT_SUPERSEDED',
@@ -301,10 +302,7 @@ export function useConnectionLogic({ auth } = {}) {
 
     if (logout) {
       try {
-        await Promise.race([
-          auth.logout(),
-          new Promise(resolve => setTimeout(resolve, 1500)),
-        ]);
+        await logoutForReauthentication(auth);
       } catch (error) {
         console.error('[useConnectionLogic] Failed to clear authentication session:', error);
       }

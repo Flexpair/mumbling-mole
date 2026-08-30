@@ -46,6 +46,7 @@ jest.unstable_mockModule('pinia', () => ({
 // Mock audioStore
 const mockAudioStore = {
   activateAudioLock: jest.fn(),
+  resetBeeper: jest.fn(),
   resumeAudioContext: jest.fn().mockResolvedValue(undefined),
   loadAudioWorkletModule: jest.fn().mockResolvedValue(undefined),
   initializePersistentBeeper: jest.fn()

@@ -72,10 +72,10 @@ jest.unstable_mockModule('../../app/utils/debug-utils.js', () => ({
 
 // Mock promise-cache-utils
 jest.unstable_mockModule('../../app/utils/promise-cache-utils.js', () => ({
-  createCachedInitWithCheck: (check, init) => async () => {
+  createCachedInitWithCheck: (check, init) => async (...args) => {
     const existing = check();
     if (existing) return existing;
-    return init();
+    return init(...args);
   }
 }));
 
@@ -85,7 +85,9 @@ function createMockAudioContext(state = 'running') {
   const oscillator = {
     frequency: { setValueAtTime: jest.fn() },
     connect: jest.fn(),
+    disconnect: jest.fn(),
     start: jest.fn(),
+    stop: jest.fn(),
     type: ''
   };
   const gainNodes = [];
@@ -108,6 +110,7 @@ function createMockAudioContext(state = 'running') {
           exponentialRampToValueAtTime: jest.fn()
         },
         connect: jest.fn(),
+        disconnect: jest.fn(),
         context: audioContext
       };
       gainNodes.push(node);
@@ -407,6 +410,25 @@ describe('audioStore', () => {
   });
 
   describe('initializePersistentBeeper edge cases', () => {
+    test('recreates the beeper when the mixer changes', async () => {
+      const firstMixer = {};
+      const secondMixer = {};
+      const audioContext = createMockAudioContext();
+      mockGetCurrentMixer.mockReturnValue(firstMixer);
+      globalThis.audioContextManager = {
+        getAudioContext: jest.fn().mockResolvedValue(audioContext)
+      };
+
+      const firstBeeper = await store.initializePersistentBeeper();
+      mockGetCurrentMixer.mockReturnValue(secondMixer);
+      const secondBeeper = await store.initializePersistentBeeper();
+
+      expect(secondBeeper).not.toBe(firstBeeper);
+      expect(firstBeeper.oscillator.stop).toHaveBeenCalledTimes(1);
+      expect(firstBeeper.gain.disconnect).toHaveBeenCalledTimes(1);
+      expect(secondBeeper.gain.connect).toHaveBeenCalledWith(secondMixer);
+    });
+
     test('should return null when AudioContext is closed', async () => {
       mockGetCurrentMixer.mockReturnValue({});
       // Mock global audioContextManager

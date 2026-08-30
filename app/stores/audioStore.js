@@ -23,6 +23,28 @@ export const useAudioStore = defineStore('audio', () => {
   const isBeeping = ref(false);
   const beeperReady = ref(false);
   let _persistentBeeper = null;
+  let _persistentBeeperMixer = null;
+
+  function resetBeeper() {
+    const beeper = _persistentBeeper;
+    if (!beeper) {
+      beeperReady.value = false;
+      isBeeping.value = false;
+      return;
+    }
+    try {
+      beeper.oscillator.stop?.();
+    } catch (error) {
+      debugLog('[BEEP]', 'Persistent beeper was already stopped:', error);
+    }
+    for (const node of [beeper.oscillator, beeper.gain, beeper.localGain]) {
+      node?.disconnect?.();
+    }
+    _persistentBeeper = null;
+    _persistentBeeperMixer = null;
+    isBeeping.value = false;
+    beeperReady.value = false;
+  }
 
   // SYNC-WITH-MANAGER: Ensure store stays in sync with AudioContextManager singleton
   // This handles cases where AudioContext is initialized by other modules (e.g. voice.js)
@@ -143,11 +165,10 @@ export const useAudioStore = defineStore('audio', () => {
    * EVENT-BASED: No timeouts! This method is called when audio mixer becomes available.
    * RACE-SAFE: Multiple concurrent calls will reuse the same initialization.
    */
-  const initializePersistentBeeper = createCachedInitWithCheck(
-    () => _persistentBeeper,
-    async () => {
+  const createPersistentBeeper = createCachedInitWithCheck(
+    () => null,
+    async (mixer) => {
       // Check if mixer is available NOW (no waiting, no timeout)
-      const mixer = getCurrentMixer();
       if (!mixer) {
         debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
         beeperReady.value = false;
@@ -198,6 +219,7 @@ export const useAudioStore = defineStore('audio', () => {
           localGain: localGain,
           isPlaying: false
         };
+        _persistentBeeperMixer = mixer;
         
         beeperReady.value = true;
         return _persistentBeeper;
@@ -208,6 +230,15 @@ export const useAudioStore = defineStore('audio', () => {
       }
     }
   );
+
+  async function initializePersistentBeeper() {
+    const mixer = getCurrentMixer();
+    if (_persistentBeeper && _persistentBeeperMixer !== mixer) {
+      resetBeeper();
+    }
+    if (_persistentBeeper) return _persistentBeeper;
+    return createPersistentBeeper(mixer);
+  }
 
   /**
    * Start beeping
@@ -329,6 +360,7 @@ export const useAudioStore = defineStore('audio', () => {
     loadAudioWorkletModule,
     startBeep,
     stopBeep,
+    resetBeeper,
     initializePersistentBeeper,
     retryMicrophonePermission,
     notifyAudioLock,

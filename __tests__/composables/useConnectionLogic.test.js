@@ -68,6 +68,7 @@ const mockAudioStore = {
   micPermissionDenied: false,
   clearAudioLock: jest.fn(),
   stopBeep: jest.fn(),
+  resetBeeper: jest.fn(),
   beeperReady: false,
   initializePersistentBeeper: jest.fn().mockResolvedValue(null),
   audioLockActive: false,
@@ -168,9 +169,14 @@ jest.unstable_mockModule('../../app/auth/credentials-service.js', () => ({
 }));
 
 const mockStartGuacamoleFrame = jest.fn();
+const mockLogoutForReauthentication = jest.fn().mockResolvedValue(undefined);
 
 jest.unstable_mockModule('../../app/composables/useGuacamole.js', () => ({
   startGuacamoleFrame: mockStartGuacamoleFrame,
+}));
+
+jest.unstable_mockModule('../../app/composables/useAuthLogout.js', () => ({
+  logoutForReauthentication: mockLogoutForReauthentication,
 }));
 
 const { useConnectionLogic } = await import('../../app/composables/useConnectionLogic.js');
@@ -269,7 +275,7 @@ describe('useConnectionLogic', () => {
       expect(globalThis.alert).toHaveBeenCalledWith(
         'Failed to authenticate. Please log in again.'
       );
-      expect(mockAuth.logout).toHaveBeenCalled();
+      expect(mockLogoutForReauthentication).toHaveBeenCalledWith(mockAuth);
       expect(mockAuth.openAuth).toHaveBeenCalledWith('login');
     });
 

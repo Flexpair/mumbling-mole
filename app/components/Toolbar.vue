@@ -134,7 +134,7 @@ import { useAudioStore } from '../stores/audioStore';
 import { useUIStore } from '../stores/uiStore';
 import { useVoiceStore } from '../stores/voiceStore';
 import { useConnectionStore } from '../stores/connectionStore';
-import { invalidateConnectionAttempt } from '../composables/connectionAttempt';
+import { logoutSession } from '../composables/useAuthLogout';
 import { translate } from '../localize';
 import MessageConfirmation from './MessageConfirmation.vue';
 import packageJson from '../../package.json';
@@ -219,24 +219,15 @@ const handleSourceCodeClick = () => {
 };
 
 const handleLogoutClick = async () => {
-  // Clear cached credentials and invalidate the active runtime immediately.
-  const { clearCredentials } = await import('../auth/credentials-service.js');
-  clearCredentials();
-  invalidateConnectionAttempt();
-  uiStore.guacamoleFrame?.stop?.();
-  audioStore.stopBeep();
-  voiceStore.reset();
-  connectionStore.disconnect();
-  userStore.reset();
-
-  // Do not let an unresponsive provider logout keep stale app state alive.
-  await Promise.race([
-    auth.logout().catch((error) => {
-      console.error('[Auth] Logout failed:', error);
-    }),
-    new Promise(resolve => setTimeout(resolve, 1500)),
-  ]);
-  location.reload();
+  await logoutSession({
+    auth,
+    uiStore,
+    audioStore,
+    voiceStore,
+    connectionStore,
+    userStore,
+    dialogStore: null,
+  });
 };
 </script>
 
