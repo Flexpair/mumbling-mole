@@ -8,6 +8,7 @@ export const useConnectionStore = defineStore('connection', () => {
   
   // Lazy-loaded connector - only created when first connection is made
   let _connector = null;
+  let connectorInitialization = null;
   const connector = shallowRef(null);
   const client = shallowRef(null);
   let connectionGeneration = 0;
@@ -27,9 +28,12 @@ export const useConnectionStore = defineStore('connection', () => {
    */
   async function getConnector() {
     if (!_connector) {
-      const { default: WorkerBasedMumbleConnector } = await import('../worker-client');
-      _connector = new WorkerBasedMumbleConnector();
-      connector.value = _connector;
+      connectorInitialization ??= import('../worker-client').then(({ default: WorkerBasedMumbleConnector }) => {
+        _connector = new WorkerBasedMumbleConnector();
+        connector.value = _connector;
+        return _connector;
+      });
+      await connectorInitialization;
     }
     return _connector;
   }

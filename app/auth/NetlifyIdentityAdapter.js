@@ -223,10 +223,9 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @param {Object} [options]
    * @param {boolean} [options.suppressProviderEvent=false] - Suppress the provider event
    * that belongs to this logout operation
-   * @param {AbortSignal} [options.signal] - Abort waiting for the provider event
    * @returns {Promise<void>}
    */
-  async logout({ suppressProviderEvent = false, signal } = {}) {
+  async logout({ suppressProviderEvent = false } = {}) {
     const run = () => new Promise((resolve, reject) => {
       const operation = { suppressProviderEvent };
       let settled = false;
@@ -234,21 +233,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
         if (settled) return;
         settled = true;
         this.netlifyIdentity.off('logout', done);
-        signal?.removeEventListener('abort', abort);
         if (this._activeLogoutOperation === operation) this._activeLogoutOperation = null;
         if (error) reject(error);
         else resolve();
       };
       const done = () => finish();
-      const abort = () => finish(new DOMException('Logout aborted', 'AbortError'));
 
       this._activeLogoutOperation = operation;
       this.netlifyIdentity.on('logout', done);
-      if (signal?.aborted) {
-        abort();
-        return;
-      }
-      signal?.addEventListener('abort', abort, { once: true });
       try {
         Promise.resolve(this.netlifyIdentity.logout()).catch(finish);
       } catch (error) {

@@ -259,6 +259,7 @@ function stopCaptureTracks(capture) {
 }
 
 function disconnectCaptureNodes(capture) {
+  if (capture.node?.port) capture.node.port.onmessage = null;
   for (const [node, label] of [
     [capture.node, 'AudioWorkletNode'],
     [capture.mixer, 'mixer'],
@@ -286,7 +287,9 @@ function releaseCurrentMixer(capture) {
 
   capture.suspended = true;
   try {
-    audioContextManager.suspendAudioContext();
+    Promise.resolve(audioContextManager.suspendAudioContext()).catch(error_ => {
+      console.warn('[VOICE] Error suspending AudioContext:', error_);
+    });
   } catch (error_) {
     console.warn('[VOICE] Error suspending AudioContext:', error_);
   }
@@ -380,6 +383,7 @@ async function handleUserMediaSuccess(userMedia, onData, onUserMediaError, onRea
     // PCM-PIPELINE: Receive PCM frames from AudioWorklet and send to voice pipeline
     // Frame size: 960 samples @ 48kHz = 20ms (standard Mumble frame duration)
     node.port.onmessage = (ev) => {
+      if (capture.cancelled) return;
       if (ev.data?.type === "pcm" && ev.data.data) {
         const f32 = new Float32Array(ev.data.data);
         // NOTE: Debug logging removed - was using undefined 'this._isLoopbackMode'

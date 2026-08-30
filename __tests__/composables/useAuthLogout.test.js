@@ -100,7 +100,7 @@ describe('useAuthLogout', () => {
     jest.advanceTimersByTime(1500);
     await expect(logout).resolves.toBe(false);
 
-    expect(auth.logout.mock.calls[0][0].signal.aborted).toBe(true);
+    expect(auth.logout).toHaveBeenCalledWith({ suppressProviderEvent: false });
     expect(reload).toHaveBeenCalledTimes(1);
     expect(shouldHandleProviderLogout()).toBe(true);
     jest.useRealTimers();
@@ -114,10 +114,7 @@ describe('useAuthLogout', () => {
 
     await logoutForReauthentication(auth);
 
-    expect(auth.logout).toHaveBeenCalledWith({
-      suppressProviderEvent: true,
-      signal: expect.any(AbortSignal),
-    });
+    expect(auth.logout).toHaveBeenCalledWith({ suppressProviderEvent: true });
     expect(shouldHandleProviderLogout()).toBe(true);
   });
 

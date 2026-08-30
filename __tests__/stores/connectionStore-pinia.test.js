@@ -256,6 +256,19 @@ describe('connectionStore', () => {
       expect(store.client.value).toBe(secondClient);
       expect(store.remoteHost.value).toBe('second');
     });
+
+    it('should share connector initialization between concurrent first connections', async () => {
+      const { default: WorkerBasedMumbleConnector } = await import('../../app/worker-client.js');
+
+      const firstConnection = store.connect('first', 64738, 'first', 'pass');
+      const secondConnection = store.connect('second', 64738, 'second', 'pass');
+
+      await expect(firstConnection).rejects.toMatchObject({
+        code: 'CONNECTION_ATTEMPT_SUPERSEDED',
+      });
+      await expect(secondConnection).resolves.toBe(mockClient);
+      expect(WorkerBasedMumbleConnector).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('disconnect()', () => {
