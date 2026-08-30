@@ -103,6 +103,18 @@ describe('useAuthLogout', () => {
     jest.useRealTimers();
   });
 
+  test('uses provider-scoped suppression when the auth adapter supports it', async () => {
+    const auth = {
+      supportsLogoutEventSuppression: true,
+      logout: jest.fn().mockResolvedValue(undefined),
+    };
+
+    await logoutForReauthentication(auth);
+
+    expect(auth.logout).toHaveBeenCalledWith({ suppressProviderEvent: true });
+    expect(shouldHandleProviderLogout()).toBe(true);
+  });
+
   test('handles the next provider logout when reauthentication logout fails', async () => {
     const auth = { logout: jest.fn().mockRejectedValue(new Error('logout failed')) };
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});

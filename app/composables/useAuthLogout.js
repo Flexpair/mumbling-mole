@@ -51,12 +51,13 @@ export async function logoutSession(dependencies, reload = () => globalThis.loca
 }
 
 export async function logoutForReauthentication(auth) {
-  suppressNextProviderLogout = true;
+  const suppressProviderEvent = auth.supportsLogoutEventSuppression === true;
+  if (!suppressProviderEvent) suppressNextProviderLogout = true;
   let providerLogoutObserved = false;
   let timeoutId;
   try {
     await Promise.race([
-      Promise.resolve().then(() => auth.logout()).then(() => {
+      Promise.resolve().then(() => auth.logout({ suppressProviderEvent })).then(() => {
         providerLogoutObserved = true;
       }),
       new Promise(resolve => {
@@ -67,6 +68,6 @@ export async function logoutForReauthentication(auth) {
     console.error('[Auth] Reauthentication logout failed:', error);
   } finally {
     clearTimeout(timeoutId);
-    if (!providerLogoutObserved) suppressNextProviderLogout = false;
+    if (!suppressProviderEvent && !providerLogoutObserved) suppressNextProviderLogout = false;
   }
 }
