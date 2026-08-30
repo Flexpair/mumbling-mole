@@ -38,6 +38,7 @@
         loading="eager"
         allow="clipboard-read; clipboard-write"
         :aria-hidden="loading || !!error"
+        :tabindex="loading || !!error ? -1 : 0"
       ></iframe>
   </section>
 </template>

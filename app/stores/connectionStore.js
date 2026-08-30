@@ -28,11 +28,16 @@ export const useConnectionStore = defineStore('connection', () => {
    */
   async function getConnector() {
     if (!_connector) {
-      connectorInitialization ??= import('../worker-client').then(({ default: WorkerBasedMumbleConnector }) => {
-        _connector = new WorkerBasedMumbleConnector();
-        connector.value = _connector;
-        return _connector;
-      });
+      connectorInitialization ??= import('../worker-client')
+        .then(({ default: WorkerBasedMumbleConnector }) => {
+          _connector = new WorkerBasedMumbleConnector();
+          connector.value = _connector;
+          return _connector;
+        })
+        .catch(error => {
+          connectorInitialization = null;
+          throw error;
+        });
       await connectorInitialization;
     }
     return _connector;

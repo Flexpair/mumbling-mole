@@ -269,6 +269,20 @@ describe('connectionStore', () => {
       await expect(secondConnection).resolves.toBe(mockClient);
       expect(WorkerBasedMumbleConnector).toHaveBeenCalledTimes(1);
     });
+
+    it('should retry connector initialization after a transient failure', async () => {
+      const { default: WorkerBasedMumbleConnector } = await import('../../app/worker-client.js');
+      WorkerBasedMumbleConnector.mockImplementationOnce(() => {
+        throw new Error('Worker startup failed');
+      });
+
+      await expect(store.connect('first', 64738, 'first', 'pass'))
+        .rejects.toThrow('Worker startup failed');
+      await expect(store.connect('second', 64738, 'second', 'pass'))
+        .resolves.toBe(mockClient);
+
+      expect(WorkerBasedMumbleConnector).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('disconnect()', () => {

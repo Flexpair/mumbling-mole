@@ -285,6 +285,16 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(frameContent).not.toContain('loading="lazy"');
   });
 
+  it('should remove an unavailable Guacamole iframe from the tab order', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
+    const frameContent = await fs.readFile(framePath, 'utf-8');
+
+    expect(frameContent).toContain(':tabindex="loading || !!error ? -1 : 0"');
+  });
+
   test('VERIFICATION: Guacamole iframe focus waits for readiness and ARIA update', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
