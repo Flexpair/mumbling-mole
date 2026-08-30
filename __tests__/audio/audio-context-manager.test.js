@@ -76,6 +76,7 @@ describe('AudioContextManager', () => {
     audioContextManager.onSuspendCallbacks = [];
     audioContextManager.onResumeCallbacks = [];
     audioContextManager.suspendRequest = null;
+    audioContextManager.transitionRequest = Promise.resolve();
   });
 
   afterEach(() => {
@@ -157,6 +158,7 @@ describe('AudioContextManager', () => {
     const suspend = audioContextManager.suspendAudioContext();
     const resume = audioContextManager.resumeAudioContext();
     await Promise.resolve();
+    await Promise.resolve();
     expect(context.resume).not.toHaveBeenCalled();
 
     resolveSuspend();
@@ -181,6 +183,7 @@ describe('AudioContextManager', () => {
     const secondSuspend = audioContextManager.suspendAudioContext();
     const resume = audioContextManager.resumeAudioContext();
     await Promise.resolve();
+    await Promise.resolve();
 
     expect(context.suspend).toHaveBeenCalledTimes(1);
     expect(context.resume).not.toHaveBeenCalled();
@@ -189,6 +192,29 @@ describe('AudioContextManager', () => {
     await Promise.all([firstSuspend, secondSuspend, resume]);
     expect(context.resume).toHaveBeenCalledTimes(1);
     expect(context.state).toBe('running');
+  });
+
+  test('suspends after a pending resume completes', async () => {
+    const context = await audioContextManager.getAudioContext();
+    let resolveResume;
+    context.resume.mockImplementationOnce(() => new Promise(resolve => {
+      resolveResume = () => {
+        context.state = 'running';
+        resolve();
+      };
+    }));
+
+    const resume = audioContextManager.resumeAudioContext();
+    const suspend = audioContextManager.suspendAudioContext();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(context.suspend).not.toHaveBeenCalled();
+
+    resolveResume();
+    await Promise.all([resume, suspend]);
+    expect(context.suspend).toHaveBeenCalledTimes(1);
+    expect(context.state).toBe('suspended');
   });
 
   test('should detect user interaction and auto-resume', async () => {

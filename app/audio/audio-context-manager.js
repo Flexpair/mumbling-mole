@@ -21,6 +21,7 @@ class AudioContextManager {
   onSuspendCallbacks = [];
   onResumeCallbacks = [];
   suspendRequest = null;
+  transitionRequest = Promise.resolve();
 
   constructor() {
     this.setupUserInteractionDetection();
@@ -195,23 +196,11 @@ class AudioContextManager {
 
   // RESUME-LOGIC: Attempt to resume suspended AudioContext with retry logic
   // Uses exponential backoff to handle transient browser restrictions
-  async resumeAudioContext() {
-    if (this.suspendRequest) {
-      try {
-        await this.suspendRequest;
-      } catch {
-        return this.audioContext;
-      }
-    }
-
-    if (this.audioContext?.state !== 'suspended') {
-      return this.audioContext;
-    }
-
+  async resumeWithRetry(context) {
     try {
-      await this.audioContext.resume();
+      await context.resume();
       this.resumeAttempts = 0; // RESET-COUNTER: Reset on success for future resumes
-      return this.audioContext;
+      return context;
     } catch (error) {
       this.resumeAttempts++;
       console.warn('Failed to resume AudioContext (attempt %d):', this.resumeAttempts, error);
@@ -220,46 +209,51 @@ class AudioContextManager {
       // Handles browsers that need time before allowing resume
       if (this.resumeAttempts < AUDIO_CONFIG.MAX_RESUME_ATTEMPTS) {
         const delay = AUDIO_CONFIG.RESUME_RETRY_DELAY * Math.pow(2, this.resumeAttempts - 1);
-        
-        return new Promise((resolve, reject) => {
-          setTimeout(async () => {
-            try {
-              const result = await this.resumeAudioContext();
-              resolve(result);
-            } catch (retryError) {
-              reject(retryError);
-            }
-          }, delay);
-        });
-      } else {
-        console.error('Max resume attempts reached');
-        throw error;
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.resumeWithRetry(context);
       }
+
+      console.error('Max resume attempts reached');
+      throw error;
     }
+  }
+
+  resumeAudioContext() {
+    const resumeRequest = this.transitionRequest.catch(() => {}).then(() => {
+      if (this.audioContext?.state !== 'suspended') {
+        return this.audioContext;
+      }
+
+      return this.resumeWithRetry(this.audioContext);
+    });
+    this.transitionRequest = resumeRequest;
+    return resumeRequest;
   }
 
   /**
    * Suspend the audio context to save resources
    */
   async suspendAudioContext() {
-    if (this.suspendRequest) {
+    if (this.suspendRequest && this.transitionRequest === this.suspendRequest) {
       return this.suspendRequest;
     }
 
-    if (!this.audioContext || this.audioContext.state === 'suspended') {
-      return;
-    }
+    const suspendRequest = this.transitionRequest.catch(() => {}).then(async () => {
+      const context = this.audioContext;
+      if (!context || context.state === 'suspended') {
+        return;
+      }
 
-    const context = this.audioContext;
-    const suspendRequest = (async () => {
       try {
         await context.suspend();
       } catch (error) {
         console.error('Failed to suspend AudioContext:', error);
         throw error;
       }
-    })();
+    });
     this.suspendRequest = suspendRequest;
+    this.transitionRequest = suspendRequest;
 
     try {
       await suspendRequest;
