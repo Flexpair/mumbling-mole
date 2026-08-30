@@ -363,6 +363,7 @@ export function useConnectionLogic({ auth } = {}) {
       uiStore.messageConfirmed = true;
       
       _messageConfirmationTimer = setTimeout(() => {
+        if (!isConnectionAttemptCurrent(attempt)) return;
         uiStore.messageConfirmed = false;
         _messageConfirmationTimer = null;
       }, 2000);
