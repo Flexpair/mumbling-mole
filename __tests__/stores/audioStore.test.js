@@ -523,6 +523,35 @@ describe('audioStore', () => {
       expect(audioContext.gainNodes[1].gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 11.3);
       expect(store.isBeeping.value).toBe(false);
     });
+
+    test('discards an initialization that completes after the mixer changes', async () => {
+      let resolveAudioContext;
+      const firstContext = new Promise(resolve => {
+        resolveAudioContext = resolve;
+      });
+      const staleAudioContext = createMockAudioContext();
+      const currentAudioContext = createMockAudioContext();
+      const firstMixer = {};
+      const secondMixer = {};
+      mockGetCurrentMixer.mockReturnValueOnce(firstMixer).mockReturnValue(secondMixer);
+      globalThis.audioContextManager = {
+        getAudioContext: jest.fn()
+          .mockReturnValueOnce(firstContext)
+          .mockResolvedValueOnce(currentAudioContext)
+      };
+
+      const staleInitialization = store.initializePersistentBeeper();
+      const currentInitialization = store.initializePersistentBeeper();
+      resolveAudioContext(staleAudioContext);
+
+      await staleInitialization;
+      await currentInitialization;
+
+      expect(staleAudioContext.oscillator.start).not.toHaveBeenCalled();
+      expect(currentAudioContext.oscillator.start).toHaveBeenCalledTimes(1);
+      expect(currentAudioContext.gainNodes[0].connect).toHaveBeenCalledWith(secondMixer);
+      expect(store.beeperReady.value).toBe(true);
+    });
   });
 
   describe('stopBeep with playing beeper', () => {

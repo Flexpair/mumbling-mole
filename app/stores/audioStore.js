@@ -24,8 +24,12 @@ export const useAudioStore = defineStore('audio', () => {
   const beeperReady = ref(false);
   let _persistentBeeper = null;
   let _persistentBeeperMixer = null;
+  let beeperGeneration = 0;
+  let beeperInitialization = null;
 
   function resetBeeper() {
+    beeperGeneration += 1;
+    beeperInitialization = null;
     const beeper = _persistentBeeper;
     if (!beeper) {
       beeperReady.value = false;
@@ -159,45 +163,37 @@ export const useAudioStore = defineStore('audio', () => {
     micPermissionErrorMessage.value = '';
   }
 
-  /**
-   * Initialize persistent beeper for latency testing
-   * 
-   * EVENT-BASED: No timeouts! This method is called when audio mixer becomes available.
-   * RACE-SAFE: Multiple concurrent calls will reuse the same initialization.
-   */
-  const createPersistentBeeper = createCachedInitWithCheck(
-    () => null,
-    async (mixer) => {
-      // Check if mixer is available NOW (no waiting, no timeout)
-      if (!mixer) {
-        debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
-        beeperReady.value = false;
-        return null;
-      }
-      
-      const ac = await globalThis.audioContextManager.getAudioContext();
-      if (!ac) {
-        debugLog('[BEEP]', 'AudioContext not available');
-        beeperReady.value = false;
-        return null;
-      }
-      
-      // AUTOPLAY-POLICY: Allow beeper initialization even when AudioContext is suspended
-      // The Piano button click will resume the context via user gesture
-      // Only block if context is closed or in an error state
-      if (ac.state === 'closed') {
-        debugLog('[BEEP]', 'AudioContext is closed', { state: ac.state });
-        beeperReady.value = false;
-        return null;
-      }
-      
-      debugLog('[BEEP]', 'Initializing persistent beeper...', { state: ac.state });
-      
-      try {
-        // Create permanent oscillator with split output for local+remote playback
-        const oscillator = ac.createOscillator();
-        const beepGain = ac.createGain();
-        const localGain = ac.createGain();
+  async function createPersistentBeeper(mixer, generation) {
+    // Check if mixer is available NOW (no waiting, no timeout)
+    if (!mixer) {
+      debugLog('[BEEP]', 'Mixer not yet available, will retry when mixer is ready');
+      beeperReady.value = false;
+      return null;
+    }
+    const ac = await globalThis.audioContextManager.getAudioContext();
+    if (generation !== beeperGeneration) return null;
+    if (!ac) {
+      debugLog('[BEEP]', 'AudioContext not available');
+      beeperReady.value = false;
+      return null;
+    }
+
+    // AUTOPLAY-POLICY: Allow beeper initialization even when AudioContext is suspended
+    // The Piano button click will resume the context via user gesture
+    // Only block if context is closed or in an error state
+    if (ac.state === 'closed') {
+      debugLog('[BEEP]', 'AudioContext is closed', { state: ac.state });
+      beeperReady.value = false;
+      return null;
+    }
+
+    debugLog('[BEEP]', 'Initializing persistent beeper...', { state: ac.state });
+
+    try {
+      // Create permanent oscillator with split output for local+remote playback
+      const oscillator = ac.createOscillator();
+      const beepGain = ac.createGain();
+      const localGain = ac.createGain();
         
         oscillator.frequency.setValueAtTime(440, ac.currentTime);
         oscillator.type = 'sine';
@@ -212,6 +208,14 @@ export const useAudioStore = defineStore('audio', () => {
         localGain.connect(ac.destination);
         
         oscillator.start();
+
+        if (generation !== beeperGeneration) {
+          oscillator.stop();
+          oscillator.disconnect();
+          beepGain.disconnect();
+          localGain.disconnect();
+          return null;
+        }
         
         _persistentBeeper = {
           oscillator,
@@ -223,13 +227,12 @@ export const useAudioStore = defineStore('audio', () => {
         
         beeperReady.value = true;
         return _persistentBeeper;
-      } catch (err) {
-        console.error('[BEEP] Failed to initialize persistent beeper:', err);
-        beeperReady.value = false;
-        return null;
-      }
+    } catch (err) {
+      console.error('[BEEP] Failed to initialize persistent beeper:', err);
+      beeperReady.value = false;
+      return null;
     }
-  );
+  }
 
   async function initializePersistentBeeper() {
     const mixer = getCurrentMixer();
@@ -237,7 +240,14 @@ export const useAudioStore = defineStore('audio', () => {
       resetBeeper();
     }
     if (_persistentBeeper) return _persistentBeeper;
-    return createPersistentBeeper(mixer);
+
+    if (beeperInitialization?.mixer === mixer) return beeperInitialization.promise;
+    const generation = ++beeperGeneration;
+    const promise = createPersistentBeeper(mixer, generation).finally(() => {
+      if (beeperInitialization?.generation === generation) beeperInitialization = null;
+    });
+    beeperInitialization = { mixer, generation, promise };
+    return promise;
   }
 
   /**

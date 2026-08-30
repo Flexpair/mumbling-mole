@@ -52,12 +52,21 @@ export async function logoutSession(dependencies, reload = () => globalThis.loca
 
 export async function logoutForReauthentication(auth) {
   suppressNextProviderLogout = true;
+  let providerLogoutObserved = false;
+  let timeoutId;
   try {
     await Promise.race([
-      Promise.resolve().then(() => auth.logout()),
-      new Promise(resolve => setTimeout(resolve, LOGOUT_TIMEOUT_MS)),
+      Promise.resolve().then(() => auth.logout()).then(() => {
+        providerLogoutObserved = true;
+      }),
+      new Promise(resolve => {
+        timeoutId = setTimeout(resolve, LOGOUT_TIMEOUT_MS);
+      }),
     ]);
   } catch (error) {
     console.error('[Auth] Reauthentication logout failed:', error);
+  } finally {
+    clearTimeout(timeoutId);
+    if (!providerLogoutObserved) suppressNextProviderLogout = false;
   }
 }

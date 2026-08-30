@@ -89,4 +89,27 @@ describe('useAuthLogout', () => {
 
     expect(shouldHandleProviderLogout()).toBe(true);
   });
+
+  test('handles the next provider logout when reauthentication logout times out', async () => {
+    jest.useFakeTimers();
+    const auth = { logout: jest.fn(() => new Promise(() => {})) };
+
+    const logout = logoutForReauthentication(auth);
+    await Promise.resolve();
+    jest.advanceTimersByTime(1500);
+    await logout;
+
+    expect(shouldHandleProviderLogout()).toBe(true);
+    jest.useRealTimers();
+  });
+
+  test('handles the next provider logout when reauthentication logout fails', async () => {
+    const auth = { logout: jest.fn().mockRejectedValue(new Error('logout failed')) };
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await logoutForReauthentication(auth);
+
+    expect(shouldHandleProviderLogout()).toBe(true);
+    consoleError.mockRestore();
+  });
 });
