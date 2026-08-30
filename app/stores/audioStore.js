@@ -63,18 +63,7 @@ export const useAudioStore = defineStore('audio', () => {
 
       } catch (error) {
         console.error('Failed to initialize AudioContext:', error);
-        
-        // Fallback: Try legacy AudioContext creation
-        try {
-          const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
-          if (!AudioContextClass) {
-            throw new Error('AudioContext is not supported in this browser');
-          }
-          audioContext.value = new AudioContextClass({ latencyHint: 'interactive' });
-        } catch (fallbackError) {
-          console.error('Both managed and legacy AudioContext initialization failed:', fallbackError);
-          throw fallbackError;
-        }
+        throw error;
       }
       
       return audioContext.value;

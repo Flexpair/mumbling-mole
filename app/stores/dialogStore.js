@@ -28,8 +28,7 @@ export const useDialogStore = defineStore('dialog', () => {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Connect Error Dialog State
-  // Error types: 0=refused, 1=incompatible, 2=username rejected, 3=user pw wrong,
-  // 4=server pw wrong, 5=username in use, 6=full, 7=NoCert, 8=refused alt
+  // Error types: numeric Mumble Reject types; 'generic' for local setup failures
   // ═══════════════════════════════════════════════════════════════════════════
   const errorDialog = reactive({
     type: 0,
@@ -90,7 +89,7 @@ export const useDialogStore = defineStore('dialog', () => {
   // Error Dialog Actions
   function showErrorDialog(error, _connectionParams) {
     if (error) {
-      errorDialog.type = error.type ?? 0;
+      errorDialog.type = error.type ?? 'generic';
       errorDialog.reason = error.reason ?? error.message ?? '';
     }
     errorDialog.visible = true;

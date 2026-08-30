@@ -41,10 +41,17 @@
               <span v-if="type === 7" class="clientcert">
                 {{ translate('connectdialog.error.reason.clientcert') }}
               </span>
-              <br />
-              <span class="server"> {{ translate('connectdialog.error.reason.server') }} </span>
-              <br />
-              "<span class="connect-error-reason">{{ reason }}</span>"
+              <span v-if="type === 'generic'" class="generic">
+                {{ translate('connectdialog.error.reason.generic') }}
+              </span>
+              <template v-if="type !== 'generic'">
+                <br />
+                <span class="server"> {{ translate('connectdialog.error.reason.server') }} </span>
+                <br />
+              </template>
+              <span class="connect-error-reason">
+                {{ type !== 'generic' ? `"${reason}"` : reason }}
+              </span>
             </td>
           </tr>
           <tr v-if="type === 2 || type === 3 || type === 5">

@@ -19,6 +19,7 @@
         "username_in_use": "The user name you have chosen is already in use.",
         "full": "The server is full.",
         "clientcert": "The server requires you to provide a client certificate which is not supported by this web application.",
+        "generic": "The connection setup failed.",
         "server": "The server reports:"
       },
       "retry": "Retry",

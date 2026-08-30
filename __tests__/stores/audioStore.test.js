@@ -328,13 +328,13 @@ describe('audioStore', () => {
       expect(result).toBe(mockContext);
     });
 
-    test('should reject when managed and legacy initialization both fail', async () => {
+    test('should reject when managed initialization fails', async () => {
       mockEnsureAudioContext.mockRejectedValueOnce(new Error('Managed initialization failed'));
       delete globalThis.AudioContext;
       delete globalThis.webkitAudioContext;
 
       await expect(store.initializeAudioContext())
-        .rejects.toThrow('AudioContext is not supported in this browser');
+        .rejects.toThrow('Managed initialization failed');
       expect(store.audioContext.value).toBeNull();
     });
   });
