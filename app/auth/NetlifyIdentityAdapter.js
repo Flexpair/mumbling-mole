@@ -23,7 +23,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
     this._pendingHandlers = [];
     // Promise cache for _waitForWidget to prevent race conditions
     this._waitPromise = null;
-    this._logoutQueue = Promise.resolve();
+    this._logoutQueue = null;
     this._activeLogoutOperation = null;
     this._logoutHandlerWrappers = new Map();
     this.supportsLogoutEventSuppression = true;
@@ -248,7 +248,9 @@ class NetlifyIdentityAdapter extends AuthProvider {
       }
     });
 
-    const operation = this._logoutQueue.then(run, run);
+    const operation = this._logoutQueue
+      ? this._logoutQueue.then(run, run)
+      : run();
     this._logoutQueue = operation.catch(() => {});
     return operation;
   }
