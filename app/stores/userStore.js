@@ -60,7 +60,7 @@ export const useUserStore = defineStore('user', () => {
     const listeners = user.__uiListeners;
     if (!listeners) return;
     for (const [event, listener] of Object.entries(listeners)) {
-      user.off(event, listener);
+      user.removeListener(event, listener);
     }
     if (user.__uiListeners === listeners) delete user.__uiListeners;
     registeredUsers.delete(user);

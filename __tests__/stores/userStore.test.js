@@ -401,7 +401,7 @@ describe('useUserStore registerUser', () => {
       selfMute: false,
       selfDeaf: false,
       on: jest.fn(),
-      off: jest.fn()
+      removeListener: jest.fn()
     };
   });
 
@@ -430,7 +430,7 @@ describe('useUserStore registerUser', () => {
     
     userStore.registerUser(mockUser);
     
-    expect(mockUser.off).toHaveBeenCalledWith('server-state-sync', oldSyncFn);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('server-state-sync', oldSyncFn);
     expect(mockUser.__ui.old).toBeUndefined();
   });
 
@@ -523,9 +523,9 @@ describe('useUserStore registerUser', () => {
 
     userStore.reset();
 
-    expect(mockUser.off).toHaveBeenCalledWith('server-state-sync', listeners['server-state-sync']);
-    expect(mockUser.off).toHaveBeenCalledWith('update', listeners.update);
-    expect(mockUser.off).toHaveBeenCalledWith('voice', listeners.voice);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('server-state-sync', listeners['server-state-sync']);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('update', listeners.update);
+    expect(mockUser.removeListener).toHaveBeenCalledWith('voice', listeners.voice);
   });
 });
 
