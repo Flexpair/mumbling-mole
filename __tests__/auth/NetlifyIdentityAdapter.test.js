@@ -683,6 +683,29 @@ describe('NetlifyIdentityAdapter - logout()', () => {
 
     expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
   });
+
+  test('releases a suppressed logout operation when it is aborted', async () => {
+    const appLogout = jest.fn();
+    const controller = new AbortController();
+    adapter.on('logout', appLogout);
+    adapter.netlifyIdentity.logout
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockImplementationOnce(() => emitLogout());
+
+    const reauthentication = adapter.logout({
+      suppressProviderEvent: true,
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(reauthentication).rejects.toMatchObject({ name: 'AbortError' });
+    const appHandler = adapter._logoutHandlerWrappers.get(appLogout);
+    appHandler();
+    expect(appLogout).toHaveBeenCalledTimes(1);
+
+    await adapter.logout();
+    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('NetlifyIdentityAdapter - on() after init', () => {

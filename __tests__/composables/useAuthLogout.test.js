@@ -93,12 +93,15 @@ describe('useAuthLogout', () => {
   test('handles the next provider logout when reauthentication logout times out', async () => {
     jest.useFakeTimers();
     const auth = { logout: jest.fn(() => new Promise(() => {})) };
+    const reload = jest.fn();
 
-    const logout = logoutForReauthentication(auth);
+    const logout = logoutForReauthentication(auth, reload);
     await Promise.resolve();
     jest.advanceTimersByTime(1500);
-    await logout;
+    await expect(logout).resolves.toBe(false);
 
+    expect(auth.logout.mock.calls[0][0].signal.aborted).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(1);
     expect(shouldHandleProviderLogout()).toBe(true);
     jest.useRealTimers();
   });
@@ -111,7 +114,10 @@ describe('useAuthLogout', () => {
 
     await logoutForReauthentication(auth);
 
-    expect(auth.logout).toHaveBeenCalledWith({ suppressProviderEvent: true });
+    expect(auth.logout).toHaveBeenCalledWith({
+      suppressProviderEvent: true,
+      signal: expect.any(AbortSignal),
+    });
     expect(shouldHandleProviderLogout()).toBe(true);
   });
 

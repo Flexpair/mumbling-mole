@@ -302,7 +302,7 @@ export function useConnectionLogic({ auth } = {}) {
 
     if (logout) {
       try {
-        await logoutForReauthentication(auth);
+        if (!await logoutForReauthentication(auth)) return;
       } catch (error) {
         console.error('[useConnectionLogic] Failed to clear authentication session:', error);
       }

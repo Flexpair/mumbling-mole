@@ -188,6 +188,7 @@ describe('useConnectionLogic', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLogoutForReauthentication.mockResolvedValue(true);
     
     // Reset store state
     mockUserStore.thisUser = null;
@@ -295,6 +296,15 @@ describe('useConnectionLogic', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+
+    it('should not open login when reauthentication logout requires a reload', async () => {
+      mockFetchCredentials.mockRejectedValue(new Error('Token expired'));
+      mockLogoutForReauthentication.mockResolvedValueOnce(false);
+
+      await logic.connect('host', 64738, 'user', 'pass');
+
+      expect(mockAuth.openAuth).not.toHaveBeenCalled();
     });
 
     it('should initialize audio context if not present', async () => {
