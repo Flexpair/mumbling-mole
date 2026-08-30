@@ -59,14 +59,19 @@ export async function logoutForReauthentication(
   let providerLogoutObserved = false;
   let timedOut = false;
   let timeoutId;
+  const controller = new AbortController();
   try {
     await Promise.race([
-      Promise.resolve().then(() => auth.logout({ suppressProviderEvent })).then(() => {
+      Promise.resolve().then(() => auth.logout({
+        suppressProviderEvent,
+        signal: controller.signal,
+      })).then(() => {
         providerLogoutObserved = true;
       }),
       new Promise(resolve => {
         timeoutId = setTimeout(() => {
           timedOut = true;
+          controller.abort();
           resolve();
         }, LOGOUT_TIMEOUT_MS);
       }),

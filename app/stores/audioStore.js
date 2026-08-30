@@ -267,6 +267,7 @@ export const useAudioStore = defineStore('audio', () => {
     
     try {
       const beeper = _persistentBeeper;
+      const generation = beeperGeneration;
       const ac = beeper.gain.context;
       
       // AUTOPLAY-POLICY: Resume AudioContext if suspended (Piano button = user gesture)
@@ -275,6 +276,8 @@ export const useAudioStore = defineStore('audio', () => {
         await ac.resume();
         debugLog('[BEEP]', 'AudioContext resumed:', { state: ac.state });
       }
+
+      if (generation !== beeperGeneration || _persistentBeeper !== beeper) return;
       
       const currentTime = ac.currentTime;
       const attackTime = 0.005;

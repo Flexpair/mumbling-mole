@@ -508,6 +508,32 @@ describe('audioStore', () => {
       expect(store.isBeeping.value).toBe(true);
     });
 
+    test('does not start a beeper that was reset while the context resumed', async () => {
+      let resolveResume;
+      const audioContext = createMockAudioContext('suspended');
+      audioContext.resume.mockImplementation(() => new Promise(resolve => {
+        resolveResume = () => {
+          audioContext.state = 'running';
+          resolve();
+        };
+      }));
+      mockGetCurrentMixer.mockReturnValue({});
+      globalThis.audioContextManager = {
+        getAudioContext: jest.fn().mockResolvedValue(audioContext)
+      };
+
+      await store.initializePersistentBeeper();
+      const start = store.startBeep();
+      await Promise.resolve();
+      store.resetBeeper();
+      resolveResume();
+      await start;
+
+      expect(audioContext.gainNodes[0].gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+      expect(audioContext.gainNodes[1].gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+      expect(store.isBeeping.value).toBe(false);
+    });
+
     test('should stop initialized beeper with fade out', async () => {
       const audioContext = createMockAudioContext();
       mockGetCurrentMixer.mockReturnValue({});

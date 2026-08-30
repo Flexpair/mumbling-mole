@@ -684,6 +684,29 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
   });
 
+  test('aborting a stalled logout releases the queue and does not suppress its late event', async () => {
+    const appLogout = jest.fn();
+    const controller = new AbortController();
+    adapter.on('logout', appLogout);
+    adapter.netlifyIdentity.logout
+      .mockImplementationOnce(() => {})
+      .mockImplementationOnce(() => emitLogout());
+
+    const stalledLogout = adapter.logout({
+      suppressProviderEvent: true,
+      signal: controller.signal,
+    });
+    await Promise.resolve();
+    controller.abort();
+
+    await expect(stalledLogout).rejects.toMatchObject({ name: 'AbortError' });
+    emitLogout();
+    expect(appLogout).toHaveBeenCalledTimes(1);
+
+    await adapter.logout();
+    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
+  });
+
 });
 
 describe('NetlifyIdentityAdapter - on() after init', () => {
