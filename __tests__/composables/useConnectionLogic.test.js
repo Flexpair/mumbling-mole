@@ -629,6 +629,23 @@ describe('useConnectionLogic', () => {
       expect(mockVoiceStore.isLoopbackMode).toBe(true);
     });
 
+    it('should keep the audio test active while connecting', async () => {
+      const identity = deferred();
+      const pendingAuth = {
+        ...mockAuth,
+        getCurrentUser: jest.fn(() => identity.promise),
+      };
+      mockDialogStore.connectDialog.isTestActive = true;
+
+      const connection = useConnectionLogic({ auth: pendingAuth })
+        .connectLoopback('host', 64738, 'user', 'pass');
+
+      expect(mockDialogStore.connectDialog.isTestActive).toBe(true);
+
+      identity.resolve(null);
+      await connection;
+    });
+
     it('should skip sample rate check in loopback mode', async () => {
       mockAudioStore.audioContext = { sampleRate: 44100 };
       

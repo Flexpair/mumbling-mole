@@ -142,6 +142,7 @@ export function useConnectionLogic({ auth } = {}) {
   async function _setupConnection(params) {
     const { host, port, username, tokens = [], isLoopback = false } = params;
     _resetConnection();
+    dialogStore.connectDialog.isTestActive = isLoopback;
     const attempt = beginConnectionAttempt();
 
     // Auth check
