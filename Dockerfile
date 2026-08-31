@@ -117,6 +117,7 @@ RUN usermod --login codespace --home /home/codespace --move-home node \
     && chmod 0440 /etc/sudoers.d/codespace \
     && mkdir -p /home/codespace/.npm \
     && chown -R codespace:codespace /home/codespace
+WORKDIR /home/codespace
 USER codespace
 
 CMD ["bash", "-lc", "while :; do sleep 3600; done"]
