@@ -56,6 +56,8 @@
     "ws": "8.21.3"
   },
   "overrides": {
+    "browserslist": "4.28.8",
+    "baseline-browser-mapping": "2.11.20",
     "ws": "8.21.3",
     "magic-string": "0.30.10",
     "js-yaml": "4.3.1",
