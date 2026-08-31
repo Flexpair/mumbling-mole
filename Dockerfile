@@ -70,7 +70,7 @@ COPY --chown=node:node --chmod=755 ./ /home/node/
 USER node
 WORKDIR /home/node
 
-RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; else npm install; fi'
+RUN bash -lc 'if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi'
 
 # Pass GIT_COMMIT to build process
 ENV GIT_COMMIT=${GIT_COMMIT}
@@ -108,7 +108,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Playwright system dependencies for Chromium
 # Required for automated loopback frequency tests
-RUN npx playwright install-deps chromium
+RUN ./node_modules/.bin/playwright install-deps chromium
 
 # Grant sudo rights to node user (dev environment only)
 RUN echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/node \

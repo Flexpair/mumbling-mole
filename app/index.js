@@ -135,6 +135,16 @@ globalThis.mumbleUi = {
  * SECURITY: Password is no longer accepted from URL parameters.
  * It is fetched securely from the auth server after JWT validation.
  */
+function normalizeAllowedHosts(configuredHosts, hostname) {
+  if (Array.isArray(configuredHosts)) {
+    return configuredHosts;
+  }
+  if (configuredHosts) {
+    return [configuredHosts];
+  }
+  return [hostname];
+}
+
 function applyQueryParamsToConnectDialog() {
   const urlObj = new URL(document.location.href);
   let queryParams = Object.fromEntries(urlObj.searchParams.entries());
@@ -151,11 +161,7 @@ function applyQueryParamsToConnectDialog() {
   // config); coerce here so resolveConnectAddress()'s `.includes()` check is
   // always an array membership test, never a substring match.
   const configuredHosts = globalThis.mumbleWebConfig.allowedServerHosts;
-  const allowedHosts = Array.isArray(configuredHosts)
-    ? configuredHosts
-    : configuredHosts
-      ? [configuredHosts]
-      : [globalThis.location.hostname];
+  const allowedHosts = normalizeAllowedHosts(configuredHosts, globalThis.location.hostname);
   const addressFromQuery = urlObj.searchParams.get('address');
   const { address, rejected } = resolveConnectAddress(
     addressFromQuery,

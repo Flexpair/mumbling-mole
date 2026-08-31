@@ -48,7 +48,7 @@ describe('websocket-stream-lite', () => {
   it('should create stream from WebSocket URL', () => {
     const stream = websocketStream('wss://example.com');
     
-    expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com', undefined);
+    expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com/', undefined);
     expect(stream).toBeDefined();
     expect(stream.socket).toBe(mockSocket);
   });
@@ -69,13 +69,13 @@ describe('websocket-stream-lite', () => {
   it('should handle protocols parameter', () => {
     websocketStream('wss://example.com', ['proto1', 'proto2']);
     
-    expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com', ['proto1', 'proto2']);
+    expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com/', ['proto1', 'proto2']);
   });
 
   it('should handle options object as second parameter', () => {
     websocketStream('wss://example.com', { protocol: 'mumble' });
     
-    expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com', 'mumble');
+    expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com/', 'mumble');
   });
 
   it('should send data through write()', (done) => {

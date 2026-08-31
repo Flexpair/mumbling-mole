@@ -19,7 +19,7 @@ if [[ -f /tmp/entrypoint.pid ]]; then
         
         echo "⏳ Checking if server is ready..."
         for i in {1..10}; do
-            if curl -s http://localhost:8081 > /dev/null 2>&1; then
+            if curl -s http://localhost:8081 > /dev/null 2>&1; then # NOSONAR -- local development health check
                 echo "🎯 Server is ready!"
                 break
             fi
@@ -27,6 +27,7 @@ if [[ -f /tmp/entrypoint.pid ]]; then
         done
         
         echo "🌐 Opening browser..."
+        # NOSONAR -- local development URL intentionally uses HTTP
         "${BROWSER:-open}" "http://local.flexpair.app" > /dev/null 2>&1 &
         exit 0
     fi
@@ -49,7 +50,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     
     echo "⏳ Waiting for websockify..."
     for i in {1..30}; do
-        if curl -s "http://${CONTAINER_IP}:8081" > /dev/null 2>&1; then
+        if curl -s "http://${CONTAINER_IP}:8081" > /dev/null 2>&1; then # NOSONAR -- local container health check
             echo "🎯 Websockify ready!"
             break
         fi
@@ -58,7 +59,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     
     echo "⏳ Waiting for auth-server..."
     for _ in {1..10}; do
-        if curl -s "http://${CONTAINER_IP}:8082/api/health" > /dev/null 2>&1; then
+        if curl -s "http://${CONTAINER_IP}:8082/api/health" > /dev/null 2>&1; then # NOSONAR -- local container health check
             echo "🔐 Auth-server ready!"
             break
         fi
@@ -66,6 +67,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     done
     
     echo "🌐 Opening browser..."
+    # NOSONAR -- local development URL intentionally uses HTTP
     "${BROWSER:-open}" "http://local.flexpair.app" > /dev/null 2>&1 &
 else
     echo "❌ Dev server failed to start"

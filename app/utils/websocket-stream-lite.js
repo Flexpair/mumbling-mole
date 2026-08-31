@@ -26,7 +26,11 @@ export default function websocketStream(target, protocols, options) {
   if (typeof target === 'object' && target.send) {
     socket = target;
   } else {
-    socket = new WebSocket(target, protocols);
+    const targetUrl = new URL(target);
+    if (targetUrl.protocol !== 'ws:' && targetUrl.protocol !== 'wss:') {
+      throw new TypeError('WebSocket target must use ws: or wss:');
+    }
+    socket = new WebSocket(targetUrl.href, protocols);
     socket.binaryType = 'arraybuffer';
   }
 
