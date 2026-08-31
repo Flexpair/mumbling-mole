@@ -2,10 +2,10 @@
   "name": "App Dev (Compose, target=dev)",
   "dockerComposeFile": "docker-compose.yml",
   "service": "mumble",
-  "workspaceFolder": "/home/node",
-  "remoteUser": "node",
+  "workspaceFolder": "/workspaces/mumbling-mole",
+  "remoteUser": "codespace",
   "overrideCommand": true,
-  "postCreateCommand": "bash -lc 'cd /home/node && echo \"🔧 Fixing murmur data permissions...\" && chmod 777 .devcontainer/murmur_data && docker restart murmur 2>/dev/null || true && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true && echo \"🌐 Setting up nginx DNS...\" && (grep -q local.flexpair.app /etc/hosts || echo \"172.18.0.7 local.flexpair.app\" | sudo tee -a /etc/hosts)'",
+  "postCreateCommand": "bash -lc 'cd /workspaces/mumbling-mole && echo \"🔧 Fixing murmur data permissions...\" && chmod 777 .devcontainer/murmur_data && docker restart murmur 2>/dev/null || true && node -v && npm -v && npm ci && echo \"🎭 Installing Playwright browsers...\" && npx playwright install chromium && echo \"🚀 Initial build...\" && BUILD_MODE=development node build-esbuild.mjs && echo \"⚙️ Configuring gh CLI...\" && gh repo set-default Flexpair/mumbling-mole || true && echo \"🌐 Setting up nginx DNS...\" && (grep -q local.flexpair.app /etc/hosts || echo \"172.18.0.7 local.flexpair.app\" | sudo tee -a /etc/hosts)'",
   "postStartCommand": "./start-dev-server.sh",
   "portsAttributes": {
     "443": {
@@ -26,7 +26,8 @@
     }
   },
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker": {}
+    "ghcr.io/devcontainers/features/docker-outside-of-docker": {},
+    "ghcr.io/devcontainers/features/sshd:1": {}
   },
   "containerEnv": {
     "DOCKER_API_VERSION": "1.43"

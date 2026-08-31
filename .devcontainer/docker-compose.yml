@@ -32,11 +32,11 @@ services:
       context: ..              # Projektwurzel, enthält dein Dockerfile
       dockerfile: Dockerfile   # relativ zum context
       target: dev              # entspricht deinem Multi-Stage-Target
-    user: node
+    user: codespace
     init: true                 # ersetzt --init
-    working_dir: /home/node
+    working_dir: /workspaces/mumbling-mole
     volumes:
-      - ..:/home/node:cached   # entspricht workspaceMount + consistency=cached
+      - ..:/workspaces/mumbling-mole:cached
     networks:
       guacamole_net:
         ipv4_address: 172.18.0.6
