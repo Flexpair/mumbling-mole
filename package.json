@@ -43,7 +43,7 @@
     "esbuild": "0.28.2",
     "esbuild-plugin-vue3": "0.5.1",
     "esbuild-sass-plugin": "3.7.0",
-    "jest": "30.4.2",
+    "jest": "30.5.0",
     "jest-environment-jsdom": "30.4.1",
     "keyboardjs": "2.7.0",
     "libopus.js": "0.0.1",
