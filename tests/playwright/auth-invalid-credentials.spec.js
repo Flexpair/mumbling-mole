@@ -36,7 +36,7 @@ test.describe('Netlify Identity authentication', () => {
       }
     });
 
-    await page.goto('/', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     const { frame: loginFrame, iframe: identityIframe } = await findIdentityFrame(page);
     await loginFrame.getByRole('button', { name: 'Log in' }).first().click();
@@ -97,7 +97,7 @@ test.describe('Netlify Identity authentication', () => {
   });
 
   test('reopens login after closing the unauthenticated widget', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     const { frame: loginFrame } = await findIdentityFrame(page);
     await loginFrame.getByRole('button', { name: 'Log in' }).first().click();
