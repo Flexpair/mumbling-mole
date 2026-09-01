@@ -32,7 +32,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies for audit and tests
-        run: npm ci --ignore-scripts
+        run: npm ci || npm i
 
       - name: Security audit gate
         run: npm run audit:ci

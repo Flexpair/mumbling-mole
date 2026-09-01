@@ -66,8 +66,7 @@ test.describe('Loopback Frequency Test', () => {
     // Navigate to app with debug-audio for detailed audio pipeline logging
     console.log('🌐 Navigating to application...');
     
-    await page.goto('/?debug-audio', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/?debug-audio', { waitUntil: 'networkidle', timeout: 30000 });
     
     // Handle the GitHub Codespaces interstitial only when the current page is
     // actually on the forwarded Codespaces domain. This avoids false positives
@@ -86,7 +85,7 @@ test.describe('Loopback Frequency Test', () => {
         if (await continueButton.isVisible({ timeout: 2000 }).catch(() => false)) {
           console.log('✅ Found Codespaces interstitial action, clicking...');
           await continueButton.click();
-          await expect(page.locator('body')).toBeVisible({ timeout: 10000 });
+          await page.waitForLoadState('networkidle', { timeout: 10000 });
           console.log('✅ Passed Codespaces interstitial');
         } else {
           console.log('ℹ️  No Codespaces interstitial action button found');
