@@ -25,7 +25,6 @@
         title="Remote Desktop - Interactive session"
         loading="eager"
         allow="clipboard-read; clipboard-write"
-        tabindex="0"
       ></iframe>
   </section>
 </template>

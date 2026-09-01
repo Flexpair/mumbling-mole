@@ -292,7 +292,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
     const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
     const frameContent = await fs.readFile(framePath, 'utf-8');
 
-    expect(frameContent).toContain('tabindex="0"');
+    expect(frameContent).not.toContain('tabindex="0"');
     expect(frameContent).not.toContain('Loading remote desktop');
     expect(frameContent).not.toContain('waitForGuacamoleReady');
   });
