@@ -13,6 +13,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { registerAuthErrorHandler } from '../../app/auth/auth-error-handler.js';
 
 describe('UI Freeze Regression (3.16.1)', () => {
   let mockAudioContext;
@@ -350,17 +351,20 @@ describe('UI Freeze Regression (3.16.1)', () => {
   });
 
   test('VERIFICATION: failed authentication keeps the Netlify modal in control', async () => {
-    const fs = await import('node:fs/promises');
-    const path = await import('node:path');
-    const indexPath = path.join(process.cwd(), 'app', 'index.js');
-    const indexContent = await fs.readFile(indexPath, 'utf-8');
-    const authError = indexContent.slice(
-      indexContent.indexOf('function handleAuthError'),
-      indexContent.indexOf('/**\n * Check if a Netlify Identity token')
-    );
+    const errorHandler = jest.fn();
+    const auth = {
+      on: jest.fn((event, handler) => {
+        if (event === 'error') errorHandler.mockImplementation(handler);
+      }),
+    };
+    const dialogStore = { connectDialog: { visible: true } };
 
-    expect(authError).toContain('dialogStore.connectDialog.visible = false;');
-    expect(authError).not.toContain('dialogStore.connectDialog.visible = true;');
+    registerAuthErrorHandler(auth, dialogStore);
+
+    expect(auth.on).toHaveBeenCalledWith('error', expect.any(Function));
+    errorHandler(new Error('Invalid credentials'));
+
+    expect(dialogStore.connectDialog.visible).toBe(false);
   });
 
   test('VERIFICATION: auth reset unloads the Guacamole session', async () => {
