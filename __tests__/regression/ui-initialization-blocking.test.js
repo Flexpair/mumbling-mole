@@ -13,6 +13,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { registerAuthErrorHandler } from '../../app/auth/auth-error-handler.js';
 
 describe('UI Freeze Regression (3.16.1)', () => {
   let mockAudioContext;
@@ -337,9 +338,14 @@ describe('UI Freeze Regression (3.16.1)', () => {
 
     const indexPath = path.join(process.cwd(), 'app', 'index.js');
     const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const authCloseStart = indexContent.indexOf('async function handleAuthClose');
+    const authCloseEnd = indexContent.indexOf('/**\n * Check if a Netlify Identity token', authCloseStart);
+
+    expect(authCloseStart).toBeGreaterThanOrEqual(0);
+    expect(authCloseEnd).toBeGreaterThan(authCloseStart);
     const authClose = indexContent.slice(
-      indexContent.indexOf('async function handleAuthClose'),
-      indexContent.indexOf('/**\n * Handle authentication error event')
+      authCloseStart,
+      authCloseEnd
     );
 
     expect(indexContent).toContain('let authSessionGeneration = 0;');
@@ -347,6 +353,38 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(authClose).toContain('if (sessionGeneration !== authSessionGeneration) return;');
     expect(authClose).toContain("await auth.openAuth('login');");
     expect(authClose).toContain("console.warn('[Auth] Failed to read session after closing authentication:'");
+  });
+
+  test('VERIFICATION: failed authentication keeps the Netlify modal in control', async () => {
+    const errorHandler = jest.fn();
+    const auth = {
+      on: jest.fn((event, handler) => {
+        if (event === 'error') errorHandler.mockImplementation(handler);
+      }),
+    };
+    const dialogStore = { connectDialog: { visible: false } };
+
+    registerAuthErrorHandler(auth, dialogStore);
+
+    expect(auth.on).toHaveBeenCalledWith('error', expect.any(Function));
+    errorHandler(new Error('Invalid credentials'));
+
+    expect(dialogStore.connectDialog.visible).toBe(false);
+  });
+
+  test('VERIFICATION: generic provider errors preserve a visible Connect dialog', () => {
+    const errorHandler = jest.fn();
+    const auth = {
+      on: jest.fn((event, handler) => {
+        if (event === 'error') errorHandler.mockImplementation(handler);
+      }),
+    };
+    const dialogStore = { connectDialog: { visible: true } };
+
+    registerAuthErrorHandler(auth, dialogStore);
+    errorHandler(new Error('Background provider failure'));
+
+    expect(dialogStore.connectDialog.visible).toBe(true);
   });
 
   test('VERIFICATION: auth reset unloads the Guacamole session', async () => {

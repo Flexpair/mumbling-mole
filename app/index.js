@@ -22,6 +22,7 @@ import { resolveConnectAddress } from "./utils/connect-address.js";
 import { clearCredentials } from "./auth/credentials-service.js";
 import { invalidateConnectionAttempt } from "./composables/connectionAttempt.js";
 import { shouldHandleProviderLogout } from "./composables/useAuthLogout.js";
+import { registerAuthErrorHandler } from "./auth/auth-error-handler.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -250,16 +251,6 @@ async function handleAuthClose() {
 }
 
 /**
- * Handle authentication error event
- */
-function handleAuthError(err) {
-  console.warn("[Auth] Authentication error:", err);
-  if (!widgetHandlingToken) {
-    dialogStore.connectDialog.visible = true;
-  }
-}
-
-/**
  * Check if a Netlify Identity token is present — either still in the URL hash
  * or already stashed by the inline script in index.html.
  * @returns {boolean}
@@ -325,7 +316,7 @@ function initializeUI() {
   auth.on("login", handleAuthLogin);
   auth.on("logout", handleAuthLogout);
   auth.on("close", handleAuthClose);
-  auth.on("error", handleAuthError);
+  registerAuthErrorHandler(auth);
 
   // Initialize auth asynchronously (don't block UI)
   initializeAuth();
