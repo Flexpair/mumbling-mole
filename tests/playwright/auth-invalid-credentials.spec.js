@@ -46,13 +46,18 @@ test.describe('Netlify Identity authentication', () => {
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();
 
+    const waitForInvalidGrant = () => page.waitForResponse(
+      (response) => response.status() === 400 && response.url().includes('/token'),
+      { timeout: 15000 },
+    );
+
     const submitInvalidCredentials = async () => {
       await emailInput.fill(INVALID_EMAIL);
       await passwordInput.fill(INVALID_PASSWORD);
       await loginFrame.getByRole('button', { name: 'Log in' }).last().click();
     };
 
-    await submitInvalidCredentials();
+    await Promise.all([waitForInvalidGrant(), submitInvalidCredentials()]);
 
     const invalidCredentialsError = loginFrame.getByText(
       /No user found with that email, or password invalid/i,
@@ -67,14 +72,10 @@ test.describe('Netlify Identity authentication', () => {
     };
 
     await assertLoginOwnsTheHandoff();
-    await submitInvalidCredentials();
+    await Promise.all([waitForInvalidGrant(), submitInvalidCredentials()]);
     await expect(invalidCredentialsError).toBeVisible({ timeout: 15000 });
 
-    const observationDeadline = Date.now() + 2000;
-    while (Date.now() < observationDeadline) {
-      await assertLoginOwnsTheHandoff();
-      await page.waitForTimeout(100);
-    }
+    await assertLoginOwnsTheHandoff();
 
     expect(invalidGrantResponses).toBe(2);
 
@@ -105,8 +106,28 @@ test.describe('Netlify Identity authentication', () => {
     const emailInput = loginFrame.getByPlaceholder('Email');
     await expect(emailInput).toBeVisible();
 
+    await page.evaluate(() => {
+      if (typeof globalThis.netlifyIdentity?.on !== 'function') {
+        throw new Error('Netlify Identity event API is unavailable');
+      }
+
+      globalThis.__netlifyIdentityCloseEvents = 0;
+      globalThis.netlifyIdentity.on('close', () => {
+        globalThis.__netlifyIdentityCloseEvents += 1;
+      });
+    });
+
+    const closeEventsBeforeClick = await page.evaluate(
+      () => globalThis.__netlifyIdentityCloseEvents,
+    );
+
     await loginFrame.getByRole('button', { name: 'Close' }).click();
 
+    await page.waitForFunction(
+      (previousCount) => globalThis.__netlifyIdentityCloseEvents > previousCount,
+      closeEventsBeforeClick,
+      { timeout: 15000 },
+    );
     await expect(emailInput).toBeVisible({ timeout: 15000 });
     await expect(loginFrame.getByPlaceholder('Password')).toBeVisible();
     await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
