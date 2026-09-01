@@ -192,6 +192,7 @@ describe('useConnectionLogic', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockStartGuacamoleFrame.mockReset();
     mockLogoutForReauthentication.mockResolvedValue(true);
     
     // Reset store state
@@ -404,52 +405,31 @@ describe('useConnectionLogic', () => {
       );
     });
 
-    it('should roll back Mumble when Guacamole startup fails', async () => {
+    it('should keep Mumble connected when Guacamole startup throws', async () => {
       const guacamoleError = new Error('Remote desktop is not ready');
-      mockStartGuacamoleFrame.mockRejectedValueOnce(guacamoleError);
+      mockStartGuacamoleFrame.mockImplementationOnce(() => {
+        throw guacamoleError;
+      });
 
       await logic.connect('host', 64738, 'user', 'dialog-password');
 
       expect(mockConnectionStore.connect).toHaveBeenCalled();
-      expect(mockConnectionStore.disconnect).toHaveBeenCalled();
-      expect(mockDialogStore.showErrorDialog).toHaveBeenCalledWith(
-        guacamoleError,
-        expect.objectContaining({ host: 'host', port: 64738 })
-      );
+      expect(mockConnectionStore.disconnect).toHaveBeenCalledTimes(1);
+      expect(mockUserStore.thisUser).not.toBeNull();
+      expect(mockDialogStore.showErrorDialog).not.toHaveBeenCalled();
     });
 
-    it('should tear down Mumble and Guacamole when the auth session changes during remote desktop startup', async () => {
+    it('should not wait for Guacamole before completing the Mumble connection', async () => {
       const guacamoleStarted = deferred();
-      const guacamoleReady = deferred();
-      let guacamoleStartupActive = false;
-      const stopGuacamole = jest.fn(() => {
-        if (!guacamoleStartupActive) return;
-        guacamoleStartupActive = false;
-        const cancelled = new Error('Remote desktop startup was cancelled');
-        cancelled.code = 'GUACAMOLE_START_CANCELLED';
-        guacamoleReady.reject(cancelled);
-      });
-      mockUIStore.guacamoleFrame = { stop: stopGuacamole };
       mockStartGuacamoleFrame.mockImplementationOnce(() => {
-        guacamoleStartupActive = true;
         guacamoleStarted.resolve();
-        return guacamoleReady.promise;
+        return new Promise(() => {});
       });
-
       const connection = logic.connect('host', 64738, 'user', 'pass');
       await guacamoleStarted.promise;
-      expect(mockStartGuacamoleFrame).toHaveBeenCalledTimes(1);
-      const stopCallsBeforeReset = stopGuacamole.mock.calls.length;
-      const disconnectCallsBeforeReset = mockConnectionStore.disconnect.mock.calls.length;
-
-      logic.resetClient();
       await connection;
 
-      expect(stopGuacamole).toHaveBeenCalledTimes(stopCallsBeforeReset + 1);
-      expect(mockConnectionStore.disconnect)
-        .toHaveBeenCalledTimes(disconnectCallsBeforeReset + 1);
-      expect(mockUserStore.thisUser).toBeNull();
-      expect(mockDialogStore.showErrorDialog).not.toHaveBeenCalled();
+      expect(mockUserStore.thisUser).not.toBeNull();
     });
 
     it('should stop after credentials when the auth session changes', async () => {

@@ -285,28 +285,27 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(frameContent).not.toContain('loading="lazy"');
   });
 
-  it('should remove an unavailable Guacamole iframe from the tab order', async () => {
+  it('should not hide Guacamole behind a parent readiness state', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
 
     const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
     const frameContent = await fs.readFile(framePath, 'utf-8');
 
-    expect(frameContent).toContain(':tabindex="loading || !!error ? -1 : 0"');
+    expect(frameContent).toContain('tabindex="0"');
+    expect(frameContent).not.toContain('Loading remote desktop');
+    expect(frameContent).not.toContain('waitForGuacamoleReady');
   });
 
-  test('VERIFICATION: Guacamole iframe focus waits for readiness and ARIA update', async () => {
+  test('VERIFICATION: visible Guacamole iframe can receive focus independently', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
 
     const framePath = path.join(process.cwd(), 'app', 'components', 'GuacamoleFrame.vue');
     const frameContent = await fs.readFile(framePath, 'utf-8');
 
-    expect(frameContent).toContain('if (iframeRef.value && visible.value && !loading.value && !error.value)');
-    expect(frameContent).toContain('await nextTick();');
+    expect(frameContent).toContain('if (iframeRef.value && visible.value)');
     expect(frameContent).toContain('focusIframe();');
-    expect(frameContent).not.toContain('@load="handleLoad"');
-    expect(frameContent).not.toContain('function handleLoad()');
   });
 
   test('VERIFICATION: leaving audio test uses the authenticated connection pipeline', async () => {

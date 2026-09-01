@@ -19,7 +19,6 @@ import { logoutForReauthentication } from './useAuthLogout.js';
 const CONNECTION_CANCELLED_CODES = new Set([
   'CONNECTION_ATTEMPT_SUPERSEDED',
   'CREDENTIALS_REQUEST_SUPERSEDED',
-  'GUACAMOLE_START_CANCELLED',
   'VOICE_CAPTURE_CANCELLED',
 ]);
 
@@ -251,7 +250,7 @@ export function useConnectionLogic({ auth } = {}) {
 
     _initializeClientState(client, attempt);
     _initializeAudio(client);
-    await _initializeGuacamole(serverCredentials);
+    _initializeGuacamole(serverCredentials);
     if (!isConnectionAttemptCurrent(attempt)) return;
 
     const logKey = voiceStore.isLoopbackMode ? 'logentry.connected_loopback' : 'logentry.connected';
@@ -319,14 +318,18 @@ export function useConnectionLogic({ auth } = {}) {
     }
   }
 
-  async function _initializeGuacamole(serverCredentials) {
+  function _initializeGuacamole(serverCredentials) {
     if (voiceStore.isLoopbackMode) return;
 
-    await startGuacamoleFrame(
-      serverCredentials.guacamoleUser,
-      serverCredentials.guacamolePassword,
-      uiStore
-    );
+    try {
+      startGuacamoleFrame(
+        serverCredentials.guacamoleUser,
+        serverCredentials.guacamolePassword,
+        uiStore
+      );
+    } catch (error) {
+      console.error('[useConnectionLogic] Failed to start Guacamole frame:', error);
+    }
   }
 
   function _initializeClientState(client, attempt) {
