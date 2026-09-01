@@ -254,8 +254,11 @@ async function handleAuthClose() {
  */
 function handleAuthError(err) {
   console.warn("[Auth] Authentication error:", err);
+  // Keep the authentication modal active so Netlify Identity can display its
+  // inline credentials error. Showing Connect here makes an invalid login look
+  // like a successful handoff and forces the user through Connect first.
   if (!widgetHandlingToken) {
-    dialogStore.connectDialog.visible = true;
+    dialogStore.connectDialog.visible = false;
   }
 }
 

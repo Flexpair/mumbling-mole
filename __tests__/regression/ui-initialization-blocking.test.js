@@ -349,6 +349,20 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(authClose).toContain("console.warn('[Auth] Failed to read session after closing authentication:'");
   });
 
+  test('VERIFICATION: failed authentication keeps the Netlify modal in control', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const authError = indexContent.slice(
+      indexContent.indexOf('function handleAuthError'),
+      indexContent.indexOf('/**\n * Check if a Netlify Identity token')
+    );
+
+    expect(authError).toContain('dialogStore.connectDialog.visible = false;');
+    expect(authError).not.toContain('dialogStore.connectDialog.visible = true;');
+  });
+
   test('VERIFICATION: auth reset unloads the Guacamole session', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
