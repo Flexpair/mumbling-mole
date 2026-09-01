@@ -2,7 +2,8 @@
 set -euo pipefail
 
 echo "🔧 Starting dev server..."
-cd /home/node
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+cd "${SCRIPT_DIR}"
 
 echo "🛠️ Building development bundle..."
 if BUILD_MODE=development node build-esbuild.mjs 2>&1 | tail -10; then

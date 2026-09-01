@@ -7,8 +7,9 @@ AUTH_SERVER_PORT="${AUTH_SERVER_PORT:-8082}"
 CONTAINER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "0.0.0.0")
 HOST="${HOST:-${CONTAINER_IP:-0.0.0.0}}"
 AUTH_SERVER_HOST="${AUTH_SERVER_HOST:-0.0.0.0}"
-WEBROOT="/home/node/dist"
-AUTH_SERVER_DIR="/home/node/auth-server"
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+WEBROOT="${SCRIPT_DIR}/dist"
+AUTH_SERVER_DIR="${SCRIPT_DIR}/auth-server"
 
 # Track background process PIDs for cleanup
 AUTH_SERVER_PID=""
