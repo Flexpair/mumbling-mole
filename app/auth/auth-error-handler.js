@@ -1,18 +1,13 @@
 /**
- * Register the provider error handler that keeps failed login attempts inside
- * the authentication modal instead of handing control to the Connect dialog.
+ * Register the provider error handler without changing dialog ownership.
+ * Authentication and connection flows decide which dialog is visible.
  *
  * @param {{ on: Function }} auth - Authentication provider
- * @param {{ connectDialog: { visible: boolean } }} dialogStore - Dialog state
- * @param {() => boolean} isWidgetHandlingToken - Whether a token flow owns UI
  * @returns {Function} Registered error handler
  */
-export function registerAuthErrorHandler(auth, dialogStore, isWidgetHandlingToken = () => false) {
+export function registerAuthErrorHandler(auth) {
   const handleAuthError = (error) => {
     console.warn('[Auth] Authentication error:', error);
-    if (!isWidgetHandlingToken()) {
-      dialogStore.connectDialog.visible = false;
-    }
   };
 
   auth.on('error', handleAuthError);

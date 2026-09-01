@@ -316,7 +316,7 @@ function initializeUI() {
   auth.on("login", handleAuthLogin);
   auth.on("logout", handleAuthLogout);
   auth.on("close", handleAuthClose);
-  registerAuthErrorHandler(auth, dialogStore, () => widgetHandlingToken);
+  registerAuthErrorHandler(auth);
 
   // Initialize auth asynchronously (don't block UI)
   initializeAuth();

@@ -338,9 +338,14 @@ describe('UI Freeze Regression (3.16.1)', () => {
 
     const indexPath = path.join(process.cwd(), 'app', 'index.js');
     const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const authCloseStart = indexContent.indexOf('async function handleAuthClose');
+    const authCloseEnd = indexContent.indexOf('/**\n * Check if a Netlify Identity token', authCloseStart);
+
+    expect(authCloseStart).toBeGreaterThanOrEqual(0);
+    expect(authCloseEnd).toBeGreaterThan(authCloseStart);
     const authClose = indexContent.slice(
-      indexContent.indexOf('async function handleAuthClose'),
-      indexContent.indexOf('/**\n * Handle authentication error event')
+      authCloseStart,
+      authCloseEnd
     );
 
     expect(indexContent).toContain('let authSessionGeneration = 0;');
@@ -357,7 +362,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
         if (event === 'error') errorHandler.mockImplementation(handler);
       }),
     };
-    const dialogStore = { connectDialog: { visible: true } };
+    const dialogStore = { connectDialog: { visible: false } };
 
     registerAuthErrorHandler(auth, dialogStore);
 
@@ -365,6 +370,21 @@ describe('UI Freeze Regression (3.16.1)', () => {
     errorHandler(new Error('Invalid credentials'));
 
     expect(dialogStore.connectDialog.visible).toBe(false);
+  });
+
+  test('VERIFICATION: generic provider errors preserve a visible Connect dialog', () => {
+    const errorHandler = jest.fn();
+    const auth = {
+      on: jest.fn((event, handler) => {
+        if (event === 'error') errorHandler.mockImplementation(handler);
+      }),
+    };
+    const dialogStore = { connectDialog: { visible: true } };
+
+    registerAuthErrorHandler(auth, dialogStore);
+    errorHandler(new Error('Background provider failure'));
+
+    expect(dialogStore.connectDialog.visible).toBe(true);
   });
 
   test('VERIFICATION: auth reset unloads the Guacamole session', async () => {
