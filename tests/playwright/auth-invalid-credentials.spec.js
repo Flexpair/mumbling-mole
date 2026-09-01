@@ -95,4 +95,20 @@ test.describe('Netlify Identity authentication', () => {
 
     expect(overlayState).toEqual({ coversViewport: true, isTopmost: true });
   });
+
+  test('reopens login after closing the unauthenticated widget', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle', timeout: 30000 });
+
+    const { frame: loginFrame } = await findIdentityFrame(page);
+    await loginFrame.getByRole('button', { name: 'Log in' }).first().click();
+
+    const emailInput = loginFrame.getByPlaceholder('Email');
+    await expect(emailInput).toBeVisible();
+
+    await loginFrame.getByRole('button', { name: 'Close' }).click();
+
+    await expect(emailInput).toBeVisible({ timeout: 15000 });
+    await expect(loginFrame.getByPlaceholder('Password')).toBeVisible();
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
+  });
 });
