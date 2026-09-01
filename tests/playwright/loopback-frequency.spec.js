@@ -151,8 +151,21 @@ test.describe('Loopback Frequency Test', () => {
       console.log('🔑 Clicked Log in button');
       
       console.log('⏳ Waiting for login to complete...');
-      // Wait for the dialog inside iframe to disappear (successful login)
-      await expect(loginFrame.locator('dialog')).toBeHidden({ timeout: 15000 });
+      // The provider briefly hides its dialog while submitting, including when
+      // credentials are rejected. Only the application Connect dialog proves
+      // that the provider emitted a confirmed login event.
+      const connectDialog = page.locator('dialog.connect-dialog[open]');
+      const invalidCredentialsError = loginFrame.getByText(
+        /No user found with that email, or password invalid/i,
+      );
+      const authenticationResult = await Promise.race([
+        connectDialog.waitFor({ state: 'visible', timeout: 15000 })
+          .then(() => 'authenticated'),
+        invalidCredentialsError.waitFor({ state: 'visible', timeout: 15000 })
+          .then(() => 'invalid-credentials'),
+      ]);
+      expect(authenticationResult, 'waiting for confirmed authentication')
+        .toBe('authenticated');
       console.log('✅ Netlify Identity login successful');
     } catch (e) {
       console.log('⚠️  Login flow issue:', e.message);
