@@ -169,9 +169,11 @@ function applyQueryParamsToConnectDialog() {
   }
 
   if (queryParams.port) {
-    const allowedPort = /^(?:\d{1,5})(?:\/[^?#]*)?$/.test(queryParams.port);
+    const portMatch = /^(\d{1,5})(?:\/[^?#]*)?$/.exec(String(queryParams.port));
+    const portNumber = portMatch ? Number.parseInt(portMatch[1], 10) : 0;
+    const allowedPort = portMatch !== null && portNumber >= 1 && portNumber <= 65535;
     if (allowedPort) {
-      dialogStore.connectDialog.port = queryParams.port;
+      dialogStore.connectDialog.port = String(queryParams.port);
     }
   }
   // Password is no longer accepted from URL for security reasons

@@ -86,7 +86,7 @@ test.describe('Loopback Frequency Test', () => {
         if (await continueButton.isVisible({ timeout: 2000 }).catch(() => false)) {
           console.log('✅ Found Codespaces interstitial action, clicking...');
           await continueButton.click();
-          await expect(page.locator('body')).toBeVisible({ timeout: 10000 });
+          await expect(continueButton).toHaveCount(0, { timeout: 10000 });
           console.log('✅ Passed Codespaces interstitial');
         } else {
           console.log('ℹ️  No Codespaces interstitial action button found');
