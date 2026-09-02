@@ -26,7 +26,7 @@ git clone https://github.com/Flexpair/mumbling-mole.git
 cd mumbling-mole && npm install
 
 # Development
-./start-dev-server.sh          # Build + serve at http://local.flexpair.app
+./start-dev-server.sh          # Build + serve at https://local.flexpair.app
 npm run build:local            # Rebuild + restart server
 
 # Testing  

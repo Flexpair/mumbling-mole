@@ -77,7 +77,7 @@ The server loopback (target=31) tests:
 ### Test 1: Loopback (Both Users)
 ```bash
 npm run build
-# Open browser at http://local.flexpair.app
+# Open browser at https://local.flexpair.app
 # Click "Test" button
 # Check console for [LOOPBACK] logs
 # ✓ Should hear your own voice echoed back
