@@ -152,9 +152,14 @@ function applyQueryParamsToConnectDialog() {
   // config); coerce here so resolveConnectAddress()'s `.includes()` check is
   // always an array membership test, never a substring match.
   const configuredHosts = globalThis.mumbleWebConfig.allowedServerHosts;
-  const allowedHosts = Array.isArray(configuredHosts)
-    ? configuredHosts
-    : configuredHosts ? [configuredHosts] : [globalThis.location.hostname];
+  let allowedHosts;
+  if (Array.isArray(configuredHosts)) {
+    allowedHosts = configuredHosts;
+  } else if (configuredHosts) {
+    allowedHosts = [configuredHosts];
+  } else {
+    allowedHosts = [globalThis.location.hostname];
+  }
   const addressFromQuery = urlObj.searchParams.get('address');
   const { address, rejected } = resolveConnectAddress(
     addressFromQuery,
