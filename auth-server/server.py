@@ -96,7 +96,8 @@ class RateLimiter:
             self.last_cleanup = now
 
     def _cleanup_unsafe(self, now: float):
-        for ip in list(self.store):
+        expired_ips = []
+        for ip, timestamps in self.store.items():
             active_timestamps = [
                 timestamp for timestamp in self.store[ip]
                 if now - timestamp < self.window
@@ -104,7 +105,10 @@ class RateLimiter:
             if active_timestamps:
                 self.store[ip] = active_timestamps
             else:
-                del self.store[ip]
+                expired_ips.append(ip)
+
+        for ip in expired_ips:
+            del self.store[ip]
 
 # Initialize global rate limiter
 rate_limiter = RateLimiter()
