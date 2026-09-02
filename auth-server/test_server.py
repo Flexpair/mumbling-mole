@@ -18,6 +18,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from server import (
+    RateLimiter,
+    _get_cors_headers,
+    _get_cors_origin,
+    _normalize_origin,
     get_nested_property,
     get_guacamole_user,
     hash_email,
@@ -176,6 +180,62 @@ class TestRateLimiting(unittest.TestCase):
         # Should be allowed again
         self.assertTrue(rate_limiter.check('203.0.113.6'))
 
+    def test_cleanup_removes_expired_ips(self):
+        limiter = RateLimiter(window_seconds=60, max_requests=1)
+        old_time = time() - limiter.window - 1
+        limiter.store['203.0.113.7'] = [old_time]
+        limiter.last_cleanup = old_time
+
+        self.assertTrue(limiter.check('203.0.113.8'))
+        self.assertNotIn('203.0.113.7', limiter.store)
+
+
+class TestCorsAllowlist(unittest.TestCase):
+    """Tests for explicit CORS origin handling."""
+
+    @patch.dict(
+        os.environ,
+        {
+            'AUTH_ALLOWED_ORIGINS': (
+                'https://app.example, https://app.example/, *, '
+                'https://invalid.example/path, http://localhost:3000'
+            )
+        },
+        clear=False,
+    )
+    def test_only_explicit_valid_origins_are_allowed(self):
+        self.assertEqual(_get_cors_origin('https://app.example'), 'https://app.example')
+        self.assertEqual(_get_cors_origin('https://app.example/'), 'https://app.example')
+        self.assertEqual(_get_cors_origin('http://localhost:3000'), 'http://localhost:3000')
+        self.assertIsNone(_get_cors_origin('https://attacker.example'))
+
+    @patch.dict(os.environ, {'AUTH_ALLOWED_ORIGINS': '*'}, clear=False)
+    def test_wildcard_origin_is_not_allowed(self):
+        self.assertIsNone(_get_cors_origin('https://app.example'))
+
+    def test_origin_paths_credentials_and_non_http_schemes_are_rejected(self):
+        for origin in (
+            'https://app.example/path',
+            'https://user:password@app.example',
+            'ftp://app.example',
+            'https://[invalid',
+            'https://:443',
+        ):
+            self.assertIsNone(_normalize_origin(origin))
+
+    @patch.dict(os.environ, {'AUTH_ALLOWED_ORIGINS': 'https://app.example'}, clear=False)
+    def test_cors_headers_vary_by_origin(self):
+        self.assertEqual(
+            _get_cors_headers('https://app.example'),
+            {
+                'Vary': 'Origin',
+                'Access-Control-Allow-Origin': 'https://app.example',
+                'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+                'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            },
+        )
+        self.assertEqual(_get_cors_headers('https://attacker.example'), {'Vary': 'Origin'})
+
 
 class TestAuthProviderConfig(unittest.TestCase):
     """Tests for auth provider configuration."""
@@ -239,7 +299,7 @@ class TestExecuteAuthRequest(unittest.TestCase):
         self.assertIsNone(result)
         self.assertEqual(mock_urlopen.call_count, 1)
 
-    @patch('time.sleep', return_value=None)
+    @patch('server.time_mod.sleep', return_value=None)
     @patch('server.urllib.request.urlopen')
     def test_url_error_retries_then_succeeds(self, mock_urlopen, mock_sleep):
         mock_urlopen.side_effect = [
@@ -251,7 +311,7 @@ class TestExecuteAuthRequest(unittest.TestCase):
         self.assertEqual(mock_urlopen.call_count, 2)
         self.assertEqual(mock_sleep.call_count, 1)
 
-    @patch('time.sleep', return_value=None)
+    @patch('server.time_mod.sleep', return_value=None)
     @patch('server.urllib.request.urlopen')
     def test_exhausted_retries_returns_none(self, mock_urlopen, mock_sleep):
         mock_urlopen.side_effect = urllib.error.URLError('network down')

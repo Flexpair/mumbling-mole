@@ -90,6 +90,11 @@ docker build --target dev -t mumbling-mole:dev .
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MUMBLE_SERVER` | Target `host:port` | Required |
+| `MUMBLE_PASSWORD` | Shared Mumble/auth-server password | Required |
+| `GUAC_ADMIN_PASSWORD` | Optional separate Guacamole admin password | Empty (uses `MUMBLE_PASSWORD`) |
+| `GUAC_EDITOR_PASSWORD` | Optional separate Guacamole editor password | Empty (uses `MUMBLE_PASSWORD`) |
+| `GUAC_WATCHER_PASSWORD` | Optional separate Guacamole watcher password | Empty (uses `MUMBLE_PASSWORD`) |
+| `AUTH_ALLOWED_ORIGINS` | Comma-separated credential-API browser origins | `https://local.flexpair.app` in dev compose |
 | `PORT` | HTTP server port | `80` |
 | `SKIP_TUNNEL` | Disable websockify | `false` |
 

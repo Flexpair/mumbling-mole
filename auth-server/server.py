@@ -13,11 +13,13 @@ import os
 import secrets
 import socketserver
 import threading
+import time as time_mod
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from time import time, sleep
+from time import time
 from typing import Any, Optional
+from urllib.parse import urlsplit
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
 # Binding to 0.0.0.0 is intentional - server runs in container behind nginx
@@ -63,14 +65,22 @@ class RateLimiter:
         self.window = window_seconds
         self.max_requests = max_requests
         self.last_cleanup = time()
+        self.cleanup_interval = min(window_seconds, 60)
         self.lock = threading.Lock()
 
     def check(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit. Returns True if allowed."""
         now = time()
         with self.lock:
+            if now - self.last_cleanup >= self.cleanup_interval:
+                self._cleanup_unsafe(now)
+                self.last_cleanup = now
+
             # Clean old entries for this IP
-            self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
+            self.store[client_ip] = [
+                timestamp for timestamp in self.store[client_ip]
+                if now - timestamp < self.window
+            ]
             
             if len(self.store[client_ip]) >= self.max_requests:
                 return False
@@ -81,15 +91,74 @@ class RateLimiter:
     def cleanup(self):
         """Periodically remove empty IPs to prevent memory leaks."""
         with self.lock:
-            self._cleanup_unsafe()
+            now = time()
+            self._cleanup_unsafe(now)
+            self.last_cleanup = now
 
-    def _cleanup_unsafe(self):
-        empty_ips = [ip for ip, timestamps in self.store.items() if not timestamps]
-        for ip in empty_ips:
-            del self.store[ip]
+    def _cleanup_unsafe(self, now: float):
+        for ip in list(self.store):
+            active_timestamps = [
+                timestamp for timestamp in self.store[ip]
+                if now - timestamp < self.window
+            ]
+            if active_timestamps:
+                self.store[ip] = active_timestamps
+            else:
+                del self.store[ip]
 
 # Initialize global rate limiter
 rate_limiter = RateLimiter()
+
+
+def _normalize_origin(origin: Optional[str]) -> Optional[str]:
+    """Return a canonical HTTP origin, rejecting paths and credentials."""
+    if not isinstance(origin, str):
+        return None
+
+    try:
+        parsed = urlsplit(origin.strip())
+    except ValueError:
+        return None
+    if (
+        parsed.scheme.lower() not in {'http', 'https'}
+        or not parsed.netloc
+        or parsed.hostname is None
+        or parsed.path not in {'', '/'}
+        or parsed.query
+        or parsed.fragment
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return None
+
+    return f'{parsed.scheme.lower()}://{parsed.netloc.lower()}'
+
+
+def _get_cors_origin(origin: Optional[str]) -> Optional[str]:
+    """Return an allowed origin from AUTH_ALLOWED_ORIGINS, never a wildcard."""
+    normalized_origin = _normalize_origin(origin)
+    if normalized_origin is None:
+        return None
+
+    configured_origins = {
+        normalized
+        for configured in os.environ.get('AUTH_ALLOWED_ORIGINS', '').split(',')
+        if (normalized := _normalize_origin(configured)) is not None
+    }
+    return normalized_origin if normalized_origin in configured_origins else None
+
+
+def _get_cors_headers(origin: Optional[str]) -> dict[str, str]:
+    """Build CORS headers for an explicitly configured origin."""
+    allowed_origin = _get_cors_origin(origin)
+    headers = {'Vary': 'Origin'}
+    if allowed_origin is not None:
+        headers.update({
+            'Access-Control-Allow-Origin': allowed_origin,
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        })
+    return headers
 
 
 def get_nested_property(obj: dict, path: str) -> Any:
@@ -129,7 +198,6 @@ def _is_valid_url_scheme(url: str) -> bool:
 
 def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     """Execute the HTTP request to the auth provider with retry logic."""
-    import time as time_mod
     max_retries = 3
     base_delay = 0.5
 
@@ -232,19 +300,19 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('X-XSS-Protection', '1; mode=block')
-        # CORS headers - wildcard is acceptable as this is behind nginx proxy
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self._send_cors_headers()
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
+
+    def _send_cors_headers(self):
+        """Send CORS headers only for an explicitly configured origin."""
+        for name, value in _get_cors_headers(self.headers.get('Origin')).items():
+            self.send_header(name, value)
 
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self._send_cors_headers()
         self.end_headers()
 
     def do_GET(self):

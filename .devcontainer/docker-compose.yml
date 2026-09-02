@@ -47,9 +47,13 @@ services:
       - "murmur:172.18.0.5"
     environment:
       - MUMBLE_SERVER=murmur:${MURMUR_PORT:-64738}
-      - MUMBLE_PASSWORD=${MUMBLE_PASSWORD:-CHANGE_ME}
+      - MUMBLE_PASSWORD=${MUMBLE_PASSWORD:?Set MUMBLE_PASSWORD in .devcontainer/.env}
+      - GUAC_ADMIN_PASSWORD=${GUAC_ADMIN_PASSWORD:-}
+      - GUAC_EDITOR_PASSWORD=${GUAC_EDITOR_PASSWORD:-}
+      - GUAC_WATCHER_PASSWORD=${GUAC_WATCHER_PASSWORD:-}
       - AUTH_PROVIDER=${AUTH_PROVIDER:-netlify}
       - NETLIFY_IDENTITY_URL=${NETLIFY_IDENTITY_URL:-https://welcome.flexpair.com/identity-proxy}
+      - AUTH_ALLOWED_ORIGINS=${AUTH_ALLOWED_ORIGINS:-https://local.flexpair.app}
       - SKIP_PREPARE=1
 
   nginx:
