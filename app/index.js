@@ -154,9 +154,7 @@ function applyQueryParamsToConnectDialog() {
   const configuredHosts = globalThis.mumbleWebConfig.allowedServerHosts;
   const allowedHosts = Array.isArray(configuredHosts)
     ? configuredHosts
-    : configuredHosts
-      ? [configuredHosts]
-      : [globalThis.location.hostname];
+    : configuredHosts ? [configuredHosts] : [globalThis.location.hostname];
   const addressFromQuery = urlObj.searchParams.get('address');
   const { address, rejected } = resolveConnectAddress(
     addressFromQuery,
@@ -171,7 +169,10 @@ function applyQueryParamsToConnectDialog() {
   }
 
   if (queryParams.port) {
-    dialogStore.connectDialog.port = queryParams.port;
+    const allowedPort = /^(?:\d{1,5})(?:\/[^?#]*)?$/.test(queryParams.port);
+    if (allowedPort) {
+      dialogStore.connectDialog.port = queryParams.port;
+    }
   }
   // Password is no longer accepted from URL for security reasons
   // It is fetched from the auth server after successful authentication
