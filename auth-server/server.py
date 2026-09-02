@@ -121,6 +121,7 @@ def _normalize_origin(origin: Optional[str]) -> Optional[str]:
 
     try:
         parsed = urlsplit(origin.strip())
+        port = parsed.port
     except ValueError:
         return None
     if (
@@ -135,7 +136,12 @@ def _normalize_origin(origin: Optional[str]) -> Optional[str]:
     ):
         return None
 
-    return f'{parsed.scheme.lower()}://{parsed.netloc.lower()}'
+    hostname = parsed.hostname.lower()
+    if ':' in hostname:
+        hostname = f'[{hostname}]'
+    if port is not None:
+        hostname = f'{hostname}:{port}'
+    return f'{parsed.scheme.lower()}://{hostname}'
 
 
 def _get_cors_origin(origin: Optional[str]) -> Optional[str]:

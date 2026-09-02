@@ -207,6 +207,7 @@ class TestCorsAllowlist(unittest.TestCase):
         self.assertEqual(_get_cors_origin('https://app.example'), 'https://app.example')
         self.assertEqual(_get_cors_origin('https://app.example/'), 'https://app.example')
         self.assertEqual(_get_cors_origin('http://localhost:3000'), 'http://localhost:3000')
+        self.assertEqual(_normalize_origin('https://[2001:db8::1]:8443'), 'https://[2001:db8::1]:8443')
         self.assertIsNone(_get_cors_origin('https://attacker.example'))
 
     @patch.dict(os.environ, {'AUTH_ALLOWED_ORIGINS': '*'}, clear=False)
@@ -220,6 +221,8 @@ class TestCorsAllowlist(unittest.TestCase):
             'ftp://app.example',
             'https://[invalid',
             'https://:443',
+            'https://app.example:not-a-port',
+            'https://app.example:65536',
         ):
             self.assertIsNone(_normalize_origin(origin))
 
