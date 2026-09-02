@@ -4,6 +4,25 @@ set -euo pipefail
 echo "🔧 Starting dev server..."
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd "${SCRIPT_DIR}"
+DEV_URL="${DEV_URL:-https://local.flexpair.app}"
+
+# Check readiness by opening a local TCP connection instead of sending a
+# clear-text HTTP request. Both services are intentionally bound to the local
+# development network; the browser URL above uses the TLS reverse proxy.
+port_is_open() {
+    local host="$1"
+    local port="$2"
+    python3 - "$host" "$port" <<'PY'
+import socket
+import sys
+
+try:
+    with socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=2):
+        pass
+except OSError:
+    raise SystemExit(1)
+PY
+}
 
 echo "🛠️ Building development bundle..."
 if BUILD_MODE=development node build-esbuild.mjs 2>&1 | tail -10; then
@@ -20,7 +39,7 @@ if [[ -f /tmp/entrypoint.pid ]]; then
         
         echo "⏳ Checking if server is ready..."
         for i in {1..10}; do
-            if curl -s http://localhost:8081 > /dev/null 2>&1; then
+            if port_is_open localhost 8081 > /dev/null 2>&1; then
                 echo "🎯 Server is ready!"
                 break
             fi
@@ -28,7 +47,7 @@ if [[ -f /tmp/entrypoint.pid ]]; then
         done
         
         echo "🌐 Opening browser..."
-        "${BROWSER:-open}" "http://local.flexpair.app" > /dev/null 2>&1 &
+        "${BROWSER:-open}" "${DEV_URL}" > /dev/null 2>&1 &
         exit 0
     fi
 fi
@@ -50,7 +69,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     
     echo "⏳ Waiting for websockify..."
     for i in {1..30}; do
-        if curl -s "http://${CONTAINER_IP}:8081" > /dev/null 2>&1; then
+        if port_is_open "${CONTAINER_IP}" 8081 > /dev/null 2>&1; then
             echo "🎯 Websockify ready!"
             break
         fi
@@ -59,7 +78,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     
     echo "⏳ Waiting for auth-server..."
     for _ in {1..10}; do
-        if curl -s "http://${CONTAINER_IP}:8082/api/health" > /dev/null 2>&1; then
+        if port_is_open "${CONTAINER_IP}" 8082 > /dev/null 2>&1; then
             echo "🔐 Auth-server ready!"
             break
         fi
@@ -67,7 +86,7 @@ if ps -p "$(cat /tmp/entrypoint.pid)" > /dev/null 2>&1; then
     done
     
     echo "🌐 Opening browser..."
-    "${BROWSER:-open}" "http://local.flexpair.app" > /dev/null 2>&1 &
+    "${BROWSER:-open}" "${DEV_URL}" > /dev/null 2>&1 &
 else
     echo "❌ Dev server failed to start"
     tail -20 /tmp/entrypoint.log

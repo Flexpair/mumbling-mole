@@ -47,7 +47,7 @@ rather than duplicating them elsewhere.
 
 ```bash
 # Development
-./start-dev-server.sh          # Build + serve at http://local.flexpair.app
+./start-dev-server.sh          # Build + serve at https://local.flexpair.app
 npm run build:local            # Build + restart server (USE THIS!)
 
 # Testing  
