@@ -108,7 +108,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Playwright system dependencies for Chromium
 # Required for automated loopback frequency tests
-RUN npx playwright install-deps chromium
+RUN ./node_modules/.bin/playwright install-deps chromium
 
 # GitHub Codespaces' SSH broker targets its built-in `codespace` user and home.
 RUN usermod --login codespace --home /home/codespace --move-home node \
