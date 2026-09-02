@@ -16,6 +16,7 @@ from unittest.mock import patch, MagicMock
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+os.environ.setdefault('MUMBLE_PASSWORD', 'test-mumble-password')
 
 from server import (
     RateLimiter,
@@ -29,6 +30,23 @@ from server import (
     generate_secure_password,
     _execute_auth_request,
 )
+
+
+def import_server_with_environment(environment):
+    """Reload server.py with a controlled environment for startup tests."""
+    module_name = 'server'
+    original_module = sys.modules.pop(module_name, None)
+    original_environment = os.environ.copy()
+    try:
+        os.environ.clear()
+        os.environ.update(environment)
+        return __import__(module_name)
+    finally:
+        os.environ.clear()
+        os.environ.update(original_environment)
+        sys.modules.pop(module_name, None)
+        if original_module is not None:
+            sys.modules[module_name] = original_module
 
 
 class TestGetNestedProperty(unittest.TestCase):
@@ -208,6 +226,7 @@ class TestCorsAllowlist(unittest.TestCase):
         self.assertEqual(_get_cors_origin('https://app.example/'), 'https://app.example')
         self.assertEqual(_get_cors_origin('http://localhost:3000'), 'http://localhost:3000')
         self.assertEqual(_normalize_origin('https://[2001:db8::1]:8443'), 'https://[2001:db8::1]:8443')
+        self.assertEqual(_normalize_origin('https://app.example:443'), 'https://app.example')
         self.assertIsNone(_get_cors_origin('https://attacker.example'))
 
     @patch.dict(os.environ, {'AUTH_ALLOWED_ORIGINS': '*'}, clear=False)
@@ -273,6 +292,10 @@ class TestCredentialGeneration(unittest.TestCase):
         self.assertIn('admin', GUACAMOLE_PASSWORDS)
         self.assertIn('editor', GUACAMOLE_PASSWORDS)
         self.assertIn('watcher', GUACAMOLE_PASSWORDS)
+
+    def test_server_requires_mumble_password(self):
+        with self.assertRaisesRegex(RuntimeError, 'MUMBLE_PASSWORD must be configured'):
+            import_server_with_environment({})
 
 
 class TestExecuteAuthRequest(unittest.TestCase):

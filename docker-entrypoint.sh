@@ -35,6 +35,7 @@ fi
 
 # Normalfall: WebSocket-Tunnel + Static Web via websockify
 : "${MUMBLE_SERVER:?Must set MUMBLE_SERVER (e.g. host:port)}"
+: "${MUMBLE_PASSWORD:?Must set MUMBLE_PASSWORD to match the Mumble server}"
 
 # Für E2E-Tests ggf. TLS am Ziel deaktivieren (Echo-Server ist Plain-TCP)
 SSL_TARGET_FLAG="--ssl-target"

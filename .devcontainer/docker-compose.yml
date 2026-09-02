@@ -86,10 +86,8 @@ services:
         ipv4_address: 172.18.0.5
     container_name: murmur
     volumes:
-      - ./murmur_config/murmur.ini:/etc/mumble/config.ini:ro
       - ./murmur_data:/data
       - ./letsencrypt:/cert:ro
     environment:
       - TZ=UTC
-      - MUMBLE_CONFIG=/etc/mumble/config.ini
-      - MUMBLE_CUSTOM_CONFIG_FILE=/etc/mumble/config.ini
+      - MUMBLE_CONFIG_SERVER_PASSWORD=${MUMBLE_PASSWORD:?Set MUMBLE_PASSWORD in .devcontainer/.env}

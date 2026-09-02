@@ -35,7 +35,9 @@ def generate_secure_password(length: int = 32) -> str:
     return secrets.token_urlsafe(length)[:length]
 
 
-MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD') or generate_secure_password(32)
+MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD')
+if not MUMBLE_PASSWORD:
+    raise RuntimeError('MUMBLE_PASSWORD must be configured')
 GUACAMOLE_PASSWORDS = {
     'admin': os.environ.get('GUAC_ADMIN_PASSWORD') or MUMBLE_PASSWORD,
     'editor': os.environ.get('GUAC_EDITOR_PASSWORD') or MUMBLE_PASSWORD,
@@ -137,11 +139,14 @@ def _normalize_origin(origin: Optional[str]) -> Optional[str]:
         return None
 
     hostname = parsed.hostname.lower()
+    scheme = parsed.scheme.lower()
+    if (scheme == 'http' and port == 80) or (scheme == 'https' and port == 443):
+        port = None
     if ':' in hostname:
         hostname = f'[{hostname}]'
     if port is not None:
         hostname = f'{hostname}:{port}'
-    return f'{parsed.scheme.lower()}://{hostname}'
+    return f'{scheme}://{hostname}'
 
 
 def _get_cors_origin(origin: Optional[str]) -> Optional[str]:
