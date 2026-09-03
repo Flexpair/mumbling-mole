@@ -10,6 +10,7 @@ import hashlib
 import http.server
 import json
 import os
+import re
 import secrets
 import socketserver
 import threading
@@ -48,15 +49,20 @@ AUTH_PROVIDER = os.environ.get('AUTH_PROVIDER', 'netlify')
 AUTH_PROVIDERS = {
     'netlify': {
         'userEndpoint': os.environ.get('NETLIFY_IDENTITY_URL', 'https://welcome.flexpair.com/identity-proxy'),
-        'rolesClaim': 'app_metadata.roles'
+        'rolesClaim': 'app_metadata.roles',
+        'allowedHosts': ('welcome.flexpair.com',)
     },
     'supabase': {
         'userEndpoint': f"{os.environ.get('SUPABASE_URL')}/auth/v1" if os.environ.get('SUPABASE_URL') else None,
-        'rolesClaim': 'user_metadata.roles'
+        'rolesClaim': 'user_metadata.roles',
+        'allowedHostSuffixes': ('.supabase.co', '.supabase.in'),
+        'allowedHostPrefixLabels': (1,)
     },
     'auth0': {
         'userEndpoint': f"https://{os.environ.get('AUTH0_DOMAIN')}" if os.environ.get('AUTH0_DOMAIN') else None,
-        'rolesClaim': 'https://flexpair.com/roles'
+        'rolesClaim': 'https://flexpair.com/roles',
+        'allowedHostSuffixes': ('.auth0.com',),
+        'allowedHostPrefixLabels': (1, 2)
     }
 }
 
@@ -210,6 +216,58 @@ def _is_valid_url_scheme(url: str) -> bool:
     return False
 
 
+_HOST_LABEL_PATTERN = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$')
+
+
+def _is_allowed_provider_host(hostname: str, provider_config: dict) -> bool:
+    """Allow only hostnames belonging to the configured auth provider."""
+    normalized_hostname = hostname.lower()
+    if normalized_hostname in provider_config.get('allowedHosts', ()):
+        return True
+
+    for suffix in provider_config.get('allowedHostSuffixes', ()):
+        if not normalized_hostname.endswith(suffix):
+            continue
+        prefix = normalized_hostname[:-len(suffix)]
+        prefix_labels = prefix.split('.')
+        allowed_label_counts = provider_config.get('allowedHostPrefixLabels')
+        if (
+            not prefix
+            or (allowed_label_counts and len(prefix_labels) not in allowed_label_counts)
+            or not all(_HOST_LABEL_PATTERN.fullmatch(label) for label in prefix_labels)
+        ):
+            continue
+        return True
+    return False
+
+
+def _is_valid_provider_url(url: str, provider_config: dict) -> bool:
+    """Validate provider URL scheme, authority, port, and hostname."""
+    if not isinstance(url, str) or not _is_valid_url_scheme(url):
+        return False
+
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        return False
+
+    if (
+        not parsed.netloc
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        return False
+
+    default_port = 443 if parsed.scheme.lower() == 'https' else 80
+    if port is not None and port != default_port:
+        return False
+    return _is_allowed_provider_host(parsed.hostname, provider_config)
+
+
 
 def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     """Execute the HTTP request to the auth provider with retry logic."""
@@ -245,7 +303,7 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
 
 def _make_single_request(req: urllib.request.Request) -> Optional[dict]:
     """Helper to perform a single urlopen request and parse JSON."""
-    # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
+    # URL validated by validate_token(), safe to use urlopen
     # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
     with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
         if response.status != 200:
@@ -263,8 +321,8 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         return None
 
     url = f"{endpoint}/user"
-    if not _is_valid_url_scheme(url):
-        print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
+    if not _is_valid_provider_url(url, provider_config):
+        print('[AUTH] Invalid auth provider URL configuration')
         return None
 
 

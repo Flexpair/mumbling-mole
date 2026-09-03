@@ -22,6 +22,7 @@ from server import (
     RateLimiter,
     _get_cors_headers,
     _get_cors_origin,
+    _is_valid_provider_url,
     _normalize_origin,
     get_nested_property,
     get_guacamole_user,
@@ -29,6 +30,7 @@ from server import (
     rate_limiter,
     generate_secure_password,
     _execute_auth_request,
+    validate_token,
 )
 
 
@@ -277,6 +279,77 @@ class TestAuthProviderConfig(unittest.TestCase):
         from server import AUTH_PROVIDERS
         self.assertIn('auth0', AUTH_PROVIDERS)
         self.assertEqual(AUTH_PROVIDERS['auth0']['rolesClaim'], 'https://flexpair.com/roles')
+
+
+class TestAuthProviderUrlValidation(unittest.TestCase):
+    """Tests for provider-specific SSRF protection."""
+
+    def test_netlify_allows_only_expected_host(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['netlify']
+        self.assertTrue(
+            _is_valid_provider_url(
+                'https://welcome.flexpair.com/identity-proxy/user', provider
+            )
+        )
+        self.assertFalse(
+            _is_valid_provider_url('https://attacker.example/user', provider)
+        )
+
+    def test_supabase_requires_project_host(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['supabase']
+        self.assertTrue(
+            _is_valid_provider_url('https://project-ref.supabase.co/auth/v1/user', provider)
+        )
+        self.assertTrue(
+            _is_valid_provider_url('https://project-ref.supabase.in/auth/v1/user', provider)
+        )
+        self.assertFalse(
+            _is_valid_provider_url('https://supabase.co/auth/v1/user', provider)
+        )
+        self.assertFalse(
+            _is_valid_provider_url('https://project-ref.supabase.co.attacker.example/user', provider)
+        )
+
+    def test_auth0_allows_standard_regional_domain(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['auth0']
+        self.assertTrue(_is_valid_provider_url('https://tenant.auth0.com/user', provider))
+        self.assertTrue(_is_valid_provider_url('https://tenant.eu.auth0.com/user', provider))
+        self.assertFalse(_is_valid_provider_url('https://auth0.com/user', provider))
+
+    def test_provider_url_rejects_private_hosts_credentials_and_ports(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['netlify']
+        for url in (
+            'https://127.0.0.1/user',
+            'https://welcome.flexpair.com@127.0.0.1/user',
+            'https://welcome.flexpair.com:8443/user',
+            'https://welcome.flexpair.com:65536/user',
+            'https://welcome.flexpair.com/user?redirect=http://127.0.0.1',
+        ):
+            self.assertFalse(_is_valid_provider_url(url, provider))
+
+    @patch('server._execute_auth_request')
+    def test_validate_token_does_not_request_untrusted_endpoint(self, mock_request):
+        provider = {
+            'userEndpoint': 'https://attacker.example',
+            'allowedHosts': ('welcome.flexpair.com',),
+        }
+        self.assertIsNone(validate_token('token', provider))
+        mock_request.assert_not_called()
+
+    @patch('server._execute_auth_request', return_value={'email': 'user@example.com'})
+    def test_validate_token_requests_allowed_endpoint(self, mock_request):
+        from server import AUTH_PROVIDERS
+        self.assertEqual(
+            validate_token('token', AUTH_PROVIDERS['netlify']),
+            {'email': 'user@example.com'},
+        )
+        mock_request.assert_called_once_with(
+            'https://welcome.flexpair.com/identity-proxy/user', 'token'
+        )
 
 
 class TestCredentialGeneration(unittest.TestCase):
