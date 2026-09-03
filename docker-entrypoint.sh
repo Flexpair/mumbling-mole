@@ -35,6 +35,7 @@ fi
 
 # Normalfall: WebSocket-Tunnel + Static Web via websockify
 : "${MUMBLE_SERVER:?Must set MUMBLE_SERVER (e.g. host:port)}"
+: "${MUMBLE_PASSWORD:?Must set MUMBLE_PASSWORD to match the Mumble server}"
 
 # Für E2E-Tests ggf. TLS am Ziel deaktivieren (Echo-Server ist Plain-TCP)
 SSL_TARGET_FLAG="--ssl-target"
@@ -50,8 +51,14 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     AUTH_SERVER_HOST="${AUTH_SERVER_HOST}" \
     AUTH_SERVER_PORT="${AUTH_SERVER_PORT}" \
     MUMBLE_PASSWORD="${MUMBLE_PASSWORD:-}" \
+    GUAC_ADMIN_PASSWORD="${GUAC_ADMIN_PASSWORD:-}" \
+    GUAC_EDITOR_PASSWORD="${GUAC_EDITOR_PASSWORD:-}" \
+    GUAC_WATCHER_PASSWORD="${GUAC_WATCHER_PASSWORD:-}" \
     AUTH_PROVIDER="${AUTH_PROVIDER:-netlify}" \
     NETLIFY_IDENTITY_URL="${NETLIFY_IDENTITY_URL:-https://welcome.flexpair.com/identity-proxy}" \
+    SUPABASE_URL="${SUPABASE_URL:-}" \
+    AUTH0_DOMAIN="${AUTH0_DOMAIN:-}" \
+    AUTH_ALLOWED_ORIGINS="${AUTH_ALLOWED_ORIGINS:-}" \
     python3 "${AUTH_SERVER_DIR}/server.py" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!

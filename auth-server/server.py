@@ -10,14 +10,17 @@ import hashlib
 import http.server
 import json
 import os
+import re
 import secrets
 import socketserver
 import threading
+import time as time_mod
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from time import time, sleep
+from time import time
 from typing import Any, Optional
+from urllib.parse import urlsplit
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
 # Binding to 0.0.0.0 is intentional - server runs in container behind nginx
@@ -33,7 +36,9 @@ def generate_secure_password(length: int = 32) -> str:
     return secrets.token_urlsafe(length)[:length]
 
 
-MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD') or generate_secure_password(32)
+MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD')
+if not MUMBLE_PASSWORD:
+    raise RuntimeError('MUMBLE_PASSWORD must be configured')
 GUACAMOLE_PASSWORDS = {
     'admin': os.environ.get('GUAC_ADMIN_PASSWORD') or MUMBLE_PASSWORD,
     'editor': os.environ.get('GUAC_EDITOR_PASSWORD') or MUMBLE_PASSWORD,
@@ -44,15 +49,20 @@ AUTH_PROVIDER = os.environ.get('AUTH_PROVIDER', 'netlify')
 AUTH_PROVIDERS = {
     'netlify': {
         'userEndpoint': os.environ.get('NETLIFY_IDENTITY_URL', 'https://welcome.flexpair.com/identity-proxy'),
-        'rolesClaim': 'app_metadata.roles'
+        'rolesClaim': 'app_metadata.roles',
+        'allowedHosts': ('welcome.flexpair.com',)
     },
     'supabase': {
         'userEndpoint': f"{os.environ.get('SUPABASE_URL')}/auth/v1" if os.environ.get('SUPABASE_URL') else None,
-        'rolesClaim': 'user_metadata.roles'
+        'rolesClaim': 'user_metadata.roles',
+        'allowedHostSuffixes': ('.supabase.co', '.supabase.in'),
+        'allowedHostPrefixLabels': (1,)
     },
     'auth0': {
         'userEndpoint': f"https://{os.environ.get('AUTH0_DOMAIN')}" if os.environ.get('AUTH0_DOMAIN') else None,
-        'rolesClaim': 'https://flexpair.com/roles'
+        'rolesClaim': 'https://flexpair.com/roles',
+        'allowedHostSuffixes': ('.auth0.com',),
+        'allowedHostPrefixLabels': (1, 2)
     }
 }
 
@@ -63,14 +73,22 @@ class RateLimiter:
         self.window = window_seconds
         self.max_requests = max_requests
         self.last_cleanup = time()
+        self.cleanup_interval = min(window_seconds, 60)
         self.lock = threading.Lock()
 
     def check(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit. Returns True if allowed."""
         now = time()
         with self.lock:
+            if now - self.last_cleanup >= self.cleanup_interval:
+                self._cleanup_unsafe(now)
+                self.last_cleanup = now
+
             # Clean old entries for this IP
-            self.store[client_ip] = [t for t in self.store[client_ip] if now - t < self.window]
+            self.store[client_ip] = [
+                timestamp for timestamp in self.store[client_ip]
+                if now - timestamp < self.window
+            ]
             
             if len(self.store[client_ip]) >= self.max_requests:
                 return False
@@ -81,15 +99,87 @@ class RateLimiter:
     def cleanup(self):
         """Periodically remove empty IPs to prevent memory leaks."""
         with self.lock:
-            self._cleanup_unsafe()
+            now = time()
+            self._cleanup_unsafe(now)
+            self.last_cleanup = now
 
-    def _cleanup_unsafe(self):
-        empty_ips = [ip for ip, timestamps in self.store.items() if not timestamps]
-        for ip in empty_ips:
+    def _cleanup_unsafe(self, now: float):
+        expired_ips = []
+        for ip, timestamps in self.store.items():
+            active_timestamps = [
+                timestamp for timestamp in self.store[ip]
+                if now - timestamp < self.window
+            ]
+            if active_timestamps:
+                self.store[ip] = active_timestamps
+            else:
+                expired_ips.append(ip)
+
+        for ip in expired_ips:
             del self.store[ip]
 
 # Initialize global rate limiter
 rate_limiter = RateLimiter()
+
+
+def _normalize_origin(origin: Optional[str]) -> Optional[str]:
+    """Return a canonical HTTP origin, rejecting paths and credentials."""
+    if not isinstance(origin, str):
+        return None
+
+    try:
+        parsed = urlsplit(origin.strip())
+        port = parsed.port
+    except ValueError:
+        return None
+    if (
+        parsed.scheme.lower() not in {'http', 'https'}
+        or not parsed.netloc
+        or parsed.hostname is None
+        or parsed.path not in {'', '/'}
+        or parsed.query
+        or parsed.fragment
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return None
+
+    hostname = parsed.hostname.lower()
+    scheme = parsed.scheme.lower()
+    if (scheme == 'http' and port == 80) or (scheme == 'https' and port == 443):
+        port = None
+    if ':' in hostname:
+        hostname = f'[{hostname}]'
+    if port is not None:
+        hostname = f'{hostname}:{port}'
+    return f'{scheme}://{hostname}'
+
+
+def _get_cors_origin(origin: Optional[str]) -> Optional[str]:
+    """Return an allowed origin from AUTH_ALLOWED_ORIGINS, never a wildcard."""
+    normalized_origin = _normalize_origin(origin)
+    if normalized_origin is None:
+        return None
+
+    configured_origins = {
+        normalized
+        for configured in os.environ.get('AUTH_ALLOWED_ORIGINS', '').split(',')
+        if (normalized := _normalize_origin(configured)) is not None
+    }
+    return normalized_origin if normalized_origin in configured_origins else None
+
+
+def _get_cors_headers(origin: Optional[str]) -> dict[str, str]:
+    """Build CORS headers for an explicitly configured origin."""
+    allowed_origin = _get_cors_origin(origin)
+    headers = {'Vary': 'Origin'}
+    if allowed_origin is not None:
+        headers.update({
+            'Access-Control-Allow-Origin': allowed_origin,
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        })
+    return headers
 
 
 def get_nested_property(obj: dict, path: str) -> Any:
@@ -126,10 +216,69 @@ def _is_valid_url_scheme(url: str) -> bool:
     return False
 
 
+_HOST_LABEL_PATTERN = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$')
+
+
+def _is_allowed_provider_host(hostname: str, provider_config: dict) -> bool:
+    """Allow only hostnames belonging to the configured auth provider."""
+    normalized_hostname = hostname.lower()
+    if normalized_hostname in provider_config.get('allowedHosts', ()):
+        return True
+
+    for suffix in provider_config.get('allowedHostSuffixes', ()):
+        if not normalized_hostname.endswith(suffix):
+            continue
+        prefix = normalized_hostname[:-len(suffix)]
+        prefix_labels = prefix.split('.')
+        allowed_label_counts = provider_config.get('allowedHostPrefixLabels')
+        if (
+            not prefix
+            or (allowed_label_counts and len(prefix_labels) not in allowed_label_counts)
+            or not all(_HOST_LABEL_PATTERN.fullmatch(label) for label in prefix_labels)
+        ):
+            continue
+        return True
+    return False
+
+
+def _is_valid_provider_url(url: str, provider_config: dict) -> bool:
+    """Validate provider URL scheme, authority, port, and hostname."""
+    if not isinstance(url, str) or not _is_valid_url_scheme(url):
+        return False
+
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        return False
+
+    if (
+        not parsed.netloc
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        return False
+
+    default_port = 443 if parsed.scheme.lower() == 'https' else 80
+    if port is not None and port != default_port:
+        return False
+    return _is_allowed_provider_host(parsed.hostname, provider_config)
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Prevent provider requests from following redirects to other hosts."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Reject redirects instead of creating a request for the target URL."""
+        return None
+
+
 
 def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     """Execute the HTTP request to the auth provider with retry logic."""
-    import time as time_mod
     max_retries = 3
     base_delay = 0.5
 
@@ -161,10 +310,9 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
 
 
 def _make_single_request(req: urllib.request.Request) -> Optional[dict]:
-    """Helper to perform a single urlopen request and parse JSON."""
-    # URL scheme validated by _is_valid_url_scheme(), safe to use urlopen
-    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
-    with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
+    """Perform one provider request without following redirects."""
+    opener = urllib.request.build_opener(_NoRedirectHandler())
+    with opener.open(req, timeout=10) as response:
         if response.status != 200:
             print(f'[AUTH] Token validation failed: {response.status}')
             return None
@@ -180,8 +328,8 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         return None
 
     url = f"{endpoint}/user"
-    if not _is_valid_url_scheme(url):
-        print(f'[AUTH] Invalid URL scheme, must be https (http requires AUTH_ALLOW_HTTP=true): {url[:50]}')
+    if not _is_valid_provider_url(url, provider_config):
+        print('[AUTH] Invalid auth provider URL configuration')
         return None
 
 
@@ -232,19 +380,19 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('X-XSS-Protection', '1; mode=block')
-        # CORS headers - wildcard is acceptable as this is behind nginx proxy
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self._send_cors_headers()
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
+
+    def _send_cors_headers(self):
+        """Send CORS headers only for an explicitly configured origin."""
+        for name, value in _get_cors_headers(self.headers.get('Origin')).items():
+            self.send_header(name, value)
 
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self._send_cors_headers()
         self.end_headers()
 
     def do_GET(self):

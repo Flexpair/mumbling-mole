@@ -16,15 +16,39 @@ from unittest.mock import patch, MagicMock
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+os.environ.setdefault('MUMBLE_PASSWORD', 'test-mumble-password')
 
 from server import (
+    RateLimiter,
+    _get_cors_headers,
+    _get_cors_origin,
+    _is_valid_provider_url,
+    _normalize_origin,
     get_nested_property,
     get_guacamole_user,
     hash_email,
     rate_limiter,
     generate_secure_password,
     _execute_auth_request,
+    validate_token,
 )
+
+
+def import_server_with_environment(environment):
+    """Reload server.py with a controlled environment for startup tests."""
+    module_name = 'server'
+    original_module = sys.modules.pop(module_name, None)
+    original_environment = os.environ.copy()
+    try:
+        os.environ.clear()
+        os.environ.update(environment)
+        return __import__(module_name)
+    finally:
+        os.environ.clear()
+        os.environ.update(original_environment)
+        sys.modules.pop(module_name, None)
+        if original_module is not None:
+            sys.modules[module_name] = original_module
 
 
 class TestGetNestedProperty(unittest.TestCase):
@@ -176,6 +200,66 @@ class TestRateLimiting(unittest.TestCase):
         # Should be allowed again
         self.assertTrue(rate_limiter.check('203.0.113.6'))
 
+    def test_cleanup_removes_expired_ips(self):
+        limiter = RateLimiter(window_seconds=60, max_requests=1)
+        old_time = time() - limiter.window - 1
+        limiter.store['203.0.113.7'] = [old_time]
+        limiter.last_cleanup = old_time
+
+        self.assertTrue(limiter.check('203.0.113.8'))
+        self.assertNotIn('203.0.113.7', limiter.store)
+
+
+class TestCorsAllowlist(unittest.TestCase):
+    """Tests for explicit CORS origin handling."""
+
+    @patch.dict(
+        os.environ,
+        {
+            'AUTH_ALLOWED_ORIGINS': (
+                'https://app.example, https://app.example/, *, '
+                'https://invalid.example/path, http://localhost:3000'
+            )
+        },
+        clear=False,
+    )
+    def test_only_explicit_valid_origins_are_allowed(self):
+        self.assertEqual(_get_cors_origin('https://app.example'), 'https://app.example')
+        self.assertEqual(_get_cors_origin('https://app.example/'), 'https://app.example')
+        self.assertEqual(_get_cors_origin('http://localhost:3000'), 'http://localhost:3000')
+        self.assertEqual(_normalize_origin('https://[2001:db8::1]:8443'), 'https://[2001:db8::1]:8443')
+        self.assertEqual(_normalize_origin('https://app.example:443'), 'https://app.example')
+        self.assertIsNone(_get_cors_origin('https://attacker.example'))
+
+    @patch.dict(os.environ, {'AUTH_ALLOWED_ORIGINS': '*'}, clear=False)
+    def test_wildcard_origin_is_not_allowed(self):
+        self.assertIsNone(_get_cors_origin('https://app.example'))
+
+    def test_origin_paths_credentials_and_non_http_schemes_are_rejected(self):
+        for origin in (
+            'https://app.example/path',
+            'https://user:password@app.example',
+            'ftp://app.example',
+            'https://[invalid',
+            'https://:443',
+            'https://app.example:not-a-port',
+            'https://app.example:65536',
+        ):
+            self.assertIsNone(_normalize_origin(origin))
+
+    @patch.dict(os.environ, {'AUTH_ALLOWED_ORIGINS': 'https://app.example'}, clear=False)
+    def test_cors_headers_vary_by_origin(self):
+        self.assertEqual(
+            _get_cors_headers('https://app.example'),
+            {
+                'Vary': 'Origin',
+                'Access-Control-Allow-Origin': 'https://app.example',
+                'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+                'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            },
+        )
+        self.assertEqual(_get_cors_headers('https://attacker.example'), {'Vary': 'Origin'})
+
 
 class TestAuthProviderConfig(unittest.TestCase):
     """Tests for auth provider configuration."""
@@ -197,6 +281,77 @@ class TestAuthProviderConfig(unittest.TestCase):
         self.assertEqual(AUTH_PROVIDERS['auth0']['rolesClaim'], 'https://flexpair.com/roles')
 
 
+class TestAuthProviderUrlValidation(unittest.TestCase):
+    """Tests for provider-specific SSRF protection."""
+
+    def test_netlify_allows_only_expected_host(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['netlify']
+        self.assertTrue(
+            _is_valid_provider_url(
+                'https://welcome.flexpair.com/identity-proxy/user', provider
+            )
+        )
+        self.assertFalse(
+            _is_valid_provider_url('https://attacker.example/user', provider)
+        )
+
+    def test_supabase_requires_project_host(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['supabase']
+        self.assertTrue(
+            _is_valid_provider_url('https://project-ref.supabase.co/auth/v1/user', provider)
+        )
+        self.assertTrue(
+            _is_valid_provider_url('https://project-ref.supabase.in/auth/v1/user', provider)
+        )
+        self.assertFalse(
+            _is_valid_provider_url('https://supabase.co/auth/v1/user', provider)
+        )
+        self.assertFalse(
+            _is_valid_provider_url('https://project-ref.supabase.co.attacker.example/user', provider)
+        )
+
+    def test_auth0_allows_standard_regional_domain(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['auth0']
+        self.assertTrue(_is_valid_provider_url('https://tenant.auth0.com/user', provider))
+        self.assertTrue(_is_valid_provider_url('https://tenant.eu.auth0.com/user', provider))
+        self.assertFalse(_is_valid_provider_url('https://auth0.com/user', provider))
+
+    def test_provider_url_rejects_private_hosts_credentials_and_ports(self):
+        from server import AUTH_PROVIDERS
+        provider = AUTH_PROVIDERS['netlify']
+        for url in (
+            'https://127.0.0.1/user',
+            'https://welcome.flexpair.com@127.0.0.1/user',
+            'https://welcome.flexpair.com:8443/user',
+            'https://welcome.flexpair.com:65536/user',
+            'https://welcome.flexpair.com/user?redirect=http://127.0.0.1',
+        ):
+            self.assertFalse(_is_valid_provider_url(url, provider))
+
+    @patch('server._execute_auth_request')
+    def test_validate_token_does_not_request_untrusted_endpoint(self, mock_request):
+        provider = {
+            'userEndpoint': 'https://attacker.example',
+            'allowedHosts': ('welcome.flexpair.com',),
+        }
+        self.assertIsNone(validate_token('token', provider))
+        mock_request.assert_not_called()
+
+    @patch('server._execute_auth_request', return_value={'email': 'user@example.com'})
+    def test_validate_token_requests_allowed_endpoint(self, mock_request):
+        from server import AUTH_PROVIDERS
+        self.assertEqual(
+            validate_token('token', AUTH_PROVIDERS['netlify']),
+            {'email': 'user@example.com'},
+        )
+        mock_request.assert_called_once_with(
+            'https://welcome.flexpair.com/identity-proxy/user', 'token'
+        )
+
+
 class TestCredentialGeneration(unittest.TestCase):
     """Tests for credential configuration."""
 
@@ -211,6 +366,10 @@ class TestCredentialGeneration(unittest.TestCase):
         self.assertIn('editor', GUACAMOLE_PASSWORDS)
         self.assertIn('watcher', GUACAMOLE_PASSWORDS)
 
+    def test_server_requires_mumble_password(self):
+        with self.assertRaisesRegex(RuntimeError, 'MUMBLE_PASSWORD must be configured'):
+            import_server_with_environment({})
+
 
 class TestExecuteAuthRequest(unittest.TestCase):
     """Tests for _execute_auth_request retry/error handling."""
@@ -223,48 +382,62 @@ class TestExecuteAuthRequest(unittest.TestCase):
         response.__exit__.return_value = False
         return response
 
-    @patch('server.urllib.request.urlopen')
-    def test_success_on_first_attempt(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_response()
+    @patch('server.urllib.request.build_opener')
+    def test_success_on_first_attempt(self, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = self._mock_response()
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertEqual(result, {'ok': True})
-        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_opener.open.call_count, 1)
+        redirect_handler = mock_build_opener.call_args.args[0]
+        self.assertEqual(type(redirect_handler).__name__, '_NoRedirectHandler')
+        self.assertIsNone(
+            redirect_handler.redirect_request(None, None, 302, 'Found', {}, 'https://example.com')
+        )
 
-    @patch('server.urllib.request.urlopen')
-    def test_http_error_returns_none_immediately(self, mock_urlopen):
-        mock_urlopen.side_effect = urllib.error.HTTPError(
+    @patch('server.urllib.request.build_opener')
+    def test_http_error_returns_none_immediately(self, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.HTTPError(
             'https://example.com', 401, 'Unauthorized', {}, None
         )
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
-        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_opener.open.call_count, 1)
 
-    @patch('time.sleep', return_value=None)
-    @patch('server.urllib.request.urlopen')
-    def test_url_error_retries_then_succeeds(self, mock_urlopen, mock_sleep):
-        mock_urlopen.side_effect = [
+    @patch('server.time_mod.sleep', return_value=None)
+    @patch('server.urllib.request.build_opener')
+    def test_url_error_retries_then_succeeds(self, mock_build_opener, mock_sleep):
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = [
             urllib.error.URLError('network down'),
             self._mock_response(),
         ]
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertEqual(result, {'ok': True})
-        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(mock_opener.open.call_count, 2)
         self.assertEqual(mock_sleep.call_count, 1)
 
-    @patch('time.sleep', return_value=None)
-    @patch('server.urllib.request.urlopen')
-    def test_exhausted_retries_returns_none(self, mock_urlopen, mock_sleep):
-        mock_urlopen.side_effect = urllib.error.URLError('network down')
+    @patch('server.time_mod.sleep', return_value=None)
+    @patch('server.urllib.request.build_opener')
+    def test_exhausted_retries_returns_none(self, mock_build_opener, mock_sleep):
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.URLError('network down')
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
-        self.assertEqual(mock_urlopen.call_count, 3)
+        self.assertEqual(mock_opener.open.call_count, 3)
 
-    @patch('server.urllib.request.urlopen')
-    def test_non_200_status_returns_none(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_response(status=500, body=b'')
+    @patch('server.urllib.request.build_opener')
+    def test_non_200_status_returns_none(self, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = self._mock_response(status=500, body=b'')
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
-
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
