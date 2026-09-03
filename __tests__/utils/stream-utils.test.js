@@ -85,6 +85,18 @@ describe('websocket-stream-lite', () => {
     expect(globalThis.WebSocket).toHaveBeenCalledWith('wss://example.com/', 'mumble');
   });
 
+  it('should reject credentials in a WebSocket URL', () => {
+    expect(() => websocketStream('wss://user:password@example.com')).toThrow(
+      'WebSocket target must not include credentials or a custom port'
+    );
+  });
+
+  it('should reject a custom port in a WebSocket URL', () => {
+    expect(() => websocketStream('wss://example.com:8443')).toThrow(
+      'WebSocket target must not include credentials or a custom port'
+    );
+  });
+
   it('should send data through write()', (done) => {
     // Create stream from existing socket to ensure it's already OPEN
     const existingSocket = {
