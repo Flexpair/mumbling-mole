@@ -382,48 +382,62 @@ class TestExecuteAuthRequest(unittest.TestCase):
         response.__exit__.return_value = False
         return response
 
-    @patch('server.urllib.request.urlopen')
-    def test_success_on_first_attempt(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_response()
+    @patch('server.urllib.request.build_opener')
+    def test_success_on_first_attempt(self, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = self._mock_response()
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertEqual(result, {'ok': True})
-        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_opener.open.call_count, 1)
+        redirect_handler = mock_build_opener.call_args.args[0]
+        self.assertEqual(type(redirect_handler).__name__, '_NoRedirectHandler')
+        self.assertIsNone(
+            redirect_handler.redirect_request(None, None, 302, 'Found', {}, 'https://example.com')
+        )
 
-    @patch('server.urllib.request.urlopen')
-    def test_http_error_returns_none_immediately(self, mock_urlopen):
-        mock_urlopen.side_effect = urllib.error.HTTPError(
+    @patch('server.urllib.request.build_opener')
+    def test_http_error_returns_none_immediately(self, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.HTTPError(
             'https://example.com', 401, 'Unauthorized', {}, None
         )
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
-        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_opener.open.call_count, 1)
 
     @patch('server.time_mod.sleep', return_value=None)
-    @patch('server.urllib.request.urlopen')
-    def test_url_error_retries_then_succeeds(self, mock_urlopen, mock_sleep):
-        mock_urlopen.side_effect = [
+    @patch('server.urllib.request.build_opener')
+    def test_url_error_retries_then_succeeds(self, mock_build_opener, mock_sleep):
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = [
             urllib.error.URLError('network down'),
             self._mock_response(),
         ]
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertEqual(result, {'ok': True})
-        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(mock_opener.open.call_count, 2)
         self.assertEqual(mock_sleep.call_count, 1)
 
     @patch('server.time_mod.sleep', return_value=None)
-    @patch('server.urllib.request.urlopen')
-    def test_exhausted_retries_returns_none(self, mock_urlopen, mock_sleep):
-        mock_urlopen.side_effect = urllib.error.URLError('network down')
+    @patch('server.urllib.request.build_opener')
+    def test_exhausted_retries_returns_none(self, mock_build_opener, mock_sleep):
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.URLError('network down')
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
-        self.assertEqual(mock_urlopen.call_count, 3)
+        self.assertEqual(mock_opener.open.call_count, 3)
 
-    @patch('server.urllib.request.urlopen')
-    def test_non_200_status_returns_none(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_response(status=500, body=b'')
+    @patch('server.urllib.request.build_opener')
+    def test_non_200_status_returns_none(self, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = self._mock_response(status=500, body=b'')
+        mock_build_opener.return_value = mock_opener
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
-
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

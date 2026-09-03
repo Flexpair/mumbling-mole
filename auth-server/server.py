@@ -268,6 +268,14 @@ def _is_valid_provider_url(url: str, provider_config: dict) -> bool:
     return _is_allowed_provider_host(parsed.hostname, provider_config)
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Prevent provider requests from following redirects to other hosts."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Reject redirects instead of creating a request for the target URL."""
+        return None
+
+
 
 def _execute_auth_request(url: str, token: str) -> Optional[dict]:
     """Execute the HTTP request to the auth provider with retry logic."""
@@ -302,10 +310,9 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
 
 
 def _make_single_request(req: urllib.request.Request) -> Optional[dict]:
-    """Helper to perform a single urlopen request and parse JSON."""
-    # URL validated by validate_token(), safe to use urlopen
-    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected, python_urlopen_rule-urllib-urlopen
-    with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310
+    """Perform one provider request without following redirects."""
+    opener = urllib.request.build_opener(_NoRedirectHandler())
+    with opener.open(req, timeout=10) as response:
         if response.status != 200:
             print(f'[AUTH] Token validation failed: {response.status}')
             return None
