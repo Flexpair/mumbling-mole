@@ -30,9 +30,6 @@ export default function websocketStream(target, protocols, options) {
     if (socketUrl.protocol !== 'ws:' && socketUrl.protocol !== 'wss:') {
       throw new TypeError('WebSocket target must use ws: or wss:');
     }
-    if (socketUrl.username || socketUrl.password || socketUrl.port) {
-      throw new TypeError('WebSocket target must not include credentials or a custom port');
-    }
     socket = new WebSocket(socketUrl.href, protocols);
     socket.binaryType = 'arraybuffer';
   }
@@ -48,9 +45,7 @@ export default function websocketStream(target, protocols, options) {
       
       try {
         // Convert to ArrayBuffer if needed
-        const data = Buffer.isBuffer(chunk)
-          ? chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)
-          : chunk;
+        const data = chunk.buffer ? chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength) : chunk;
         socket.send(data);
         callback();
       } catch (err) {
