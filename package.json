@@ -62,7 +62,7 @@
     "baseline-browser-mapping": "2.11.20",
     "ws": "8.21.3",
     "magic-string": "0.30.10",
-    "js-yaml": "4.3.1",
+    "js-yaml": "4.3.2",
     "@babel/core": "7.29.7",
     "linkify-it": "5.0.2",
     "markdown-it": "14.3.0"
