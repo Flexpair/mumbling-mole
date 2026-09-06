@@ -57,22 +57,22 @@ def _resolve_client_ip(
     if not forwarded_for or not _is_trusted_proxy(peer_address, trusted_proxies):
         return str(peer_address)
 
-    try:
-        forwarded_addresses = [
-            ipaddress.ip_address(value.strip())
-            for value in forwarded_for.split(',')
-            if value.strip()
-        ]
-    except ValueError:
+    forwarded_values = [value.strip() for value in forwarded_for.split(',')]
+    if not forwarded_values:
         return str(peer_address)
 
-    if not forwarded_addresses:
-        return str(peer_address)
-
-    for address in reversed(forwarded_addresses):
+    # Walk only the trusted suffix. A malformed client-supplied prefix must
+    # not invalidate the valid client address and proxy chain to its right.
+    for index in range(len(forwarded_values) - 1, -1, -1):
+        try:
+            address = ipaddress.ip_address(forwarded_values[index])
+        except ValueError:
+            return str(peer_address)
         if not _is_trusted_proxy(address, trusted_proxies):
             return str(address)
-    return str(forwarded_addresses[0])
+        if index == 0:
+            return str(address)
+    return str(peer_address)
 
 def generate_secure_password(length: int = 32) -> str:
     """Generate a cryptographically secure URL-safe password.

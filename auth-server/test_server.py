@@ -338,6 +338,32 @@ class TestCredentialRateLimitOrdering(unittest.TestCase):
             401, {'error': 'Invalid or expired token'}
         )
 
+    @patch('server.validate_token', return_value=None)
+    @patch(
+        'server.TRUSTED_PROXIES',
+        _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8'),
+    )
+    def test_malformed_forwarded_prefix_does_not_collapse_client_limits(
+        self, _mock_validate
+    ):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.client_address = ('172.18.0.7', 12345)
+            handler.headers['X-Forwarded-For'] = (
+                'not-an-ip, 203.0.113.10, 10.0.0.4'
+            )
+            handler.do_POST()
+
+        other_client = self._handler('Bearer invalid-other-client')
+        other_client.client_address = ('172.18.0.7', 12345)
+        other_client.headers['X-Forwarded-For'] = (
+            'not-an-ip, 203.0.113.11, 10.0.0.4'
+        )
+        other_client.do_POST()
+        other_client.send_json.assert_called_once_with(
+            401, {'error': 'Invalid or expired token'}
+        )
+
 
 class TestClientIpResolution(unittest.TestCase):
     """Forwarded addresses are accepted only from explicit trusted proxies."""
@@ -370,6 +396,24 @@ class TestClientIpResolution(unittest.TestCase):
         self.assertEqual(
             _resolve_client_ip('172.18.0.7', '10.0.0.21, 10.0.0.4', trusted),
             '10.0.0.21',
+        )
+
+    def test_malformed_prefix_is_ignored_after_untrusted_hop(self):
+        trusted = _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8')
+        self.assertEqual(
+            _resolve_client_ip(
+                '172.18.0.7', 'not-an-ip, 203.0.113.8, 10.0.0.4', trusted
+            ),
+            '203.0.113.8',
+        )
+
+    def test_malformed_trusted_suffix_falls_back_to_peer(self):
+        trusted = _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8')
+        self.assertEqual(
+            _resolve_client_ip(
+                '172.18.0.7', '203.0.113.8, not-an-ip, 10.0.0.4', trusted
+            ),
+            '172.18.0.7',
         )
 
     def test_malformed_forwarded_chain_falls_back_to_peer(self):
