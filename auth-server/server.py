@@ -8,6 +8,7 @@ Zero additional dependencies - uses only Python stdlib.
 
 import hashlib
 import http.server
+import ipaddress
 import json
 import os
 import re
@@ -25,6 +26,53 @@ from urllib.parse import urlsplit
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
 # Binding to 0.0.0.0 is intentional - server runs in container behind nginx
 HOST = os.environ.get('AUTH_SERVER_HOST', '0.0.0.0')  # nosec B104
+
+
+def _parse_trusted_proxies(config: str) -> tuple:
+    """Parse comma-separated proxy IP addresses or networks."""
+    networks = []
+    for value in config.split(','):
+        value = value.strip()
+        if value:
+            networks.append(ipaddress.ip_network(value, strict=False))
+    return tuple(networks)
+
+
+TRUSTED_PROXIES = _parse_trusted_proxies(os.environ.get('TRUSTED_PROXIES', ''))
+
+
+def _is_trusted_proxy(address, trusted_proxies: tuple) -> bool:
+    return any(address in network for network in trusted_proxies)
+
+
+def _resolve_client_ip(
+    peer_ip: str, forwarded_for: Optional[str], trusted_proxies: tuple
+) -> str:
+    """Resolve client IP, accepting XFF only from configured trusted proxies."""
+    try:
+        peer_address = ipaddress.ip_address(peer_ip)
+    except ValueError:
+        return peer_ip
+
+    if not forwarded_for or not _is_trusted_proxy(peer_address, trusted_proxies):
+        return str(peer_address)
+
+    try:
+        forwarded_addresses = [
+            ipaddress.ip_address(value.strip())
+            for value in forwarded_for.split(',')
+            if value.strip()
+        ]
+    except ValueError:
+        return str(peer_address)
+
+    if not forwarded_addresses:
+        return str(peer_address)
+
+    for address in reversed(forwarded_addresses):
+        if not _is_trusted_proxy(address, trusted_proxies):
+            return str(address)
+    return str(peer_address)
 
 def generate_secure_password(length: int = 32) -> str:
     """Generate a cryptographically secure URL-safe password.
@@ -403,7 +451,11 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(404, {'error': 'Not found'})
 
     def _check_rate_limit(self) -> bool:
-        client_ip = self.client_address[0]
+        client_ip = _resolve_client_ip(
+            self.client_address[0],
+            self.headers.get('X-Forwarded-For'),
+            TRUSTED_PROXIES,
+        )
         if not rate_limiter.check(client_ip):
             self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
             return False
@@ -424,12 +476,11 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             return
 
 
-        if not self._check_rate_limit():
-
-            return
-
         token = self._get_token_from_header()
         if not token:
+            return
+
+        if not self._check_rate_limit():
             return
 
         provider_config = AUTH_PROVIDERS.get(AUTH_PROVIDER)
