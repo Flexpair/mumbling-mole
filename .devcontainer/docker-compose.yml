@@ -54,6 +54,7 @@ services:
       - AUTH_PROVIDER=${AUTH_PROVIDER:-netlify}
       - NETLIFY_IDENTITY_URL=${NETLIFY_IDENTITY_URL:-https://welcome.flexpair.com/identity-proxy}
       - AUTH_ALLOWED_ORIGINS=${AUTH_ALLOWED_ORIGINS:-https://local.flexpair.app}
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.18.0.7/32}
       - SKIP_PREPARE=1
 
   nginx:

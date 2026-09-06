@@ -9,6 +9,7 @@ Or standalone: python3 auth-server/test_server.py
 import json
 import unittest
 import urllib.error
+from email.message import Message
 from time import time
 from unittest.mock import patch, MagicMock
 
@@ -19,7 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('MUMBLE_PASSWORD', 'test-mumble-password')
 
 from server import (
+    AuthHandler,
     RateLimiter,
+    _parse_trusted_proxies,
+    _resolve_client_ip,
     _get_cors_headers,
     _get_cors_origin,
     _is_valid_provider_url,
@@ -208,6 +212,227 @@ class TestRateLimiting(unittest.TestCase):
 
         self.assertTrue(limiter.check('203.0.113.8'))
         self.assertNotIn('203.0.113.7', limiter.store)
+
+
+class TestCredentialRateLimitOrdering(unittest.TestCase):
+    """Requests without credentials must not consume authentication budget."""
+
+    def setUp(self):
+        rate_limiter.store.clear()
+
+    @staticmethod
+    def _handler(authorization=None):
+        handler = AuthHandler.__new__(AuthHandler)
+        handler.path = '/api/credentials'
+        handler.client_address = ('203.0.113.10', 12345)
+        handler.headers = Message()
+        if authorization is not None:
+            handler.headers['Authorization'] = authorization
+        handler.send_json = MagicMock()
+        return handler
+
+    def test_missing_authorization_does_not_consume_rate_limit(self):
+        for _ in range(rate_limiter.max_requests + 5):
+            handler = self._handler()
+            handler.do_POST()
+            handler.send_json.assert_called_once_with(
+                401, {'error': 'Missing authorization header'}
+            )
+
+        self.assertNotIn('203.0.113.10', rate_limiter.store)
+
+    def test_empty_bearer_token_does_not_consume_rate_limit(self):
+        handler = self._handler('Bearer   ')
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(
+            401, {'error': 'Missing authorization header'}
+        )
+        self.assertNotIn('203.0.113.10', rate_limiter.store)
+
+    @patch('server.validate_token', return_value=None)
+    def test_rotating_tokens_share_client_ip_limit(self, _mock_validate):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.do_POST()
+            handler.send_json.assert_called_once_with(
+                401, {'error': 'Invalid or expired token'}
+            )
+
+        blocked_handler = self._handler('Bearer another-invalid-token')
+        blocked_handler.do_POST()
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+
+    @patch('server.validate_token', return_value=None)
+    @patch('server.TRUSTED_PROXIES', ())
+    def test_spoofed_forwarded_ip_does_not_bypass_limit(self, _mock_validate):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.headers['X-Forwarded-For'] = f'203.0.113.{index + 1}'
+            handler.do_POST()
+
+        blocked_handler = self._handler('Bearer final-invalid-token')
+        blocked_handler.headers['X-Forwarded-For'] = '192.0.2.99'
+        blocked_handler.do_POST()
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+
+    @patch('server.validate_token', return_value=None)
+    @patch('server.TRUSTED_PROXIES', ())
+    def test_different_direct_clients_have_independent_limits(self, _mock_validate):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.do_POST()
+
+        other_client = self._handler('Bearer invalid-other-client')
+        other_client.client_address = ('203.0.113.11', 12345)
+        other_client.do_POST()
+        other_client.send_json.assert_called_once_with(
+            401, {'error': 'Invalid or expired token'}
+        )
+
+    @patch('server.validate_token', return_value=None)
+    @patch(
+        'server.TRUSTED_PROXIES',
+        _parse_trusted_proxies('172.18.0.7/32'),
+    )
+    def test_forwarded_clients_have_independent_limits(self, _mock_validate):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.client_address = ('172.18.0.7', 12345)
+            handler.headers['X-Forwarded-For'] = '203.0.113.10'
+            handler.do_POST()
+
+        other_client = self._handler('Bearer invalid-other-client')
+        other_client.client_address = ('172.18.0.7', 12345)
+        other_client.headers['X-Forwarded-For'] = '203.0.113.11'
+        other_client.do_POST()
+        other_client.send_json.assert_called_once_with(
+            401, {'error': 'Invalid or expired token'}
+        )
+
+    @patch('server.validate_token', return_value=None)
+    @patch(
+        'server.TRUSTED_PROXIES',
+        _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8'),
+    )
+    def test_fully_trusted_forwarded_clients_have_independent_limits(
+        self, _mock_validate
+    ):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.client_address = ('172.18.0.7', 12345)
+            handler.headers['X-Forwarded-For'] = '10.0.0.21, 10.0.0.4'
+            handler.do_POST()
+
+        other_client = self._handler('Bearer invalid-other-client')
+        other_client.client_address = ('172.18.0.7', 12345)
+        other_client.headers['X-Forwarded-For'] = '10.0.0.22, 10.0.0.4'
+        other_client.do_POST()
+        other_client.send_json.assert_called_once_with(
+            401, {'error': 'Invalid or expired token'}
+        )
+
+    @patch('server.validate_token', return_value=None)
+    @patch(
+        'server.TRUSTED_PROXIES',
+        _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8'),
+    )
+    def test_malformed_forwarded_prefix_does_not_collapse_client_limits(
+        self, _mock_validate
+    ):
+        for index in range(rate_limiter.max_requests):
+            handler = self._handler(f'Bearer invalid-{index}')
+            handler.client_address = ('172.18.0.7', 12345)
+            handler.headers['X-Forwarded-For'] = (
+                'not-an-ip, 203.0.113.10, 10.0.0.4'
+            )
+            handler.do_POST()
+
+        other_client = self._handler('Bearer invalid-other-client')
+        other_client.client_address = ('172.18.0.7', 12345)
+        other_client.headers['X-Forwarded-For'] = (
+            'not-an-ip, 203.0.113.11, 10.0.0.4'
+        )
+        other_client.do_POST()
+        other_client.send_json.assert_called_once_with(
+            401, {'error': 'Invalid or expired token'}
+        )
+
+
+class TestClientIpResolution(unittest.TestCase):
+    """Forwarded addresses are accepted only from explicit trusted proxies."""
+
+    def test_untrusted_peer_cannot_spoof_forwarded_address(self):
+        self.assertEqual(
+            _resolve_client_ip(
+                '198.51.100.20', '203.0.113.8', _parse_trusted_proxies('172.18.0.7/32')
+            ),
+            '198.51.100.20',
+        )
+
+    def test_trusted_proxy_uses_forwarded_client_address(self):
+        self.assertEqual(
+            _resolve_client_ip(
+                '172.18.0.7', '203.0.113.8', _parse_trusted_proxies('172.18.0.7/32')
+            ),
+            '203.0.113.8',
+        )
+
+    def test_trusted_proxy_walks_chain_from_right_to_left(self):
+        trusted = _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8')
+        self.assertEqual(
+            _resolve_client_ip('172.18.0.7', '203.0.113.8, 10.0.0.4', trusted),
+            '203.0.113.8',
+        )
+
+    def test_fully_trusted_chain_uses_leftmost_address(self):
+        trusted = _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8')
+        self.assertEqual(
+            _resolve_client_ip('172.18.0.7', '10.0.0.21, 10.0.0.4', trusted),
+            '10.0.0.21',
+        )
+
+    def test_malformed_prefix_is_ignored_after_untrusted_hop(self):
+        trusted = _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8')
+        self.assertEqual(
+            _resolve_client_ip(
+                '172.18.0.7', 'not-an-ip, 203.0.113.8, 10.0.0.4', trusted
+            ),
+            '203.0.113.8',
+        )
+
+    def test_malformed_trusted_suffix_falls_back_to_peer(self):
+        trusted = _parse_trusted_proxies('172.18.0.7/32, 10.0.0.0/8')
+        self.assertEqual(
+            _resolve_client_ip(
+                '172.18.0.7', '203.0.113.8, not-an-ip, 10.0.0.4', trusted
+            ),
+            '172.18.0.7',
+        )
+
+    def test_malformed_forwarded_chain_falls_back_to_peer(self):
+        self.assertEqual(
+            _resolve_client_ip(
+                '172.18.0.7', 'not-an-ip', _parse_trusted_proxies('172.18.0.7/32')
+            ),
+            '172.18.0.7',
+        )
+
+    def test_ipv6_proxy_and_client_are_supported(self):
+        self.assertEqual(
+            _resolve_client_ip(
+                '2001:db8::7',
+                '2001:db8:1::5',
+                _parse_trusted_proxies('2001:db8::7/128'),
+            ),
+            '2001:db8:1::5',
+        )
 
 
 class TestCorsAllowlist(unittest.TestCase):
