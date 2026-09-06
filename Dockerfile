@@ -55,9 +55,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     esac; \
     NODE_VERSION=22.20.0; \
     curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
+    curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" -o /tmp/SHASUMS256.txt; \
+    expected_checksum="$(awk -v tarball="node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" '$2 == tarball { print $1; exit }' /tmp/SHASUMS256.txt)"; \
+    test -n "$expected_checksum"; \
+    printf '%s  %s\n' "$expected_checksum" /tmp/node.tar.xz | sha256sum -c -; \
     mkdir -p /usr/local/lib/nodejs; \
     tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs; \
-    rm /tmp/node.tar.xz; \
+    rm /tmp/node.tar.xz /tmp/SHASUMS256.txt; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/node" /usr/local/bin/node; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/npm" /usr/local/bin/npm; \
     ln -sfn "/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/npx" /usr/local/bin/npx; \
