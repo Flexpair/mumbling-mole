@@ -72,7 +72,7 @@ def _resolve_client_ip(
     for address in reversed(forwarded_addresses):
         if not _is_trusted_proxy(address, trusted_proxies):
             return str(address)
-    return str(peer_address)
+    return str(forwarded_addresses[0])
 
 def generate_secure_password(length: int = 32) -> str:
     """Generate a cryptographically secure URL-safe password.
