@@ -56,7 +56,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     NODE_VERSION=22.20.0; \
     curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
     curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" -o /tmp/SHASUMS256.txt; \
-    expected_checksum="$(awk -v tarball="node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" '$2 == tarball { print $1; exit }' /tmp/SHASUMS256.txt)"; \
+    expected_checksum="$(awk \
+      -v "tarball=node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
+      '$2 == tarball { print $1; exit }' \
+      /tmp/SHASUMS256.txt)"; \
     test -n "$expected_checksum"; \
     printf '%s  %s\n' "$expected_checksum" /tmp/node.tar.xz | sha256sum -c -; \
     mkdir -p /usr/local/lib/nodejs; \
