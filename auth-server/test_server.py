@@ -17,10 +17,12 @@ from unittest.mock import patch, MagicMock
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-os.environ.setdefault('MUMBLE_PASSWORD', 'test-mumble-password')
-os.environ.setdefault('GUAC_ADMIN_PASSWORD', 'test-guac-admin-password')
-os.environ.setdefault('GUAC_EDITOR_PASSWORD', 'test-guac-editor-password')
-os.environ.setdefault('GUAC_WATCHER_PASSWORD', 'test-guac-watcher-password')
+os.environ.update({
+    'MUMBLE_PASSWORD': 'test-mumble-password',
+    'GUAC_ADMIN_PASSWORD': 'test-guac-admin-password',
+    'GUAC_EDITOR_PASSWORD': 'test-guac-editor-password',
+    'GUAC_WATCHER_PASSWORD': 'test-guac-watcher-password',
+})
 
 from server import (
     AuthHandler,
@@ -619,6 +621,15 @@ class TestCredentialGeneration(unittest.TestCase):
             'editor': 'editor-password',
             'watcher': 'watcher-password',
         })
+
+    def test_server_rejects_duplicate_guacamole_passwords(self):
+        with self.assertRaisesRegex(RuntimeError, 'Guacamole role passwords must be distinct'):
+            import_server_with_environment({
+                'MUMBLE_PASSWORD': 'mumble-password',
+                'GUAC_ADMIN_PASSWORD': 'same-password',
+                'GUAC_EDITOR_PASSWORD': 'same-password',
+                'GUAC_WATCHER_PASSWORD': 'watcher-password',
+            })
 
 
 class TestExecuteAuthRequest(unittest.TestCase):

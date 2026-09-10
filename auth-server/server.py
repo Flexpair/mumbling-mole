@@ -99,6 +99,8 @@ for role, environment_name in _GUACAMOLE_PASSWORD_ENV.items():
     if not password:
         raise RuntimeError(f'{environment_name} must be configured')
     GUACAMOLE_PASSWORDS[role] = password
+if len(set(GUACAMOLE_PASSWORDS.values())) != len(GUACAMOLE_PASSWORDS):
+    raise RuntimeError('Guacamole role passwords must be distinct')
 
 AUTH_PROVIDER = os.environ.get('AUTH_PROVIDER', 'netlify')
 AUTH_PROVIDERS = {
