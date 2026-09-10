@@ -601,13 +601,21 @@ class TestCredentialGeneration(unittest.TestCase):
             import_server_with_environment({})
 
     def test_server_requires_every_guacamole_password(self):
-        environment = {
-            'MUMBLE_PASSWORD': 'mumble-password',
-            'GUAC_ADMIN_PASSWORD': 'admin-password',
-            'GUAC_EDITOR_PASSWORD': 'editor-password',
-        }
-        with self.assertRaisesRegex(RuntimeError, 'GUAC_WATCHER_PASSWORD must be configured'):
-            import_server_with_environment(environment)
+        for missing_name in (
+            'GUAC_ADMIN_PASSWORD',
+            'GUAC_EDITOR_PASSWORD',
+            'GUAC_WATCHER_PASSWORD',
+        ):
+            with self.subTest(missing_name=missing_name):
+                environment = {
+                    'MUMBLE_PASSWORD': 'mumble-password',
+                    'GUAC_ADMIN_PASSWORD': 'admin-password',
+                    'GUAC_EDITOR_PASSWORD': 'editor-password',
+                    'GUAC_WATCHER_PASSWORD': 'watcher-password',
+                }
+                environment[missing_name] = ''
+                with self.assertRaisesRegex(RuntimeError, f'{missing_name} must be configured'):
+                    import_server_with_environment(environment)
 
     def test_guacamole_passwords_never_fall_back_to_mumble_password(self):
         module = import_server_with_environment({
