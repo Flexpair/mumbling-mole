@@ -87,11 +87,18 @@ def generate_secure_password(length: int = 32) -> str:
 MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD')
 if not MUMBLE_PASSWORD:
     raise RuntimeError('MUMBLE_PASSWORD must be configured')
-GUACAMOLE_PASSWORDS = {
-    'admin': os.environ.get('GUAC_ADMIN_PASSWORD') or MUMBLE_PASSWORD,
-    'editor': os.environ.get('GUAC_EDITOR_PASSWORD') or MUMBLE_PASSWORD,
-    'watcher': os.environ.get('GUAC_WATCHER_PASSWORD') or MUMBLE_PASSWORD
+
+_GUACAMOLE_PASSWORD_ENV = {
+    'admin': 'GUAC_ADMIN_PASSWORD',
+    'editor': 'GUAC_EDITOR_PASSWORD',
+    'watcher': 'GUAC_WATCHER_PASSWORD',
 }
+GUACAMOLE_PASSWORDS = {}
+for role, environment_name in _GUACAMOLE_PASSWORD_ENV.items():
+    password = os.environ.get(environment_name)
+    if not password:
+        raise RuntimeError(f'{environment_name} must be configured')
+    GUACAMOLE_PASSWORDS[role] = password
 
 AUTH_PROVIDER = os.environ.get('AUTH_PROVIDER', 'netlify')
 AUTH_PROVIDERS = {

@@ -18,6 +18,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('MUMBLE_PASSWORD', 'test-mumble-password')
+os.environ.setdefault('GUAC_ADMIN_PASSWORD', 'test-guac-admin-password')
+os.environ.setdefault('GUAC_EDITOR_PASSWORD', 'test-guac-editor-password')
+os.environ.setdefault('GUAC_WATCHER_PASSWORD', 'test-guac-watcher-password')
 
 from server import (
     AuthHandler,
@@ -594,6 +597,28 @@ class TestCredentialGeneration(unittest.TestCase):
     def test_server_requires_mumble_password(self):
         with self.assertRaisesRegex(RuntimeError, 'MUMBLE_PASSWORD must be configured'):
             import_server_with_environment({})
+
+    def test_server_requires_every_guacamole_password(self):
+        environment = {
+            'MUMBLE_PASSWORD': 'mumble-password',
+            'GUAC_ADMIN_PASSWORD': 'admin-password',
+            'GUAC_EDITOR_PASSWORD': 'editor-password',
+        }
+        with self.assertRaisesRegex(RuntimeError, 'GUAC_WATCHER_PASSWORD must be configured'):
+            import_server_with_environment(environment)
+
+    def test_guacamole_passwords_never_fall_back_to_mumble_password(self):
+        module = import_server_with_environment({
+            'MUMBLE_PASSWORD': 'mumble-password',
+            'GUAC_ADMIN_PASSWORD': 'admin-password',
+            'GUAC_EDITOR_PASSWORD': 'editor-password',
+            'GUAC_WATCHER_PASSWORD': 'watcher-password',
+        })
+        self.assertEqual(module.GUACAMOLE_PASSWORDS, {
+            'admin': 'admin-password',
+            'editor': 'editor-password',
+            'watcher': 'watcher-password',
+        })
 
 
 class TestExecuteAuthRequest(unittest.TestCase):
