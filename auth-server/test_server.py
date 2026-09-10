@@ -17,7 +17,12 @@ from unittest.mock import patch, MagicMock
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-os.environ.setdefault('MUMBLE_PASSWORD', 'test-mumble-password')
+os.environ.update({
+    'MUMBLE_PASSWORD': 'test-mumble-password',
+    'GUAC_ADMIN_PASSWORD': 'test-guac-admin-password',
+    'GUAC_EDITOR_PASSWORD': 'test-guac-editor-password',
+    'GUAC_WATCHER_PASSWORD': 'test-guac-watcher-password',
+})
 
 from server import (
     AuthHandler,
@@ -594,6 +599,45 @@ class TestCredentialGeneration(unittest.TestCase):
     def test_server_requires_mumble_password(self):
         with self.assertRaisesRegex(RuntimeError, 'MUMBLE_PASSWORD must be configured'):
             import_server_with_environment({})
+
+    def test_server_requires_every_guacamole_password(self):
+        for missing_name in (
+            'GUAC_ADMIN_PASSWORD',
+            'GUAC_EDITOR_PASSWORD',
+            'GUAC_WATCHER_PASSWORD',
+        ):
+            with self.subTest(missing_name=missing_name):
+                environment = {
+                    'MUMBLE_PASSWORD': 'mumble-password',
+                    'GUAC_ADMIN_PASSWORD': 'admin-password',
+                    'GUAC_EDITOR_PASSWORD': 'editor-password',
+                    'GUAC_WATCHER_PASSWORD': 'watcher-password',
+                }
+                environment[missing_name] = ''
+                with self.assertRaisesRegex(RuntimeError, f'{missing_name} must be configured'):
+                    import_server_with_environment(environment)
+
+    def test_guacamole_passwords_never_fall_back_to_mumble_password(self):
+        module = import_server_with_environment({
+            'MUMBLE_PASSWORD': 'mumble-password',
+            'GUAC_ADMIN_PASSWORD': 'admin-password',
+            'GUAC_EDITOR_PASSWORD': 'editor-password',
+            'GUAC_WATCHER_PASSWORD': 'watcher-password',
+        })
+        self.assertEqual(module.GUACAMOLE_PASSWORDS, {
+            'admin': 'admin-password',
+            'editor': 'editor-password',
+            'watcher': 'watcher-password',
+        })
+
+    def test_server_rejects_duplicate_guacamole_passwords(self):
+        with self.assertRaisesRegex(RuntimeError, 'Guacamole role passwords must be distinct'):
+            import_server_with_environment({
+                'MUMBLE_PASSWORD': 'mumble-password',
+                'GUAC_ADMIN_PASSWORD': 'same-password',
+                'GUAC_EDITOR_PASSWORD': 'same-password',
+                'GUAC_WATCHER_PASSWORD': 'watcher-password',
+            })
 
 
 class TestExecuteAuthRequest(unittest.TestCase):

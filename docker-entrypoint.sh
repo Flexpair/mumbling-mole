@@ -69,8 +69,9 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
   if kill -0 "${AUTH_SERVER_PID}" 2>/dev/null; then
     echo "[entrypoint] Auth server started (PID: ${AUTH_SERVER_PID})"
   else
-    echo "[entrypoint] WARNING: Auth server failed to start, check /tmp/auth-server.log"
-    cat /tmp/auth-server.log 2>/dev/null || true
+    echo "[entrypoint] ERROR: Auth server failed to start; check /tmp/auth-server.log" >&2
+    cat /tmp/auth-server.log >&2 2>/dev/null || true
+    exit 1
   fi
 fi
 
