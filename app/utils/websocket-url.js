@@ -14,7 +14,7 @@
  * 
  * @example
  * buildWebSocketUrl('mumble.example.com', '64738')
- * // => 'wss://mumble.example.com:64738'
+ * // => 'ws://mumble.example.com:64738'
  * 
  * buildWebSocketUrl('example.com', '443/murmur')
  * // => 'wss://example.com/murmur'
