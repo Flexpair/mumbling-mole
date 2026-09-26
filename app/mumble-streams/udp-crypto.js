@@ -68,7 +68,8 @@ class UdpCrypt {
         break;
       }
     }
-    // AES-128-ECB is required by Mumble's OCB-compatible protocol.
+    // AES-128-ECB is required by Mumble's OCB-compatible protocol;
+    // replacing it breaks wire compatibility.
     const cipher = crypto.createCipheriv('aes-128-ecb', this._key, null)
       .setAutoPadding(false);
 
@@ -182,7 +183,8 @@ class UdpCrypt {
   }
 
   _verifyAndDecryptPacket(cipherText, saveiv) {
-    // AES-128-ECB is required by Mumble's OCB-compatible protocol.
+    // AES-128-ECB is required by Mumble's OCB-compatible protocol;
+    // replacing it breaks wire compatibility.
     const encrypt = crypto.createCipheriv('aes-128-ecb', this._key, null)
       .setAutoPadding(false);
     const decrypt = crypto.createDecipheriv('aes-128-ecb', this._key, null)
