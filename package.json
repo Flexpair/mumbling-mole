@@ -41,7 +41,7 @@
     "@jest/globals": "30.5.2",
     "@playwright/test": "1.63.0",
     "depcheck": "1.4.7",
-    "dotenv": "17.4.2",
+    "dotenv": "18.0.3",
     "esbuild": "0.28.2",
     "esbuild-plugin-vue3": "0.5.1",
     "esbuild-sass-plugin": "3.7.0",
