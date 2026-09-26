@@ -100,6 +100,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     nano \
     net-tools \
+    openssl \
     openssh-client \
     sudo \
     vim \

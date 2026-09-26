@@ -6,7 +6,6 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 CERT_DIR="${SCRIPT_DIR}/letsencrypt"
-PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 CERT_FILE="${CERT_DIR}/local.flexpair.app.pem"
 KEY_FILE="${CERT_DIR}/local.flexpair.app-key.pem"
 
@@ -19,16 +18,10 @@ if [[ -e "${CERT_FILE}" || -e "${KEY_FILE}" ]]; then
     exit 1
 fi
 
-if ! command -v openssl >/dev/null 2>&1; then
-    if [[ -n "${CODESPACE_NAME:-}" ]] && command -v docker >/dev/null 2>&1; then
-        exec docker run --rm \
-            -v "${PROJECT_ROOT}:/workspaces/mumbling-mole" \
-            ubuntu:24.04 \
-            bash -lc 'apt-get update -qq && apt-get install -y -qq --no-install-recommends openssl ca-certificates >/dev/null && exec /workspaces/mumbling-mole/.devcontainer/setup-local-dev.sh'
-    fi
+command -v openssl >/dev/null 2>&1 || {
     echo "openssl is required to generate local TLS material" >&2
     exit 1
-fi
+}
 
 mkdir -p "${CERT_DIR}"
 umask 077
