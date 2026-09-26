@@ -270,7 +270,7 @@ function disconnectCaptureNodes(capture) {
     try {
       node.disconnect();
     } catch (error_) {
-      console.warn(`[VOICE] Error disconnecting ${label}:`, error_);
+      console.warn('[VOICE] Error disconnecting audio node:', label, error_);
     }
   }
 }

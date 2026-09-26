@@ -32,13 +32,13 @@ export function buildWebSocketUrl(host, port) {
     const path = portStr.substring(slashIndex + 1);
     const protocol = portNum === '443' ? 'wss' : 'ws';
     
-    // Omit port for standard ports (443 for wss, 80 for ws)
+    // Omit port for standard ports.
     if (portNum === '443' || portNum === '80') {
       return `${protocol}://${host}/${path}`;
     }
     return `${protocol}://${host}:${portNum}/${path}`;
   } else {
-    // Format: "64738" → wss://host:64738
+    // Format: "64738" → ws://host:64738
     const protocol = portStr === '443' ? 'wss' : 'ws';
     
     // Omit port for standard ports
