@@ -9,12 +9,8 @@ CERT_DIR="${SCRIPT_DIR}/letsencrypt"
 CERT_FILE="${CERT_DIR}/local.flexpair.app.pem"
 KEY_FILE="${CERT_DIR}/local.flexpair.app-key.pem"
 
-if [[ -f "${CERT_FILE}" && -f "${KEY_FILE}" ]]; then
-    exit 0
-fi
-
-if [[ -e "${CERT_FILE}" || -e "${KEY_FILE}" ]]; then
-    echo "TLS certificate and key must either both exist or both be absent: ${CERT_DIR}" >&2
+if [[ ! -d "${CERT_DIR}" || ! -w "${CERT_DIR}" ]]; then
+    echo "TLS directory must exist and be writable before setup: ${CERT_DIR}" >&2
     exit 1
 fi
 
@@ -23,7 +19,17 @@ command -v openssl >/dev/null 2>&1 || {
     exit 1
 }
 
-mkdir -p "${CERT_DIR}"
+if [[ -f "${CERT_FILE}" && -f "${KEY_FILE}" ]]; then
+    if openssl x509 -checkend 86400 -noout -in "${CERT_FILE}" >/dev/null 2>&1; then
+        exit 0
+    fi
+    echo "Local TLS certificate is expired or expires within 24 hours; renewing it."
+    rm -f "${CERT_FILE}" "${KEY_FILE}"
+elif [[ -e "${CERT_FILE}" || -e "${KEY_FILE}" ]]; then
+    echo "TLS certificate and key must either both exist or both be absent: ${CERT_DIR}" >&2
+    exit 1
+fi
+
 umask 077
 
 TEMP_DIR=$(mktemp -d "${CERT_DIR}/.tls.XXXXXX")
@@ -57,6 +63,11 @@ openssl req \
     -keyout "${TEMP_DIR}/local.flexpair.app-key.pem" \
     -out "${TEMP_DIR}/local.flexpair.app.pem" \
     -config "${TEMP_DIR}/openssl.cnf"
+
+openssl x509 \
+    -in "${TEMP_DIR}/local.flexpair.app.pem" \
+    -noout \
+    -checkend 86400 >/dev/null
 
 mv "${TEMP_DIR}/local.flexpair.app-key.pem" "${KEY_FILE}"
 mv "${TEMP_DIR}/local.flexpair.app.pem" "${CERT_FILE}"
