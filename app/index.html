@@ -119,6 +119,7 @@
     <div id="app"></div>
   </body>
   <!-- Netlify Identity loads with defer; _waitForWidget() handles race condition -->
+  <!-- Netlify hosts this runtime and may update it independently; SRI would break widget updates. -->
   <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script src="index.js"></script>
 </html>

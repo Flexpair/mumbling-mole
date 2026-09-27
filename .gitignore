@@ -75,6 +75,8 @@ backups/
 .devcontainer/murmur_config/
 .devcontainer/murmur_data/
 .devcontainer/docker-compose.override.yml
+# Locally generated TLS certificates and private keys
+.devcontainer/letsencrypt/
 .cache/
 .dotnet/
 
