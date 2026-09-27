@@ -34,10 +34,19 @@ if [[ "$(stat -c '%a' "${CERT_DIR}")" != "700" ]]; then
     exit 1
 fi
 
+certificate_matches_key() {
+    local certificate_public_key key_public_key
+
+    certificate_public_key=$(openssl x509 -in "${CERT_FILE}" -pubkey -noout) || return 1
+    key_public_key=$(openssl pkey -in "${KEY_FILE}" -pubout) || return 1
+    [[ "${certificate_public_key}" == "${key_public_key}" ]]
+}
+
 if [[ -f "${CERT_FILE}" && -f "${KEY_FILE}" ]] && \
    openssl x509 -checkend 86400 -noout -in "${CERT_FILE}" >/dev/null 2>&1 && \
    [[ "$(stat -c '%a' "${KEY_FILE}")" == "600" ]] && \
-   [[ "$(stat -c '%a' "${CERT_FILE}")" == "644" ]]; then
+   [[ "$(stat -c '%a' "${CERT_FILE}")" == "644" ]] && \
+   certificate_matches_key; then
     exit 0
 fi
 
