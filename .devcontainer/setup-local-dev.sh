@@ -11,6 +11,7 @@ KEY_FILE="${CERT_DIR}/local.flexpair.app-key.pem"
 
 if [[ ! -d "${CERT_DIR}" ]]; then
     (umask 077 && mkdir -p "${CERT_DIR}")
+    chmod 700 "${CERT_DIR}"
 fi
 
 if [[ ! -r "${CERT_DIR}" || ! -x "${CERT_DIR}" || ! -w "${CERT_DIR}" ]]; then
