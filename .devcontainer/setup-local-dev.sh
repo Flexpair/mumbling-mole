@@ -23,10 +23,20 @@ command -v openssl >/dev/null 2>&1 || {
     exit 1
 }
 
+if ! stat -c '%a' "${CERT_DIR}" >/dev/null 2>&1; then
+    echo "GNU stat is required to validate local TLS file permissions" >&2
+    exit 1
+fi
+
+if [[ "$(stat -c '%a' "${CERT_DIR}")" != "700" ]]; then
+    echo "TLS directory must have mode 700: ${CERT_DIR}" >&2
+    exit 1
+fi
+
 if [[ -f "${CERT_FILE}" && -f "${KEY_FILE}" ]] && \
    openssl x509 -checkend 86400 -noout -in "${CERT_FILE}" >/dev/null 2>&1 && \
-   [[ "$(stat -f '%Lp' "${KEY_FILE}")" == "600" ]] && \
-   [[ "$(stat -f '%Lp' "${CERT_FILE}")" == "644" ]]; then
+   [[ "$(stat -c '%a' "${KEY_FILE}")" == "600" ]] && \
+   [[ "$(stat -c '%a' "${CERT_FILE}")" == "644" ]]; then
     exit 0
 fi
 
