@@ -100,8 +100,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     nano \
     net-tools \
-    openssl \
     openssh-client \
+    openssl \
     sudo \
     vim \
     && mkdir -p /etc/apt/keyrings \
