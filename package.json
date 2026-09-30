@@ -55,12 +55,12 @@
     "rtimer": "0.1.0",
     "sass": "1.104.1",
     "vue": "3.5.43",
-    "ws": "8.21.3"
+    "ws": "8.22.0"
   },
   "overrides": {
     "browserslist": "4.28.8",
     "baseline-browser-mapping": "2.11.20",
-    "ws": "8.21.3",
+    "ws": "8.22.0",
     "magic-string": "0.30.10",
     "js-yaml": ">=4.3.2 <5",
     "depcheck": {
