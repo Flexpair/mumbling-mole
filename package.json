@@ -39,9 +39,9 @@
     "@esbuild-plugins/node-globals-polyfill": "0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "0.2.2",
     "@jest/globals": "30.5.2",
-    "@playwright/test": "1.63.0",
-    "depcheck": "1.4.7",
-    "dotenv": "18.0.3",
+    "@playwright/test": "1.64.1",
+    "depcheck": "1.4.3",
+    "dotenv": "18.0.8",
     "esbuild": "0.28.2",
     "esbuild-plugin-vue3": "0.5.1",
     "esbuild-sass-plugin": "3.7.0",
@@ -49,26 +49,27 @@
     "jest-environment-jsdom": "30.5.2",
     "keyboardjs": "2.7.0",
     "libopus.js": "0.0.1",
-    "protobufjs": "8.8.0",
-    "protobufjs-cli": "2.7.0",
+    "protobufjs": "8.8.1",
+    "protobufjs-cli": "2.7.1",
     "reuse-pool": "1.0.2",
     "rtimer": "0.1.0",
-    "sass": "1.104.1",
+    "sass": "1.105.1",
     "vue": "3.5.43",
-    "ws": "8.21.3"
+    "ws": "8.22.0"
   },
   "overrides": {
     "browserslist": "4.28.8",
     "baseline-browser-mapping": "2.11.20",
-    "ws": "8.21.3",
+    "ws": "8.22.0",
     "magic-string": "0.30.10",
     "js-yaml": ">=4.3.2 <5",
+    "lodash": "4.18.1",
     "depcheck": {
-      "js-yaml": "3.15.2"
+      "js-yaml": ">=4.3.2 <5"
     },
     "@babel/core": "7.29.7",
     "linkify-it": "5.0.2",
-    "markdown-it": "14.3.0"
+    "markdown-it": "14.3.3"
   },
   "dependencies": {
     "pinia": "4.0.3"
