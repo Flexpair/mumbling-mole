@@ -2,7 +2,12 @@
   "ignores": [
     "@babel/plugin-transform-runtime",
     "@babel/runtime",
+    "@esbuild-plugins/node-globals-polyfill",
+    "@esbuild-plugins/node-modules-polyfill",
     "depcheck",
+    "esbuild",
+    "esbuild-plugin-vue3",
+    "esbuild-sass-plugin",
     "sass",
     "jest",
     "jest-environment-jsdom",
