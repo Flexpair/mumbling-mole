@@ -127,6 +127,15 @@ docker build --target prod -t mumbling-mole:prod \
 
 The Dev Container uses [.devcontainer/docker-compose.yml](.devcontainer/docker-compose.yml). It starts the development service together with Murmur, nginx, and the Guacamole services, installs dependencies and Chromium during creation, and forwards port `443`. The Compose file requires the local Mumble and Guacamole password variables but their values must remain outside the repository.
 
+The normal tunnel path in [docker-entrypoint.sh](docker-entrypoint.sh) requires these runtime settings:
+
+| Variable | Purpose |
+| --- | --- |
+| `MUMBLE_SERVER` | Mumble TCP endpoint as `host:port`; the Dev Container uses `murmur:64738`. |
+| `MUMBLE_PASSWORD` | Server password matching the Mumble server configuration; also supplied to the authentication service. |
+
+Supply password values through the deployment's secret configuration, never through committed files or documentation. `SKIP_TUNNEL=1` serves static files only and bypasses these tunnel prerequisites.
+
 ## CI/CD and image publishing
 
 GitHub Actions provides two documentation and delivery paths:

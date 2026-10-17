@@ -26,7 +26,7 @@ decode-worker.js (Opus/WASM)
 jitter/buffer queue → AudioContext.destination
 ```
 
-The main-thread coordination is owned by the Pinia audio and voice stores. The protocol worker remains responsible for Mumble stream events; the audio workers remain isolated from Vue and cannot use application imports.
+The main-thread coordination is owned by the Pinia audio and voice stores. The protocol worker remains responsible for Mumble stream events. Audio workers remain isolated from Vue, but the bundled codec workers can import shared application helpers. Only the unbundled AudioWorklet processors, `recorder-worker.js` and `playback-buffer-processor.js`, cannot use imports or requires.
 
 ## Audio contract
 
@@ -54,6 +54,7 @@ The built-in audio test sends through the Mumble server's loopback target and re
 Run it with:
 
 ```bash
+npm run build:local
 npm run test:loopback
 npm run test:loopback:headed
 npm run test:loopback:debug

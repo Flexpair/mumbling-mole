@@ -5,6 +5,9 @@ Playwright validates the browser-facing audio and authentication flows. The conf
 ## Commands
 
 ```bash
+# Rebuild and restart in the running Dev Container before tests
+npm run build:local
+
 # All Playwright specs
 npm run test:playwright
 
@@ -61,7 +64,7 @@ fake microphone
   → frequency display
 ```
 
-The loopback test also covers the 440 Hz test tone and mute/deaf state transitions. It validates the local user's complete path; it does not prove client-to-client remote-user lifecycle behavior.
+The loopback test also covers the 440 Hz test tone, muting in loopback mode, and clearing the frequency display. It validates the local user's complete path; it does not prove client-to-client remote-user lifecycle behavior, deaf/undeaf transitions, or audio recovery after unmuting.
 
 ## Required services
 

@@ -29,33 +29,32 @@ This keeps recovery, confirmation, and invitation flows on the configured identi
 
 ## Provider API
 
-All providers implement the `AuthProvider` interface.
+All providers implement the contract in [AuthProvider.js](AuthProvider.js). The Netlify adapter also exposes compatibility helpers that are not part of that contract.
 
 ### Initialization and identity
 
-- `async init(config)`
+- `async init()`
 - `async getCurrentUser()`
-- `currentUser()`
-- `isAuthenticated()`
-- `getProviderName()`
+- `async getAccessToken()`
+
+The base class supplies `async isAuthenticated()` through `getCurrentUser()` and `getProviderName()` through the class name. Adapters may override these defaults. The Netlify adapter accepts configuration through `async init(config)` and returns `Netlify Identity` from `getProviderName()`.
 
 ### User actions
 
 - `async login(email, password)`
 - `async logout()`
 - `async signup(email, password, metadata)`
-- `async updateUser(updates)`
-- `async refreshToken()`
-- `async requestPasswordReset(email)`
 
 ### UI and events
 
-- `open(view)` / `async openAuth(view)`
-- `close()` / `async closeAuth()`
+- `async openAuth(view)`
+- `async closeAuth()`
 - `on(event, callback)`
 - `off(event, callback)`
 
-Supported events are `login`, `logout`, `signup`, `error`, and `close`. Event listeners may be registered before `init()`; the adapter attaches them once initialization completes.
+The Netlify adapter additionally exposes synchronous `currentUser()`, `open(view)`, and `close()` compatibility helpers. `updateUser()`, `refreshToken()`, and `requestPasswordReset()` are not methods of the current provider contract or adapter.
+
+The Netlify adapter forwards widget events such as `login`, `logout`, `signup`, `error`, and `close`. Event listeners may be registered before `init()`; the adapter attaches them once initialization completes.
 
 ## Usage
 
@@ -79,6 +78,7 @@ The Playwright configuration loads `.env.test` for the local test account and ru
 Run the authentication browser test with:
 
 ```bash
+npm run build:local
 npm run test:auth
 ```
 
@@ -103,6 +103,8 @@ Check that the early script in `app/index.html` stores the hash and that `hasIde
 The server-side credential endpoint requires a valid Identity JWT. Check the authentication-service logs and the configured allowed origins, but do not log or publish the JWT or any returned credential values.
 
 ## Adding another provider
+
+Auth0 is the selected target for the Flexpair hub-login migration; support is not implemented in this submodule. The steps below describe the adapter boundary, not the complete migration procedure. Before starting that migration, return to the Flexpair umbrella root and read its `AGENTS.md`, `AUTH0-MIGRATION-RUNBOOK.md`, `AUTH0-MIGRATION-PLAN.md`, and decisions A-12, A-14, and A-15 in `DECISIONS.md`. Preserve the current Netlify identity, invitation, recovery, proxy, and rollback paths until the umbrella acceptance matrix and explicit approval authorize cutover. See [AGENTS.md](../../AGENTS.md) for the current migration boundary.
 
 1. Extend `AuthProvider` in a new adapter.
 2. Implement the provider API and event behavior.

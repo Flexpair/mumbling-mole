@@ -5,6 +5,7 @@ This directory contains Jest regression tests for behavior that has previously f
 Run the regression suite with:
 
 ```bash
+npm run build:local
 npm run test:unit -- __tests__/regression
 ```
 

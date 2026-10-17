@@ -17,7 +17,12 @@ Keep test credentials in the untracked `.env.test` file. The Playwright configur
 
 ## Quick start
 
+In the running Dev Container, rebuild and restart the application with `npm run build:local` before testing, as required by [AGENTS.md](../AGENTS.md).
+
 ```bash
+# Rebuild and restart before tests
+npm run build:local
+
 # Full local suite: Jest, Python, Playwright, dependency audit
 npm test
 
@@ -77,7 +82,7 @@ The main scenarios are:
 
 - invalid authentication credentials;
 - audio loopback and 440 Hz frequency detection;
-- mute/deaf behavior and recovery.
+- muting in loopback mode and clearing the frequency display.
 
 See [tests/playwright/README.md](playwright/README.md) for the browser-specific workflow.
 
@@ -95,7 +100,7 @@ See [tests/playwright/README.md](playwright/README.md) for the browser-specific 
 
 The Docker workflow does not run Playwright because the browser suite requires the Compose Murmur service. Run Playwright in the Dev Container or another environment with the required services.
 
-`.github/workflows/validate-markdown.yml` validates Markdown structure on Markdown-only pull requests and on relevant pushes to `lite` and `main`.
+`.github/workflows/validate-markdown.yml` validates Markdown structure on pull requests that change Markdown files and on relevant pushes to `lite` and `main`.
 
 ## Test artifacts and safety
 

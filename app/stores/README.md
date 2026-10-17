@@ -61,6 +61,7 @@ Store behavior is covered by Jest tests under `__tests__/`, which are discovered
 Run the unit suite or its coverage variant with:
 
 ```bash
+npm run build:local
 npm run test:unit
 npm run test:unit:coverage
 ```
