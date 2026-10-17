@@ -127,14 +127,19 @@ docker build --target prod -t mumbling-mole:prod \
 
 The Dev Container uses [.devcontainer/docker-compose.yml](.devcontainer/docker-compose.yml). It starts the development service together with Murmur, nginx, and the Guacamole services, installs dependencies and Chromium during creation, and forwards port `443`. The Compose file requires the local Mumble and Guacamole password variables but their values must remain outside the repository.
 
-The normal tunnel path in [docker-entrypoint.sh](docker-entrypoint.sh) requires these runtime settings:
+Default production startup runs both the WebSocket tunnel and the authentication service through [docker-entrypoint.sh](docker-entrypoint.sh). Configure these runtime settings:
 
 | Variable | Purpose |
 | --- | --- |
 | `MUMBLE_SERVER` | Mumble TCP endpoint as `host:port`; the Dev Container uses `murmur:64738`. |
 | `MUMBLE_PASSWORD` | Server password matching the Mumble server configuration; also supplied to the authentication service. |
+| `GUAC_ADMIN_PASSWORD` | Guacamole credential for the `admin` role, required when the authentication service starts. |
+| `GUAC_EDITOR_PASSWORD` | Guacamole credential for the `editor` role, required when the authentication service starts. |
+| `GUAC_WATCHER_PASSWORD` | Guacamole credential for the `watcher` role, required when the authentication service starts. |
 
-Supply password values through the deployment's secret configuration, never through committed files or documentation. `SKIP_TUNNEL=1` serves static files only and bypasses these tunnel prerequisites.
+All three Guacamole role passwords must be nonempty and mutually distinct. [auth-server/server.py](auth-server/server.py) rejects missing or duplicate role passwords; these requirements apply to production as well as the Dev Container.
+
+Supply password values through the deployment's secret configuration, never through committed files or documentation. `SKIP_TUNNEL=1` serves static files only and bypasses both the tunnel and authentication-service startup.
 
 ## CI/CD and image publishing
 
