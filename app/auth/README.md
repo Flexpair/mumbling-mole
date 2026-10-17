@@ -1,127 +1,60 @@
 # Authentication Abstraction Layer
 
-Provider-agnostic authentication system for mumbling-mole.
+Mumbling Mole uses a provider boundary so application code does not depend directly on the browser authentication SDK. The current implementation is the Netlify Identity adapter.
 
-## Purpose
+## Current provider
 
-This authentication abstraction layer provides a unified interface for different authentication providers. The current production provider is **[Netlify](https://en.wikipedia.org/wiki/Netlify) Identity**. The abstraction is the intended integration boundary for a future provider without changing application code.
+- `NetlifyIdentityAdapter.js` wraps the Netlify Identity widget.
+- `AuthFactory.js` creates the configured provider.
+- `credentials-service.js` requests server-side credentials after the server validates the Identity JWT.
+- The adapter is configured by `app/config.js` and initialized from `app/index.js`.
 
-## Netlify Identity Status
+The current provider configuration uses the Flexpair identity proxy:
 
-**Netlify Identity is fully supported in the current implementation.** Although a deprecation was announced in 2025, Netlify reversed that decision in February 2026 after community feedback. Identity remains the current provider until a separately verified migration and cutover.
+The equivalent non-secret configuration is kept in `app/config.js`; do not copy live deployment configuration or credentials into documentation.
 
-**Source**: https://www.netlify.com/blog/auth0-extension-identity-changes/
+`APIUrl` must point to the identity proxy. Do not replace it with a direct cross-origin `/.netlify/identity/` URL: the proxy supplies the CORS behavior required for login, signup, verification, recovery, and invitation requests.
 
-## Migration boundary
+## Token-hash handling
 
-Auth0 is the decided target for the Flexpair hub-login migration, not an optional alternative. Auth0 support is **not implemented in this submodule**. This README documents the current Netlify adapter and must not be used as migration authority.
+Netlify Identity puts callback tokens in the URL fragment:
 
-For an explicit migration-execution request, start in the Flexpair umbrella root and read `AGENTS.md`, `AUTH0-MIGRATION-RUNBOOK.md`, `AUTH0-MIGRATION-PLAN.md`, and decisions A-12, A-14, and A-15 in `DECISIONS.md` before changing this submodule. Keep the Netlify adapter, identity proxy, invite path, recovery path, and rollback path available until the umbrella acceptance matrix says otherwise.
+- `#recovery_token=...`
+- `#confirmation_token=...`
+- `#invite_token=...`
 
-## Architecture
+The widget script is deferred and can process a hash before the application has initialized the adapter. `app/index.html` therefore saves an Identity hash in `window.__savedIdentityHash` and removes it from the visible URL. `NetlifyIdentityAdapter.init()` restores the saved hash immediately before widget initialization. The application also checks both the live hash and the saved hash before opening another authentication view.
 
-```
-Application code
-     |
-  AuthProvider interface (common API)
-     |
-  NetlifyIdentityAdapter (current production)
-  Auth0 adapter (planned; not implemented)
-```
+This keeps recovery, confirmation, and invitation flows on the configured identity proxy and prevents the token from being consumed by an unconfigured widget.
 
-### Files
+## Provider API
 
-```
-app/auth/
-  AuthProvider.js              Abstract base class
-  NetlifyIdentityAdapter.js    Netlify Identity implementation
-  AuthFactory.js               Config-based provider factory
-  index.js                     Barrel exports
-  credentials-service.js       Server-side credential fetch after JWT validation
-  README.md                    This file
+All providers implement the contract in [AuthProvider.js](AuthProvider.js). The Netlify adapter also exposes compatibility helpers that are not part of that contract.
 
-Related:
-  app/config.js                Auth configuration (APIUrl, locale, logo)
-  app/index.html               Widget script + hash-preservation inline script
-  app/index.js                 Auth initialization + event wiring
-  auth-server/server.py        Server-side JWT validation
-```
+### Initialization and identity
 
-## Identity Proxy and Hash Token Preservation
+- `async init()`
+- `async getCurrentUser()`
+- `async getAccessToken()`
 
-### Why the identity-proxy exists
+The base class supplies `async isAuthenticated()` through `getCurrentUser()` and `getProviderName()` through the class name. Adapters may override these defaults. The Netlify adapter accepts configuration through `async init(config)` and returns `Netlify Identity` from `getProviderName()`.
 
-The Netlify Identity widget makes POST requests (login, signup, token verify, etc.) to the GoTrue API. When the app is hosted on a different domain than the Netlify site (`public-playground.flexpair.app` vs `welcome.flexpair.com`), the direct `/.netlify/identity/` endpoints only allow GET via CORS. The proxy at `https://welcome.flexpair.com/identity-proxy` adds the correct CORS headers for all HTTP methods.
+### User actions
 
-### Hash token preservation (recovery, confirmation, invite)
+- `async login(email, password)`
+- `async logout()`
+- `async signup(email, password, metadata)`
 
-Netlify Identity uses URL hash fragments for callback tokens:
-- `#recovery_token=...` (password reset)
-- `#confirmation_token=...` (email confirmation)
-- `#invite_token=...` (invitation acceptance)
+### UI and events
 
-**Problem**: The widget auto-processes these tokens when its script executes (`defer`). At that point, `init()` has not yet been called, so the widget doesn't know the correct API URL. It falls back to `/.netlify/identity/` on the current host, which fails (501/404). The token is consumed and cleared from the URL, so it's lost.
+- `async openAuth(view)`
+- `async closeAuth()`
+- `on(event, callback)`
+- `off(event, callback)`
 
-**Solution** (two parts):
+The Netlify adapter additionally exposes synchronous `currentUser()`, `open(view)`, and `close()` compatibility helpers. `updateUser()`, `refreshToken()`, and `requestPasswordReset()` are not methods of the current provider contract or adapter.
 
-1. **`index.html` inline script** (runs before widget loads):
-   Detects identity tokens in the hash, saves them to `window.__savedIdentityHash`, and clears the hash via `history.replaceState()`. The widget loads and finds no token.
-
-2. **`NetlifyIdentityAdapter.init()`** (runs after widget loads):
-   Restores the saved hash right before calling `netlifyIdentity.init(config)`. The widget's `init()` finds the token and processes it with the correctly configured API URL.
-
-3. **`hasIdentityTokenInHash()` in `index.js`**:
-   Checks both the live hash and the stashed `__savedIdentityHash` to decide whether to skip opening the signup modal. Without this, `auth.open("signup")` would override the widget's recovery/confirmation modal.
-
-## Configuration
-
-In `app/config.js`:
-
-```javascript
-auth: {
-  provider: 'netlify',
-  netlify: {
-    APIUrl: 'https://welcome.flexpair.com/identity-proxy',
-    locale: 'en',
-    logo: false
-  }
-}
-```
-
-The `APIUrl` must point to the identity proxy, not the Netlify site directly.
-
-## Provider API Reference
-
-All providers implement the `AuthProvider` base class:
-
-### Initialization
-- `async init(config)` — Initialize the auth provider
-
-### User Management
-- `async getCurrentUser()` — Get authenticated user (async)
-- `currentUser()` — Get authenticated user (sync)
-- `isAuthenticated()` — Check auth status
-- `async login(email, password)` — Log in
-- `async logout()` — Log out
-- `async signup(email, password, metadata)` — Sign up
-- `async updateUser(updates)` — Update user metadata
-
-### UI Methods
-- `open(view)` / `async openAuth(view)` — Open auth modal (`'login'`, `'signup'`, `'recover'`)
-- `close()` / `async closeAuth()` — Close auth modal
-
-### Token Management
-- `async refreshToken()` — Refresh JWT token
-- `async requestPasswordReset(email)` — Open recovery modal
-
-### Event System
-- `on(event, callback)` — Register listener (can be called before `init()`)
-- `off(event, callback)` — Unregister listener
-
-**Events**: `login`, `logout`, `signup`, `error`, `close`
-
-### Metadata
-- `getProviderName()` — Returns `'Netlify Identity'`
+The Netlify adapter forwards widget events such as `login`, `logout`, `signup`, `error`, and `close`. Event listeners may be registered before `init()`; the adapter attaches them once initialization completes.
 
 ## Usage
 
@@ -138,31 +71,44 @@ auth.on('error', (error) => console.error('Auth error:', error));
 const user = auth.currentUser();
 ```
 
-## Adding a New Provider
+## Local and browser tests
 
-1. Create `app/auth/YourAdapter.js` extending `AuthProvider`
-2. Implement all required methods
-3. Register in `AuthFactory.js`
-4. Add configuration to `config.js`
-5. Update this README
-6. Add tests
+The Playwright configuration loads `.env.test` for the local test account and runs against `https://local.flexpair.app` by default. Keep that file untracked and do not copy passwords, tokens, or other credential values into this README, test output, or issue comments.
+
+Run the authentication browser test with:
+
+```bash
+npm run build:local
+npm run test:auth
+```
+
+The Python auth-server tests can be run independently with:
+
+```bash
+npm run test:python
+```
 
 ## Troubleshooting
 
-### `GET /.netlify/identity/settings` 404 or 501
+### Identity requests return 404, 501, or CORS errors
 
-**Cause**: Widget trying to reach identity endpoints on the current host instead of the proxy.
-**Fix**: Ensure `init(config)` receives the config with `APIUrl` pointing to the identity-proxy. If this happens during hash token processing, verify the inline script in `index.html` is saving and clearing the hash before the widget loads.
+Check that `APIUrl` is the identity proxy and that the browser is using the current application configuration. A direct cross-origin Netlify Identity endpoint is not the supported request path.
 
-### Recovery/confirmation/invite link shows signup instead of expected modal
+### A recovery or invitation link opens the wrong view
 
-**Cause**: `auth.open("signup")` in `index.js` overrides the widget's token-triggered modal.
-**Fix**: `hasIdentityTokenInHash()` should return `true` for the token in the URL. Check that the inline script in `index.html` is stashing the hash to `__savedIdentityHash` and that `hasIdentityTokenInHash()` checks both sources.
+Check that the early script in `app/index.html` stores the hash and that `hasIdentityTokenInHash()` checks both the live hash and `window.__savedIdentityHash`. The signup view must not replace a token-triggered Identity view.
 
-### Events not firing
+### Credentials are not returned after login
 
-Register listeners before calling auth methods. Listeners registered before `init()` are queued and attached automatically.
+The server-side credential endpoint requires a valid Identity JWT. Check the authentication-service logs and the configured allowed origins, but do not log or publish the JWT or any returned credential values.
 
-### CORS errors on identity requests
+## Adding another provider
 
-The direct `/.netlify/identity/` endpoint only allows GET from cross-origin. All auth requests must go through the identity-proxy. Check that `APIUrl` in config points to the proxy.
+Auth0 is the selected target for the Flexpair hub-login migration; support is not implemented in this submodule. The steps below describe the adapter boundary, not the complete migration procedure. Before starting that migration, return to the Flexpair umbrella root and read its `AGENTS.md`, `AUTH0-MIGRATION-RUNBOOK.md`, `AUTH0-MIGRATION-PLAN.md`, and decisions A-12, A-14, and A-15 in `DECISIONS.md`. Preserve the current Netlify identity, invitation, recovery, proxy, and rollback paths until the umbrella acceptance matrix and explicit approval authorize cutover. See [AGENTS.md](../../AGENTS.md) for the current migration boundary.
+
+1. Extend `AuthProvider` in a new adapter.
+2. Implement the provider API and event behavior.
+3. Register the adapter in `AuthFactory.js`.
+4. Add non-secret configuration to `app/config.js`.
+5. Add unit and browser coverage.
+6. Update this document without including credential values.
