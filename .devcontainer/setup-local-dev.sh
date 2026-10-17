@@ -42,6 +42,12 @@ certificate_matches_key() {
     [[ "${certificate_public_key}" == "${key_public_key}" ]]
 }
 
+reload_nginx_if_running() {
+    command -v docker >/dev/null 2>&1 || return 0
+    [[ "$(docker inspect -f '{{.State.Running}}' nginx_container 2>/dev/null)" == "true" ]] || return 0
+    docker exec nginx_container nginx -s reload >/dev/null 2>&1 || true
+}
+
 if [[ -f "${CERT_FILE}" && -f "${KEY_FILE}" ]] && \
    openssl x509 -checkend 86400 -noout -in "${CERT_FILE}" >/dev/null 2>&1 && \
    [[ "$(stat -c '%a' "${KEY_FILE}")" == "600" ]] && \
@@ -103,3 +109,5 @@ mv "${TEMP_DIR}/local.flexpair.app-key.pem" "${KEY_FILE}"
 mv "${TEMP_DIR}/local.flexpair.app.pem" "${CERT_FILE}"
 chmod 600 "${KEY_FILE}"
 chmod 644 "${CERT_FILE}"
+
+reload_nginx_if_running
