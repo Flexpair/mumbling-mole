@@ -206,9 +206,19 @@ export function isReadonly(obj) {
   return obj?.__v_isReadonly === true;
 }
 
+export function isShallow(value) {
+  return value?.__v_isShallow === true;
+}
+
+export function triggerRef() {}
+
 // shallowRef helper
 export function shallowRef(value) {
-  return ref(value);
+  const shallow = ref(value);
+  if (shallow !== value) {
+    shallow.__v_isShallow = true;
+  }
+  return shallow;
 }
 
 // useTemplateRef for Vue 3.5+ - returns a ref that will be filled with template element
@@ -247,6 +257,8 @@ export default {
   hasInjectionContext,
   isReactive,
   isReadonly,
+  isShallow,
+  triggerRef,
   shallowRef,
   useTemplateRef,
 };
