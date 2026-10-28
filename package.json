@@ -69,7 +69,10 @@
     },
     "@babel/core": "7.29.7",
     "linkify-it": "5.0.2",
-    "markdown-it": "14.3.3"
+    "markdown-it": "14.3.3",
+    "jest-config": {
+      "deepmerge": "npm:@stackline/deepmerge@1.1.0"
+    }
   },
   "dependencies": {
     "pinia": "4.0.3"
