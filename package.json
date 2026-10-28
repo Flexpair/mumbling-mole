@@ -75,6 +75,6 @@
     }
   },
   "dependencies": {
-    "pinia": "4.0.3"
+    "pinia": "4.1.0"
   }
 }
