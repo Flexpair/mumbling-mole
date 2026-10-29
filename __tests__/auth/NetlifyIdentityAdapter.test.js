@@ -301,9 +301,12 @@ describe('NetlifyIdentityAdapter - getCurrentUser()', () => {
   });
 
   test('returns user from netlifyIdentity.currentUser', async () => {
-    const mockUser = { id: '123', email: 'test@example.com' };
+    const mockUser = {
+      id: '123',
+      email: 'test@example.com',
+      getUserData: jest.fn().mockResolvedValue({ id: '123' }),
+    };
     adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue(mockUser);
-    
     const user = await adapter.getCurrentUser();
     expect(user).toBe(mockUser);
     expect(adapter.netlifyIdentity.currentUser).toHaveBeenCalled();
@@ -311,10 +314,34 @@ describe('NetlifyIdentityAdapter - getCurrentUser()', () => {
 
   test('returns null when no user is logged in', async () => {
     adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue(null);
-    
+
     const user = await adapter.getCurrentUser();
     expect(user).toBeNull();
   });
+
+  test('does not emit a provider logout when validation clears a rejected session', async () => {
+    const onLogout = jest.fn();
+    adapter.on('logout', onLogout);
+    const logoutHandler = mockNetlifyIdentity.on.mock.calls
+      .find(([event]) => event === 'logout')[1];
+    const user = {
+      getUserData: jest.fn().mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 })),
+      clearSession: jest.fn(),
+    };
+    let widgetUser = user;
+    mockNetlifyIdentity.currentUser.mockImplementation(() => widgetUser);
+    mockNetlifyIdentity.store = {};
+    Object.defineProperty(mockNetlifyIdentity.store, 'user', {
+      get: () => widgetUser,
+      set: (value) => { widgetUser = value; logoutHandler(); },
+    });
+
+    await expect(adapter.getCurrentUser()).resolves.toBeNull();
+    expect(widgetUser).toBeNull();
+    expect(onLogout).not.toHaveBeenCalled();
+  });
+
+
 });
 
 describe('NetlifyIdentityAdapter - currentUser() sync version', () => {
@@ -355,12 +382,26 @@ describe('NetlifyIdentityAdapter - getAccessToken()', () => {
     delete globalThis.netlifyIdentity;
   });
 
-  test('returns the provider access token', async () => {
+  test.each([
+    ['provider access token', 'access-token', 'access-token'],
+    ['expired access token', 'expired-token', 'fresh-token'],
+  ])('returns the refreshed %s', async (_description, oldToken, refreshedToken) => {
     adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue({
-      token: { access_token: 'access-token' },
+      token: { access_token: oldToken },
     });
+    adapter.netlifyIdentity.refresh = jest.fn().mockResolvedValue(refreshedToken);
 
-    await expect(adapter.getAccessToken()).resolves.toBe('access-token');
+    await expect(adapter.getAccessToken()).resolves.toBe(refreshedToken);
+    expect(adapter.netlifyIdentity.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  test('uses the stored token when the widget cannot refresh tokens', async () => {
+    adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue({
+      token: { access_token: 'stored-token' },
+    });
+    delete adapter.netlifyIdentity.refresh;
+
+    await expect(adapter.getAccessToken()).resolves.toBe('stored-token');
   });
 
   test('returns null when there is no authenticated user', async () => {

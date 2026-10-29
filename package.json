@@ -16,7 +16,7 @@
     "test:unit:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:unit:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:playwright": "playwright test",
-    "test:auth": "playwright test auth-invalid-credentials.spec.js",
+    "test:auth": "playwright test auth-invalid-credentials.spec.js auth-session-validation.spec.js",
     "test:loopback": "playwright test loopback-frequency.spec.js",
     "test:loopback:headed": "playwright test loopback-frequency.spec.js --headed",
     "test:loopback:debug": "playwright test loopback-frequency.spec.js --debug",

@@ -79,7 +79,9 @@ async function _fetchCredentialsFromServer(token) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || `Failed to fetch credentials: ${response.status}`);
+    const requestError = new Error(error.error || `Failed to fetch credentials: ${response.status}`);
+    requestError.status = response.status;
+    throw requestError;
   }
 
   const credentials = await response.json();

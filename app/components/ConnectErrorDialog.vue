@@ -97,6 +97,7 @@ import { useConnectionLogic } from '../composables/useConnectionLogic';
 
 const translate = inject('translate');
 const auth = inject('auth');
+const retrySessionValidation = inject('retrySessionValidation', null);
 // Pinia stores
 const dialogStore = useDialogStore();
 
@@ -104,7 +105,7 @@ const dialogStore = useDialogStore();
 const connectionLogic = useConnectionLogic({ auth });
 
 // Use toRefs to get reactive refs from nested dialog store objects
-const { visible, type, reason } = toRefs(dialogStore.errorDialog);
+const { visible, type, reason, retrySessionValidation: retryAuth } = toRefs(dialogStore.errorDialog);
 
 // Username and password from connection dialog store
 const { username, password, address, port } = toRefs(dialogStore.connectDialog);
@@ -115,7 +116,12 @@ const hide = () => {
 };
 
 const handleConnect = () => {
+  const shouldRetryAuth = retryAuth.value;
   hide();
+  if (shouldRetryAuth) {
+    if (retrySessionValidation) void retrySessionValidation();
+    return;
+  }
   connectionLogic.connect(
     address.value,
     port.value,

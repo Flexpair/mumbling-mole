@@ -204,14 +204,20 @@ describe('credentials-service', () => {
       mockFetch.mockResolvedValueOnce(createErrorResponse(401, 'Invalid or expired token'));
 
       await expect(fetchCredentials('bad-token'))
-        .rejects.toThrow('Invalid or expired token');
+        .rejects.toMatchObject({
+          message: 'Invalid or expired token',
+          status: 401,
+        });
     });
 
     it('should throw error on 500 response', async () => {
       mockFetch.mockResolvedValueOnce(createErrorResponse(500, 'Auth provider misconfigured'));
 
       await expect(fetchCredentials('token'))
-        .rejects.toThrow('Auth provider misconfigured');
+        .rejects.toMatchObject({
+          message: 'Auth provider misconfigured',
+          status: 500,
+        });
     });
 
     it('should handle network errors', async () => {

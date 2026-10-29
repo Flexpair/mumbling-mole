@@ -23,6 +23,7 @@ export const useDialogStore = defineStore('dialog', () => {
     username: '',
     password: '',
     visible: false,
+    sessionChecking: false,
     isTestActive: false,
   });
 
@@ -34,6 +35,7 @@ export const useDialogStore = defineStore('dialog', () => {
     type: 0,
     reason: '',
     visible: false,
+    retrySessionValidation: false,
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -83,11 +85,13 @@ export const useDialogStore = defineStore('dialog', () => {
     connectDialog.username = '';
     connectDialog.password = '';
     connectDialog.visible = false;
+    connectDialog.sessionChecking = false;
     connectDialog.isTestActive = false;
   }
 
   // Error Dialog Actions
   function showErrorDialog(error, _connectionParams) {
+    errorDialog.retrySessionValidation = error?.retrySessionValidation === true;
     if (error) {
       errorDialog.type = error.type ?? 'generic';
       errorDialog.reason = error.reason ?? error.message ?? '';
@@ -103,6 +107,7 @@ export const useDialogStore = defineStore('dialog', () => {
     errorDialog.type = 0;
     errorDialog.reason = '';
     errorDialog.visible = false;
+    errorDialog.retrySessionValidation = false;
   }
 
   // Info Dialog Actions
