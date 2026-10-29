@@ -568,6 +568,7 @@ const revalidateSessionOnResume = createSessionResumeHandler({
 function beginResumeSessionValidation() {
   if (loginValidationGeneration === authSessionGeneration &&
       authInitializationComplete && !identityModalOpen && !authInitializationFailed) {
+    connectDialogAwaitingSessionValidation = true;
     authSessionGeneration += 1;
     loginValidationGeneration = null;
   }

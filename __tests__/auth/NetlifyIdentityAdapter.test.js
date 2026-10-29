@@ -382,23 +382,16 @@ describe('NetlifyIdentityAdapter - getAccessToken()', () => {
     delete globalThis.netlifyIdentity;
   });
 
-  test('returns the provider access token', async () => {
+  test.each([
+    ['provider access token', 'access-token', 'access-token'],
+    ['expired access token', 'expired-token', 'fresh-token'],
+  ])('returns the refreshed %s', async (_description, oldToken, refreshedToken) => {
     adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue({
-      token: { access_token: 'access-token' },
+      token: { access_token: oldToken },
     });
-    adapter.netlifyIdentity.refresh = jest.fn().mockResolvedValue('access-token');
+    adapter.netlifyIdentity.refresh = jest.fn().mockResolvedValue(refreshedToken);
 
-    await expect(adapter.getAccessToken()).resolves.toBe('access-token');
-    expect(adapter.netlifyIdentity.refresh).toHaveBeenCalledTimes(1);
-  });
-
-  test('refreshes an expired access token through the authenticated user', async () => {
-    adapter.netlifyIdentity.currentUser = jest.fn().mockReturnValue({
-      token: { access_token: 'expired-token' },
-    });
-    adapter.netlifyIdentity.refresh = jest.fn().mockResolvedValue('fresh-token');
-
-    await expect(adapter.getAccessToken()).resolves.toBe('fresh-token');
+    await expect(adapter.getAccessToken()).resolves.toBe(refreshedToken);
     expect(adapter.netlifyIdentity.refresh).toHaveBeenCalledTimes(1);
   });
 

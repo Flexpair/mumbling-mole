@@ -83,6 +83,19 @@ async function expectLoginVisible(page) {
   await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
 }
 
+async function trackRuntimeCleanup(page, hideConnect = false) {
+  await page.evaluate(shouldHide => {
+    globalThis.__disconnectEvents = [];
+    globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
+    globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
+    if (shouldHide) globalThis.mumbleUi.connectDialog.visible = false;
+  }, hideConnect);
+}
+
+async function expectRuntimeCleanup(page) {
+  await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
+}
+
 test.describe('Identity session validation', () => {
   test('shows a reload instruction if the Identity widget fails to load', async ({ page }) => {
     await page.route('https://identity.netlify.com/v1/netlify-identity-widget.js', route => route.abort());
@@ -118,18 +131,13 @@ test.describe('Identity session validation', () => {
     const requestCount = await prepareIdentity(page, () => status);
     await page.goto('/');
     await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
-    await page.evaluate(() => {
-      globalThis.__disconnectEvents = [];
-      globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
-      globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
-      globalThis.mumbleUi.connectDialog.visible = false;
-    });
+    await trackRuntimeCleanup(page, true);
     const before = requestCount();
     status = 401;
     await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
     await expect.poll(requestCount).toBeGreaterThan(before);
     await expectLoginVisible(page);
-    await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
+    await expectRuntimeCleanup(page);
   });
 
   test('keeps session checks active when a token login supersedes startup', async ({ page }) => {
@@ -224,17 +232,13 @@ test.describe('Identity session validation', () => {
     });
     await page.goto('/');
     await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
-    await page.evaluate(() => {
-      globalThis.__disconnectEvents = [];
-      globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
-      globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
-    });
+    await trackRuntimeCleanup(page);
     const before = requestCount();
     hold = true;
     await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'replacement' }; });
     try {
       await expect.poll(requestCount).toBeGreaterThan(before);
-      await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
+      await expectRuntimeCleanup(page);
     } finally {
       release();
     }
@@ -280,17 +284,45 @@ test.describe('Identity session validation', () => {
     await expect(dialog.getByRole('button', { name: 'Connect to voice server' })).toBeEnabled();
   });
 
+  test('shows Connect after focus supersedes a replacement login while Connect was hidden', async ({ page }) => {
+    let phase = 'startup';
+    let releaseLogin;
+    let releaseFocus;
+    const loginWait = new Promise(resolve => { releaseLogin = resolve; });
+    const focusWait = new Promise(resolve => { releaseFocus = resolve; });
+    const requestCount = await prepareIdentity(page, () => 200, {
+      waitForUser: () => phase === 'login' ? loginWait : phase === 'focus' ? focusWait : Promise.resolve(),
+    });
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => {
+      globalThis.mumbleUi.connectDialog.visible = false;
+      globalThis.mumbleUi.connectDialog.username = '';
+    });
+    const before = requestCount();
+    phase = 'login';
+    await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'replacement' }; });
+    try {
+      await expect.poll(requestCount).toBeGreaterThan(before);
+      phase = 'focus';
+      await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+      await expect.poll(requestCount).toBeGreaterThan(before + 1);
+      phase = 'startup';
+      releaseFocus();
+      await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+      await expect(page.locator('dialog.connect-dialog #username')).toHaveValue('Browser_Test');
+    } finally {
+      releaseLogin();
+      releaseFocus();
+    }
+  });
+
   test('cleans up an active session when a login event is rejected', async ({ page }) => {
     let status = 200;
     const requestCount = await prepareIdentity(page, () => status);
     await page.goto('/');
     await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
-    await page.evaluate(() => {
-      globalThis.__disconnectEvents = [];
-      globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
-      globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
-      globalThis.mumbleUi.connectDialog.visible = false;
-    });
+    await trackRuntimeCleanup(page, true);
     const before = requestCount();
     status = 401;
     await page.evaluate(() => {
@@ -300,7 +332,7 @@ test.describe('Identity session validation', () => {
     });
     await expect.poll(requestCount).toBeGreaterThan(before);
     await expectLoginVisible(page);
-    await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
+    await expectRuntimeCleanup(page);
   });
 
   test('keeps Connect visible but blocks actions while a resumed session is checked', async ({ page }) => {
