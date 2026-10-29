@@ -9,6 +9,7 @@ export function shouldValidateAuthLogin({ initializationComplete, handlingIdenti
 
 export function createSessionValidatedLoginHandler({
   auth,
+  getSessionGeneration = () => 0,
   onAuthenticated = async () => {},
   onUnauthenticated = async () => {},
   onValidationError = async () => {},
@@ -16,9 +17,10 @@ export function createSessionValidatedLoginHandler({
   let loginGeneration = 0;
   return async function handleSessionValidatedLogin(eventUser) {
     const generation = ++loginGeneration;
+    const sessionGeneration = getSessionGeneration();
     try {
       const user = await auth.getCurrentUser();
-      if (generation !== loginGeneration) return { status: 'superseded' };
+      if (generation !== loginGeneration || sessionGeneration !== getSessionGeneration()) return { status: 'superseded' };
       if (!user) {
         await onUnauthenticated();
         return { status: 'unauthenticated', user: null };
@@ -27,7 +29,7 @@ export function createSessionValidatedLoginHandler({
       await onAuthenticated(user, eventUser);
       return { status: 'authenticated', user };
     } catch (error) {
-      if (generation !== loginGeneration) return { status: 'superseded' };
+      if (generation !== loginGeneration || sessionGeneration !== getSessionGeneration()) return { status: 'superseded' };
       await onValidationError(error, eventUser);
       return { status: 'validation-error', error };
     }

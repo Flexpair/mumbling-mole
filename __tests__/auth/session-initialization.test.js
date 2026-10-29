@@ -82,6 +82,40 @@ describe('createSessionValidatedLoginHandler', () => {
     expect(onValidationError).not.toHaveBeenCalled();
   });
 
+  test('ignores a pending login after an external session change', async () => {
+    let finish;
+    let sessionGeneration = 1;
+    const validation = new Promise(resolve => { finish = resolve; });
+    const onAuthenticated = jest.fn();
+    const handler = createSessionValidatedLoginHandler({
+      auth: { getCurrentUser: () => validation },
+      getSessionGeneration: () => sessionGeneration,
+      onAuthenticated,
+    });
+    const login = handler({ id: 'old-user' });
+    sessionGeneration += 1;
+    finish({ id: 'old-user' });
+    await expect(login).resolves.toEqual({ status: 'superseded' });
+    expect(onAuthenticated).not.toHaveBeenCalled();
+  });
+
+  test('ignores a pending login failure after an external session change', async () => {
+    let rejectValidation;
+    let sessionGeneration = 1;
+    const validation = new Promise((_, reject) => { rejectValidation = reject; });
+    const onValidationError = jest.fn();
+    const handler = createSessionValidatedLoginHandler({
+      auth: { getCurrentUser: () => validation },
+      getSessionGeneration: () => sessionGeneration,
+      onValidationError,
+    });
+    const login = handler({ id: 'old-user' });
+    sessionGeneration += 1;
+    rejectValidation(new Error('Old session failed'));
+    await expect(login).resolves.toEqual({ status: 'superseded' });
+    expect(onValidationError).not.toHaveBeenCalled();
+  });
+
   test('waits for an asynchronous unauthenticated callback', async () => {
     let finish;
     let callbackDone = false;

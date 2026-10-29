@@ -190,6 +190,96 @@ test.describe('Identity session validation', () => {
     }
   });
 
+  test('disables Connect while a replacement login is being validated', async ({ page }) => {
+    let hold = false;
+    let release;
+    const pending = new Promise(resolve => { release = resolve; });
+    const requestCount = await prepareIdentity(page, () => 200, {
+      waitForUser: () => hold ? pending : Promise.resolve(),
+    });
+    await page.goto('/');
+    const dialog = page.locator('dialog.connect-dialog[open]');
+    await expect(dialog).toHaveCount(1);
+    const before = requestCount();
+    hold = true;
+    await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'replacement' }; });
+    try {
+      await expect.poll(requestCount).toBeGreaterThan(before);
+      await expect(dialog).toHaveCount(1);
+      await expect(dialog.getByRole('button', { name: 'Connect to voice server' })).toBeDisabled();
+      await expect(dialog.getByRole('button', { name: 'Audio Test' })).toBeDisabled();
+    } finally {
+      hold = false;
+      release();
+    }
+    await expect(dialog.getByRole('button', { name: 'Connect to voice server' })).toBeEnabled();
+  });
+
+  test('tears down the previous session before a replacement login is validated', async ({ page }) => {
+    let release;
+    let hold = false;
+    const pending = new Promise(resolve => { release = resolve; });
+    const requestCount = await prepareIdentity(page, () => 200, {
+      waitForUser: () => hold ? pending : Promise.resolve(),
+    });
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => {
+      globalThis.__disconnectEvents = [];
+      globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
+      globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
+    });
+    const before = requestCount();
+    hold = true;
+    await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'replacement' }; });
+    try {
+      await expect.poll(requestCount).toBeGreaterThan(before);
+      await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
+    } finally {
+      release();
+    }
+  });
+
+  test('keeps Connect disabled until a newer focus check finishes', async ({ page }) => {
+    let phase = 'startup';
+    let releaseLogin;
+    let releaseFocus;
+    const loginWait = new Promise(resolve => { releaseLogin = resolve; });
+    const focusWait = new Promise(resolve => { releaseFocus = resolve; });
+    const requestCount = await prepareIdentity(page, () => 200, {
+      waitForUser: () => phase === 'login' ? loginWait : phase === 'focus' ? focusWait : Promise.resolve(),
+    });
+    await page.goto('/');
+    const dialog = page.locator('dialog.connect-dialog[open]');
+    await expect(dialog).toHaveCount(1);
+    await page.evaluate(() => {
+      globalThis.__completedValidations = 0;
+      const auth = globalThis.mumbleUi.auth;
+      const getCurrentUser = auth.getCurrentUser.bind(auth);
+      auth.getCurrentUser = (...args) => getCurrentUser(...args).finally(() => {
+        globalThis.__completedValidations += 1;
+      });
+    });
+    const before = requestCount();
+    phase = 'login';
+    await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'replacement' }; });
+    try {
+      await expect.poll(requestCount).toBeGreaterThan(before);
+      await expect(dialog.getByRole('button', { name: 'Connect to voice server' })).toBeDisabled();
+      phase = 'focus';
+      await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+      await expect.poll(requestCount).toBeGreaterThan(before + 1);
+      phase = 'startup';
+      releaseLogin();
+      await expect.poll(() => page.evaluate(() => globalThis.__completedValidations)).toBe(1);
+      await expect(dialog.getByRole('button', { name: 'Connect to voice server' })).toBeDisabled();
+    } finally {
+      releaseLogin();
+      releaseFocus();
+    }
+    await expect(dialog.getByRole('button', { name: 'Connect to voice server' })).toBeEnabled();
+  });
+
   test('cleans up an active session when a login event is rejected', async ({ page }) => {
     let status = 200;
     const requestCount = await prepareIdentity(page, () => status);
@@ -309,6 +399,64 @@ test.describe('Identity session validation', () => {
     await expect.poll(requestCount).toBeGreaterThan(before);
     await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toHaveCount(0);
     await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
+  });
+
+  test('retries startup validation without connecting with an empty username', async ({ page }) => {
+    let status = 500;
+    const requestCount = await prepareIdentity(page, () => status);
+    let credentialsRequests = 0;
+    await page.route('**/api/credentials', route => {
+      credentialsRequests += 1;
+      return route.fulfill({ status: 503, json: {} });
+    });
+    await page.goto('/');
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toBeVisible();
+    const previousRequests = requestCount();
+    status = 200;
+    await page.locator('.error-dialog .dialog-submit').click();
+    await expect.poll(requestCount).toBeGreaterThan(previousRequests);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await expect(page.locator('dialog.connect-dialog #username')).toHaveValue('Browser_Test');
+    expect(credentialsRequests).toBe(0);
+    await page.evaluate(() => {
+      globalThis.mumbleUi.audio.initializeAudioContext = async () => ({ sampleRate: 48000 });
+      globalThis.mumbleUi.voice.setupVoiceForConnection = async () => {};
+    });
+    await page.route('**/api/credentials', route => route.fulfill({
+      status: 200,
+      json: { mumblePassword: 'fixture', guacamoleUser: 'fixture', guacamolePassword: 'fixture' },
+    }));
+    await page.locator('dialog.connect-dialog[open]').getByRole('button', { name: 'Connect to voice server' }).click();
+    await expect(page.locator('.sample-rate-dialog')).toBeVisible();
+    const connectionUsername = await page.evaluate(() => {
+      const provides = globalThis.__VUE_APP__.$.appContext.provides;
+      const pinia = Reflect.ownKeys(provides).map(key => provides[key]).find(value => value?._s instanceof Map);
+      return pinia._s.get('dialog').sampleRateDialog.connectionParams.username;
+    });
+    expect(connectionUsername).toBe('Browser_Test');
+  });
+
+  test('retries validation after a login from the authentication modal fails temporarily', async ({ page }) => {
+    let status = 401;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.addInitScript(() => { globalThis.__savedTestIdentity = localStorage.getItem('gotrue.user'); });
+    await page.goto('/');
+    await expectLoginVisible(page);
+    status = 500;
+    const before = requestCount();
+    await page.evaluate(() => {
+      localStorage.setItem('gotrue.user', globalThis.__savedTestIdentity);
+      globalThis.netlifyIdentity.store.user = globalThis.netlifyIdentity.currentUser();
+    });
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toBeVisible();
+    const loginFrame = page.locator('iframe[title="Netlify identity widget"]:visible').last().contentFrame();
+    await loginFrame.getByRole('button', { name: 'Close' }).click();
+    status = 200;
+    const beforeRetry = requestCount();
+    await page.locator('.error-dialog .dialog-submit').click();
+    await expect.poll(requestCount).toBeGreaterThan(beforeRetry);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
   });
 
   test('does not treat a temporary validation error as a logout', async ({ page }) => {

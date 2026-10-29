@@ -88,6 +88,7 @@ settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 // that would otherwise show the connect dialog on top of the password-reset form.
 let widgetHandlingToken = false;
 let authSessionGeneration = 0;
+let loginValidationGeneration = null;
 let authInitializationStarted = false;
 let authInitializationComplete = false;
 let identityModalOpen = false;
@@ -204,6 +205,7 @@ function applyQueryParamsToConnectDialog() {
  */
 function resetAuthenticatedConnection() {
   authSessionGeneration += 1;
+  loginValidationGeneration = null;
   invalidateConnectionAttempt();
   uiStore.guacamoleFrame?.stop?.();
   audioStore.stopBeep();
@@ -220,9 +222,17 @@ function handleAuthLogin(user) {
     initializationComplete: authInitializationComplete,
     handlingIdentityToken: widgetHandlingToken,
   })) {
-    authSessionGeneration += 1;
-    dialogStore.connectDialog.sessionChecking = false;
-    void handleSessionValidatedLogin(user);
+    clearCredentials();
+    resetAuthenticatedConnection();
+    dialogStore.connectDialog.sessionChecking = true;
+    const generation = authSessionGeneration;
+    loginValidationGeneration = generation;
+    void handleSessionValidatedLogin(user).finally(() => {
+      if (generation === authSessionGeneration) {
+        loginValidationGeneration = null;
+        dialogStore.connectDialog.sessionChecking = false;
+      }
+    });
     return;
   }
 
@@ -261,6 +271,7 @@ function handleAuthLogin(user) {
 
 const handleSessionValidatedLogin = createSessionValidatedLoginHandler({
   auth,
+  getSessionGeneration: () => authSessionGeneration,
   onAuthenticated: (currentUser, eventUser) => {
     identityModalOpen = false;
     clearCredentials();
@@ -297,6 +308,7 @@ const handleSessionValidatedLogin = createSessionValidatedLoginHandler({
     dialogStore.showErrorDialog({
       type: 'generic',
       reason: 'Unable to verify your session. Check your connection and try again.',
+      retrySessionValidation: true,
     });
   },
 });
@@ -331,6 +343,7 @@ async function handleAuthClose() {
     dialogStore.showErrorDialog({
       type: 'generic',
       reason: 'Unable to verify your session. Check your connection and try again.',
+      retrySessionValidation: true,
     });
   }
   if (sessionGeneration !== authSessionGeneration) return;
@@ -404,6 +417,7 @@ function handleAuthInitializationError(status, hadIdentityToken, providerReady) 
     reason: status === 'provider-error'
       ? 'Unable to initialize authentication. Please refresh the page.'
       : 'Unable to verify your session. Check your connection and try again.',
+    retrySessionValidation: status === 'validation-error',
   });
 }
 
@@ -546,13 +560,23 @@ const revalidateSessionOnResume = createSessionResumeHandler({
     dialogStore.showErrorDialog({
       type: 'generic',
       reason: 'Unable to verify your session. Check your connection and try again.',
+      retrySessionValidation: true,
     });
   },
 });
 
+function beginResumeSessionValidation() {
+  if (loginValidationGeneration === authSessionGeneration &&
+      authInitializationComplete && !identityModalOpen && !authInitializationFailed) {
+    authSessionGeneration += 1;
+    loginValidationGeneration = null;
+  }
+  return revalidateSessionOnResume();
+}
+
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
-    revalidateSessionOnResume().catch((error) => {
+    beginResumeSessionValidation().catch((error) => {
       console.warn('[Auth] Failed to revalidate session after visibility change:', error);
     });
   }
@@ -573,7 +597,7 @@ function initializeUI() {
   });
   registerAuthErrorHandler(auth);
   document.addEventListener('visibilitychange', handleVisibilityChange);
-  globalThis.addEventListener('focus', revalidateSessionOnResume);
+  globalThis.addEventListener('focus', beginResumeSessionValidation);
 
   // Initialize auth asynchronously (don't block UI)
   initializeAuth();
@@ -640,6 +664,7 @@ async function main() {
     vueApp.provide('config', globalThis.mumbleWebConfig);
     vueApp.provide('translate', translate);
     vueApp.provide('auth', auth);
+    vueApp.provide('retrySessionValidation', beginResumeSessionValidation);
     // Note: settings is now a Pinia store (useSettingsStore), no need to provide
     // Components can import it directly via: import { useSettingsStore } from '../stores/settingsStore'
     
