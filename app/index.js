@@ -210,6 +210,7 @@ function resetAuthenticatedConnection() {
   voiceStore.reset();
   userStore.reset();
   connectionStore.disconnect();
+  dialogStore.connectDialog.sessionChecking = false;
   dialogStore.connectDialog.isTestActive = false;
   uiStore.reset();
 }
@@ -219,6 +220,8 @@ function handleAuthLogin(user) {
     initializationComplete: authInitializationComplete,
     handlingIdentityToken: widgetHandlingToken,
   })) {
+    authSessionGeneration += 1;
+    dialogStore.connectDialog.sessionChecking = false;
     void handleSessionValidatedLogin(user);
     return;
   }
@@ -250,6 +253,8 @@ function handleAuthLogin(user) {
   }
   auth.closeAuth();
   widgetHandlingToken = false;
+  authInitializationComplete = true;
+  authTokenObservedDuringInitialization = false;
   // Show connect dialog after successful authentication
   dialogStore.connectDialog.visible = true;
 }
@@ -271,6 +276,8 @@ const handleSessionValidatedLogin = createSessionValidatedLoginHandler({
     dialogStore.connectDialog.visible = true;
   },
   onUnauthenticated: () => {
+    clearCredentials();
+    resetAuthenticatedConnection();
     const authModalWasOpen = identityModalOpen;
     identityModalOpen = false;
     connectDialogAwaitingSessionValidation = false;
@@ -320,6 +327,7 @@ async function handleAuthClose() {
     console.warn('[Auth] Failed to read session after closing authentication:', error);
     identityModalOpen = false;
     sessionValidationErrorVisible = true;
+    if (!connected() && auth.currentUser()) connectDialogAwaitingSessionValidation = true;
     dialogStore.showErrorDialog({
       type: 'generic',
       reason: 'Unable to verify your session. Check your connection and try again.',
@@ -451,10 +459,9 @@ async function initializeAuth() {
     console.warn('[Auth] Unable to initialize authentication UI:', error);
     return;
   }
+  if (sessionGeneration !== authSessionGeneration) return;
   const { status, providerReady, user } = session;
   prepareAuthInitialization(session);
-
-  if (sessionGeneration !== authSessionGeneration) return;
 
   if (providerReady && hadIdentityToken && status !== 'validation-error') {
     handleIdentityTokenInitialization(user);
@@ -489,11 +496,12 @@ const revalidateSessionOnResume = createSessionResumeHandler({
   onInitFailed: () => authInitializationFailed,
   isReady: () => authInitializationComplete,
   isAuthModalOpen: () => identityModalOpen,
+  getSessionGeneration: () => authSessionGeneration,
   isConnectDialogVisible: () => dialogStore.connectDialog.visible,
   onValidationStart: () => {
     dialogStore.connectDialog.sessionChecking = true;
   },
-  onAuthenticated: (_user, { restoreConnectDialog }) => {
+  onAuthenticated: (user, { restoreConnectDialog }) => {
     dialogStore.connectDialog.sessionChecking = false;
     if (sessionValidationErrorVisible) {
       dialogStore.resetErrorDialog();
@@ -501,10 +509,14 @@ const revalidateSessionOnResume = createSessionResumeHandler({
     }
     if (restoreConnectDialog || connectDialogAwaitingSessionValidation) {
       connectDialogAwaitingSessionValidation = false;
+      const username = getUsernameFromMetadata(user);
+      if (username) dialogStore.connectDialog.username = username;
       dialogStore.connectDialog.visible = true;
     }
   },
   onUnauthenticated: async () => {
+    clearCredentials();
+    resetAuthenticatedConnection();
     dialogStore.connectDialog.sessionChecking = false;
     connectDialogAwaitingSessionValidation = false;
     if (sessionValidationErrorVisible) {
@@ -524,13 +536,13 @@ const revalidateSessionOnResume = createSessionResumeHandler({
       console.warn('[Auth] Failed to open authentication after session validation:', error);
     }
   },
-  onValidationError: async (error) => {
+  onValidationError: async (error, { restoreConnectDialog }) => {
     console.warn('[Auth] Could not validate session after returning to the app:', error);
     dialogStore.connectDialog.sessionChecking = false;
     identityModalOpen = false;
     dialogStore.connectDialog.visible = false;
     sessionValidationErrorVisible = true;
-    if (auth.currentUser()) connectDialogAwaitingSessionValidation = true;
+    connectDialogAwaitingSessionValidation ||= restoreConnectDialog;
     dialogStore.showErrorDialog({
       type: 'generic',
       reason: 'Unable to verify your session. Check your connection and try again.',

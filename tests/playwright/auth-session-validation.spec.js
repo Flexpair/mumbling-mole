@@ -71,6 +71,7 @@ async function prepareIdentity(page, getStatus, { expired = false, refreshStatus
   await page.route(`${identityRoot}/**`, handleIdentityRequest);
   await page.route('**/mock-identity/**', handleIdentityRequest);
   await page.route('**/.netlify/identity/**', handleIdentityRequest);
+  await page.route('**/identity-proxy/**', handleIdentityRequest);
   return () => userRequests;
 }
 
@@ -110,6 +111,106 @@ test.describe('Identity session validation', () => {
     await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
     await expect.poll(requestCount).toBeGreaterThan(previousRequests);
     await expectLoginVisible(page);
+  });
+
+  test('disconnects active Mumble and Guacamole when the Identity session is rejected', async ({ page }) => {
+    let status = 200;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => {
+      globalThis.__disconnectEvents = [];
+      globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
+      globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
+      globalThis.mumbleUi.connectDialog.visible = false;
+    });
+    const before = requestCount();
+    status = 401;
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expectLoginVisible(page);
+    await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
+  });
+
+  test('keeps session checks active when a token login supersedes startup', async ({ page }) => {
+    let release;
+    const pending = new Promise(resolve => { release = resolve; });
+    let holdValidation = true;
+    const requestCount = await prepareIdentity(page, () => 200, {
+      waitForUser: () => holdValidation ? pending : Promise.resolve(),
+    });
+    await page.goto('/#recovery_token=synthetic-callback');
+    await expect.poll(requestCount).toBeGreaterThan(0);
+    try {
+      await page.evaluate(() => {
+        const store = globalThis.netlifyIdentity.store;
+        store.user = null;
+        store.user = globalThis.netlifyIdentity.currentUser();
+      });
+      await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    } finally {
+      holdValidation = false;
+      release();
+    }
+    await expect.poll(() => page.evaluate(() => Boolean(globalThis.mumbleUi.auth.currentUser()))).toBe(true);
+    const before = requestCount();
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+  });
+
+
+  test('ignores a pending resume failure once a newer login event starts', async ({ page }) => {
+    let phase = 'startup';
+    let releaseResume;
+    let releaseLogin;
+    const resumeWait = new Promise(resolve => { releaseResume = resolve; });
+    const loginWait = new Promise(resolve => { releaseLogin = resolve; });
+    const requestCount = await prepareIdentity(page, () => phase === 'failing' ? 500 : 200, {
+      waitForUser: () => phase === 'resume' ? resumeWait : phase === 'login' ? loginWait : Promise.resolve(),
+    });
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    const before = requestCount();
+    phase = 'resume';
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    phase = 'login';
+    await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'new-login' }; });
+    try {
+      await expect.poll(requestCount).toBeGreaterThan(before + 1);
+      const failureResponse = page.waitForResponse(response => response.url().endsWith('/user') && response.status() === 500);
+      phase = 'failing';
+      releaseResume();
+      await failureResponse;
+      await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toHaveCount(0);
+    } finally {
+      phase = 'startup';
+      releaseResume();
+      releaseLogin();
+    }
+  });
+
+  test('cleans up an active session when a login event is rejected', async ({ page }) => {
+    let status = 200;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => {
+      globalThis.__disconnectEvents = [];
+      globalThis.mumbleUi.ui.guacamoleFrame = { stop: () => globalThis.__disconnectEvents.push('desktop') };
+      globalThis.mumbleUi.voice.voiceHandler = { end: () => globalThis.__disconnectEvents.push('voice') };
+      globalThis.mumbleUi.connectDialog.visible = false;
+    });
+    const before = requestCount();
+    status = 401;
+    await page.evaluate(() => {
+      const store = globalThis.netlifyIdentity.store;
+      store.user = null;
+      store.user = globalThis.netlifyIdentity.currentUser();
+    });
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expectLoginVisible(page);
+    await expect.poll(() => page.evaluate(() => globalThis.__disconnectEvents)).toEqual(expect.arrayContaining(['desktop', 'voice']));
   });
 
   test('keeps Connect visible but blocks actions while a resumed session is checked', async ({ page }) => {
@@ -158,6 +259,56 @@ test.describe('Identity session validation', () => {
     await loginFrame.getByRole('button', { name: 'Close' }).click();
     await expectLoginVisible(page);
     await expect(loginFrame.getByText('Enter your name')).toBeVisible();
+  });
+
+  test('restores Connect after closing authentication during a temporary validation failure', async ({ page }) => {
+    let status = 200;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => globalThis.mumbleUi.auth.openAuth('login'));
+    status = 500;
+    const beforeClose = requestCount();
+    await page.evaluate(() => globalThis.mumbleUi.auth.closeAuth());
+    await expect.poll(requestCount).toBeGreaterThan(beforeClose);
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toBeVisible();
+    const beforeRetry = requestCount();
+    status = 200;
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(beforeRetry);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+  });
+
+  test('restores the authenticated username after a startup validation error', async ({ page }) => {
+    let status = 500;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.goto('/');
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toBeVisible();
+    const previousRequests = requestCount();
+    status = 200;
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(previousRequests);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await expect(page.locator('dialog.connect-dialog #username')).toHaveValue('Browser_Test');
+  });
+
+  test('does not open Connect over an active session after a transient validation error', async ({ page }) => {
+    let status = 200;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => { globalThis.mumbleUi.connectDialog.visible = false; });
+    let before = requestCount();
+    status = 500;
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toBeVisible();
+    before = requestCount();
+    status = 200;
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toHaveCount(0);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
   });
 
   test('does not treat a temporary validation error as a logout', async ({ page }) => {

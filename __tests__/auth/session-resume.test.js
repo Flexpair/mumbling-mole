@@ -34,6 +34,49 @@ describe('revalidateSessionOnResume', () => {
     expect(auth.getCurrentUser).toHaveBeenCalledTimes(1);
   });
 
+  test.each(['resolve', 'reject'])('ignores %s from a superseded resume validation', async (outcome) => {
+    let settle;
+    let generation = 0;
+    const pending = new Promise((resolve, reject) => {
+      settle = () => outcome === 'resolve' ? resolve(null) : reject(new Error('old session'));
+    });
+    const onAuthenticated = jest.fn();
+    const onUnauthenticated = jest.fn();
+    const onValidationError = jest.fn();
+    const handler = createSessionResumeHandler({
+      auth: { getCurrentUser: () => pending },
+      getSessionGeneration: () => generation,
+      onAuthenticated,
+      onUnauthenticated,
+      onValidationError,
+    });
+    const result = handler();
+    await Promise.resolve();
+    generation += 1;
+    settle();
+    await result;
+    expect(onAuthenticated).not.toHaveBeenCalled();
+    expect(onUnauthenticated).not.toHaveBeenCalled();
+    expect(onValidationError).not.toHaveBeenCalled();
+  });
+
+  test('starts a new validation after the session changes while the previous check hangs', async () => {
+    let generation = 0;
+    let finishOld;
+    const old = new Promise(resolve => { finishOld = resolve; });
+    const auth = { getCurrentUser: jest.fn().mockReturnValueOnce(old).mockResolvedValueOnce({ id: 'new' }) };
+    const onAuthenticated = jest.fn();
+    const handler = createSessionResumeHandler({ auth, getSessionGeneration: () => generation, onAuthenticated });
+    const first = handler();
+    await Promise.resolve();
+    generation += 1;
+    await expect(handler()).resolves.toEqual({ id: 'new' });
+    expect(onAuthenticated).toHaveBeenCalledTimes(1);
+    finishOld(null);
+    await first;
+    expect(onAuthenticated).toHaveBeenCalledTimes(1);
+  });
+
   test('requests login when resume validation finds no active session', async () => {
     const auth = { getCurrentUser: jest.fn().mockResolvedValue(null) };
     const onUnauthenticated = jest.fn();
