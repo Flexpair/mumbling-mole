@@ -276,6 +276,7 @@ const handleSessionValidatedLogin = createSessionValidatedLoginHandler({
     identityModalOpen = false;
     clearCredentials();
     resetAuthenticatedConnection();
+    connectDialogAwaitingSessionValidation = false;
     dialogStore.resetErrorDialog();
     sessionValidationErrorVisible = false;
     dialogStore.resetInfoDialog();

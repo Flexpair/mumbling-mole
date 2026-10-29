@@ -14,11 +14,13 @@ export function createSessionResumeHandler({
   let inFlightCheck = null;
   let inFlightGeneration = null;
   let pendingConnectRestore = false;
+  let pendingConnectRestoreGeneration = null;
 
   return async function revalidateSessionOnResume() {
     if (!isReady() || isAuthModalOpen() || onInitFailed()) return null;
     const generation = getSessionGeneration();
     if (inFlightCheck && inFlightGeneration === generation) return inFlightCheck;
+    if (pendingConnectRestoreGeneration !== generation) pendingConnectRestore = false;
     const restoreConnectDialog = pendingConnectRestore || isConnectDialogVisible();
     let validationStarted = false;
     const check = (async () => {
@@ -46,6 +48,7 @@ export function createSessionResumeHandler({
         if (!validationStarted) throw error;
         if (generation !== getSessionGeneration()) return undefined;
         pendingConnectRestore ||= restoreConnectDialog;
+        pendingConnectRestoreGeneration = generation;
         await onValidationError(error, {
           restoreConnectDialog: shouldRestoreConnectDialog
             ? shouldRestoreConnectDialog(pendingConnectRestore)

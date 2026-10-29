@@ -149,6 +149,26 @@ describe('revalidateSessionOnResume', () => {
     expect(connectDialog.visible).toBe(true);
   });
 
+  test('does not restore the prior generation dialog after a replacement login', async () => {
+    let generation = 0;
+    let dialogVisible = true;
+    const auth = { getCurrentUser: jest.fn()
+      .mockRejectedValueOnce(new Error('temporary failure'))
+      .mockResolvedValueOnce({ id: 'new-user' }) };
+    const onAuthenticated = jest.fn();
+    const handler = createSessionResumeHandler({
+      auth,
+      getSessionGeneration: () => generation,
+      isConnectDialogVisible: () => dialogVisible,
+      onValidationError: () => { dialogVisible = false; },
+      onAuthenticated,
+    });
+    await handler();
+    generation += 1;
+    await handler();
+    expect(onAuthenticated).toHaveBeenCalledWith({ id: 'new-user' }, { restoreConnectDialog: false });
+  });
+
   test('restores Connect after a startup validation failure is retried successfully', async () => {
     const user = { id: 'current-user' };
     const auth = { getCurrentUser: jest.fn().mockResolvedValue(user) };

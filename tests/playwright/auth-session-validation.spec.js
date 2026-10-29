@@ -435,6 +435,38 @@ test.describe('Identity session validation', () => {
     await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
   });
 
+  test('does not reopen Connect on focus after recovering through a new login', async ({ page }) => {
+    let status = 200;
+    const requestCount = await prepareIdentity(page, () => status);
+    await page.goto('/');
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    status = 500;
+    let before = requestCount();
+    await page.evaluate(() => {
+      globalThis.__completedValidations = 0;
+      const auth = globalThis.mumbleUi.auth;
+      const getCurrentUser = auth.getCurrentUser.bind(auth);
+      auth.getCurrentUser = (...args) => getCurrentUser(...args).finally(() => {
+        globalThis.__completedValidations += 1;
+      });
+    });
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expect(page.getByText('Unable to verify your session. Check your connection and try again.')).toBeVisible();
+    status = 200;
+    before = requestCount();
+    await page.evaluate(() => { globalThis.netlifyIdentity.store.user = { id: 'replacement' }; });
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(1);
+    await page.evaluate(() => { globalThis.mumbleUi.connectDialog.visible = false; });
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
+    before = requestCount();
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('focus')));
+    await expect.poll(requestCount).toBeGreaterThan(before);
+    await expect.poll(() => page.evaluate(() => globalThis.__completedValidations)).toBe(3);
+    await expect(page.locator('dialog.connect-dialog[open]')).toHaveCount(0);
+  });
+
   test('retries startup validation without connecting with an empty username', async ({ page }) => {
     let status = 500;
     const requestCount = await prepareIdentity(page, () => status);
