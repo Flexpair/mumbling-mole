@@ -14,69 +14,92 @@ export function getIdentitySessionRejection(error) {
   return null;
 }
 
+function readSavedIdentitySession() {
+  try {
+    return globalThis.localStorage?.getItem('gotrue.user') ?? null;
+  } catch {
+    // Storage access can be disabled; session validation may still work.
+    return null;
+  }
+}
+
+function getCurrentUserOrThrowIfReplaced(identity, user, allowMissing = false) {
+  const currentUser = identity.currentUser();
+  if (!isExpectedCurrentUser(currentUser, user, allowMissing)) {
+    throw new Error('Identity session changed during validation');
+  }
+  return currentUser;
+}
+
+function isExpectedCurrentUser(currentUser, user, allowMissing) {
+  return currentUser === user || (allowMissing && !currentUser);
+}
+
+function restoreSessionAfterTransientFailure(user, currentUser, widgetStillOwnsUser, savedSession, savedToken) {
+  if (!currentUser && widgetStillOwnsUser && savedSession && savedToken && !user.token) {
+    try {
+      if (!globalThis.localStorage?.getItem('gotrue.user')) {
+        globalThis.localStorage?.setItem('gotrue.user', savedSession);
+        user.token = savedToken;
+      }
+    } catch {
+      // Propagate the original validation error if storage is unavailable.
+    }
+  }
+}
+
+async function clearRejectedIdentitySession(identity, user, clearStoredSession, clearWidgetUser, currentUser, widgetStillOwnsUser) {
+  if (!currentUser && !widgetStillOwnsUser) {
+    throw new Error('Identity session changed during validation');
+  }
+
+  try {
+    if (typeof user.clearSession === 'function') {
+      await user.clearSession();
+    } else {
+      clearStoredSession();
+    }
+  } catch (clearError) {
+    console.warn('[Auth] Could not clear rejected identity session:', clearError);
+  }
+
+  if (identity.store?.user === user) {
+    clearWidgetUser();
+  }
+  return null;
+}
+
+async function handleIdentitySessionValidationFailure(identity, user, error, clearStoredSession, clearWidgetUser, savedSession, savedToken) {
+  const sessionRejected = getIdentitySessionRejection(error) !== null ||
+    [401, 403, 404].includes(error?.status);
+  const currentUser = getCurrentUserOrThrowIfReplaced(identity, user, true);
+  const widgetStillOwnsUser = identity.store?.user === user;
+
+  if (!sessionRejected) {
+    restoreSessionAfterTransientFailure(user, currentUser, widgetStillOwnsUser, savedSession, savedToken);
+    throw error;
+  }
+
+  return await clearRejectedIdentitySession(identity, user, clearStoredSession, clearWidgetUser, currentUser, widgetStillOwnsUser);
+}
+
 export async function validateIdentitySession(identity, clearStoredSession = () => {}, clearWidgetUser = () => {
   identity.store.user = null;
 }) {
   const user = identity.currentUser();
   if (!user) return null;
   if (typeof user.getUserData !== 'function') {
-    throw new Error('Netlify Identity session validation is unavailable');
+    throw new TypeError('Netlify Identity session validation is unavailable');
   }
-  let savedSession = null;
-  try {
-    savedSession = globalThis.localStorage?.getItem('gotrue.user') ?? null;
-  } catch {
-    // Storage access can be disabled; session validation may still work.
-  }
+  const savedSession = readSavedIdentitySession();
   const savedToken = user.token;
 
   try {
     await user.getUserData();
   } catch (error) {
-    const sessionRejected = getIdentitySessionRejection(error) !== null ||
-      [401, 403, 404].includes(error?.status);
-    const currentUser = identity.currentUser();
-    const widgetStillOwnsUser = identity.store?.user === user;
-    if (currentUser && currentUser !== user) {
-      throw new Error('Identity session changed during validation');
-    }
-    if (!sessionRejected) {
-      // Older GoTrue clients clear a saved session on any refresh failure.
-      // Restore it only when no newer session has appeared.
-      if (!currentUser && widgetStillOwnsUser && savedSession && savedToken && !user.token) {
-        try {
-          if (!globalThis.localStorage?.getItem('gotrue.user')) {
-            globalThis.localStorage?.setItem('gotrue.user', savedSession);
-            user.token = savedToken;
-          }
-        } catch {
-          // Propagate the original validation error if storage is unavailable.
-        }
-      }
-      throw error;
-    }
-    if (!currentUser && !widgetStillOwnsUser) {
-      throw new Error('Identity session changed during validation');
-    }
-
-    try {
-      if (typeof user.clearSession === 'function') {
-        await user.clearSession();
-      } else {
-        clearStoredSession();
-      }
-    } catch (clearError) {
-      console.warn('[Auth] Could not clear rejected identity session:', clearError);
-    }
-
-    if (identity.store?.user === user) {
-      clearWidgetUser();
-    }
-    return null;
+    return await handleIdentitySessionValidationFailure(identity, user, error, clearStoredSession, clearWidgetUser, savedSession, savedToken);
   }
 
-  if (identity.currentUser() !== user) {
-    throw new Error('Identity session changed during validation');
-  }
+  getCurrentUserOrThrowIfReplaced(identity, user);
   return user;
 }

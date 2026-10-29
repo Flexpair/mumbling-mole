@@ -81,6 +81,25 @@ describe('createSessionValidatedLoginHandler', () => {
     expect(onAuthenticated).toHaveBeenCalledWith(newUser, newUser);
     expect(onValidationError).not.toHaveBeenCalled();
   });
+
+  test('waits for an asynchronous unauthenticated callback', async () => {
+    let finish;
+    let callbackDone = false;
+    const callback = jest.fn(() => new Promise(resolve => {
+      finish = () => { callbackDone = true; resolve(); };
+    }));
+    const handler = createSessionValidatedLoginHandler({
+      auth: { getCurrentUser: jest.fn().mockResolvedValue(null) },
+      onUnauthenticated: callback,
+    });
+    const result = handler({ id: 'user' });
+    await Promise.resolve();
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callbackDone).toBe(false);
+    finish();
+    await expect(result).resolves.toEqual({ status: 'unauthenticated', user: null });
+    expect(callbackDone).toBe(true);
+  });
 });
 
 describe('shouldValidateAuthLogin', () => {

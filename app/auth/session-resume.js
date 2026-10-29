@@ -5,10 +5,10 @@ export function createSessionResumeHandler({
   isAuthModalOpen = () => false,
   isConnectDialogVisible = () => false,
   shouldRestoreConnectDialog = null,
-  onValidationStart = () => {},
-  onAuthenticated = () => {},
-  onUnauthenticated = () => {},
-  onValidationError = () => {},
+  onValidationStart = async () => {},
+  onAuthenticated = async () => {},
+  onUnauthenticated = async () => {},
+  onValidationError = async () => {},
 }) {
   let inFlightCheck = null;
   let pendingConnectRestore = false;

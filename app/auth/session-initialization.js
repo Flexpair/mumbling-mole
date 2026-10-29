@@ -9,9 +9,9 @@ export function shouldValidateAuthLogin({ initializationComplete, handlingIdenti
 
 export function createSessionValidatedLoginHandler({
   auth,
-  onAuthenticated = () => {},
-  onUnauthenticated = () => {},
-  onValidationError = () => {},
+  onAuthenticated = async () => {},
+  onUnauthenticated = async () => {},
+  onValidationError = async () => {},
 }) {
   let loginGeneration = 0;
   return async function handleSessionValidatedLogin(eventUser) {

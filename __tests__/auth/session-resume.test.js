@@ -21,6 +21,19 @@ describe('revalidateSessionOnResume', () => {
     expect(auth.getCurrentUser).toHaveBeenCalledTimes(1);
   });
 
+  test('awaits asynchronous validation-start work before querying the session', async () => {
+    let finishStart;
+    const onValidationStart = jest.fn(() => new Promise(resolve => { finishStart = resolve; }));
+    const auth = { getCurrentUser: jest.fn().mockResolvedValue(null) };
+    const handler = createSessionResumeHandler({ auth, onValidationStart });
+    const result = handler();
+    expect(onValidationStart).toHaveBeenCalledTimes(1);
+    expect(auth.getCurrentUser).not.toHaveBeenCalled();
+    finishStart();
+    await result;
+    expect(auth.getCurrentUser).toHaveBeenCalledTimes(1);
+  });
+
   test('requests login when resume validation finds no active session', async () => {
     const auth = { getCurrentUser: jest.fn().mockResolvedValue(null) };
     const onUnauthenticated = jest.fn();
