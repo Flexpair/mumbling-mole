@@ -49,6 +49,7 @@
             type="button"
             class="test-toggle-label"
             @click="handleToggleLoopback"
+            :disabled="sessionChecking"
             :aria-pressed="isTestActive || isLoopbackMode"
             aria-describedby="audio-test-description"
             style="height: 32px; display: inline-flex; align-items: center; cursor: pointer; background: none; border: none; padding: 0; color: inherit; font: inherit;"
@@ -116,6 +117,7 @@
         <input
           type="submit"
           class="connect-dialog-submit"
+          :disabled="sessionChecking"
           :value="isTestActive && connected ? 'Exit Test & Connect' : 'Connect'"
           :aria-label="(isTestActive && connected ? 'Exit Test & Connect' : 'Connect') + ' to voice server'"
         />
@@ -179,7 +181,7 @@ const microphoneContainer = useTemplateRef('microphoneContainer');
 const pianoButton = useTemplateRef('pianoButton');
 
 // Use toRefs to get reactive refs from nested dialog store object
-const { visible, isTestActive, address, port, username, password } = toRefs(dialogStore.connectDialog);
+const { visible, sessionChecking, isTestActive, address, port, username, password } = toRefs(dialogStore.connectDialog);
 
 // Watch visible and sync with native dialog open/close
 watch(visible, async (val) => {
@@ -244,6 +246,7 @@ onUnmounted(() => {
  * Handle form submission (Connect button)
  */
 async function handleConnect() {
+  if (sessionChecking.value) return;
   isTestActive.value = false;
   visible.value = false;
   await connectionLogic.connect(address.value, port.value, username.value, password.value);
@@ -255,7 +258,7 @@ async function handleConnect() {
 async function handleToggleLoopback() {
   // ONE-WAY: Only allow activation, not deactivation
   // Use "Exit Test Mode" button to deactivate
-  if (isTestActive.value) {
+  if (sessionChecking.value || isTestActive.value) {
     return;
   }
 

@@ -273,8 +273,10 @@ describe('useConnectionLogic', () => {
       expect(mockAuth.openAuth).toHaveBeenCalledWith('login');
     });
 
-    it('should alert when credentials fetch fails', async () => {
-      mockFetchCredentials.mockRejectedValue(new Error('Token expired'));
+    it('should request login when credentials reject the authenticated token', async () => {
+      mockFetchCredentials.mockRejectedValue(Object.assign(new Error('Invalid or expired token'), {
+        status: 401,
+      }));
       
       await logic.connect('host', 64738, 'user', 'pass');
       
@@ -285,8 +287,26 @@ describe('useConnectionLogic', () => {
       expect(mockAuth.openAuth).toHaveBeenCalledWith('login');
     });
 
+    it('should preserve the authenticated session when credentials are temporarily unavailable', async () => {
+      const credentialsError = Object.assign(new Error('Auth provider misconfigured'), {
+        status: 503,
+      });
+      mockFetchCredentials.mockRejectedValue(credentialsError);
+
+      await logic.connect('host', 64738, 'user', 'pass');
+
+      expect(mockLogoutForReauthentication).not.toHaveBeenCalled();
+      expect(mockAuth.openAuth).not.toHaveBeenCalled();
+      expect(mockDialogStore.showErrorDialog).toHaveBeenCalledWith(
+        credentialsError,
+        expect.objectContaining({ host: 'host', port: 64738, username: 'user' })
+      );
+    });
+
     it('should not open login when reauthentication logout requires a reload', async () => {
-      mockFetchCredentials.mockRejectedValue(new Error('Token expired'));
+      mockFetchCredentials.mockRejectedValue(Object.assign(new Error('Invalid or expired token'), {
+        status: 401,
+      }));
       mockLogoutForReauthentication.mockResolvedValueOnce(false);
 
       await logic.connect('host', 64738, 'user', 'pass');
@@ -297,7 +317,7 @@ describe('useConnectionLogic', () => {
     it('should not open stale reauthentication over a newer connection', async () => {
       const staleLogout = deferred();
       mockFetchCredentials
-        .mockRejectedValueOnce(new Error('Token expired'))
+        .mockRejectedValueOnce(Object.assign(new Error('Invalid or expired token'), { status: 401 }))
         .mockResolvedValueOnce({
           mumblePassword: 'current-password',
           guacamoleUser: 'watcher',

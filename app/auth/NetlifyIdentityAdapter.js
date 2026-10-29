@@ -1,4 +1,5 @@
 import AuthProvider from './AuthProvider.js';
+import { validateIdentitySession } from './identity-session.js';
 
 /**
  * Netlify Identity Authentication Adapter
@@ -26,6 +27,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
     this._logoutQueue = null;
     this._activeLogoutOperation = null;
     this._logoutHandlerWrappers = new Map();
+    this._suppressSessionCleanupLogout = false;
     this.supportsLogoutEventSuppression = true;
   }
 
@@ -106,11 +108,20 @@ class NetlifyIdentityAdapter extends AuthProvider {
   }
 
   /**
-   * Get currently authenticated user
+   * Get the current user only after validating the persisted session with Netlify Identity.
    * @returns {Promise<Object|null>}
    */
   async getCurrentUser() {
-    return this.netlifyIdentity.currentUser();
+    return validateIdentitySession(this.netlifyIdentity, () => {
+      globalThis.localStorage?.removeItem('gotrue.user');
+    }, () => {
+      this._suppressSessionCleanupLogout = true;
+      try {
+        this.netlifyIdentity.store.user = null;
+      } finally {
+        this._suppressSessionCleanupLogout = false;
+      }
+    });
   }
 
   /**
@@ -118,7 +129,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<string|null>}
    */
   async getAccessToken() {
-    return this.netlifyIdentity.currentUser()?.token?.access_token || null;
+    const user = this.netlifyIdentity.currentUser();
+    if (!user) return null;
+
+    if (typeof this.netlifyIdentity.refresh === 'function') {
+      return this.netlifyIdentity.refresh();
+    }
+
+    return user.token?.access_token || null;
   }
 
   /**
@@ -267,7 +285,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
     if (event !== 'logout') return callback;
     if (!this._logoutHandlerWrappers.has(callback)) {
       this._logoutHandlerWrappers.set(callback, (...args) => {
-        if (!this._activeLogoutOperation?.suppressProviderEvent) callback(...args);
+        if (!this._suppressSessionCleanupLogout && !this._activeLogoutOperation?.suppressProviderEvent) callback(...args);
       });
     }
     return this._logoutHandlerWrappers.get(callback);

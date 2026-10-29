@@ -23,6 +23,7 @@ export const useDialogStore = defineStore('dialog', () => {
     username: '',
     password: '',
     visible: false,
+    sessionChecking: false,
     isTestActive: false,
   });
 
@@ -83,6 +84,7 @@ export const useDialogStore = defineStore('dialog', () => {
     connectDialog.username = '';
     connectDialog.password = '';
     connectDialog.visible = false;
+    connectDialog.sessionChecking = false;
     connectDialog.isTestActive = false;
   }
 

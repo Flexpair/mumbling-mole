@@ -93,6 +93,8 @@ export function useConnectionLogic({ auth } = {}) {
     } catch (error) {
       if (!isConnectionAttemptCurrent(attempt)) return false;
       console.error('[useConnectionLogic] Failed to read authentication session:', error);
+      _handleConnectionFailure(error, null, attempt);
+      return false;
     }
 
     if (!isConnectionAttemptCurrent(attempt)) return false;
@@ -102,7 +104,7 @@ export function useConnectionLogic({ auth } = {}) {
     return false;
   }
 
-  async function _fetchServerCredentials(attempt) {
+  async function _fetchServerCredentials(attempt, connectionParams) {
     try {
       const token = await auth.getAccessToken();
       if (!isConnectionAttemptCurrent(attempt)) return null;
@@ -114,7 +116,11 @@ export function useConnectionLogic({ auth } = {}) {
     } catch (error) {
       if (!isConnectionAttemptCurrent(attempt) || isConnectionCancellation(error)) return null;
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
-      await _requestLogin({ logout: true, attempt });
+      if (error?.status === 401 || error?.message === 'No access token available') {
+        await _requestLogin({ logout: true, attempt });
+      } else {
+        _handleConnectionFailure(error, connectionParams, attempt);
+      }
       return null;
     }
   }
@@ -155,7 +161,7 @@ export function useConnectionLogic({ auth } = {}) {
     if (!(await _ensureAuthenticated(attempt))) return;
 
     // Fetch credentials from auth server (validates JWT server-side)
-    const serverCredentials = await _fetchServerCredentials(attempt);
+    const serverCredentials = await _fetchServerCredentials(attempt, { host, port, username });
     if (!serverCredentials) return;
 
     // Use server-provided password

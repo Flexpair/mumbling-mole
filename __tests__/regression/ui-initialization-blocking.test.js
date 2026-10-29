@@ -253,7 +253,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
     
     // PROOF 3: Auth initialization is async and doesn't block Vue mounting
     const vueMountIndex = indexContent.indexOf('vueApp.mount(\'#app\')');
-    const authInitIndex = indexContent.indexOf('await auth.init(');
+    const authInitIndex = indexContent.indexOf('await initializeAuthSession(auth, authConfig)');
     
     expect(vueMountIndex).toBeGreaterThan(0);
     expect(authInitIndex).toBeGreaterThan(0);
@@ -351,7 +351,7 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(indexContent).toContain('let authSessionGeneration = 0;');
     expect(authClose).toContain('const sessionGeneration = authSessionGeneration;');
     expect(authClose).toContain('if (sessionGeneration !== authSessionGeneration) return;');
-    expect(authClose).toContain("await auth.openAuth('login');");
+    expect(authClose).toContain('auth.openAuth("login");');
     expect(authClose).toContain("console.warn('[Auth] Failed to read session after closing authentication:'");
   });
 
@@ -372,6 +372,29 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(dialogStore.connectDialog.visible).toBe(false);
   });
 
+  test('VERIFICATION: returning to a suspended tab validates the session before reopening Connect', async () => {
+    const { createSessionResumeHandler } = await import('../../app/auth/session-resume.js');
+    const auth = { getCurrentUser: jest.fn().mockResolvedValue(null) };
+    const dialogStore = { connectDialog: { visible: true } };
+    const onUnauthenticated = jest.fn(() => {
+      dialogStore.connectDialog.visible = false;
+    });
+    const revalidateSession = createSessionResumeHandler({
+      auth,
+      isConnectDialogVisible: () => dialogStore.connectDialog.visible,
+      onValidationStart: () => {
+        dialogStore.connectDialog.visible = false;
+      },
+      onUnauthenticated,
+    });
+
+    await revalidateSession();
+
+    expect(auth.getCurrentUser).toHaveBeenCalledTimes(1);
+    expect(onUnauthenticated).toHaveBeenCalledTimes(1);
+    expect(dialogStore.connectDialog.visible).toBe(false);
+  });
+
   test('VERIFICATION: generic provider errors preserve a visible Connect dialog', () => {
     const errorHandler = jest.fn();
     const auth = {
@@ -385,6 +408,48 @@ describe('UI Freeze Regression (3.16.1)', () => {
     errorHandler(new Error('Background provider failure'));
 
     expect(dialogStore.connectDialog.visible).toBe(true);
+  });
+
+  test('VERIFICATION: failed startup session validation takes the login path, not Connect', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const indexPath = path.join(process.cwd(), 'app', 'index.js');
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const initializeAuthStart = indexContent.indexOf('async function initializeAuth');
+    const initializeAuthEnd = indexContent.indexOf('const revalidateSessionOnResume', initializeAuthStart);
+    const initializeAuth = indexContent.slice(initializeAuthStart, initializeAuthEnd);
+
+    expect(initializeAuth).toContain('initializeAuthSession(auth, authConfig)');
+    expect(initializeAuth).toContain("status === 'unauthenticated'");
+    expect(initializeAuth).toContain('dialogStore.connectDialog.visible = false;');
+    expect(initializeAuth).toContain('await auth.openAuth("login");');
+    expect(initializeAuth.indexOf('initializeAuthSession(auth, authConfig)'))
+      .toBeLessThan(initializeAuth.indexOf('// User is already authenticated, show connect dialog'));
+  });
+
+  test('VERIFICATION: transient startup validation leaves resume checks enabled', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const indexContent = await fs.readFile(path.join(process.cwd(), 'app', 'index.js'), 'utf-8');
+    const validationErrorBranchStart = indexContent.indexOf("} else if (status === 'validation-error' || status === 'provider-error') {");
+    const validationErrorBranchEnd = indexContent.indexOf('\n  } else {', validationErrorBranchStart);
+    const validationErrorBranch = indexContent.slice(validationErrorBranchStart, validationErrorBranchEnd);
+
+    expect(validationErrorBranch).toContain('authInitializationComplete = true;');
+  });
+
+  test('VERIFICATION: stale Identity login events cannot reveal Connect after failed validation', async () => {
+    const { shouldHandleAuthLogin } = await import('../../app/auth/session-initialization.js');
+
+    expect(shouldHandleAuthLogin({
+      initializationStarted: true,
+      initializationComplete: true,
+      handlingIdentityToken: false,
+      tokenObserved: false,
+      authModalOpen: false,
+    })).toBe(false);
   });
 
   test('VERIFICATION: auth reset unloads the Guacamole session', async () => {

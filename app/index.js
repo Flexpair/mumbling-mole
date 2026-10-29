@@ -23,6 +23,13 @@ import { clearCredentials } from "./auth/credentials-service.js";
 import { invalidateConnectionAttempt } from "./composables/connectionAttempt.js";
 import { shouldHandleProviderLogout } from "./composables/useAuthLogout.js";
 import { registerAuthErrorHandler } from "./auth/auth-error-handler.js";
+import { createSessionResumeHandler } from "./auth/session-resume.js";
+import {
+  createSessionValidatedLoginHandler,
+  initializeAuthSession,
+  shouldHandleAuthLogin,
+  shouldValidateAuthLogin,
+} from "./auth/session-initialization.js";
 
 // Check URL parameters for debug-audio flag (used in automated tests)
 const urlParams = new URLSearchParams(globalThis.location.search);
@@ -81,6 +88,13 @@ settingsStore.initWithDefaults(globalThis.mumbleWebConfig.settings);
 // that would otherwise show the connect dialog on top of the password-reset form.
 let widgetHandlingToken = false;
 let authSessionGeneration = 0;
+let authInitializationStarted = false;
+let authInitializationComplete = false;
+let identityModalOpen = false;
+let authInitializationFailed = false;
+let authTokenObservedDuringInitialization = false;
+let connectDialogAwaitingSessionValidation = false;
+let sessionValidationErrorVisible = false;
 
 // Initialize auth - always use Netlify Identity in production
 const authConfig = globalThis.mumbleWebConfig?.auth || { provider: 'netlify' };
@@ -201,11 +215,33 @@ function resetAuthenticatedConnection() {
 }
 
 function handleAuthLogin(user) {
+  if (shouldValidateAuthLogin({
+    initializationComplete: authInitializationComplete,
+    handlingIdentityToken: widgetHandlingToken,
+  })) {
+    void handleSessionValidatedLogin(user);
+    return;
+  }
+
+  const wasHandlingIdentityToken = widgetHandlingToken;
+  const shouldHandleLogin = shouldHandleAuthLogin({
+    initializationStarted: authInitializationStarted,
+    initializationComplete: authInitializationComplete,
+    handlingIdentityToken: wasHandlingIdentityToken,
+    tokenObserved: authTokenObservedDuringInitialization,
+    authModalOpen: identityModalOpen,
+  });
+  if (!shouldHandleLogin) {
+    dialogStore.connectDialog.visible = false;
+    return;
+  }
+  identityModalOpen = false;
   // A login can replace an existing Identity session. Do not reuse
   // credentials that were fetched with the previous token.
   clearCredentials();
   resetAuthenticatedConnection();
   dialogStore.resetErrorDialog();
+  sessionValidationErrorVisible = false;
   dialogStore.resetInfoDialog();
   dialogStore.resetSampleRateDialog();
   const username = getUsernameFromMetadata(user);
@@ -213,11 +249,53 @@ function handleAuthLogin(user) {
     dialogStore.connectDialog.username = username;
   }
   auth.closeAuth();
+  widgetHandlingToken = false;
   // Show connect dialog after successful authentication
   dialogStore.connectDialog.visible = true;
 }
 
+const handleSessionValidatedLogin = createSessionValidatedLoginHandler({
+  auth,
+  onAuthenticated: (currentUser, eventUser) => {
+    identityModalOpen = false;
+    clearCredentials();
+    resetAuthenticatedConnection();
+    dialogStore.resetErrorDialog();
+    sessionValidationErrorVisible = false;
+    dialogStore.resetInfoDialog();
+    dialogStore.resetSampleRateDialog();
+    const username = getUsernameFromMetadata(currentUser) || getUsernameFromMetadata(eventUser);
+    if (username) dialogStore.connectDialog.username = username;
+    auth.closeAuth();
+    widgetHandlingToken = false;
+    dialogStore.connectDialog.visible = true;
+  },
+  onUnauthenticated: () => {
+    const authModalWasOpen = identityModalOpen;
+    identityModalOpen = false;
+    connectDialogAwaitingSessionValidation = false;
+    sessionValidationErrorVisible = false;
+    dialogStore.resetErrorDialog();
+    dialogStore.connectDialog.visible = false;
+    if (authModalWasOpen || !authInitializationFailed) {
+      identityModalOpen = true;
+      return auth.openAuth('login');
+    }
+  },
+  onValidationError: (error) => {
+    console.warn('[Auth] Login event session validation failed:', error);
+    if (auth.currentUser()) connectDialogAwaitingSessionValidation = true;
+    dialogStore.connectDialog.visible = false;
+    sessionValidationErrorVisible = true;
+    dialogStore.showErrorDialog({
+      type: 'generic',
+      reason: 'Unable to verify your session. Check your connection and try again.',
+    });
+  },
+});
+
 function handleAuthLogout() {
+  identityModalOpen = false;
   if (!shouldHandleProviderLogout()) return;
   clearCredentials();
   resetAuthenticatedConnection();
@@ -228,6 +306,8 @@ function handleAuthLogout() {
  * Handle auth modal close event
  */
 async function handleAuthClose() {
+  identityModalOpen = true;
+  dialogStore.connectDialog.visible = false;
   if (widgetHandlingToken) {
     widgetHandlingToken = false;
   }
@@ -238,14 +318,19 @@ async function handleAuthClose() {
   } catch (error) {
     if (sessionGeneration !== authSessionGeneration) return;
     console.warn('[Auth] Failed to read session after closing authentication:', error);
-    try {
-      await auth.openAuth('login');
-    } catch (openError) {
-      console.warn('[Auth] Failed to reopen authentication:', openError);
-    }
-    return;
+    identityModalOpen = false;
+    sessionValidationErrorVisible = true;
+    dialogStore.showErrorDialog({
+      type: 'generic',
+      reason: 'Unable to verify your session. Check your connection and try again.',
+    });
   }
   if (sessionGeneration !== authSessionGeneration) return;
+  if (currentUser === undefined) {
+    identityModalOpen = false;
+    return;
+  }
+  identityModalOpen = false;
   if (currentUser) {
     const username = getUsernameFromMetadata(currentUser);
     if (username) {
@@ -254,6 +339,8 @@ async function handleAuthClose() {
     // Show connect dialog when auth modal is closed and user is authenticated
     dialogStore.connectDialog.visible = true;
   } else {
+    sessionValidationErrorVisible = false;
+    identityModalOpen = true;
     auth.openAuth("login"); // open the modal to the login tab
   }
 }
@@ -274,57 +361,181 @@ function hasIdentityTokenInHash() {
  */
 async function initializeAuth() {
   const sessionGeneration = authSessionGeneration;
-  let user = null;
-  let initSucceeded = false;
+  authInitializationComplete = false;
+  authInitializationFailed = false;
+  authInitializationStarted = true;
+  authTokenObservedDuringInitialization = false;
 
   // Capture token presence BEFORE init() — the widget consumes the hash
   // token and clears location.hash during netlifyIdentity.init(), and the
   // adapter deletes __savedIdentityHash, so checking afterwards is too late.
   const hadIdentityToken = hasIdentityTokenInHash();
+  authTokenObservedDuringInitialization = hadIdentityToken;
 
+  let session;
   try {
-    await auth.init(authConfig);
-    initSucceeded = true;
-    user = await auth.getCurrentUser();
-  } catch (e) {
-    console.warn('[Auth] Initialization failed; continuing without authentication', e);
+    session = await initializeAuthSession(auth, authConfig);
+  } catch (error) {
+    authInitializationFailed = true;
+    connectDialogAwaitingSessionValidation = false;
+    dialogStore.connectDialog.visible = false;
+    sessionValidationErrorVisible = true;
+    dialogStore.showErrorDialog({
+      type: 'generic',
+      reason: 'Unable to initialize authentication. Check your connection and retry.',
+    });
+    console.warn('[Auth] Unable to initialize authentication UI:', error);
+    return;
+  }
+  const { status, providerReady, user, error } = session;
+  if (status === 'provider-error') {
+    authInitializationFailed = true;
+    console.warn('[Auth] Authentication provider initialization failed', error);
+  } else if (status === 'validation-error') {
+    connectDialogAwaitingSessionValidation = Boolean(auth.currentUser());
+    sessionValidationErrorVisible = true;
+    authInitializationFailed = false;
+    console.warn('[Auth] Session validation failed; keeping Connect hidden', error);
   }
 
   if (sessionGeneration !== authSessionGeneration) return;
 
-  if (initSucceeded && hadIdentityToken) {
+  if (providerReady && hadIdentityToken && status !== 'validation-error') {
     // A recovery/confirmation/invite token is present — let the widget handle
     // it (show password-reset modal, etc.).  Don't open login or the connect
     // dialog; the widget will fire a "login" event when done.
     // Preserve username so handleAuthClose() knows the user is authenticated.
     widgetHandlingToken = true;
+    identityModalOpen = true;
+    connectDialogAwaitingSessionValidation = false;
     const username = getUsernameFromMetadata(user);
     if (username) {
       dialogStore.connectDialog.username = username;
     }
     dialogStore.connectDialog.visible = false;
-  } else if (user === null) {
+    authInitializationComplete = true;
+    authTokenObservedDuringInitialization = false;
+  } else if (status === 'unauthenticated' || (hadIdentityToken && user === null)) {
+    connectDialogAwaitingSessionValidation = false;
+    if (!hadIdentityToken) clearCredentials();
+    dialogStore.connectDialog.visible = false;
+    identityModalOpen = true;
+    try {
+      await auth.openAuth("login");
+      authInitializationComplete = true;
+    } catch (error) {
+      authInitializationComplete = true;
+      identityModalOpen = false;
+      dialogStore.showErrorDialog({
+        type: 'generic',
+        reason: 'Unable to open the login dialog. Please retry.',
+      });
+      console.warn('[Auth] Failed to open authentication during initialization:', error);
+    }
+    authInitializationComplete = true;
+    authTokenObservedDuringInitialization = false;
+  } else if (status === 'validation-error' || status === 'provider-error') {
+    if (!hadIdentityToken && providerReady && !auth.currentUser()) clearCredentials();
     // Hide connect dialog when showing authentication modal
     dialogStore.connectDialog.visible = false;
-    auth.openAuth("login");
+    sessionValidationErrorVisible = true;
+    dialogStore.showErrorDialog({
+      type: 'generic',
+      reason: status === 'provider-error'
+        ? 'Unable to initialize authentication. Please refresh the page.'
+        : 'Unable to verify your session. Check your connection and try again.',
+    });
+    authInitializationComplete = true;
+    authTokenObservedDuringInitialization = false;
   } else {
+    widgetHandlingToken = false;
+    identityModalOpen = false;
+    connectDialogAwaitingSessionValidation = false;
     const username = getUsernameFromMetadata(user);
     if (username) {
       dialogStore.connectDialog.username = username;
     }
     // User is already authenticated, show connect dialog
     dialogStore.connectDialog.visible = true;
+    authInitializationComplete = true;
+    authTokenObservedDuringInitialization = false;
   }
+}
+
+const revalidateSessionOnResume = createSessionResumeHandler({
+  auth,
+  onInitFailed: () => authInitializationFailed,
+  isReady: () => authInitializationComplete,
+  isAuthModalOpen: () => identityModalOpen,
+  isConnectDialogVisible: () => dialogStore.connectDialog.visible,
+  onValidationStart: () => {
+    dialogStore.connectDialog.sessionChecking = true;
+  },
+  onAuthenticated: (_user, { restoreConnectDialog }) => {
+    dialogStore.connectDialog.sessionChecking = false;
+    if (sessionValidationErrorVisible) {
+      dialogStore.resetErrorDialog();
+      sessionValidationErrorVisible = false;
+    }
+    if (restoreConnectDialog || connectDialogAwaitingSessionValidation) {
+      connectDialogAwaitingSessionValidation = false;
+      dialogStore.connectDialog.visible = true;
+    }
+  },
+  onUnauthenticated: async () => {
+    dialogStore.connectDialog.sessionChecking = false;
+    connectDialogAwaitingSessionValidation = false;
+    if (sessionValidationErrorVisible) {
+      dialogStore.resetErrorDialog();
+      sessionValidationErrorVisible = false;
+    }
+    dialogStore.connectDialog.visible = false;
+    identityModalOpen = true;
+    try {
+      await auth.openAuth('login');
+    } catch (error) {
+      identityModalOpen = false;
+      dialogStore.showErrorDialog({
+        type: 'generic',
+        reason: 'Unable to open the login dialog. Please retry.',
+      });
+      console.warn('[Auth] Failed to open authentication after session validation:', error);
+    }
+  },
+  onValidationError: async (error) => {
+    console.warn('[Auth] Could not validate session after returning to the app:', error);
+    dialogStore.connectDialog.sessionChecking = false;
+    identityModalOpen = false;
+    dialogStore.connectDialog.visible = false;
+    sessionValidationErrorVisible = true;
+    if (auth.currentUser()) connectDialogAwaitingSessionValidation = true;
+    dialogStore.showErrorDialog({
+      type: 'generic',
+      reason: 'Unable to verify your session. Check your connection and try again.',
+    });
+  },
+});
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') revalidateSessionOnResume();
 }
 
 function initializeUI() {
   applyQueryParamsToConnectDialog();
 
+  // Never expose Connect from a persisted browser hint or stale store state.
+  // It is made visible only after server-side Identity session validation.
+  dialogStore.connectDialog.visible = false;
+
   // Register event handlers BEFORE init() so they catch auto-login events
   auth.on("login", handleAuthLogin);
   auth.on("logout", handleAuthLogout);
-  auth.on("close", handleAuthClose);
+  auth.on("close", () => {
+    void handleAuthClose();
+  });
   registerAuthErrorHandler(auth);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  globalThis.addEventListener('focus', revalidateSessionOnResume);
 
   // Initialize auth asynchronously (don't block UI)
   initializeAuth();
