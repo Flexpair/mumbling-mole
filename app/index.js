@@ -671,6 +671,7 @@ async function main() {
     // Components can import it directly via: import { useSettingsStore } from '../stores/settingsStore'
     
     const mountedApp = vueApp.mount('#app');
+    document.documentElement.classList.add('app-mounted');
     
     globalThis.__VUE_APP__ = mountedApp;
   } catch (error) {
