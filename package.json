@@ -65,13 +65,21 @@
     "js-yaml": ">=4.3.2 <5",
     "lodash": "4.18.1",
     "depcheck": {
-      "js-yaml": ">=4.3.2 <5"
+      "js-yaml": ">=4.3.2 <5",
+      "minimatch": "npm:minimatch-fast@0.4.1"
     },
     "@babel/core": "7.29.7",
     "linkify-it": "5.0.2",
     "markdown-it": "14.3.3",
+    "@jest/reporters": { "glob": "14.0.2" },
+    "jest-runtime": { "glob": "14.0.2" },
+    "protobufjs-cli": { "glob": "14.0.2" },
+    "test-exclude": { "glob": "14.0.2", "minimatch": "11.0.1" },
+    "glob": { "minimatch": "11.0.1" },
+    "multimatch": { "minimatch": "npm:minimatch-fast@0.4.1" },
     "jest-config": {
-      "deepmerge": "npm:@stackline/deepmerge@1.1.0"
+      "deepmerge": "npm:@stackline/deepmerge@1.1.0",
+      "glob": "14.0.2"
     }
   },
   "dependencies": {
