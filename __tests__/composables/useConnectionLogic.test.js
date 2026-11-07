@@ -821,6 +821,54 @@ describe('useConnectionLogic', () => {
   });
 
   describe('startLoopbackTest()', () => {
+    it('waits for a new loopback connection to settle', async () => {
+      const connectionStarted = deferred();
+      const connection = deferred();
+      mockConnectionStore.connect.mockImplementationOnce(() => {
+        connectionStarted.resolve();
+        return connection.promise;
+      });
+
+      const settled = jest.fn();
+      const start = logic.startLoopbackTest();
+      const observed = start.then(settled);
+      try {
+        await connectionStarted.promise;
+        await Promise.resolve();
+        expect(settled).not.toHaveBeenCalled();
+      } finally {
+        connection.resolve(createClient('loopback'));
+        await observed;
+      }
+      expect(settled).toHaveBeenCalledTimes(1);
+    });
+
+    it('propagates unexpected errors from starting a loopback connection', async () => {
+      const failure = new Error('failed to reset audio');
+      mockAudioStore.stopBeep.mockImplementationOnce(() => { throw failure; });
+
+      await expect(logic.startLoopbackTest()).rejects.toBe(failure);
+    });
+
+    it('waits for a rejected loopback connection to be reported', async () => {
+      const connectionStarted = deferred();
+      const connection = deferred();
+      const failure = new Error('connection failed');
+      mockConnectionStore.connect.mockImplementationOnce(() => {
+        connectionStarted.resolve();
+        return connection.promise;
+      });
+
+      const start = logic.startLoopbackTest();
+      await connectionStarted.promise;
+      connection.reject(failure);
+      await start;
+
+      expect(mockDialogStore.showErrorDialog).toHaveBeenCalledWith(
+        failure, expect.objectContaining({ isLoopback: true }),
+      );
+    });
+
     it('should set loopback mode when already connected', async () => {
       mockUserStore.thisUser = { session: 1 };
       
