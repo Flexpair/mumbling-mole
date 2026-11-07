@@ -443,7 +443,7 @@ export function useConnectionLogic({ auth } = {}) {
       const port = config.defaults?.port || 64738;
       const username = config.defaults?.username || 'WebClient';
       const password = config.defaults?.password || '';
-      connectLoopback(host, port, username, password);
+      await connectLoopback(host, port, username, password);
     }
   };
 

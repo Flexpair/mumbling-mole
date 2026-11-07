@@ -602,7 +602,9 @@ function initializeUI() {
   globalThis.addEventListener('focus', beginResumeSessionValidation);
 
   // Initialize auth asynchronously (don't block UI)
-  initializeAuth();
+  void initializeAuth().catch((error) => {
+    console.error('[Auth] Unexpected error during authentication initialization:', error);
+  });
 }
 
 /**
