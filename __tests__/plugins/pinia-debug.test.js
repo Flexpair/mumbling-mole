@@ -2,7 +2,11 @@
  * Pinia Debug Plugin Tests
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import vue from 'vue/dist/vue.cjs.js';
 import { createPiniaDebugPlugin } from '../../app/plugins/pinia-debug.js';
+
+jest.unstable_mockModule('vue', () => vue);
+const { createPinia, defineStore } = await import('pinia');
 
 describe('createPiniaDebugPlugin', () => {
   let originalDebugFlag;
@@ -54,7 +58,51 @@ describe('createPiniaDebugPlugin', () => {
     expect(mockStore.$onAction).toHaveBeenCalled();
   });
 
-  it('should log action start with args', () => {
+  it('logs only metadata for real store actions with sensitive data', async () => {
+    globalThis.MUMBLE_DEBUG_AUDIO = true;
+
+    const password = 'synthetic-password';
+    const credentials = { nested: { token: 'synthetic-nested-token' } };
+    const result = { value: 'synthetic-return-value' };
+    const error = Object.assign(new Error('synthetic-error-secret'), {
+      nested: { token: 'synthetic-error-token' },
+    });
+    const pinia = createPinia();
+    pinia.use(createPiniaDebugPlugin());
+    vue.createApp({}).use(pinia);
+    const useStore = defineStore('secureStore', {
+      actions: {
+        succeed() { return result; },
+        async succeedAsync() { return result; },
+        fail() { throw error; },
+        async failAsync() { throw error; },
+      },
+    });
+    const store = useStore(pinia);
+
+    expect(store.succeed(password, credentials)).toBe(result);
+    await expect(store.succeedAsync(password, credentials)).resolves.toBe(result);
+    expect(() => store.fail(password, credentials)).toThrow(error);
+    await expect(store.failAsync(password, credentials)).rejects.toBe(error);
+
+    const duration = expect.stringMatching(/^\d+\.\d$/);
+    expect({ log: consoleLogSpy.mock.calls, error: consoleErrorSpy.mock.calls }).toEqual({
+      log: [
+        ['[PINIA:%s] → %s', 'secureStore', 'succeed'],
+        ['[PINIA:%s] ✓ %s (%sms)', 'secureStore', 'succeed', duration],
+        ['[PINIA:%s] → %s', 'secureStore', 'succeedAsync'],
+        ['[PINIA:%s] ✓ %s (%sms)', 'secureStore', 'succeedAsync', duration],
+        ['[PINIA:%s] → %s', 'secureStore', 'fail'],
+        ['[PINIA:%s] → %s', 'secureStore', 'failAsync'],
+      ],
+      error: [
+        ['[PINIA:%s] ✗ %s failed (%sms)', 'secureStore', 'fail', duration],
+        ['[PINIA:%s] ✗ %s failed (%sms)', 'secureStore', 'failAsync', duration],
+      ],
+    });
+  });
+
+  it('should log action start without argument values', () => {
     globalThis.MUMBLE_DEBUG_AUDIO = true;
 
     const plugin = createPiniaDebugPlugin();
@@ -73,8 +121,7 @@ describe('createPiniaDebugPlugin', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '[PINIA:%s] → %s',
       'testStore',
-      'testAction',
-      ['arg1', 'arg2']
+      'testAction'
     );
   });
 
@@ -96,12 +143,11 @@ describe('createPiniaDebugPlugin', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '[PINIA:%s] → %s',
       'testStore',
-      'noArgsAction',
-      ''
+      'noArgsAction'
     );
   });
 
-  it('should log action completion with result', () => {
+  it('should log action completion without the result value', () => {
     globalThis.MUMBLE_DEBUG_AUDIO = true;
 
     const plugin = createPiniaDebugPlugin();
@@ -122,8 +168,7 @@ describe('createPiniaDebugPlugin', () => {
       expect.stringContaining('[PINIA:%s] ✓ %s (%sms)'),
       'testStore',
       'actionWithResult',
-      expect.any(String),
-      { result: 'success' }
+      expect.any(String)
     );
   });
 
@@ -152,7 +197,7 @@ describe('createPiniaDebugPlugin', () => {
     );
   });
 
-  it('should log action error', () => {
+  it('should log action failure without the error object', () => {
     globalThis.MUMBLE_DEBUG_AUDIO = true;
 
     const plugin = createPiniaDebugPlugin();
@@ -170,11 +215,10 @@ describe('createPiniaDebugPlugin', () => {
     onErrorCallback(testError);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[PINIA:%s] ✗ %s failed (%sms):'),
+      expect.stringContaining('[PINIA:%s] ✗ %s failed (%sms)'),
       'testStore',
       'failingAction',
-      expect.any(String),
-      testError
+      expect.any(String)
     );
   });
 });
