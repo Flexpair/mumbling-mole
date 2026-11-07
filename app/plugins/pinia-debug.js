@@ -22,23 +22,19 @@ export function createPiniaDebugPlugin() {
     
     const storeId = store.$id;
     
-    // Log all actions with timing
-    store.$onAction(({ name, args, after, onError }) => {
+    // Action data may contain credentials, so log metadata only.
+    store.$onAction(({ name, after, onError }) => {
       const startTime = performance.now();
-      console.log('[PINIA:%s] → %s', storeId, name, args.length ? args : '');
+      console.log('[PINIA:%s] → %s', storeId, name);
       
-      after((result) => {
+      after(() => {
         const duration = (performance.now() - startTime).toFixed(1);
-        if (result === undefined) {
-          console.log('[PINIA:%s] ✓ %s (%sms)', storeId, name, duration);
-        } else {
-          console.log('[PINIA:%s] ✓ %s (%sms)', storeId, name, duration, result);
-        }
+        console.log('[PINIA:%s] ✓ %s (%sms)', storeId, name, duration);
       });
       
-      onError((error) => {
+      onError(() => {
         const duration = (performance.now() - startTime).toFixed(1);
-        console.error('[PINIA:%s] ✗ %s failed (%sms):', storeId, name, duration, error);
+        console.error('[PINIA:%s] ✗ %s failed (%sms)', storeId, name, duration);
       });
     });
   };
