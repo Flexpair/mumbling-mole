@@ -2,7 +2,7 @@
 import $protobuf from "protobufjs/minimal.js";
 
 const $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
-const $Object = $util.global.Object, $undefined = $util.global.undefined, $Error = $util.global.Error, $TypeError = $util.global.TypeError, $String = $util.global.String, $Array = $util.global.Array, $Boolean = $util.global.Boolean, $parseInt = $util.global.parseInt, $Number = $util.global.Number, $BigInt = $util.global.BigInt, $isFinite = $util.global.isFinite;
+const $Object = $util.global.Object, $undefined = $util.global.undefined, $Error = $util.global.Error, $RangeError = $util.global.RangeError, $TypeError = $util.global.TypeError, $String = $util.global.String, $Array = $util.global.Array, $Boolean = $util.global.Boolean, $parseInt = $util.global.parseInt, $Number = $util.global.Number, $BigInt = $util.global.BigInt, $isFinite = $util.global.isFinite;
 
 const $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
 
@@ -50,7 +50,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Version.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Version.decode = function (reader, length, _end, _depth, _target) {
@@ -60,7 +60,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Version();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.Version();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -101,6 +111,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -109,7 +124,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         Version.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         Version.verify = function (message, _depth) {
@@ -223,7 +238,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UDPTunnel.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UDPTunnel.decode = function (reader, length, _end, _depth, _target) {
@@ -233,7 +248,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UDPTunnel();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.UDPTunnel();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -256,6 +281,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "packet"))
@@ -266,7 +296,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         UDPTunnel.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         UDPTunnel.verify = function (message, _depth) {
@@ -380,7 +410,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Authenticate.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Authenticate.decode = function (reader, length, _end, _depth, _target) {
@@ -390,7 +420,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Authenticate();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.Authenticate();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -424,9 +464,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.celtVersions && message.celtVersions.length))
                                 message.celtVersions = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.celtVersions.push(reader.int32());
+                            reader.int32s(message.celtVersions);
                             continue;
                         }
                         if (wireType !== 0)
@@ -449,6 +487,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -457,7 +500,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         Authenticate.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         Authenticate.verify = function (message, _depth) {
@@ -636,7 +679,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Ping.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Ping.decode = function (reader, length, _end, _depth, _target) {
@@ -646,7 +689,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Ping();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.Ping();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -729,6 +782,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -737,7 +795,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         Ping.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         Ping.verify = function (message, _depth) {
@@ -927,7 +985,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         Reject.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         Reject.decode = function (reader, length, _end, _depth, _target) {
@@ -937,7 +995,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.Reject(), value;
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.Reject();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -972,6 +1040,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -980,7 +1053,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         Reject.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         Reject.verify = function (message, _depth) {
@@ -1151,7 +1224,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ServerSync.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ServerSync.decode = function (reader, length, _end, _depth, _target) {
@@ -1161,7 +1234,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ServerSync();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ServerSync();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -1202,6 +1285,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -1210,7 +1298,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ServerSync.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ServerSync.verify = function (message, _depth) {
@@ -1340,7 +1428,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ChannelRemove.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ChannelRemove.decode = function (reader, length, _end, _depth, _target) {
@@ -1350,7 +1438,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ChannelRemove();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ChannelRemove();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -1373,6 +1471,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "channelId"))
@@ -1383,7 +1486,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ChannelRemove.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ChannelRemove.verify = function (message, _depth) {
@@ -1508,7 +1611,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ChannelState.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ChannelState.decode = function (reader, length, _end, _depth, _target) {
@@ -1518,7 +1621,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ChannelState();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ChannelState();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -1550,9 +1663,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.links && message.links.length))
                                 message.links = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.links.push(reader.uint32());
+                            reader.uint32s(message.links);
                             continue;
                         }
                         if (wireType !== 0)
@@ -1572,9 +1683,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.linksAdd && message.linksAdd.length))
                                 message.linksAdd = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.linksAdd.push(reader.uint32());
+                            reader.uint32s(message.linksAdd);
                             continue;
                         }
                         if (wireType !== 0)
@@ -1588,9 +1697,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.linksRemove && message.linksRemove.length))
                                 message.linksRemove = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.linksRemove.push(reader.uint32());
+                            reader.uint32s(message.linksRemove);
                             continue;
                         }
                         if (wireType !== 0)
@@ -1631,6 +1738,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -1639,7 +1751,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ChannelState.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ChannelState.verify = function (message, _depth) {
@@ -1865,7 +1977,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserRemove.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserRemove.decode = function (reader, length, _end, _depth, _target) {
@@ -1875,7 +1987,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserRemove();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.UserRemove();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -1916,6 +2038,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "session"))
@@ -1926,7 +2053,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         UserRemove.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         UserRemove.verify = function (message, _depth) {
@@ -2094,7 +2221,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserState.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserState.decode = function (reader, length, _end, _depth, _target) {
@@ -2104,7 +2231,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserState();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.UserState();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -2235,6 +2372,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -2243,7 +2385,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         UserState.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         UserState.verify = function (message, _depth) {
@@ -2519,7 +2661,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         BanList.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         BanList.decode = function (reader, length, _end, _depth, _target) {
@@ -2529,7 +2671,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.BanList();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.BanList();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -2544,7 +2696,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             break;
                         if (!(message.bans && message.bans.length))
                             message.bans = [];
-                        message.bans.push($root.MumbleProto.BanList.BanEntry.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                        message.bans.push($root.MumbleProto.BanList.BanEntry.decode(reader, reader.size(), $undefined, _depth + 1));
                         continue;
                     }
                 case 2: {
@@ -2560,6 +2712,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -2568,7 +2725,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         BanList.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         BanList.verify = function (message, _depth) {
@@ -2697,7 +2854,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             BanEntry.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             BanEntry.decode = function (reader, length, _end, _depth, _target) {
@@ -2707,7 +2864,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     _depth = 0;
                 if (_depth > $Reader.recursionLimit)
                     throw $Error("max depth exceeded");
-                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.BanList.BanEntry();
+                let end, message;
+                if (length === $undefined)
+                    end = reader.len;
+                else {
+                    end = reader.pos + length;
+                    if (end > reader.len)
+                        throw $RangeError("index out of range");
+                    length = reader.len;
+                    reader.len = end;
+                }
+                message = _target || new $root.MumbleProto.BanList.BanEntry();
                 while (reader.pos < end) {
                     let start = reader.pos;
                     let tag = reader.tag();
@@ -2766,6 +2933,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                     }
                 }
+                if (length !== $undefined) {
+                    if (reader.pos !== end)
+                        throw $RangeError("index out of range");
+                    reader.len = length;
+                }
                 if (_end !== $undefined)
                     throw $Error("missing end group");
                 if (!$Object.hasOwnProperty.call(message, "address"))
@@ -2778,7 +2950,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             BanEntry.decodeDelimited = function(reader) {
                 if (!(reader instanceof $Reader))
                     reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
+                return this.decode(reader, reader.size());
             };
 
             BanEntry.verify = function (message, _depth) {
@@ -2944,7 +3116,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         TextMessage.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         TextMessage.decode = function (reader, length, _end, _depth, _target) {
@@ -2954,7 +3126,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.TextMessage();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.TextMessage();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -2974,9 +3156,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.session && message.session.length))
                                 message.session = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.session.push(reader.uint32());
+                            reader.uint32s(message.session);
                             continue;
                         }
                         if (wireType !== 0)
@@ -2990,9 +3170,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.channelId && message.channelId.length))
                                 message.channelId = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.channelId.push(reader.uint32());
+                            reader.uint32s(message.channelId);
                             continue;
                         }
                         if (wireType !== 0)
@@ -3006,9 +3184,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.treeId && message.treeId.length))
                                 message.treeId = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.treeId.push(reader.uint32());
+                            reader.uint32s(message.treeId);
                             continue;
                         }
                         if (wireType !== 0)
@@ -3031,6 +3207,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "message"))
@@ -3041,7 +3222,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         TextMessage.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         TextMessage.verify = function (message, _depth) {
@@ -3216,7 +3397,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         PermissionDenied.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         PermissionDenied.decode = function (reader, length, _end, _depth, _target) {
@@ -3226,7 +3407,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.PermissionDenied(), value;
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.PermissionDenied();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -3285,6 +3476,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -3293,7 +3489,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         PermissionDenied.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         PermissionDenied.verify = function (message, _depth) {
@@ -3514,7 +3710,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ACL.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ACL.decode = function (reader, length, _end, _depth, _target) {
@@ -3524,7 +3720,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ACL();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ACL();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -3551,7 +3757,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             break;
                         if (!(message.groups && message.groups.length))
                             message.groups = [];
-                        message.groups.push($root.MumbleProto.ACL.ChanGroup.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                        message.groups.push($root.MumbleProto.ACL.ChanGroup.decode(reader, reader.size(), $undefined, _depth + 1));
                         continue;
                     }
                 case 4: {
@@ -3559,7 +3765,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             break;
                         if (!(message.acls && message.acls.length))
                             message.acls = [];
-                        message.acls.push($root.MumbleProto.ACL.ChanACL.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                        message.acls.push($root.MumbleProto.ACL.ChanACL.decode(reader, reader.size(), $undefined, _depth + 1));
                         continue;
                     }
                 case 5: {
@@ -3575,6 +3781,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "channelId"))
@@ -3585,7 +3796,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ACL.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ACL.verify = function (message, _depth) {
@@ -3763,7 +3974,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             ChanGroup.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             ChanGroup.decode = function (reader, length, _end, _depth, _target) {
@@ -3773,7 +3984,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     _depth = 0;
                 if (_depth > $Reader.recursionLimit)
                     throw $Error("max depth exceeded");
-                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ACL.ChanGroup();
+                let end, message;
+                if (length === $undefined)
+                    end = reader.len;
+                else {
+                    end = reader.pos + length;
+                    if (end > reader.len)
+                        throw $RangeError("index out of range");
+                    length = reader.len;
+                    reader.len = end;
+                }
+                message = _target || new $root.MumbleProto.ACL.ChanGroup();
                 while (reader.pos < end) {
                     let start = reader.pos;
                     let tag = reader.tag();
@@ -3811,9 +4032,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.add && message.add.length))
                                     message.add = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.add.push(reader.uint32());
+                                reader.uint32s(message.add);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -3827,9 +4046,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.remove && message.remove.length))
                                     message.remove = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.remove.push(reader.uint32());
+                                reader.uint32s(message.remove);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -3843,9 +4060,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.inheritedMembers && message.inheritedMembers.length))
                                     message.inheritedMembers = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.inheritedMembers.push(reader.uint32());
+                                reader.uint32s(message.inheritedMembers);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -3862,6 +4077,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                     }
                 }
+                if (length !== $undefined) {
+                    if (reader.pos !== end)
+                        throw $RangeError("index out of range");
+                    reader.len = length;
+                }
                 if (_end !== $undefined)
                     throw $Error("missing end group");
                 if (!$Object.hasOwnProperty.call(message, "name"))
@@ -3872,7 +4092,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             ChanGroup.decodeDelimited = function(reader) {
                 if (!(reader instanceof $Reader))
                     reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
+                return this.decode(reader, reader.size());
             };
 
             ChanGroup.verify = function (message, _depth) {
@@ -4066,7 +4286,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             ChanACL.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             ChanACL.decode = function (reader, length, _end, _depth, _target) {
@@ -4076,7 +4296,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     _depth = 0;
                 if (_depth > $Reader.recursionLimit)
                     throw $Error("max depth exceeded");
-                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ACL.ChanACL();
+                let end, message;
+                if (length === $undefined)
+                    end = reader.len;
+                else {
+                    end = reader.pos + length;
+                    if (end > reader.len)
+                        throw $RangeError("index out of range");
+                    length = reader.len;
+                    reader.len = end;
+                }
+                message = _target || new $root.MumbleProto.ACL.ChanACL();
                 while (reader.pos < end) {
                     let start = reader.pos;
                     let tag = reader.tag();
@@ -4135,6 +4365,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                     }
                 }
+                if (length !== $undefined) {
+                    if (reader.pos !== end)
+                        throw $RangeError("index out of range");
+                    reader.len = length;
+                }
                 if (_end !== $undefined)
                     throw $Error("missing end group");
                 return message;
@@ -4143,7 +4378,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             ChanACL.decodeDelimited = function(reader) {
                 if (!(reader instanceof $Reader))
                     reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
+                return this.decode(reader, reader.size());
             };
 
             ChanACL.verify = function (message, _depth) {
@@ -4292,7 +4527,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         QueryUsers.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         QueryUsers.decode = function (reader, length, _end, _depth, _target) {
@@ -4302,7 +4537,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.QueryUsers();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.QueryUsers();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -4316,9 +4561,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.ids && message.ids.length))
                                 message.ids = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.ids.push(reader.uint32());
+                            reader.uint32s(message.ids);
                             continue;
                         }
                         if (wireType !== 0)
@@ -4343,6 +4586,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -4351,7 +4599,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         QueryUsers.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         QueryUsers.verify = function (message, _depth) {
@@ -4480,7 +4728,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         CryptSetup.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         CryptSetup.decode = function (reader, length, _end, _depth, _target) {
@@ -4490,7 +4738,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.CryptSetup();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.CryptSetup();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -4525,6 +4783,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -4533,7 +4796,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         CryptSetup.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         CryptSetup.verify = function (message, _depth) {
@@ -4675,7 +4938,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ContextActionModify.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ContextActionModify.decode = function (reader, length, _end, _depth, _target) {
@@ -4685,7 +4948,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ContextActionModify(), value;
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ContextActionModify();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -4732,6 +5005,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "action"))
@@ -4742,7 +5020,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ContextActionModify.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ContextActionModify.verify = function (message, _depth) {
@@ -4890,7 +5168,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ContextAction.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ContextAction.decode = function (reader, length, _end, _depth, _target) {
@@ -4900,7 +5178,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ContextAction();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ContextAction();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -4935,6 +5223,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "action"))
@@ -4945,7 +5238,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ContextAction.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ContextAction.verify = function (message, _depth) {
@@ -5053,7 +5346,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserList.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserList.decode = function (reader, length, _end, _depth, _target) {
@@ -5063,7 +5356,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserList();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.UserList();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -5078,7 +5381,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             break;
                         if (!(message.users && message.users.length))
                             message.users = [];
-                        message.users.push($root.MumbleProto.UserList.User.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                        message.users.push($root.MumbleProto.UserList.User.decode(reader, reader.size(), $undefined, _depth + 1));
                         continue;
                     }
                 }
@@ -5088,6 +5391,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -5096,7 +5404,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         UserList.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         UserList.verify = function (message, _depth) {
@@ -5208,7 +5516,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             User.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             User.decode = function (reader, length, _end, _depth, _target) {
@@ -5218,7 +5526,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     _depth = 0;
                 if (_depth > $Reader.recursionLimit)
                     throw $Error("max depth exceeded");
-                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserList.User();
+                let end, message;
+                if (length === $undefined)
+                    end = reader.len;
+                else {
+                    end = reader.pos + length;
+                    if (end > reader.len)
+                        throw $RangeError("index out of range");
+                    length = reader.len;
+                    reader.len = end;
+                }
+                message = _target || new $root.MumbleProto.UserList.User();
                 while (reader.pos < end) {
                     let start = reader.pos;
                     let tag = reader.tag();
@@ -5259,6 +5577,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                     }
                 }
+                if (length !== $undefined) {
+                    if (reader.pos !== end)
+                        throw $RangeError("index out of range");
+                    reader.len = length;
+                }
                 if (_end !== $undefined)
                     throw $Error("missing end group");
                 if (!$Object.hasOwnProperty.call(message, "userId"))
@@ -5269,7 +5592,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             User.decodeDelimited = function(reader) {
                 if (!(reader instanceof $Reader))
                     reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
+                return this.decode(reader, reader.size());
             };
 
             User.verify = function (message, _depth) {
@@ -5391,7 +5714,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         VoiceTarget.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         VoiceTarget.decode = function (reader, length, _end, _depth, _target) {
@@ -5401,7 +5724,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.VoiceTarget();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.VoiceTarget();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -5422,7 +5755,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             break;
                         if (!(message.targets && message.targets.length))
                             message.targets = [];
-                        message.targets.push($root.MumbleProto.VoiceTarget.Target.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                        message.targets.push($root.MumbleProto.VoiceTarget.Target.decode(reader, reader.size(), $undefined, _depth + 1));
                         continue;
                     }
                 }
@@ -5432,6 +5765,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -5440,7 +5778,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         VoiceTarget.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         VoiceTarget.verify = function (message, _depth) {
@@ -5567,7 +5905,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             Target.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             Target.decode = function (reader, length, _end, _depth, _target) {
@@ -5577,7 +5915,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     _depth = 0;
                 if (_depth > $Reader.recursionLimit)
                     throw $Error("max depth exceeded");
-                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.VoiceTarget.Target();
+                let end, message;
+                if (length === $undefined)
+                    end = reader.len;
+                else {
+                    end = reader.pos + length;
+                    if (end > reader.len)
+                        throw $RangeError("index out of range");
+                    length = reader.len;
+                    reader.len = end;
+                }
+                message = _target || new $root.MumbleProto.VoiceTarget.Target();
                 while (reader.pos < end) {
                     let start = reader.pos;
                     let tag = reader.tag();
@@ -5591,9 +5939,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                             if (wireType === 2) {
                                 if (!(message.session && message.session.length))
                                     message.session = [];
-                                let end2 = reader.uint32() + reader.pos;
-                                while (reader.pos < end2)
-                                    message.session.push(reader.uint32());
+                                reader.uint32s(message.session);
                                 continue;
                             }
                             if (wireType !== 0)
@@ -5634,6 +5980,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                     }
                 }
+                if (length !== $undefined) {
+                    if (reader.pos !== end)
+                        throw $RangeError("index out of range");
+                    reader.len = length;
+                }
                 if (_end !== $undefined)
                     throw $Error("missing end group");
                 return message;
@@ -5642,7 +5993,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             Target.decodeDelimited = function(reader) {
                 if (!(reader instanceof $Reader))
                     reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
+                return this.decode(reader, reader.size());
             };
 
             Target.verify = function (message, _depth) {
@@ -5787,7 +6138,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         PermissionQuery.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         PermissionQuery.decode = function (reader, length, _end, _depth, _target) {
@@ -5797,7 +6148,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.PermissionQuery();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.PermissionQuery();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -5832,6 +6193,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -5840,7 +6206,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         PermissionQuery.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         PermissionQuery.verify = function (message, _depth) {
@@ -5953,7 +6319,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         CodecVersion.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         CodecVersion.decode = function (reader, length, _end, _depth, _target) {
@@ -5963,7 +6329,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.CodecVersion();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.CodecVersion();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -6004,6 +6380,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             if (!$Object.hasOwnProperty.call(message, "alpha"))
@@ -6018,7 +6399,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         CodecVersion.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         CodecVersion.verify = function (message, _depth) {
@@ -6188,7 +6569,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         UserStats.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         UserStats.decode = function (reader, length, _end, _depth, _target) {
@@ -6198,7 +6579,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserStats();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.UserStats();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -6231,13 +6622,13 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 case 4: {
                         if (wireType !== 2)
                             break;
-                        message.fromClient = $root.MumbleProto.UserStats.Stats.decode(reader, reader.uint32(), $undefined, _depth + 1, message.fromClient);
+                        message.fromClient = $root.MumbleProto.UserStats.Stats.decode(reader, reader.size(), $undefined, _depth + 1, message.fromClient);
                         continue;
                     }
                 case 5: {
                         if (wireType !== 2)
                             break;
-                        message.fromServer = $root.MumbleProto.UserStats.Stats.decode(reader, reader.uint32(), $undefined, _depth + 1, message.fromServer);
+                        message.fromServer = $root.MumbleProto.UserStats.Stats.decode(reader, reader.size(), $undefined, _depth + 1, message.fromServer);
                         continue;
                     }
                 case 6: {
@@ -6279,16 +6670,14 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 case 12: {
                         if (wireType !== 2)
                             break;
-                        message.version = $root.MumbleProto.Version.decode(reader, reader.uint32(), $undefined, _depth + 1, message.version);
+                        message.version = $root.MumbleProto.Version.decode(reader, reader.size(), $undefined, _depth + 1, message.version);
                         continue;
                     }
                 case 13: {
                         if (wireType === 2) {
                             if (!(message.celtVersions && message.celtVersions.length))
                                 message.celtVersions = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.celtVersions.push(reader.int32());
+                            reader.int32s(message.celtVersions);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6341,6 +6730,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -6349,7 +6743,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         UserStats.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         UserStats.verify = function (message, _depth) {
@@ -6643,7 +7037,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             };
 
             Stats.encodeDelimited = function(message, writer) {
-                return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
             };
 
             Stats.decode = function (reader, length, _end, _depth, _target) {
@@ -6653,7 +7047,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     _depth = 0;
                 if (_depth > $Reader.recursionLimit)
                     throw $Error("max depth exceeded");
-                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.UserStats.Stats();
+                let end, message;
+                if (length === $undefined)
+                    end = reader.len;
+                else {
+                    end = reader.pos + length;
+                    if (end > reader.len)
+                        throw $RangeError("index out of range");
+                    length = reader.len;
+                    reader.len = end;
+                }
+                message = _target || new $root.MumbleProto.UserStats.Stats();
                 while (reader.pos < end) {
                     let start = reader.pos;
                     let tag = reader.tag();
@@ -6694,6 +7098,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                     }
                 }
+                if (length !== $undefined) {
+                    if (reader.pos !== end)
+                        throw $RangeError("index out of range");
+                    reader.len = length;
+                }
                 if (_end !== $undefined)
                     throw $Error("missing end group");
                 return message;
@@ -6702,7 +7111,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
             Stats.decodeDelimited = function(reader) {
                 if (!(reader instanceof $Reader))
                     reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
+                return this.decode(reader, reader.size());
             };
 
             Stats.verify = function (message, _depth) {
@@ -6832,7 +7241,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         RequestBlob.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         RequestBlob.decode = function (reader, length, _end, _depth, _target) {
@@ -6842,7 +7251,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.RequestBlob();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.RequestBlob();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -6856,9 +7275,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.sessionTexture && message.sessionTexture.length))
                                 message.sessionTexture = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.sessionTexture.push(reader.uint32());
+                            reader.uint32s(message.sessionTexture);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6872,9 +7289,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.sessionComment && message.sessionComment.length))
                                 message.sessionComment = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.sessionComment.push(reader.uint32());
+                            reader.uint32s(message.sessionComment);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6888,9 +7303,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
                         if (wireType === 2) {
                             if (!(message.channelDescription && message.channelDescription.length))
                                 message.channelDescription = [];
-                            let end2 = reader.uint32() + reader.pos;
-                            while (reader.pos < end2)
-                                message.channelDescription.push(reader.uint32());
+                            reader.uint32s(message.channelDescription);
                             continue;
                         }
                         if (wireType !== 0)
@@ -6907,6 +7320,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -6915,7 +7333,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         RequestBlob.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         RequestBlob.verify = function (message, _depth) {
@@ -7073,7 +7491,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         ServerConfig.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         ServerConfig.decode = function (reader, length, _end, _depth, _target) {
@@ -7083,7 +7501,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.ServerConfig();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.ServerConfig();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -7136,6 +7564,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -7144,7 +7577,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         ServerConfig.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         ServerConfig.verify = function (message, _depth) {
@@ -7281,7 +7714,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         };
 
         SuggestConfig.encodeDelimited = function(message, writer) {
-            return this.encode(message, writer && writer.len ? writer.fork() : writer).ldelim();
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
         };
 
         SuggestConfig.decode = function (reader, length, _end, _depth, _target) {
@@ -7291,7 +7724,17 @@ export const MumbleProto = $root.MumbleProto = (() => {
                 _depth = 0;
             if (_depth > $Reader.recursionLimit)
                 throw $Error("max depth exceeded");
-            let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.MumbleProto.SuggestConfig();
+            let end, message;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.MumbleProto.SuggestConfig();
             while (reader.pos < end) {
                 let start = reader.pos;
                 let tag = reader.tag();
@@ -7326,6 +7769,11 @@ export const MumbleProto = $root.MumbleProto = (() => {
                     (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
                 }
             }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
             if (_end !== $undefined)
                 throw $Error("missing end group");
             return message;
@@ -7334,7 +7782,7 @@ export const MumbleProto = $root.MumbleProto = (() => {
         SuggestConfig.decodeDelimited = function(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
+            return this.decode(reader, reader.size());
         };
 
         SuggestConfig.verify = function (message, _depth) {
