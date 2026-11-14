@@ -278,6 +278,14 @@ describe('MumbleProto', () => {
       expect(decoded.maxUsers).toBe(50);
     });
 
+    test('rejects packed values that cross their length boundary', () => {
+      const valid = new Uint8Array([0x22, 0x03, 0x01, 0x96, 0x01, 0x20, 0x02]);
+      const truncated = new Uint8Array([0x22, 0x01, 0x80, 0x01, 0x20, 0x01]);
+
+      expect(ChannelState.decode(valid).links).toEqual([1, 150, 2]);
+      expect(() => ChannelState.decode(truncated)).toThrow();
+    });
+
   });
 
   describe('UserRemove', () => {
@@ -713,6 +721,19 @@ describe('MumbleProto', () => {
       expect(decoded.id).toBe(1);
       expect(decoded.targets).toHaveLength(1);
       expect(decoded.targets[0].session).toEqual([1, 2]);
+    });
+
+    test('rejects nested values that cross their length boundary', () => {
+      const valid = new Uint8Array([0x08, 0x01, 0x12, 0x09, 0x0a, 0x03, 0x01, 0x96, 0x01, 0x10, 0x03, 0x20, 0x01]);
+      const truncated = new Uint8Array([0x12, 0x01, 0x08, 0x01, 0x10, 0x01]);
+      const decoded = VoiceTarget.decode(valid);
+
+      expect(decoded.id).toBe(1);
+      expect(decoded.targets).toHaveLength(1);
+      expect(decoded.targets[0].session).toEqual([1, 150]);
+      expect(decoded.targets[0].channelId).toBe(3);
+      expect(decoded.targets[0].links).toBe(true);
+      expect(() => VoiceTarget.decode(truncated)).toThrow();
     });
 
     test('Target encode/decode', () => {
