@@ -1,4 +1,4 @@
-const GUACAMOLE_AUTH_TOKEN_KEY = 'GUAC_AUTH_TOKEN';
+const GUACAMOLE_SESSION_STORAGE_KEY = 'flexpair.guac.session';
 
 /**
  * Remove Guacamole's persisted authentication token so it cannot be reused
@@ -9,7 +9,7 @@ const GUACAMOLE_AUTH_TOKEN_KEY = 'GUAC_AUTH_TOKEN';
 export function clearGuacamoleSession(storage) {
   try {
     const sessionStorage = storage ?? globalThis.localStorage;
-    sessionStorage?.removeItem(GUACAMOLE_AUTH_TOKEN_KEY);
+    sessionStorage?.removeItem(GUACAMOLE_SESSION_STORAGE_KEY);
   } catch (error) {
     console.warn('[Guacamole] Could not clear stored session:', error);
   }
