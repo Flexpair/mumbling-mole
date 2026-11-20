@@ -11,7 +11,7 @@ describe('clearGuacamoleSession', () => {
 
     clearGuacamoleSession(storage);
 
-    expect(storage.removeItem).toHaveBeenCalledWith('flexpair.guac.session');
+    expect(storage.removeItem).toHaveBeenCalledWith('GUAC_AUTH_TOKEN');
   });
 
   it('does not fail when storage is unavailable', () => {

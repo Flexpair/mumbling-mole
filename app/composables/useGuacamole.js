@@ -1,4 +1,4 @@
-const GUACAMOLE_SESSION_STORAGE_KEY = 'flexpair.guac.session';
+const GUACAMOLE_SESSION_STORAGE_KEY = 'GUAC_AUTH_TOKEN';
 
 /**
  * Remove Guacamole's persisted authentication token so it cannot be reused
