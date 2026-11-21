@@ -118,7 +118,7 @@ function releaseOutboundVoiceStreams(clientId) {
   for (const [voiceId, stream] of Object.entries(voiceStreams)) {
     if (!stream || stream.clientId !== clientId) continue;
     stream.end();
-    delete voiceStreams[voiceId];
+    Reflect.deleteProperty(voiceStreams, voiceId);
   }
 }
 
@@ -565,7 +565,7 @@ function handleVoiceStream(data) {
   if (buffer) {
     stream.write(Buffer.from(buffer));
   } else {
-    delete voiceStreams[data.voiceId];
+    Reflect.deleteProperty(voiceStreams, data.voiceId);
     stream.end();
   }
 }

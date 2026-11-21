@@ -169,7 +169,7 @@ class BufferQueueNode extends EventEmitter {
     if (this._initializationError) {
       return Promise.reject(this._initializationError);
     }
-    if (this._initializationPromise) {
+    if (this._initializationPromise !== null) {
       return this._initializationPromise;
     }
 
