@@ -268,7 +268,14 @@ class NetlifyIdentityAdapter extends AuthProvider {
         try {
           const providerLogout = this.netlifyIdentity.logout();
           if (providerLogout && typeof providerLogout.then === 'function') {
-            Promise.resolve(providerLogout).then(() => finish(), finish);
+            Promise.resolve(providerLogout).then(() => {
+              if (settled) return;
+              if (this.netlifyIdentity.currentUser() || this.netlifyIdentity.store?.user) {
+                finish(new Error('Netlify Identity session was not cleared'));
+              } else {
+                finish();
+              }
+            }).catch(finish);
           }
         } catch (error) {
           finish(error);
