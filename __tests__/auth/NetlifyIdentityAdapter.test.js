@@ -706,7 +706,8 @@ describe('NetlifyIdentityAdapter - logout()', () => {
       await Promise.resolve();
       logoutHandler();
     });
-    adapter.netlifyIdentity.currentUser.mockReturnValue({ clearSession });
+    widgetUser.clearSession = clearSession;
+    adapter.netlifyIdentity.currentUser.mockImplementation(() => widgetUser);
 
     await expect(adapter.clearLocalSession()).resolves.toBe(true);
 
@@ -740,6 +741,22 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     await expect(adapter.clearLocalSession()).resolves.toBe(false);
 
     expect(localStorage.getItem('gotrue.user')).toBeNull();
+  });
+
+  test('reports failure when the session is still present after cleanup', async () => {
+    const stubbornUser = { id: '123' };
+    adapter.netlifyIdentity.currentUser.mockReturnValue(stubbornUser);
+    adapter.netlifyIdentity.store = {};
+    Object.defineProperty(adapter.netlifyIdentity.store, 'user', {
+      get: () => stubbornUser,
+      set: () => {},
+    });
+    localStorage.setItem('gotrue.user', 'saved session');
+
+    await expect(adapter.clearLocalSession()).resolves.toBe(false);
+
+    expect(localStorage.getItem('gotrue.user')).toBeNull();
+    expect(consoleWarnSpy).toHaveBeenCalled();
   });
 
   test('suppresses the provider event for a reauthentication logout', async () => {
