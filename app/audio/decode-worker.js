@@ -5,11 +5,14 @@ const MUMBLE_SAMPLE_RATE = 48000;
 let opusDecoder;
 // SECURITY-NOTE: Origin verification in dedicated worker context
 // -----------------------------------------------------------
-// Dedicated workers can ONLY receive messages from their creating parent context.
-// Unlike window.postMessage(), there is no cross-origin risk here because:
-// 1. Workers cannot be accessed by other origins
-// 2. The 'origin' property doesn't exist on worker MessageEvent objects
-// 3. The worker can only communicate with the script that instantiated it
+// This worker is created directly via `new Worker()` and receives messages
+// only from its creating parent context through the direct Worker channel.
+// Unlike window.postMessage(), this channel does not expose cross-origin risk
+// because there is no origin check needed — the worker cannot be reached from
+// other origins. However, MessageEvent.origin DOES exist on worker messages,
+// and transferred MessagePorts could enable other communication paths.
+// This comment only covers the direct Worker message channel used here;
+// it does not authenticate the sending script or any forwarded data.
 globalThis.addEventListener("message", (e) => {
   const data = e.data;
   if (data.action === "reset") {
