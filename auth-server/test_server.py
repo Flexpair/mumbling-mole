@@ -282,7 +282,7 @@ class TestThreadedHTTPServer(unittest.TestCase):
                 if prefix:
                     client.sendall(prefix)
                 self.submit(request)
-                client.close()
+                client.shutdown(socket.SHUT_WR)
 
                 self.finished.get(timeout=0.3)
                 self.assert_health_request_succeeds()
