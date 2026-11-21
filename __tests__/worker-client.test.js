@@ -936,7 +936,7 @@ describe('WorkerBasedMumbleUser', () => {
           clientId: 'test-client',
           userId: 'test-user',
           method: 'setChannel',
-          payload: 'target-channel'
+          payload: ['target-channel']
         }),
         undefined
       );

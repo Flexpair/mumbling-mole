@@ -399,7 +399,8 @@ class WorkerBasedMumbleUser extends EventEmitter {
     connector._addCall(this, "setDeaf", id);
     connector._addCall(this, "sendMessage", id);
     this.setChannel = (channel) => {
-      connector._call(id, "setChannel", channel._id);
+      // Worker methods receive an argument array; worker.js reads payload[0].
+      connector._call(id, "setChannel", [channel._id]);
     };
   }
 
