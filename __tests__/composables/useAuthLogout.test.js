@@ -277,6 +277,89 @@ describe('useAuthLogout', () => {
     expect(shouldHandleProviderLogout()).toBe(true);
   });
 
+  test.each(['event', 'resolve', 'reject'])(
+    'keeps a late reauthentication logout %s from affecting the next session',
+    async (completion) => {
+      jest.useFakeTimers();
+      const callbacks = new Map();
+      const emit = (event, ...args) => {
+        for (const callback of callbacks.get(event) ?? []) callback(...args);
+      };
+      const identity = {
+        store: { user: { id: 'old-session' } },
+        currentUser: jest.fn(() => identity.store.user),
+        on: jest.fn((event, callback) => {
+          const handlers = callbacks.get(event) ?? [];
+          handlers.push(callback);
+          callbacks.set(event, handlers);
+        }),
+        off: jest.fn((event, callback) => {
+          callbacks.set(event, (callbacks.get(event) ?? []).filter(handler => handler !== callback));
+        }),
+        logout: jest.fn(),
+      };
+      const auth = new NetlifyIdentityAdapter();
+      auth.netlifyIdentity = identity;
+      const appLogout = jest.fn(() => { applicationSession = null; });
+      let applicationSession = identity.store.user;
+      auth.on('logout', appLogout);
+      auth.on('login', user => { applicationSession = user; });
+
+      let completeProviderLogout;
+      let startNextLogout;
+      const nextLogoutStarted = new Promise(resolve => { startNextLogout = resolve; });
+      identity.logout
+        .mockImplementationOnce(() => {
+          if (completion === 'event') return undefined;
+          return new Promise((resolve, reject) => {
+            completeProviderLogout = completion === 'resolve' ? resolve : reject;
+          });
+        })
+        .mockImplementationOnce(() => {
+          startNextLogout();
+          return undefined;
+        });
+
+      localStorage.setItem('gotrue.user', 'old session');
+      const reload = jest.fn();
+      try {
+        const reauthentication = logoutForReauthentication(auth, reload);
+        await Promise.resolve();
+        jest.advanceTimersByTime(1500);
+        await expect(reauthentication).resolves.toBe(false);
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(identity.store.user).toBeNull();
+        expect(localStorage.getItem('gotrue.user')).toBeNull();
+
+        const newSession = { id: 'new-session' };
+        identity.store.user = newSession;
+        emit('login', newSession);
+        const explicitLogout = auth.logout();
+        await Promise.resolve();
+        expect(identity.logout).toHaveBeenCalledTimes(1);
+
+        if (completion === 'event') {
+          emit('logout');
+        } else {
+          completeProviderLogout(completion === 'reject' ? new Error('logout failed') : undefined);
+        }
+        await nextLogoutStarted;
+
+        expect(applicationSession).toBe(newSession);
+        expect(appLogout).not.toHaveBeenCalled();
+
+        identity.store.user = null;
+        emit('logout');
+        await explicitLogout;
+        expect(applicationSession).toBeNull();
+        expect(appLogout).toHaveBeenCalledTimes(1);
+      } finally {
+        localStorage.removeItem('gotrue.user');
+        jest.useRealTimers();
+      }
+    },
+  );
+
   test('handles the next provider logout when reauthentication logout fails', async () => {
     const auth = {
       logout: jest.fn().mockRejectedValue(new Error('logout failed')),

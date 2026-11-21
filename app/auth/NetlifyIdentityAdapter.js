@@ -245,40 +245,52 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async logout({ suppressProviderEvent = false, signal } = {}) {
-    const run = () => new Promise((resolve, reject) => {
-      const operation = { suppressProviderEvent };
-      let settled = false;
-      const finish = (error) => {
-        if (settled) return;
-        settled = true;
-        this.netlifyIdentity.off('logout', done);
-        signal?.removeEventListener('abort', abort);
-        if (this._activeLogoutOperation === operation) this._activeLogoutOperation = null;
-        if (error) reject(error);
-        else resolve();
-      };
-      const done = () => finish();
-      const abort = () => finish(new DOMException('Logout aborted', 'AbortError'));
-
-      this._activeLogoutOperation = operation;
-      this.netlifyIdentity.on('logout', done);
+    const run = () => {
       if (signal?.aborted) {
-        abort();
-        return;
+        return Promise.reject(new DOMException('Logout aborted', 'AbortError'));
       }
-      signal?.addEventListener('abort', abort, { once: true });
-      try {
-        Promise.resolve(this.netlifyIdentity.logout()).catch(finish);
-      } catch (error) {
-        finish(error);
-      }
-    });
+
+      return new Promise((resolve, reject) => {
+        const operation = { suppressProviderEvent };
+        let settled = false;
+        const finish = (error) => {
+          if (settled) return;
+          settled = true;
+          this.netlifyIdentity.off('logout', done);
+          if (this._activeLogoutOperation === operation) this._activeLogoutOperation = null;
+          if (error) reject(error);
+          else resolve();
+        };
+        const done = () => finish();
+
+        this._activeLogoutOperation = operation;
+        this.netlifyIdentity.on('logout', done);
+        try {
+          const providerLogout = this.netlifyIdentity.logout();
+          if (providerLogout && typeof providerLogout.then === 'function') {
+            Promise.resolve(providerLogout).then(() => finish(), finish);
+          }
+        } catch (error) {
+          finish(error);
+        }
+      });
+    };
 
     const operation = this._logoutQueue
       ? this._logoutQueue.then(run, run)
       : run();
     this._logoutQueue = operation.catch(() => {});
-    return operation;
+    if (!signal) return operation;
+
+    let abort;
+    const aborted = new Promise((_, reject) => {
+      abort = () => reject(new DOMException('Logout aborted', 'AbortError'));
+      signal.addEventListener('abort', abort, { once: true });
+      if (signal.aborted) abort();
+    });
+    return Promise.race([operation, aborted]).finally(() => {
+      signal.removeEventListener('abort', abort);
+    });
   }
 
   async clearLocalSession() {

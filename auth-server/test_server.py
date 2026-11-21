@@ -268,6 +268,16 @@ class TestThreadedHTTPServer(unittest.TestCase):
         self.finished.get(timeout=2)
         self.assert_health_request_succeeds()
 
+    def test_http_09_request_is_rejected(self):
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health\r\n\r\n')
+        self.submit(request)
+
+        response = client.recv(4096)
+        self.assertIn(b'HTTP/1.x required', response)
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
     def test_disconnected_incomplete_requests_release_capacity_immediately(self):
         self.server.request_timeout = 2
         prefixes = (

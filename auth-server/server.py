@@ -513,6 +513,14 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
                 timeout,
             )
 
+    def parse_request(self):
+        if not super().parse_request():
+            return False
+        if self.request_version == 'HTTP/0.9':
+            self.send_error(400, 'HTTP/1.x required')
+            return False
+        return True
+
     def handle_one_request(self):
         if isinstance(self.rfile, _DeadlineReader):
             self.rfile.start_request()
