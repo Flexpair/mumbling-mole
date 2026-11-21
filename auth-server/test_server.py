@@ -330,8 +330,23 @@ class TestThreadedHTTPServer(unittest.TestCase):
         client, request = self.socket_pair()
         client.sendall(b'GET /api/health HTTP/1.0\r\n\r\n')
         self.submit(request)
-        self.assertTrue(client.recv(4096).startswith(b'HTTP/1.1 503 Service Unavailable\r\n'))
-        self.assertEqual(client.recv(4096), b'')
+        expected_response = (
+            b'HTTP/1.1 503 Service Unavailable\r\n'
+            b'Connection: close\r\nContent-Length: 0\r\n\r\n'
+        )
+        response = b''
+        while len(response) < len(expected_response):
+            chunk = client.recv(len(expected_response) - len(response))
+            if not chunk:
+                break
+            response += chunk
+        self.assertEqual(response, expected_response)
+
+        # Closing with unread request bytes can yield a reset on Linux and EOF on macOS.
+        try:
+            self.assertEqual(client.recv(4096), b'')
+        except ConnectionResetError:
+            pass
 
         stalled_client.sendall(b'\r\n')
         self.assertTrue(stalled_client.recv(4096).startswith(b'HTTP/1.0 200 OK\r\n'))
