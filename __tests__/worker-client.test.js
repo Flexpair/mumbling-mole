@@ -1057,9 +1057,17 @@ describe('WorkerBasedMumbleUser', () => {
       );
     });
 
-    test('undefined user ID still accessible via id getter', () => {
+    test('proxy user exposes session ID for voice-stream bookkeeping', () => {
+      const user = client._user(321);
+
+      expect(user.session).toBe(321);
+      expect(user.session).toBe(user.id);
+    });
+
+    test('undefined user ID still accessible via id and session getters', () => {
       const undefinedUser = client._user(undefined);
       expect(undefinedUser.id).toBeUndefined();
+      expect(undefinedUser.session).toBeUndefined();
       expect(undefinedUser._id).toBeUndefined();
     });
 

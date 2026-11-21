@@ -437,6 +437,12 @@ class WorkerBasedMumbleUser extends EventEmitter {
     return this._id;
   }
 
+  // Mumble calls the session ID "session"; UI voice-stream bookkeeping uses
+  // that name, so keep both accessors pointing at the same value.
+  get session() {
+    return this._id;
+  }
+
   get channel() {
     return this._client._channels[this._channelId];
   }
