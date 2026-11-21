@@ -487,7 +487,10 @@ class _DeadlineReader:
         readable, _, _ = select.select([self.request], [], [], remaining)
         if not readable:
             raise socket.timeout('absolute HTTP request deadline exceeded')
-        self.buffer.extend(self.request.recv(max_bytes))
+        chunk = self.request.recv(max_bytes)
+        if not chunk:
+            raise EOFError('client disconnected during HTTP request')
+        self.buffer.extend(chunk)
 
     def _check_deadline(self):
         if time_mod.monotonic() >= self.deadline:
@@ -513,7 +516,10 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
     def handle_one_request(self):
         if isinstance(self.rfile, _DeadlineReader):
             self.rfile.start_request()
-        return super().handle_one_request()
+        try:
+            return super().handle_one_request()
+        except EOFError:
+            self.close_connection = True
 
     def log_message(self, fmt, *args):  # pylint: disable=arguments-differ
         """Override to use custom log format."""

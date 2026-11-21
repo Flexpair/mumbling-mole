@@ -268,6 +268,25 @@ class TestThreadedHTTPServer(unittest.TestCase):
         self.finished.get(timeout=2)
         self.assert_health_request_succeeds()
 
+    def test_disconnected_incomplete_requests_release_capacity_immediately(self):
+        self.server.request_timeout = 2
+        prefixes = (
+            b'',
+            b'GET /api/health',
+            b'GET /api/health HTTP/1.1\r\nHost: example',
+        )
+        for prefix in prefixes:
+            with self.subTest(prefix=prefix):
+                client, request = self.socket_pair()
+                self.addCleanup(client.close)
+                if prefix:
+                    client.sendall(prefix)
+                self.submit(request)
+                client.close()
+
+                self.finished.get(timeout=0.3)
+                self.assert_health_request_succeeds()
+
     def test_slow_progress_times_out_during_request_line_and_headers(self):
         self.server.request_timeout = 0.4
         for prefix in (b'GET /api/', b'GET /api/health HTTP/1.1\r\nHost: '):
