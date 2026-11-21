@@ -398,8 +398,10 @@ function setupClient(id, client) {
     ROOT_CHECK_TIMEOUT_SECONDS
   );
   
-  client.on("disconnect", () => {
+  client.on("disconnected", () => {
     initializer.cleanup();
+    releaseOutboundVoiceStreams(id.client);
+    clients[id.client] = null;
   });
 
   initializer.initialize();

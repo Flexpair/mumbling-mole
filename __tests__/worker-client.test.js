@@ -79,6 +79,7 @@ describe('WorkerBasedMumbleConnector', () => {
 
     test('initializes client tracking', () => {
       expect(connector._clients).toEqual({});
+      expect(connector._retiredClients).toEqual(new Set());
     });
 
     test('initializes voice stream tracking', () => {
@@ -473,6 +474,13 @@ describe('WorkerBasedMumbleConnector', () => {
       expect(stream.end).toHaveBeenCalled();
       expect(connector._voiceStreams[voiceId]).toBeUndefined();
     });
+
+    test('ignores voice data for an unknown stream', () => {
+      expect(() => connector._worker._simulateMessage({
+        voiceId: 'unknown-voice',
+        buffer: new ArrayBuffer(8)
+      })).not.toThrow();
+    });
   });
 });
 
@@ -559,6 +567,18 @@ describe('WorkerBasedMumbleClient', () => {
 
       client.disconnect();
 
+      expect(connector._clients['test-client-id']).toBeUndefined();
+      expect(connector._retiredClients.has('test-client-id')).toBe(true);
+    });
+
+    test('ignores events after disconnect', () => {
+      client.disconnect();
+
+      expect(() => connector._worker._simulateMessage({
+        clientId: 'test-client-id',
+        event: 'message',
+        value: ['late event']
+      })).not.toThrow();
       expect(connector._clients['test-client-id']).toBeUndefined();
     });
   });
