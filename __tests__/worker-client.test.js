@@ -543,8 +543,6 @@ describe('WorkerBasedMumbleClient', () => {
     });
 
     test('disconnect calls worker method', () => {
-      // Note: disconnect() calls worker but doesn't immediately remove from connector
-      // The actual removal happens when worker responds (not tested here)
       client.disconnect();
 
       expect(connector._worker.postMessage).toHaveBeenCalledWith(
@@ -554,6 +552,14 @@ describe('WorkerBasedMumbleClient', () => {
         }),
         undefined
       );
+    });
+
+    test('disconnect removes the cached proxy keyed by client ID', () => {
+      expect(connector._clients['test-client-id']).toBe(client);
+
+      client.disconnect();
+
+      expect(connector._clients['test-client-id']).toBeUndefined();
     });
   });
 

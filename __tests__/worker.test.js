@@ -757,6 +757,36 @@ describe("worker.js", () => {
       expect(endSpy).toHaveBeenCalledTimes(1);
       endSpy.mockRestore();
     });
+
+    test("ends outbound voice streams when their client disconnects", async () => {
+      const { client, clientId } = await connectClient();
+      client.createVoiceStream.mockReturnValue(new MockPassThrough());
+      const endSpy = jest.spyOn(MockPassThrough.prototype, "end");
+
+      messageHandler({ data: { clientId, method: "createVoiceStream", payload: [8, 960, 0] } });
+      messageHandler({ data: { clientId, method: "disconnect", payload: [] } });
+
+      expect(endSpy).toHaveBeenCalled();
+      endSpy.mockRestore();
+    });
+
+    test("ignores voice chunks for unknown or ended streams", () => {
+      expect(() => messageHandler({ data: { voiceId: 98765, chunk: new ArrayBuffer(960 * 4) } })).not.toThrow();
+      expect(() => messageHandler({ data: { voiceId: 98765, chunk: null } })).not.toThrow();
+    });
+
+    test("ignores commands for a disconnected client", async () => {
+      const { client, clientId } = await connectClient();
+
+      messageHandler({ data: { clientId, method: "disconnect", payload: [] } });
+
+      const getUserSpy = jest.spyOn(client, "getUserById");
+      expect(() => messageHandler({
+        data: { clientId, userId: 42, method: "setMute", payload: [true] }
+      })).not.toThrow();
+      expect(getUserSpy).not.toHaveBeenCalled();
+      getUserSpy.mockRestore();
+    });
   });
 });
 

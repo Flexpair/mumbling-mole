@@ -199,7 +199,7 @@ class WorkerBasedMumbleClient extends EventEmitter {
     let _disconnect = this.disconnect;
     this.disconnect = () => {
       _disconnect.call(this);
-      delete connector._clients[id];
+      delete connector._clients[this._id];
     };
 
     connector._addCall(this, "createVoiceStream", id);
