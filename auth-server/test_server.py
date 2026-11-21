@@ -351,6 +351,23 @@ class TestThreadedHTTPServer(unittest.TestCase):
         self.finished.get(timeout=2)
         self.assert_health_request_succeeds()
 
+    def test_handler_base_exception_shuts_down_once_and_releases_capacity(self):
+        class HandlerFailure(BaseException):
+            pass
+
+        request = MagicMock()
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+
+        with patch.object(self.server, 'finish_request', side_effect=HandlerFailure):
+            with patch.object(self.server, 'shutdown_request') as shutdown:
+                with self.assertRaises(HandlerFailure):
+                    self.server.process_request_thread(request, ('127.0.0.1', 12345))
+
+        shutdown.assert_called_once_with(request)
+        self.finished.get(timeout=2)
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+        self.server._request_slots.release()
+
     def test_overload_receives_503_and_capacity_recovers(self):
         stalled_client, stalled_request = self.socket_pair()
         stalled_client.sendall(b'GET /api/health HTTP/1.1\r\nHost: example\r\n')
