@@ -655,11 +655,12 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     def process_request_thread(self, request, client_address):
         try:
-            request.settimeout(self.request_timeout)
+            try:
+                request.settimeout(self.request_timeout)
+            except BaseException:
+                self.shutdown_request(request)
+                raise
             super().process_request_thread(request, client_address)
-        except BaseException:
-            self.shutdown_request(request)
-            raise
         finally:
             self._request_slots.release()
 

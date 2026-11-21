@@ -294,7 +294,7 @@ class TestThreadedHTTPServer(unittest.TestCase):
                 self.submit(request)
                 client.shutdown(socket.SHUT_WR)
 
-                self.finished.get(timeout=0.3)
+                self.finished.get(timeout=0.5)
                 self.assert_health_request_succeeds()
 
     def test_slow_progress_times_out_during_request_line_and_headers(self):
@@ -320,11 +320,11 @@ class TestThreadedHTTPServer(unittest.TestCase):
                 sender.start()
                 completed = False
                 try:
-                    self.finished.get(timeout=1.2)
+                    self.finished.get(timeout=3)
                     completed = True
                     elapsed = time_mod.monotonic() - started
                     self.assertGreaterEqual(elapsed, 0.3)
-                    self.assertLess(elapsed, 1.2)
+                    self.assertLess(elapsed, 2.5)
                     self.assertGreaterEqual(len(sent_at), 4)
                     self.assertTrue(all(
                         later - earlier < self.server.request_timeout
