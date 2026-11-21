@@ -81,9 +81,12 @@ export const useAudioStore = defineStore('audio', () => {
     () => audioContext.value,
     async () => {
       try {
-        // Use managed AudioContext that handles browser autoplay restrictions
-        const ctx = await ensureAudioContext({ 
-          latencyHint: 'interactive' 
+        // The singleton must be created at Mumble's 48 kHz from the start:
+        // voice.js later requests the same rate, but an existing context keeps
+        // its original sampleRate and would force a "join without audio" flow.
+        const ctx = await ensureAudioContext({
+          sampleRate: 48000,
+          latencyHint: 'interactive'
         });
         audioContext.value = ctx;
 
