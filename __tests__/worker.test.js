@@ -771,19 +771,27 @@ describe("worker.js", () => {
 
     test("ignores voice chunks for unknown or ended streams", async () => {
       const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const writeSpy = jest.spyOn(MockPassThrough.prototype, "write");
+      const endSpy = jest.spyOn(MockPassThrough.prototype, "end");
       const { client, clientId } = await connectClient();
       client.createVoiceStream.mockReturnValue(new MockPassThrough());
 
       messageHandler({ data: { clientId, method: "createVoiceStream", payload: [7, 960, 0] } });
       messageHandler({ data: { voiceId: 7, chunk: null } });
+      messageHandler({ data: { voiceId: 7, chunk: new ArrayBuffer(960 * 4) } });
+      messageHandler({ data: { voiceId: 7, chunk: null } });
       messageHandler({ data: { voiceId: 98765, chunk: new ArrayBuffer(960 * 4) } });
       messageHandler({ data: { voiceId: 98765, chunk: null } });
 
+      expect(writeSpy).not.toHaveBeenCalled();
+      expect(endSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy).not.toHaveBeenCalledWith(
         "exception during message event",
         expect.any(Object),
         expect.anything()
       );
+      writeSpy.mockRestore();
+      endSpy.mockRestore();
       errorSpy.mockRestore();
     });
 
