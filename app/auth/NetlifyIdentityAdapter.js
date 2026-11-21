@@ -281,6 +281,39 @@ class NetlifyIdentityAdapter extends AuthProvider {
     return operation;
   }
 
+  async clearLocalSession() {
+    let cleanupSucceeded = true;
+    const user = this.netlifyIdentity?.currentUser?.();
+    if (typeof user?.clearSession === 'function') {
+      this._suppressSessionCleanupLogout = true;
+      try {
+        await user.clearSession();
+      } catch (error) {
+        cleanupSucceeded = false;
+        console.warn('[Auth] Could not clear provider session:', error);
+      } finally {
+        this._suppressSessionCleanupLogout = false;
+      }
+    }
+
+    try {
+      globalThis.localStorage?.removeItem('gotrue.user');
+    } catch (error) {
+      cleanupSucceeded = false;
+      console.warn('[Auth] Could not clear stored session:', error);
+    }
+
+    if (this.netlifyIdentity?.store) {
+      this._suppressSessionCleanupLogout = true;
+      try {
+        this.netlifyIdentity.store.user = null;
+      } finally {
+        this._suppressSessionCleanupLogout = false;
+      }
+    }
+    return cleanupSucceeded;
+  }
+
   _wrapLogoutHandler(event, callback) {
     if (event !== 'logout') return callback;
     if (!this._logoutHandlerWrappers.has(callback)) {

@@ -690,6 +690,58 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     expect(result).toBeUndefined();
   });
 
+  test('clears the provider and stored session without emitting a logout event', async () => {
+    const onLogout = jest.fn();
+    adapter.on('logout', onLogout);
+    const logoutHandler = adapter._logoutHandlerWrappers.get(onLogout);
+    let widgetUser = { id: '123' };
+    adapter.netlifyIdentity.store = {};
+    Object.defineProperty(adapter.netlifyIdentity.store, 'user', {
+      get: () => widgetUser,
+      set: (value) => { widgetUser = value; logoutHandler(); },
+    });
+    localStorage.setItem('gotrue.user', 'saved session');
+    localStorage.setItem('unrelated', 'keep');
+    const clearSession = jest.fn(async () => {
+      await Promise.resolve();
+      logoutHandler();
+    });
+    adapter.netlifyIdentity.currentUser.mockReturnValue({ clearSession });
+
+    await expect(adapter.clearLocalSession()).resolves.toBe(true);
+
+    expect(clearSession).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('gotrue.user')).toBeNull();
+    expect(localStorage.getItem('unrelated')).toBe('keep');
+    expect(widgetUser).toBeNull();
+    expect(onLogout).not.toHaveBeenCalled();
+    localStorage.removeItem('unrelated');
+  });
+
+  test('reports failure and clears the widget user when storage access fails', async () => {
+    adapter.netlifyIdentity.store = { user: { id: '123' } };
+    const removeItem = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('Access denied');
+    });
+
+    await expect(adapter.clearLocalSession()).resolves.toBe(false);
+
+    expect(adapter.netlifyIdentity.store.user).toBeNull();
+    expect(consoleWarnSpy).toHaveBeenCalled();
+    removeItem.mockRestore();
+  });
+
+  test('reports provider session cleanup failure while still clearing storage', async () => {
+    adapter.netlifyIdentity.currentUser.mockReturnValue({
+      clearSession: jest.fn().mockRejectedValue(new Error('cleanup failed')),
+    });
+    localStorage.setItem('gotrue.user', 'saved session');
+
+    await expect(adapter.clearLocalSession()).resolves.toBe(false);
+
+    expect(localStorage.getItem('gotrue.user')).toBeNull();
+  });
+
   test('suppresses the provider event for a reauthentication logout', async () => {
     const appLogout = jest.fn();
     adapter.on('logout', appLogout);

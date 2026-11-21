@@ -13,6 +13,8 @@ import json
 import os
 import re
 import secrets
+import select
+import socket
 import socketserver
 import threading
 import time as time_mod
@@ -111,7 +113,7 @@ AUTH_PROVIDERS = {
     },
     'supabase': {
         'userEndpoint': f"{os.environ.get('SUPABASE_URL')}/auth/v1" if os.environ.get('SUPABASE_URL') else None,
-        'rolesClaim': 'user_metadata.roles',
+        'rolesClaim': 'app_metadata.roles',
         'allowedHostSuffixes': ('.supabase.co', '.supabase.in'),
         'allowedHostPrefixLabels': (1,)
     },
@@ -422,8 +424,96 @@ def _extract_roles(user: dict, roles_claim: str) -> list:
     return []
 
 
+class _DeadlineReader:
+    """Read HTTP lines from a socket without allowing slow-drip extensions."""
+
+    def __init__(self, request, original_file, timeout):
+        self.request = request
+        self.original_file = original_file
+        self.timeout = timeout
+        self.deadline = 0.0
+        self.buffer = bytearray()
+
+    @property
+    def closed(self):
+        return self.original_file.closed
+
+    def start_request(self):
+        self.deadline = time_mod.monotonic() + self.timeout
+
+    def readline(self, limit=-1):
+        if limit == 0:
+            return b''
+        while True:
+            newline = self.buffer.find(b'\n')
+            if newline >= 0:
+                end = newline + 1
+                if limit >= 0:
+                    end = min(end, limit)
+                result = bytes(self.buffer[:end])
+                del self.buffer[:end]
+                self._check_deadline()
+                return result
+            if limit >= 0 and len(self.buffer) >= limit:
+                result = bytes(self.buffer[:limit])
+                del self.buffer[:limit]
+                self._check_deadline()
+                return result
+
+            self._read_more()
+
+    def read(self, size=-1):
+        if size == 0:
+            return b''
+        if size < 0:
+            while len(self.buffer) < 65536:
+                self._read_more(min(4096, 65536 - len(self.buffer)))
+                readable, _, _ = select.select([self.request], [], [], 0)
+                if not readable:
+                    break
+            result = bytes(self.buffer)
+            self.buffer.clear()
+            return result
+        else:
+            while len(self.buffer) < size:
+                self._read_more(min(4096, size - len(self.buffer)))
+        result = bytes(self.buffer[:size])
+        del self.buffer[:size]
+        return result
+
+    def _read_more(self, max_bytes=4096):
+        self._check_deadline()
+        remaining = self.deadline - time_mod.monotonic()
+        readable, _, _ = select.select([self.request], [], [], remaining)
+        if not readable:
+            raise socket.timeout('absolute HTTP request deadline exceeded')
+        self.buffer.extend(self.request.recv(max_bytes))
+
+    def _check_deadline(self):
+        if time_mod.monotonic() >= self.deadline:
+            raise socket.timeout('absolute HTTP request deadline exceeded')
+
+    def close(self):
+        self.original_file.close()
+
+
 class AuthHandler(http.server.BaseHTTPRequestHandler):
     """HTTP request handler for auth endpoints."""
+
+    def setup(self):
+        super().setup()
+        timeout = getattr(self.server, 'request_timeout', None)
+        if timeout is not None:
+            self.rfile = _DeadlineReader(  # type: ignore[assignment]
+                self.request,
+                self.rfile,
+                timeout,
+            )
+
+    def handle_one_request(self):
+        if isinstance(self.rfile, _DeadlineReader):
+            self.rfile.start_request()
+        return super().handle_one_request()
 
     def log_message(self, fmt, *args):  # pylint: disable=arguments-differ
         """Override to use custom log format."""
@@ -522,6 +612,43 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """HTTP server with threading support for concurrent requests."""
     allow_reuse_address = True
     daemon_threads = True
+    max_concurrent_requests = 32
+    request_timeout = 10
+
+    def __init__(self, *args, **kwargs):
+        self._request_slots = threading.BoundedSemaphore(self.max_concurrent_requests)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address):
+        if not self._request_slots.acquire(blocking=False):
+            try:
+                request.setblocking(False)
+                request.sendall(
+                    b'HTTP/1.1 503 Service Unavailable\r\n'
+                    b'Connection: close\r\nContent-Length: 0\r\n\r\n'
+                )
+            except OSError:
+                pass
+            finally:
+                self.shutdown_request(request)
+            return
+
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._request_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            request.settimeout(self.request_timeout)
+            super().process_request_thread(request, client_address)
+        except BaseException:
+            self.shutdown_request(request)
+            raise
+        finally:
+            self._request_slots.release()
+
 
 
 def main():

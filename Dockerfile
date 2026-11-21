@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     apt-get update && \
     apt-get install -y --no-install-recommends \
         bash \
+        ca-certificates \
         python3.11 \
         python3.11-venv \
         tini && \
@@ -18,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
     /usr/bin/python3.11 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir websockify==0.12.0
+    /opt/venv/bin/pip install --no-cache-dir websockify==0.13.0
 
 ENV PATH="/opt/venv/bin:${PATH}"
 

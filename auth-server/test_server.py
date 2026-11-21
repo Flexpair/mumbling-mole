@@ -7,6 +7,11 @@ Or standalone: python3 auth-server/test_server.py
 """
 
 import json
+import queue
+import socket
+import socketserver
+import threading
+import time as time_mod
 import unittest
 import urllib.error
 from email.message import Message
@@ -27,6 +32,7 @@ os.environ.update({
 from server import (
     AuthHandler,
     RateLimiter,
+    ThreadedHTTPServer,
     _parse_trusted_proxies,
     _resolve_client_ip,
     _get_cors_headers,
@@ -217,6 +223,128 @@ class TestRateLimiting(unittest.TestCase):
 
         self.assertTrue(limiter.check('203.0.113.8'))
         self.assertNotIn('203.0.113.7', limiter.store)
+
+
+class TestThreadedHTTPServer(unittest.TestCase):
+    def setUp(self):
+        finished = self.finished = queue.Queue()
+
+        class TestServer(ThreadedHTTPServer):
+            max_concurrent_requests = 1
+            request_timeout = 0.1
+
+            def process_request_thread(self, request, client_address):
+                try:
+                    super().process_request_thread(request, client_address)
+                finally:
+                    finished.put(None)
+
+        self.server = TestServer(('127.0.0.1', 0), AuthHandler, bind_and_activate=False)
+        self.addCleanup(self.server.server_close)
+
+    def socket_pair(self):
+        client, request = socket.socketpair()
+        client.settimeout(2)
+        self.addCleanup(client.close)
+        self.addCleanup(request.close)
+        return client, request
+
+    def submit(self, request):
+        self.server.process_request(request, ('127.0.0.1', 12345))
+
+    def assert_health_request_succeeds(self):
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health HTTP/1.0\r\n\r\n')
+        self.submit(request)
+        self.assertTrue(client.recv(4096).startswith(b'HTTP/1.0 200 OK\r\n'))
+        self.finished.get(timeout=2)
+
+    def test_incomplete_headers_time_out_and_release_capacity(self):
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health HTTP/1.1\r\nHost: example\r\n')
+        self.submit(request)
+
+        self.assertEqual(client.recv(4096), b'')
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    def test_slow_progress_times_out_during_request_line_and_headers(self):
+        self.server.request_timeout = 0.4
+        for prefix in (b'GET /api/', b'GET /api/health HTTP/1.1\r\nHost: '):
+            with self.subTest(prefix=prefix):
+                client, request = self.socket_pair()
+                client.sendall(prefix)
+                started = time_mod.monotonic()
+                self.submit(request)
+                stop = threading.Event()
+                sent_at = [started]
+
+                def send_slowly():
+                    while not stop.wait(0.03):
+                        try:
+                            client.sendall(b'a')
+                            sent_at.append(time_mod.monotonic())
+                        except OSError:
+                            return
+
+                sender = threading.Thread(target=send_slowly, daemon=True)
+                sender.start()
+                completed = False
+                try:
+                    self.finished.get(timeout=1.2)
+                    completed = True
+                    elapsed = time_mod.monotonic() - started
+                    self.assertGreaterEqual(elapsed, 0.3)
+                    self.assertLess(elapsed, 1.2)
+                    self.assertGreaterEqual(len(sent_at), 4)
+                    self.assertTrue(all(
+                        later - earlier < self.server.request_timeout
+                        for earlier, later in zip(sent_at, sent_at[1:])
+                    ))
+                    self.assertEqual(client.recv(4096), b'')
+                    self.assert_health_request_succeeds()
+                finally:
+                    stop.set()
+                    sender.join(timeout=1)
+                    if not completed:
+                        self.finished.get(timeout=2)
+
+    def test_timeout_setup_failure_closes_request_and_releases_capacity(self):
+        request = MagicMock()
+        request.settimeout.side_effect = OSError('timeout setup failed')
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+
+        with patch.object(self.server, 'shutdown_request') as shutdown:
+            with self.assertRaisesRegex(OSError, 'timeout setup failed'):
+                self.server.process_request_thread(request, ('127.0.0.1', 12345))
+
+        shutdown.assert_called_once_with(request)
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    def test_overload_receives_503_and_capacity_recovers(self):
+        stalled_client, stalled_request = self.socket_pair()
+        stalled_client.sendall(b'GET /api/health HTTP/1.1\r\nHost: example\r\n')
+        self.submit(stalled_request)
+
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health HTTP/1.0\r\n\r\n')
+        self.submit(request)
+        self.assertTrue(client.recv(4096).startswith(b'HTTP/1.1 503 Service Unavailable\r\n'))
+        self.assertEqual(client.recv(4096), b'')
+
+        stalled_client.sendall(b'\r\n')
+        self.assertTrue(stalled_client.recv(4096).startswith(b'HTTP/1.0 200 OK\r\n'))
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    def test_failed_thread_start_releases_capacity(self):
+        _, request = self.socket_pair()
+        with patch.object(socketserver.ThreadingMixIn, 'process_request', side_effect=RuntimeError('start failed')):
+            with self.assertRaisesRegex(RuntimeError, 'start failed'):
+                self.submit(request)
+
+        self.assert_health_request_succeeds()
 
 
 class TestCredentialRateLimitOrdering(unittest.TestCase):
@@ -503,7 +631,30 @@ class TestAuthProviderConfig(unittest.TestCase):
     def test_supabase_provider_placeholder(self):
         from server import AUTH_PROVIDERS
         self.assertIn('supabase', AUTH_PROVIDERS)
-        self.assertEqual(AUTH_PROVIDERS['supabase']['rolesClaim'], 'user_metadata.roles')
+        self.assertEqual(AUTH_PROVIDERS['supabase']['rolesClaim'], 'app_metadata.roles')
+
+    @patch('server.AUTH_PROVIDER', 'supabase')
+    @patch('server.validate_token')
+    def test_supabase_credentials_ignore_user_controlled_roles(self, mock_validate):
+        from server import GUACAMOLE_PASSWORDS
+
+        for app_roles, user_roles, expected_user in (
+            ([], ['admin'], 'watcher'),
+            (['edit'], ['admin'], 'editor'),
+            (['admin'], ['watch'], 'admin'),
+        ):
+            with self.subTest(app_roles=app_roles, user_roles=user_roles):
+                rate_limiter.store.clear()
+                mock_validate.return_value = {
+                    'app_metadata': {'roles': app_roles},
+                    'user_metadata': {'roles': user_roles},
+                }
+                handler = TestCredentialRateLimitOrdering._handler('Bearer token')
+                handler.do_POST()
+                response = handler.send_json.call_args.args
+                self.assertEqual(response[0], 200)
+                self.assertEqual(response[1]['guacamoleUser'], expected_user)
+                self.assertEqual(response[1]['guacamolePassword'], GUACAMOLE_PASSWORDS[expected_user])
 
     def test_auth0_provider_placeholder(self):
         from server import AUTH_PROVIDERS
