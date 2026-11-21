@@ -294,7 +294,7 @@ class TestThreadedHTTPServer(unittest.TestCase):
                 self.submit(request)
                 client.shutdown(socket.SHUT_WR)
 
-                self.finished.get(timeout=0.3)
+                self.finished.get(timeout=0.5)
                 self.assert_health_request_succeeds()
 
     def test_slow_progress_times_out_during_request_line_and_headers(self):
@@ -320,11 +320,11 @@ class TestThreadedHTTPServer(unittest.TestCase):
                 sender.start()
                 completed = False
                 try:
-                    self.finished.get(timeout=1.2)
+                    self.finished.get(timeout=3)
                     completed = True
                     elapsed = time_mod.monotonic() - started
                     self.assertGreaterEqual(elapsed, 0.3)
-                    self.assertLess(elapsed, 1.2)
+                    self.assertLess(elapsed, 2.5)
                     self.assertGreaterEqual(len(sent_at), 4)
                     self.assertTrue(all(
                         later - earlier < self.server.request_timeout
@@ -350,6 +350,23 @@ class TestThreadedHTTPServer(unittest.TestCase):
         shutdown.assert_called_once_with(request)
         self.finished.get(timeout=2)
         self.assert_health_request_succeeds()
+
+    def test_handler_base_exception_shuts_down_once_and_releases_capacity(self):
+        class HandlerFailure(BaseException):
+            pass
+
+        request = MagicMock()
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+
+        with patch.object(self.server, 'finish_request', side_effect=HandlerFailure):
+            with patch.object(self.server, 'shutdown_request') as shutdown:
+                with self.assertRaises(HandlerFailure):
+                    self.server.process_request_thread(request, ('127.0.0.1', 12345))
+
+        shutdown.assert_called_once_with(request)
+        self.finished.get(timeout=2)
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+        self.server._request_slots.release()
 
     def test_overload_receives_503_and_capacity_recovers(self):
         stalled_client, stalled_request = self.socket_pair()

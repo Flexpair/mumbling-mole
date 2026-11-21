@@ -300,6 +300,12 @@ class NetlifyIdentityAdapter extends AuthProvider {
     });
   }
 
+  /**
+   * Best-effort cleanup of the local session after a failed or timed-out logout.
+   * Clears the provider user session, the persisted session entry, and the
+   * in-memory widget user without emitting an application logout event.
+   * @returns {Promise<boolean>} true only if the local session is confirmed cleared
+   */
   async clearLocalSession() {
     let cleanupSucceeded = true;
     const user = this.netlifyIdentity?.currentUser?.();
@@ -329,6 +335,11 @@ class NetlifyIdentityAdapter extends AuthProvider {
       } finally {
         this._suppressSessionCleanupLogout = false;
       }
+    }
+
+    if (cleanupSucceeded && (this.netlifyIdentity?.currentUser?.() || this.netlifyIdentity?.store?.user)) {
+      cleanupSucceeded = false;
+      console.warn('[Auth] Session still present after local cleanup');
     }
     return cleanupSucceeded;
   }
