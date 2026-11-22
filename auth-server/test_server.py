@@ -46,6 +46,7 @@ from server import (
     get_guacamole_user,
     hash_email,
     rate_limiter,
+    tunnel_rate_limiter,
     generate_secure_password,
     _execute_auth_request,
     _DeadlineReader,
@@ -588,6 +589,108 @@ class TestCredentialRateLimitOrdering(unittest.TestCase):
         other_client.do_POST()
         other_client.send_json.assert_called_once_with(
             401, {'error': 'Invalid or expired token'}
+        )
+
+
+class TestTunnelAuthorization(unittest.TestCase):
+    """Authentication and rate limits for WebSocket tunnel handshakes."""
+
+    def setUp(self):
+        tunnel_rate_limiter.store.clear()
+
+    @staticmethod
+    def _handler(client_ip='203.0.113.10', authorization='unit-test-token'):
+        handler = AuthHandler.__new__(AuthHandler)
+        handler.path = '/api/tunnel-authorize'
+        handler.client_address = (client_ip, 12345)
+        handler.headers = Message()
+        if authorization is not None:
+            handler.headers['Authorization'] = 'Bearer ' + authorization
+        handler.send_json = MagicMock()
+        return handler
+
+    def test_missing_authorization_is_rejected(self):
+        handler = self._handler(authorization=None)
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(
+            401, {'error': 'Missing authorization header'}
+        )
+        self.assertEqual(tunnel_rate_limiter.store, {})
+
+    @patch('server.validate_token', return_value=None)
+    def test_invalid_tokens_are_rate_limited_by_client_ip(self, mock_validate):
+        for _ in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler()
+            handler.do_POST()
+            handler.send_json.assert_called_once_with(
+                401, {'error': 'Invalid or expired token'}
+            )
+
+        blocked_handler = self._handler()
+        blocked_handler.do_POST()
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+        self.assertEqual(mock_validate.call_count, tunnel_rate_limiter.max_requests)
+
+    @patch('server.validate_token', return_value=None)
+    def test_tunnel_uses_forwarded_client_ip_from_local_websockify(self, _mock_validate):
+        for _ in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler(client_ip='127.0.0.1')
+            handler.headers['X-Forwarded-For'] = '203.0.113.10'
+            handler.do_POST()
+
+        blocked_handler = self._handler(client_ip='127.0.0.1')
+        blocked_handler.headers['X-Forwarded-For'] = '203.0.113.10'
+        blocked_handler.do_POST()
+
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+
+    @patch(
+        'server.validate_token',
+        return_value={'id': 'test-user', 'app_metadata': {'roles': ['watch']}},
+    )
+    def test_authorized_user_can_open_tunnel(self, _mock_validate):
+        handler = self._handler()
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(200, {'authorized': True})
+
+    @patch(
+        'server.validate_token',
+        return_value={'id': 'test-user', 'app_metadata': {'roles': ['unknown']}},
+    )
+    def test_user_without_an_application_role_cannot_open_tunnel(self, _mock_validate):
+        handler = self._handler()
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(
+            403, {'error': 'User is not authorized'}
+        )
+
+    @patch(
+        'server.validate_token',
+        return_value={'id': 'test-user', 'app_metadata': {'roles': ['watch']}},
+    )
+    def test_authenticated_tunnel_attempts_are_rate_limited_by_user(self, _mock_validate):
+        for index in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler(client_ip=f'203.0.113.{index + 10}')
+            handler.do_POST()
+            handler.send_json.assert_called_once_with(200, {'authorized': True})
+
+        blocked_handler = self._handler(client_ip='203.0.113.99')
+        blocked_handler.do_POST()
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
         )
 
 

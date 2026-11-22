@@ -6,6 +6,12 @@ async function connect(address, options, { signal } = {}) {
     throw new DOMException("Connection aborted", "AbortError");
   }
 
+  const { accessToken, ...clientOptions } = options;
+  const protocols = ["binary"];
+  if (typeof accessToken === "string" && accessToken) {
+    protocols.push(`mumble-auth.${accessToken}`);
+  }
+
   let pendingStream;
   const abortError = () => new DOMException("Connection aborted", "AbortError");
   const handshake = new Promise((resolve, reject) => {
@@ -32,7 +38,7 @@ async function connect(address, options, { signal } = {}) {
       if (settled) return;
       let connection;
       try {
-        connection = new MumbleClient(options).connectDataStream(pendingStream);
+        connection = new MumbleClient(clientOptions).connectDataStream(pendingStream);
       } catch (error) {
         settled = true;
         cleanup();
@@ -57,7 +63,7 @@ async function connect(address, options, { signal } = {}) {
       );
     };
 
-    pendingStream = websocketStream(address, ["binary"])
+    pendingStream = websocketStream(address, protocols)
       .once("error", onError)
       .once("connect", onConnect);
     signal?.addEventListener("abort", onAbort, { once: true });

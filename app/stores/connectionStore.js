@@ -64,7 +64,7 @@ export const useConnectionStore = defineStore('connection', () => {
    * @param {Array} tokens - Access tokens
    * @returns {Promise<MumbleClient>} Connected client instance
    */
-  async function connect(host, port, username, password, tokens = []) {
+  async function connect(host, port, username, password, tokens = [], accessToken = null) {
     connectionController?.abort();
     const controller = new AbortController();
     connectionController = controller;
@@ -91,6 +91,7 @@ export const useConnectionStore = defineStore('connection', () => {
         username: username,
         password: password,
         tokens: toRaw(tokens),
+        accessToken,
       }, {
         signal: controller.signal,
       });

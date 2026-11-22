@@ -142,6 +142,7 @@ COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dis
 # Create auth-server directory (needs 755 for directory traversal)
 RUN mkdir -p /home/node/auth-server && chown node:node /home/node/auth-server
 COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
+COPY --chown=node:node --chmod=644 ./auth-server/websockify_auth.py /home/node/auth-server/websockify_auth.py
 
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 

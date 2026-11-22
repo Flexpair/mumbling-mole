@@ -181,6 +181,7 @@ class RateLimiter:
 
 # Initialize global rate limiter
 rate_limiter = RateLimiter()
+tunnel_rate_limiter = RateLimiter(window_seconds=10, max_requests=5)
 
 
 def _normalize_origin(origin: Optional[str]) -> Optional[str]:
@@ -649,16 +650,28 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests (credentials endpoint)."""
-        if self.path != '/api/credentials':
+        if self.path not in {'/api/credentials', '/api/tunnel-authorize'}:
             self.send_json(404, {'error': 'Not found'})
             return
 
+        is_tunnel_authorization = self.path == '/api/tunnel-authorize'
+        client_ip = _resolve_client_ip(
+            self.client_address[0],
+            self.headers.get('X-Forwarded-For'),
+            TRUSTED_PROXIES,
+        )
 
         token = self._get_token_from_header()
         if not token:
             return
 
-        if not self._check_rate_limit():
+        if is_tunnel_authorization:
+            if client_ip not in {'127.0.0.1', '::1'} and not tunnel_rate_limiter.check(
+                f'ip:{client_ip}'
+            ):
+                self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+                return
+        elif not self._check_rate_limit():
             return
 
         provider_config = AUTH_PROVIDERS.get(AUTH_PROVIDER)
@@ -678,6 +691,15 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         guacamole_user = get_guacamole_user(roles)
         if guacamole_user is None:
             self.send_json(403, {'error': 'User is not authorized'})
+            return
+
+        if is_tunnel_authorization:
+            user_id = user.get('sub') or user.get('id') or user.get('email') or token
+            user_key = hashlib.sha256(str(user_id).encode('utf-8')).hexdigest()
+            if not tunnel_rate_limiter.check(f'user:{user_key}'):
+                self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+                return
+            self.send_json(200, {'authorized': True})
             return
 
         print(
