@@ -3,6 +3,9 @@
 import { MumbleProto } from './mumble-proto-minimal.js';
 import { Transform } from 'node:stream';
 
+const MAX_MESSAGE_SIZE = 16 * 1024 * 1024;
+const MAX_FRAME_SIZE = MAX_MESSAGE_SIZE + 6;
+
 const nameById = {
     0: 'Version',
     1: 'UDPTunnel',
@@ -117,23 +120,57 @@ class Decoder extends Transform {
     this._bufferSize = 0;
   }
 
-  _transform(chunk, encoding, callback) {
-    if (this._buffer.length - this._bufferSize < chunk.length) {
-      const oldBuffer = this._buffer;
-      this._buffer = Buffer.allocUnsafe(this._bufferSize + chunk.length);
-      oldBuffer.copy(this._buffer, 0, 0, this._bufferSize);
+  _ensureBufferCapacity(required) {
+    if (this._buffer.length >= required) {
+      return;
     }
-    this._bufferSize += chunk.copy(this._buffer, this._bufferSize);
 
-    while (this._bufferSize >= 6) {
+    let capacity = this._buffer.length;
+    while (capacity < required) {
+      capacity = Math.min(capacity * 2, MAX_FRAME_SIZE);
+    }
+
+    const buffer = Buffer.allocUnsafe(capacity);
+    this._buffer.copy(buffer, 0, 0, this._bufferSize);
+    this._buffer = buffer;
+  }
+
+  _transform(chunk, encoding, callback) {
+    let chunkOffset = 0;
+    while (chunkOffset < chunk.length || this._bufferSize >= 6) {
+      if (this._bufferSize < 6) {
+        const headerBytes = Math.min(6 - this._bufferSize, chunk.length - chunkOffset);
+        if (headerBytes === 0) {
+          break;
+        }
+        this._ensureBufferCapacity(this._bufferSize + headerBytes);
+        chunk.copy(this._buffer, this._bufferSize, chunkOffset, chunkOffset + headerBytes);
+        this._bufferSize += headerBytes;
+        chunkOffset += headerBytes;
+        if (this._bufferSize < 6) {
+          break;
+        }
+      }
+
       const type = this._buffer.readUInt16BE(0);
       const size = this._buffer.readUInt32BE(2);
-      if (this._bufferSize < 6 + size) {
+      if (size > MAX_MESSAGE_SIZE) {
+        return callback(new Error('Message size exceeds maximum of ' + MAX_MESSAGE_SIZE + ' bytes'));
+      }
+
+      const frameSize = 6 + size;
+      const payloadBytes = Math.min(frameSize - this._bufferSize, chunk.length - chunkOffset);
+      this._ensureBufferCapacity(this._bufferSize + payloadBytes);
+      chunk.copy(this._buffer, this._bufferSize, chunkOffset, chunkOffset + payloadBytes);
+      this._bufferSize += payloadBytes;
+      chunkOffset += payloadBytes;
+
+      if (this._bufferSize < frameSize) {
         break;
       }
 
       const typeName = nameById[type];
-      const data = this._buffer.subarray(6, 6 + size);
+      const data = this._buffer.subarray(6, frameSize);
       let message;
       if (typeName === 'UDPTunnel') {
         message = Buffer.from(data);
@@ -145,8 +182,7 @@ class Decoder extends Transform {
         }
       }
 
-      this._buffer.copy(this._buffer, 0, 6 + size, this._bufferSize);
-      this._bufferSize -= 6 + size;
+      this._bufferSize = 0;
 
       this.push({
         name: typeName,

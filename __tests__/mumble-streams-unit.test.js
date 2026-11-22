@@ -592,6 +592,21 @@ describe('mumble-streams Unit Tests', () => {
         expect(decoder).toBeDefined();
       });
 
+      test('rejects oversized messages before buffering their payload', async () => {
+        const decoder = new data.Decoder();
+        const chunk = Buffer.alloc(6 + 1024);
+        chunk.writeUInt16BE(3, 0);
+        chunk.writeUInt32BE(16 * 1024 * 1024 + 1, 2);
+
+        const errorPromise = new Promise((resolve) => decoder.once('error', resolve));
+        decoder.write(chunk);
+        const error = await errorPromise;
+
+        expect(error.message).toMatch(/Message size exceeds maximum/);
+        expect(decoder._bufferSize).toBe(6);
+        expect(decoder._buffer.length).toBe(1024);
+      });
+
       test('decodes encoded message (round-trip)', async () => {
         const encoder = new data.Encoder();
         const decoder = new data.Decoder();
