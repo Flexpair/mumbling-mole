@@ -3,6 +3,7 @@ from websockify import websocketproxy
 
 class PeerAwareProxyRequestHandler(websocketproxy.ProxyRequestHandler):
     def auth_connection(self):
+        del self.headers['X-Websockify-Peer-IP']
         self.headers['X-Websockify-Peer-IP'] = self.client_address[0]
         super().auth_connection()
 

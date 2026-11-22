@@ -156,7 +156,7 @@ jobs:
             test -r /home/node/auth-server/websockify_runner.py &&
             ! test -w /home/node/auth-server/websockify_runner.py
           '
-          docker run --detach --rm \
+          docker run --detach \
             --name mumbling-mole-smoke \
             --publish 127.0.0.1:18081:8081 \
             --env MUMBLE_SERVER=127.0.0.1:64738 \
@@ -167,7 +167,9 @@ jobs:
             --env TRUSTED_PROXIES=127.0.0.1/32,::1/128 \
             "$TEST_TAG"
           cleanup() {
+            docker logs mumbling-mole-smoke 2>/dev/null || true
             docker stop mumbling-mole-smoke >/dev/null 2>&1 || true
+            docker rm mumbling-mole-smoke >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
 

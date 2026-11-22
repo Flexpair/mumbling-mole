@@ -670,12 +670,18 @@ class TestWebsockifyAuth(unittest.TestCase):
         handler = runner.PeerAwareProxyRequestHandler()
         handler.client_address = ('172.18.0.7', 12345)
         handler.headers = Message()
+        handler.headers['X-Websockify-Peer-IP'] = '127.0.0.1'
+        handler.headers['x-websockify-peer-ip'] = '192.0.2.10'
         handler.auth_connection()
         server = runner.PeerAwareWebSocketProxy()
 
         self.assertEqual(
             handler.authenticated_headers.get('X-Websockify-Peer-IP'),
             '172.18.0.7',
+        )
+        self.assertEqual(
+            handler.authenticated_headers.get_all('X-Websockify-Peer-IP'),
+            ['172.18.0.7'],
         )
         self.assertIs(
             server.request_handler,

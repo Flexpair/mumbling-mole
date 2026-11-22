@@ -85,16 +85,6 @@ else
 fi
 
 echo "[entrypoint] Start websockify ${SSL_TARGET_FLAG:+(ssl-target)} on ${HOST}:${PORT} → ${MUMBLE_SERVER} (web=${WEBROOT})"
-# SECURITY GUARD:
-# Current runner/auth path is vulnerable if peer IP is transported via client-writable header.
-# Block startup by default until Python-side fix is deployed:
-# - delete any incoming X-Websockify-Peer-IP before setting trusted value, or
-# - pass client_address via non-header channel to auth plugin.
-if [[ "${ALLOW_VULNERABLE_PEER_HEADER:-}" != "1" ]]; then
-  echo "[entrypoint] ERROR: Refusing to start vulnerable websockify auth flow." >&2
-  echo "[entrypoint] Set ALLOW_VULNERABLE_PEER_HEADER=1 only as a temporary emergency override." >&2
-  exit 1
-fi
 # Using array to safely handle optional SSL flag
 SSL_ARGS=()
 if [[ -n "${SSL_TARGET_FLAG}" ]]; then
