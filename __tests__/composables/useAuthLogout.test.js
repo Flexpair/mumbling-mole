@@ -20,7 +20,10 @@ const {
 describe('useAuthLogout', () => {
   test('tears down local resources from the connect-dialog logout path', async () => {
     const dependencies = {
-      auth: { logout: jest.fn().mockResolvedValue(undefined) },
+      auth: {
+        logout: jest.fn().mockResolvedValue(undefined),
+        clearSession: jest.fn(),
+      },
       uiStore: { guacamoleFrame: { stop: jest.fn() }, reset: jest.fn() },
       audioStore: { stopBeep: jest.fn() },
       voiceStore: { reset: jest.fn() },
@@ -40,13 +43,17 @@ describe('useAuthLogout', () => {
     expect(dependencies.userStore.reset).toHaveBeenCalledTimes(1);
     expect(dependencies.dialogStore.resetConnectDialog).toHaveBeenCalledTimes(1);
     expect(dependencies.auth.logout).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.clearSession).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
   test('reloads when provider logout never settles', async () => {
     jest.useFakeTimers();
     const dependencies = {
-      auth: { logout: jest.fn(() => new Promise(() => {})) },
+      auth: {
+        logout: jest.fn(() => new Promise(() => {})),
+        clearSession: jest.fn(),
+      },
       uiStore: { guacamoleFrame: null, reset: jest.fn() },
       audioStore: { stopBeep: jest.fn() },
       voiceStore: { reset: jest.fn() },
@@ -60,8 +67,31 @@ describe('useAuthLogout', () => {
     await logout;
 
     expect(reload).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.clearSession).toHaveBeenCalledTimes(1);
 
     jest.useRealTimers();
+  });
+
+  test('clears the provider session when logout fails', async () => {
+    const dependencies = {
+      auth: {
+        logout: jest.fn().mockRejectedValue(new Error('logout failed')),
+        clearSession: jest.fn(),
+      },
+      uiStore: { guacamoleFrame: null, reset: jest.fn() },
+      audioStore: { stopBeep: jest.fn() },
+      voiceStore: { reset: jest.fn() },
+      connectionStore: { disconnect: jest.fn() },
+      userStore: { reset: jest.fn() },
+    };
+    const reload = jest.fn();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await logoutSession(dependencies, reload);
+
+    expect(dependencies.auth.clearSession).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 
   test('ignores the delayed provider event from reauthentication logout once', async () => {

@@ -45,6 +45,11 @@ export async function logoutSession(dependencies, reload = () => globalThis.loca
     console.error('[Auth] Logout failed:', error);
   } finally {
     clearTimeout(timeoutId);
+    try {
+      dependencies.auth.clearSession?.();
+    } catch (error) {
+      console.error('[Auth] Could not clear local session:', error);
+    }
   }
 
   reload();

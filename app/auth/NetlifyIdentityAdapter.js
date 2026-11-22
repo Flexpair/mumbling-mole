@@ -281,6 +281,22 @@ class NetlifyIdentityAdapter extends AuthProvider {
     return operation;
   }
 
+  clearSession() {
+    try {
+      globalThis.localStorage?.removeItem('gotrue.user');
+    } catch (error) {
+      console.warn('[Auth] Could not clear stored session:', error);
+    }
+
+    if (!this.netlifyIdentity?.store) return;
+    this._suppressSessionCleanupLogout = true;
+    try {
+      this.netlifyIdentity.store.user = null;
+    } finally {
+      this._suppressSessionCleanupLogout = false;
+    }
+  }
+
   _wrapLogoutHandler(event, callback) {
     if (event !== 'logout') return callback;
     if (!this._logoutHandlerWrappers.has(callback)) {
