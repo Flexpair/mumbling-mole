@@ -45,6 +45,11 @@ fi
 
 # Start Auth Server in background (if available and not skipped)
 if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]]; then
+  : "${TRUSTED_PROXIES:?Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR}"
+  if [[ -z "${TRUSTED_PROXIES//[[:space:]]/}" ]]; then
+    echo "Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR" >&2
+    exit 1
+  fi
   echo "[entrypoint] Starting auth server on ${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}"
   
   nohup env \
@@ -59,7 +64,7 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     SUPABASE_URL="${SUPABASE_URL:-}" \
     AUTH0_DOMAIN="${AUTH0_DOMAIN:-}" \
     AUTH_ALLOWED_ORIGINS="${AUTH_ALLOWED_ORIGINS:-}" \
-    TRUSTED_PROXIES="${TRUSTED_PROXIES:-}" \
+    TRUSTED_PROXIES="${TRUSTED_PROXIES}" \
     python3 "${AUTH_SERVER_DIR}/server.py" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!
