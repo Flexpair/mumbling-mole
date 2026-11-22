@@ -91,7 +91,7 @@ if [[ -n "${SSL_TARGET_FLAG}" ]]; then
   SSL_ARGS=("${SSL_TARGET_FLAG}")
 fi
 exec env PYTHONPATH="${AUTH_SERVER_DIR}${PYTHONPATH:+:${PYTHONPATH}}" \
-  python3 "${AUTH_SERVER_DIR}/websockify_runner.py" "${SSL_ARGS[@]}" \
+  /opt/venv/bin/python3 "${AUTH_SERVER_DIR}/websockify_runner.py" "${SSL_ARGS[@]}" \
   --auth-plugin=websockify_auth.MumbleTokenAuth \
   --auth-source="http://127.0.0.1:${AUTH_SERVER_PORT}/api/tunnel-authorize" \
   --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"
