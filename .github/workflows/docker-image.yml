@@ -18,7 +18,8 @@ env:
   TEST_TAG: jafudi/mumbling-mole:test
 
 jobs:
-  docker:
+  test:
+    name: Test
     runs-on: ubuntu-latest
 
     steps:
@@ -43,8 +44,19 @@ jobs:
       - name: Run unit tests with coverage
         run: npm run test:unit:coverage
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+
       - name: Run Python auth-server tests
-        run: python3 auth-server/test_server.py
+        run: |
+          python3 -m pip install --only-binary :all: pytest==8.3.5 pytest-cov==7.1.0
+          python3 -m pytest auth-server/ \
+            --cov=server \
+            --cov=websockify_auth \
+            --cov=websockify_runner \
+            --cov-report=xml:coverage/python-coverage.xml
 
       - name: Verify coverage thresholds
         run: |
@@ -62,6 +74,25 @@ jobs:
           fi
           echo "✅ Coverage thresholds passed (enforced by Jest)"
 
+      - name: Check SonarCloud credentials
+        id: sonar
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [[ -n "${SONAR_TOKEN}" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "SonarCloud scan skipped because SONAR_TOKEN is not configured."
+          fi
+
+      - name: Analyze with SonarCloud
+        if: steps.sonar.outputs.enabled == 'true'
+        uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+
       - name: Upload coverage report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
@@ -69,6 +100,15 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 30
+
+  docker:
+    name: Docker build
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
@@ -105,6 +145,56 @@ jobs:
           cache-from: type=gha
           build-args: |
             GIT_COMMIT=${{ github.sha }}
+
+      - name: Verify unauthenticated WebSocket tunnel is rejected
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint /bin/sh "$TEST_TAG" -c '
+            test "$(id -u)" -ne 0 &&
+            test -r /home/node/auth-server/websockify_auth.py &&
+            ! test -w /home/node/auth-server/websockify_auth.py &&
+            test -r /home/node/auth-server/websockify_runner.py &&
+            ! test -w /home/node/auth-server/websockify_runner.py
+          '
+          docker run --detach \
+            --name mumbling-mole-smoke \
+            --publish 127.0.0.1:18081:8081 \
+            --env MUMBLE_SERVER=127.0.0.1:64738 \
+            --env MUMBLE_PASSWORD=smoke-mumble-password \
+            --env GUAC_ADMIN_PASSWORD=smoke-guac-admin-password \
+            --env GUAC_EDITOR_PASSWORD=smoke-guac-editor-password \
+            --env GUAC_WATCHER_PASSWORD=smoke-guac-watcher-password \
+            --env TRUSTED_PROXIES=127.0.0.1/32,::1/128 \
+            "$TEST_TAG"
+          cleanup() {
+            docker logs mumbling-mole-smoke 2>/dev/null || true
+            docker stop mumbling-mole-smoke >/dev/null 2>&1 || true
+            docker rm mumbling-mole-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..20}; do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --http1.1 \
+              --header 'Connection: Upgrade' \
+              --header 'Upgrade: websocket' \
+              --header 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+              --header 'Sec-WebSocket-Version: 13' \
+              http://127.0.0.1:18081/murmur || true)"
+            if [[ "$status" == "401" ]]; then
+              exit 0
+            fi
+            if [[ "$status" != "000" ]]; then
+              docker logs mumbling-mole-smoke
+              echo "Expected HTTP 401 from unauthenticated WebSocket request, got $status" >&2
+              exit 1
+            fi
+            sleep 1
+          done
+
+          docker logs mumbling-mole-smoke
+          echo "WebSocket tunnel did not become ready" >&2
+          exit 1
 
       - name: Push image tags
         if: github.event_name != 'pull_request'

@@ -49,6 +49,33 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     echo "Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR" >&2
     exit 1
   fi
+  if ! python3 - "${AUTH_SERVER_HOST}" <<'PY'
+import ipaddress
+import socket
+import sys
+
+try:
+    addresses = socket.getaddrinfo(sys.argv[1], None, socket.AF_INET)
+except OSError:
+    sys.exit(1)
+
+sys.exit(
+    not addresses
+    or any(
+        not (
+            ipaddress.ip_address(address[4][0]).is_loopback
+            or ipaddress.ip_address(address[4][0]).is_unspecified
+        )
+        for address in addresses
+    )
+)
+PY
+  then
+    echo "AUTH_SERVER_HOST must resolve to an IPv4 loopback or wildcard address for the local websockify callback" >&2
+    exit 1
+  fi
+  # websockify auth callback comes from loopback; always trust loopback hops for X-Forwarded-For resolution
+  AUTH_TRUSTED_PROXIES="${TRUSTED_PROXIES},127.0.0.1/32,::1"
   echo "[entrypoint] Starting auth server on ${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}"
   
   nohup env \
@@ -63,7 +90,7 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     SUPABASE_URL="${SUPABASE_URL:-}" \
     AUTH0_DOMAIN="${AUTH0_DOMAIN:-}" \
     AUTH_ALLOWED_ORIGINS="${AUTH_ALLOWED_ORIGINS:-}" \
-    TRUSTED_PROXIES="${TRUSTED_PROXIES}" \
+    TRUSTED_PROXIES="${AUTH_TRUSTED_PROXIES}" \
     python3 "${AUTH_SERVER_DIR}/server.py" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!
@@ -77,6 +104,9 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     cat /tmp/auth-server.log >&2 2>/dev/null || true
     exit 1
   fi
+else
+  echo "[entrypoint] Authentication server is required for the Mumble WebSocket tunnel" >&2
+  exit 1
 fi
 
 echo "[entrypoint] Start websockify ${SSL_TARGET_FLAG:+(ssl-target)} on ${HOST}:${PORT} → ${MUMBLE_SERVER} (web=${WEBROOT})"
@@ -85,4 +115,8 @@ SSL_ARGS=()
 if [[ -n "${SSL_TARGET_FLAG}" ]]; then
   SSL_ARGS=("${SSL_TARGET_FLAG}")
 fi
-exec websockify "${SSL_ARGS[@]}" --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"
+exec env PYTHONPATH="${AUTH_SERVER_DIR}${PYTHONPATH:+:${PYTHONPATH}}" \
+  /opt/venv/bin/python3 "${AUTH_SERVER_DIR}/websockify_runner.py" "${SSL_ARGS[@]}" \
+  --auth-plugin=websockify_auth.MumbleTokenAuth \
+  --auth-source="http://127.0.0.1:${AUTH_SERVER_PORT}/api/tunnel-authorize" \
+  --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"

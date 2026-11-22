@@ -5,20 +5,18 @@ FROM ubuntu:24.04 AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Deadsnakes PPA für Python 3.11 + Runtime-Pakete + Python venv + websockify in one layer
-RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
+# Runtime-Pakete + Python venv + websockify in one layer
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bash \
-        python3.11 \
-        python3.11-venv \
+        ca-certificates \
+        python3 \
+        python3-venv \
         tini && \
-    apt-get remove -y software-properties-common && \
-    apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
-    /usr/bin/python3.11 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir websockify==0.13.0
+    python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir --only-binary :all: websockify==0.13.0 && \
+    /opt/venv/bin/websockify --help 2>&1 | grep -q -- '--auth-plugin'
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
@@ -140,8 +138,10 @@ FROM base-runtime AS prod
 COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dist
 
 # Create auth-server directory (needs 755 for directory traversal)
-RUN mkdir -p /home/node/auth-server && chown node:node /home/node/auth-server
+RUN mkdir -p /home/node/auth-server && chmod 755 /home/node/auth-server
 COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
+COPY --chmod=444 ./auth-server/websockify_auth.py /home/node/auth-server/websockify_auth.py
+COPY --chmod=444 ./auth-server/websockify_runner.py /home/node/auth-server/websockify_runner.py
 
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 

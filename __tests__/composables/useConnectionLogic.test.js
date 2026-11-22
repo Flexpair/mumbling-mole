@@ -342,7 +342,8 @@ describe('useConnectionLogic', () => {
         64738,
         'current-user',
         'current-password',
-        []
+        [],
+        'test-jwt-token'
       );
     });
 
@@ -416,7 +417,8 @@ describe('useConnectionLogic', () => {
         64738,
         'user',
         'test-password',
-        []
+        [],
+        'test-jwt-token'
       );
       expect(mockStartGuacamoleFrame).toHaveBeenCalledWith(
         'watcher',
@@ -542,7 +544,8 @@ describe('useConnectionLogic', () => {
         64738,
         'new-user',
         'new-password',
-        []
+        [],
+        'new-session-token'
       );
       expect(mockStartGuacamoleFrame).toHaveBeenCalledTimes(1);
       expect(mockStartGuacamoleFrame).toHaveBeenCalledWith(
@@ -640,7 +643,8 @@ describe('useConnectionLogic', () => {
         64738,
         'current-user',
         'test-password',
-        []
+        [],
+        'current-token'
       );
     });
 
@@ -687,7 +691,8 @@ describe('useConnectionLogic', () => {
         64738,
         'current-user',
         'current-password',
-        []
+        [],
+        'current-token'
       );
     });
 
@@ -1165,4 +1170,3 @@ describe('useConnectionLogic', () => {
     });
   });
 });
-

@@ -112,7 +112,7 @@ export function useConnectionLogic({ auth } = {}) {
 
       const serverCredentials = await fetchCredentials(token);
       if (!isConnectionAttemptCurrent(attempt)) return null;
-      return serverCredentials;
+      return { serverCredentials, accessToken: token };
     } catch (error) {
       if (!isConnectionAttemptCurrent(attempt) || isConnectionCancellation(error)) return null;
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
@@ -161,8 +161,9 @@ export function useConnectionLogic({ auth } = {}) {
     if (!(await _ensureAuthenticated(attempt))) return;
 
     // Fetch credentials from auth server (validates JWT server-side)
-    const serverCredentials = await _fetchServerCredentials(attempt, { host, port, username });
-    if (!serverCredentials) return;
+    const authenticatedCredentials = await _fetchServerCredentials(attempt, { host, port, username });
+    if (!authenticatedCredentials) return;
+    const { serverCredentials, accessToken } = authenticatedCredentials;
 
     // Use server-provided password
     const password = serverCredentials.mumblePassword;
@@ -175,6 +176,7 @@ export function useConnectionLogic({ auth } = {}) {
       tokens,
       isLoopback,
       serverCredentials,
+      accessToken,
       attempt,
     };
 
@@ -211,7 +213,7 @@ export function useConnectionLogic({ auth } = {}) {
    * @private
    */
   async function _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { host, port, username, password, tokens = [], serverCredentials, attempt } = connectionParams;
+    const { attempt } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
 
     if (!attempt || !isConnectionAttemptCurrent(attempt)) return;
@@ -233,7 +235,7 @@ export function useConnectionLogic({ auth } = {}) {
       // Reset UI state
       resetUIForConnection(audioStore, userStore, voiceStore);
 
-      await _establishClientConnection(host, port, username, password, tokens, serverCredentials, attempt);
+      await _establishClientConnection(connectionParams);
     } catch (err) {
       _handleConnectionFailure(err, connectionParams, attempt);
     }
@@ -243,8 +245,12 @@ export function useConnectionLogic({ auth } = {}) {
    * Establish client connection and setup
    * @private
    */
-  async function _establishClientConnection(host, port, username, password, tokens, serverCredentials, attempt) {
-    const client = await connectionStore.connect(host, port, username, password, tokens);
+  async function _establishClientConnection({
+    host, port, username, password, tokens = [], serverCredentials, accessToken, attempt
+  }) {
+    const client = await connectionStore.connect(
+      host, port, username, password, tokens, accessToken
+    );
     if (!isConnectionAttemptCurrent(attempt)) {
       if (connectionStore.getClient() === client) {
         connectionStore.disconnect();
