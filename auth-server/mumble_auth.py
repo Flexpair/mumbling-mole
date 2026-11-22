@@ -44,7 +44,9 @@ class MumbleIdentityRegistry:
                 for row in self._database.execute('PRAGMA table_info(identities)')
             }
             if 'username_key' not in columns:
-                self._migrate_username_keys()
+                with self._database:
+                    self._database.execute('BEGIN IMMEDIATE')
+                    self._migrate_username_keys()
         self._database.commit()
 
     def _migrate_username_keys(self) -> None:
