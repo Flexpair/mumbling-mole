@@ -5,20 +5,16 @@ FROM ubuntu:24.04 AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Deadsnakes PPA für Python 3.11 + Runtime-Pakete + Python venv + websockify in one layer
-RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
+# Runtime-Pakete + Python venv + websockify in one layer
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bash \
-        python3.11 \
-        python3.11-venv \
+        python3 \
+        python3-venv \
         tini && \
-    apt-get remove -y software-properties-common && \
-    apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
-    /usr/bin/python3.11 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir websockify==0.13.0 && \
+    python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir --only-binary :all: websockify==0.13.0 && \
     /opt/venv/bin/websockify --help 2>&1 | grep -q -- '--auth-plugin'
 
 ENV PATH="/opt/venv/bin:${PATH}"

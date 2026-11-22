@@ -12,6 +12,10 @@ TRUSTED_PROXIES = tuple(
     if value.strip()
 )
 
+AUTHENTICATION_REQUIRED_MESSAGE = 'WebSocket authentication required'
+AUTHORIZATION_UNAVAILABLE_MESSAGE = 'WebSocket authorization unavailable'
+AUTHORIZATION_DENIED_MESSAGE = 'WebSocket authorization denied'
+
 
 class MumbleTokenAuth(BasePlugin):
     protocol_prefix = 'mumble-auth.'
@@ -29,7 +33,7 @@ class MumbleTokenAuth(BasePlugin):
         if len(tokens) != 1 or not tokens[0]:
             raise AuthenticationError(
                 response_code=401,
-                response_msg='WebSocket authentication required',
+                response_msg=AUTHENTICATION_REQUIRED_MESSAGE,
             )
 
         peer_ip = headers.get('X-Websockify-Peer-IP')
@@ -38,7 +42,7 @@ class MumbleTokenAuth(BasePlugin):
         except (TypeError, ValueError):
             raise AuthenticationError(
                 response_code=503,
-                response_msg='WebSocket authorization unavailable',
+                response_msg=AUTHORIZATION_UNAVAILABLE_MESSAGE,
             )
 
         request_headers = {'Authorization': 'Bearer ' + tokens[0]}
@@ -58,16 +62,16 @@ class MumbleTokenAuth(BasePlugin):
                 if response.status != 200:
                     raise AuthenticationError(
                         response_code=503,
-                        response_msg='WebSocket authorization unavailable',
+                        response_msg=AUTHORIZATION_UNAVAILABLE_MESSAGE,
                     )
         except HTTPError as error:
             status = error.code if error.code in {401, 403, 429} else 503
             raise AuthenticationError(
                 response_code=status,
-                response_msg='WebSocket authorization denied',
+                response_msg=AUTHORIZATION_DENIED_MESSAGE,
             ) from error
         except OSError as error:
             raise AuthenticationError(
                 response_code=503,
-                response_msg='WebSocket authorization unavailable',
+                response_msg=AUTHORIZATION_UNAVAILABLE_MESSAGE,
             ) from error
