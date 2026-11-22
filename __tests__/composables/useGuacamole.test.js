@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import {
   buildGuacamoleSource,
   clearGuacamoleSession,
+  revokeGuacamoleSession,
   startGuacamoleFrame,
 } from '../../app/composables/useGuacamole.js';
 
@@ -20,6 +21,40 @@ describe('clearGuacamoleSession', () => {
     };
 
     expect(() => clearGuacamoleSession(storage)).not.toThrow();
+  });
+});
+
+describe('revokeGuacamoleSession', () => {
+  it('revokes the stored token through Guacamole', async () => {
+    const storage = { getItem: jest.fn(() => 'session-token') };
+    const fetcher = jest.fn().mockResolvedValue({ ok: true, status: 204 });
+
+    await revokeGuacamoleSession(storage, fetcher);
+
+    expect(fetcher).toHaveBeenCalledWith('/guacamole/api/session', {
+      method: 'DELETE',
+      headers: { 'Guacamole-Token': 'session-token' },
+      keepalive: true,
+    });
+  });
+
+  it('skips missing tokens and tolerates revocation failures', async () => {
+    const fetcher = jest.fn();
+    const storage = { getItem: jest.fn(() => null) };
+
+    await revokeGuacamoleSession(storage, fetcher);
+    expect(fetcher).not.toHaveBeenCalled();
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await revokeGuacamoleSession(
+      { getItem: jest.fn(() => 'session-token') },
+      jest.fn().mockRejectedValue(new Error('Unavailable')),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      '[Guacamole] Could not revoke server session:',
+      expect.any(Error),
+    );
+    warn.mockRestore();
   });
 });
 

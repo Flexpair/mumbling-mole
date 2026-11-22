@@ -34,6 +34,7 @@ import { ref, watch, onMounted, useTemplateRef, onWatcherCleanup } from 'vue';
 import {
   buildGuacamoleSource,
   clearGuacamoleSession,
+  revokeGuacamoleSession,
 } from '../composables/useGuacamole';
 
 /**
@@ -92,6 +93,7 @@ onMounted(() => {
  * @param {string} password - Guacamole password
  */
 function start(guacUser, password) {
+  revokeGuacamoleSession();
   clearGuacamoleSession();
 
   // Sanitize bad localStorage entries that break Guacamole's JSON.parse
@@ -133,6 +135,7 @@ function hide() {
  * Stop and unload the Guacamole session.
  */
 function stop() {
+  revokeGuacamoleSession();
   clearGuacamoleSession();
   visible.value = false;
   guacSource.value = null;

@@ -15,6 +15,28 @@ export function clearGuacamoleSession(storage) {
   }
 }
 
+export function revokeGuacamoleSession(storage, fetcher = globalThis.fetch) {
+  try {
+    const sessionStorage = storage ?? globalThis.localStorage;
+    const token = sessionStorage?.getItem(GUACAMOLE_SESSION_STORAGE_KEY);
+    if (!token || typeof fetcher !== 'function') return;
+
+    return Promise.resolve(fetcher('/guacamole/api/session', {
+      method: 'DELETE',
+      headers: { 'Guacamole-Token': token },
+      keepalive: true,
+    })).then(response => {
+      if (!response.ok && response.status !== 401) {
+        console.warn('[Guacamole] Could not revoke server session:', response.status);
+      }
+    }).catch(error => {
+      console.warn('[Guacamole] Could not revoke server session:', error);
+    });
+  } catch (error) {
+    console.warn('[Guacamole] Could not revoke server session:', error);
+  }
+}
+
 /**
  * Build a Guacamole URL without allowing credential values to alter fragment
  * parameters.
