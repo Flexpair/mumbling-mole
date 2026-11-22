@@ -266,12 +266,26 @@ def get_guacamole_user(roles: Any) -> Optional[str]:
 
 
 def get_mumble_username(user: dict) -> Optional[str]:
-    """Derive a stable, opaque Mumble identity from the validated user."""
+    """Derive a readable Mumble username from the validated user."""
     identity = user.get('sub') or user.get('email')
     if not isinstance(identity, str) or not identity:
         return None
+
+    email = user.get('email')
+    candidates = (
+        get_nested_property(user, 'user_metadata.full_name'),
+        get_nested_property(user, 'user_metadata.name'),
+        email.split('@', 1)[0] if isinstance(email, str) else None,
+    )
+    display = 'user'
+    for candidate in candidates:
+        if isinstance(candidate, str):
+            sanitized = re.sub(r'[^A-Za-z0-9 _.-]', '', candidate).strip()[:24].strip()
+            if sanitized:
+                display = sanitized
+                break
     digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()[:16]
-    return f'user-{digest}'
+    return f'{display} ({digest})'
 
 
 def _is_valid_url_scheme(url: str) -> bool:

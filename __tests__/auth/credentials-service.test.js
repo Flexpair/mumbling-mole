@@ -40,7 +40,7 @@ const createJsonErrorResponse = (status) => ({
 describe('credentials-service', () => {
   const validCredentials = {
     mumblePassword: 'test-password',
-    mumbleUsername: 'user-test',
+    mumbleUsername: 'Test User (3ff34ed40e9ac98f)',
     guacamoleUser: 'editor',
     guacamolePassword: 'guac-password'
   };

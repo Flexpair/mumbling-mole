@@ -135,20 +135,58 @@ class TestGetGuacamoleUser(unittest.TestCase):
 class TestGetMumbleUsername(unittest.TestCase):
     """Tests for identity-bound Mumble usernames."""
 
-    def test_uses_stable_opaque_identity(self):
-        username = get_mumble_username({'sub': 'identity-1', 'email': 'one@example.com'})
-        self.assertEqual(username, get_mumble_username({'sub': 'identity-1'}))
-        self.assertTrue(username.startswith('user-'))
-        self.assertEqual(len(username), 21)
+    def test_uses_stable_subject_suffix(self):
+        user = {'sub': 'identity-1', 'email': 'one@example.com',
+                'user_metadata': {'full_name': 'Test User'}}
+        self.assertEqual(get_mumble_username(user), 'Test User (3ff34ed40e9ac98f)')
+        self.assertEqual(get_mumble_username(user), get_mumble_username(user.copy()))
+        self.assertEqual(
+            get_mumble_username({**user, 'email': 'another@example.com'}),
+            get_mumble_username(user),
+        )
 
     def test_prefers_subject_over_email(self):
-        self.assertNotEqual(
-            get_mumble_username({'sub': 'identity-1', 'email': 'one@example.com'}),
-            get_mumble_username({'sub': 'identity-2', 'email': 'one@example.com'}),
+        self.assertEqual(get_mumble_username({'sub': 'identity-1', 'email': 'one@example.com'}),
+                         'one (3ff34ed40e9ac98f)')
+        self.assertEqual(get_mumble_username({'sub': 'identity-2', 'email': 'one@example.com'}),
+                         'one (b059c9e4af70c9f6)')
+
+    def test_display_name_fallbacks(self):
+        user = {'sub': 'identity-1', 'email': 'one@example.com'}
+        for metadata, expected in (
+            ({'full_name': 'Full Name', 'name': 'Short Name'}, 'Full Name'),
+            ({'name': 'Short Name'}, 'Short Name'),
+            ({}, 'one'),
+            ({'full_name': '!!!', 'name': 'Short Name'}, 'Short Name'),
+            (None, 'one'),
+        ):
+            with self.subTest(metadata=metadata):
+                self.assertEqual(get_mumble_username({**user, 'user_metadata': metadata}),
+                                 f'{expected} (3ff34ed40e9ac98f)')
+        self.assertEqual(get_mumble_username({'sub': 'identity-1'}), 'user (3ff34ed40e9ac98f)')
+        self.assertEqual(get_mumble_username({'email': 'one@example.com'}),
+                         'one (d25354f658256d39)')
+
+    def test_sanitizes_and_truncates_display_name(self):
+        self.assertEqual(
+            get_mumble_username({'sub': 'identity-1',
+                                 'user_metadata': {'full_name': '  Test! User/@._-  '}}),
+            'Test User._- (3ff34ed40e9ac98f)',
+        )
+        self.assertEqual(
+            get_mumble_username({'sub': 'identity-1',
+                                 'user_metadata': {'full_name': 'abcdefghijklmnopqrstuvwxyz'}}),
+            'abcdefghijklmnopqrstuvwx (3ff34ed40e9ac98f)',
+        )
+        self.assertEqual(
+            get_mumble_username({'sub': 'identity-1', 'user_metadata': {'name': '!!!'}}),
+            'user (3ff34ed40e9ac98f)',
         )
 
     def test_requires_stable_identity(self):
         self.assertIsNone(get_mumble_username({}))
+        self.assertIsNone(get_mumble_username({'sub': '', 'email': ''}))
+        self.assertIsNone(get_mumble_username({'sub': 123}))
 
 
 class TestHashEmail(unittest.TestCase):
@@ -759,16 +797,18 @@ class TestAuthProviderConfig(unittest.TestCase):
                 mock_validate.return_value = {
                     'sub': f'identity-{expected_user}',
                     'app_metadata': {'roles': app_roles},
-                    'user_metadata': {'roles': user_roles},
+                    'user_metadata': {'roles': user_roles, 'full_name': 'Test User'},
                 }
                 handler = TestCredentialRateLimitOrdering._handler('Bearer token')
                 handler.do_POST()
                 response = handler.send_json.call_args.args
                 self.assertEqual(response[0], 200)
-                self.assertEqual(
-                    response[1]['mumbleUsername'],
-                    get_mumble_username(mock_validate.return_value),
-                )
+                expected_suffix = {
+                    'watcher': '498203537b341c7e',
+                    'editor': '47d67843694c32de',
+                    'admin': '5059f084e65b6c4a',
+                }[expected_user]
+                self.assertEqual(response[1]['mumbleUsername'], f'Test User ({expected_suffix})')
                 self.assertEqual(response[1]['guacamoleUser'], expected_user)
                 self.assertEqual(response[1]['guacamolePassword'], GUACAMOLE_PASSWORDS[expected_user])
 
