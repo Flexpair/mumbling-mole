@@ -41,8 +41,11 @@ it('mounts while authentication is pending and logs an unexpected rejection', as
   });
   const previousOnload = globalThis.onload;
   const previousBody = document.body.innerHTML;
+  const previousUrl = globalThis.location.href;
   document.body.innerHTML = '<div id="app"></div>';
+  globalThis.history.replaceState(null, '', '/?address=untrusted.example&port=443%2Fattacker.example');
   globalThis.mumbleWebConfig = { settings: {}, defaults: {} };
+  dialogStore.connectDialog = { address: '', port: '' };
   auth.init.mockReturnValue(initialization.promise);
   auth.getCurrentUser.mockResolvedValue({
     get user_metadata() { throw failure; },
@@ -53,6 +56,8 @@ it('mounts while authentication is pending and logs an unexpected rejection', as
     await globalThis.onload();
     expect(document.querySelector('#app main')?.textContent).toBe('Application ready');
     expect(document.documentElement.classList.contains('app-mounted')).toBe(true);
+    expect(dialogStore.connectDialog.address).toBe('');
+    expect(dialogStore.connectDialog.port).toBe('');
 
     initialization.resolve();
     await expect(reported.promise).resolves.toEqual({
@@ -70,6 +75,7 @@ it('mounts while authentication is pending and logs an unexpected rejection', as
     windowListeners.mockRestore();
     errorLog.mockRestore();
     document.body.innerHTML = previousBody;
+    globalThis.history.replaceState(null, '', previousUrl);
     document.documentElement.classList.remove('app-mounted');
     globalThis.onload = previousOnload;
     delete globalThis.mumbleWebConfig;
