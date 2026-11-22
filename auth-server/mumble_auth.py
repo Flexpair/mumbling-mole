@@ -165,6 +165,35 @@ class MumbleAuthenticator:
         return self._identities.get_by_username(username)
 
 
+def _build_servant(authenticator, mumble_server_module):
+    class Servant(mumble_server_module.ServerAuthenticator):
+        def __init__(self):
+            self.authenticator = authenticator
+
+        def authenticate(self, name, password, certificates, certificate_hash, certificate_strong, current):
+            result = self.authenticator.authenticate(name, password)
+            if isinstance(result, int):
+                return result, '', []
+            identity = result
+            return identity.user_id, identity.username, []
+
+        def getInfo(self, user_id, current):
+            return False, {}
+
+        def nameToId(self, name, current):
+            identity = self.authenticator.get_by_username(name)
+            return identity.user_id if identity else -2
+
+        def idToName(self, user_id, current):
+            identity = self.authenticator.get_by_id(user_id)
+            return identity.username if identity else ''
+
+        def idToTexture(self, user_id, current):
+            return b''
+
+    return Servant
+
+
 class MurmurIceAuthenticator:
     def __init__(
         self,
@@ -181,6 +210,7 @@ class MurmurIceAuthenticator:
         self._ready = ready
         self._stop = threading.Event()
         self._thread = None
+        self._attached_servers = set()
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._serve, daemon=True)
@@ -195,41 +225,16 @@ class MurmurIceAuthenticator:
         import Ice
 
         slice_path = Path(__file__).with_name('MumbleServer.ice')
-        Ice.loadSlice(f'-I{Ice.getSliceDir()} {slice_path}')
+        slice_dir = Ice.getSliceDir()
+        include = f'-I{slice_dir} ' if slice_dir else ''
+        Ice.loadSlice(f'{include}{slice_path}')
         import MumbleServer
-
-        authenticator = self._authenticator
-
-        class Servant(MumbleServer.ServerAuthenticator):
-            def __init__(self):
-                self.authenticator = authenticator
-
-            def authenticate(self, name, password, certificates, certificate_hash, certificate_strong, current):
-                result = self.authenticator.authenticate(name, password)
-                if isinstance(result, int):
-                    return result, '', []
-                identity = result
-                return identity.user_id, identity.username, []
-
-            def getInfo(self, user_id, current):
-                return False, {}
-
-            def nameToId(self, name, current):
-                identity = self.authenticator.get_by_username(name)
-                return identity.user_id if identity else -2
-
-            def idToName(self, user_id, current):
-                identity = self.authenticator.get_by_id(user_id)
-                return identity.username if identity else ''
-
-            def idToTexture(self, user_id, current):
-                return []
 
         communicator = Ice.initialize()
         adapter = communicator.createObjectAdapterWithEndpoints(
             'MumbleAuthenticator', self._callback_endpoint
         )
-        servant = Servant()
+        servant = _build_servant(self._authenticator, MumbleServer)()
         adapter.add(servant, Ice.stringToIdentity('MumbleAuthenticator'))
         adapter.activate()
         callback = MumbleServer.ServerAuthenticatorPrx.uncheckedCast(
@@ -241,28 +246,40 @@ class MurmurIceAuthenticator:
         try:
             while not self._stop.is_set():
                 try:
-                    meta = MumbleServer.MetaPrx.checkedCast(meta_proxy)
-                    if meta is None:
-                        raise RuntimeError('Murmur Meta proxy unavailable')
-                    servers = meta.getBootedServers(context)
-                    for server in servers:
-                        server.setAuthenticator(callback, context)
-                    if servers:
-                        self._ready.set()
-                    else:
-                        self._ready.clear()
+                    self._attach_authenticator(MumbleServer, meta_proxy, callback, context)
                 except Exception as error:
+                    self._attached_servers.clear()
                     self._ready.clear()
-                    reason = str(error)
-                    for sensitive in (self._secret, self._endpoint, self._callback_endpoint):
-                        if sensitive:
-                            reason = reason.replace(sensitive, '[redacted]')
-                    print(f'[AUTH] Murmur authenticator unavailable; retrying ({type(error).__name__}: {reason})')
+                    print(
+                        f'[AUTH] Murmur authenticator unavailable; retrying '
+                        f'({type(error).__name__}: {self._redact(str(error))})'
+                    )
                 self._stop.wait(2)
         finally:
             self._ready.clear()
             adapter.destroy()
             communicator.destroy()
+
+    def _attach_authenticator(self, MumbleServer, meta_proxy, callback, context) -> None:
+        meta = MumbleServer.MetaPrx.checkedCast(meta_proxy)
+        if meta is None:
+            raise RuntimeError('Murmur Meta proxy unavailable')
+        servers = meta.getBootedServers(context)
+        for server in servers:
+            server_id = server.id(context)
+            if server_id not in self._attached_servers:
+                server.setAuthenticator(callback, context)
+                self._attached_servers.add(server_id)
+        if servers:
+            self._ready.set()
+        else:
+            self._ready.clear()
+
+    def _redact(self, message: str) -> str:
+        for sensitive in (self._secret, self._endpoint, self._callback_endpoint):
+            if sensitive:
+                message = message.replace(sensitive, '[redacted]')
+        return message
 
 
 def create_mumble_authenticator(

@@ -115,12 +115,14 @@ AUTH_PROVIDERS = {
     'netlify': {
         'userEndpoint': os.environ.get('NETLIFY_IDENTITY_URL', 'https://welcome.flexpair.com/identity-proxy'),
         'subjectClaim': 'id',
+        'displayNameClaim': 'user_metadata.full_name',
         'rolesClaim': 'app_metadata.roles',
         'allowedHosts': ('welcome.flexpair.com',)
     },
     'supabase': {
         'userEndpoint': f"{os.environ.get('SUPABASE_URL')}/auth/v1" if os.environ.get('SUPABASE_URL') else None,
         'subjectClaim': 'id',
+        'displayNameClaim': 'user_metadata.full_name',
         'rolesClaim': 'app_metadata.roles',
         'allowedHostSuffixes': ('.supabase.co', '.supabase.in'),
         'allowedHostPrefixLabels': (1,)
@@ -128,6 +130,7 @@ AUTH_PROVIDERS = {
     'auth0': {
         'userEndpoint': f"https://{os.environ.get('AUTH0_DOMAIN')}" if os.environ.get('AUTH0_DOMAIN') else None,
         'subjectClaim': 'sub',
+        'displayNameClaim': 'name',
         'rolesClaim': 'https://flexpair.com/roles',
         'allowedHostSuffixes': ('.auth0.com',),
         'allowedHostPrefixLabels': (1, 2)
@@ -691,7 +694,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             return
 
         subject = get_nested_property(user, provider_config['subjectClaim'])
-        display_name = get_nested_property(user, 'user_metadata.full_name')
+        display_name = get_nested_property(user, provider_config['displayNameClaim'])
         if not isinstance(subject, str) or not subject:
             self.send_json(401, {'error': 'Invalid identity'})
             return

@@ -87,6 +87,20 @@ The main scenarios are:
 
 See [tests/playwright/README.md](playwright/README.md) for the browser-specific workflow.
 
+## Verify ICE authenticator
+
+From the running Dev Container:
+
+1. Run `docker compose up` and confirm Murmur's log contains `Registered authenticator`.
+2. Set `IDENTITY_AUTH_HEADER` to an Authorization header containing a valid identity JWT, send it to the credential endpoint, and confirm HTTP 200 with `mumbleUsername` and `mumblePassword`:
+
+   ```bash
+   curl -i -X POST https://local.flexpair.app/api/credentials \
+    -H "$IDENTITY_AUTH_HEADER"
+   ```
+
+3. Connect with the returned username and token in the web client; confirm login succeeds. Retry with that same username and token and confirm the second login is rejected.
+
 ## CI gates
 
 `.github/workflows/docker-image.yml` runs these gates before building the production Docker image:

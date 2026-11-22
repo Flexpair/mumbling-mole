@@ -10,7 +10,10 @@
     <h2 id="connect-dialog_title" class="dialog-header">{{ translate('connectdialog.title') }}</h2>
     <form @submit.prevent="handleConnect">
       <div class="form-fields">
-        <div v-if="config.connectDialog?.username" class="form-field">
+        <div v-if="auth" class="form-field">
+          <p>Username wird vom Server vergeben</p>
+        </div>
+        <div v-else-if="config.connectDialog?.username" class="form-field">
           <label for="username">{{ translate('connectdialog.username') }}</label>
           <input
             id="username"

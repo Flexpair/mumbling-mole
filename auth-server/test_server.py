@@ -192,6 +192,13 @@ class TestMumbleIdentityAuthentication(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Identity username collision'):
                 self.identities.get_or_create('collision-5')
 
+    def test_identity_username_collision_creates_distinct_usernames(self):
+        with patch('mumble_auth.get_mumble_username', return_value='Shared Name (1234567890123456)'):
+            first = self.identities.get_or_create('first-subject')
+            second = self.identities.get_or_create('second-subject')
+
+        self.assertNotEqual(first.username, second.username)
+
     def test_session_token_authenticates_only_its_assigned_username_once(self):
         token = self.sessions.issue(self.identity)
 
@@ -291,6 +298,60 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         mumble_server.setAuthenticator.assert_called_once()
         ready.set.assert_called_once()
         self.assertEqual(ready.clear.call_count, 2)
+
+    def test_server_authenticator_is_attached_once_across_successful_retries(self):
+        mumble_server = MagicMock()
+        mumble_server.id.return_value = 1
+        meta = MagicMock()
+        meta.getBootedServers.return_value = [mumble_server]
+        meta_proxy_class = SimpleNamespace(checkedCast=MagicMock(return_value=meta))
+        adapter = MagicMock()
+        communicator = MagicMock()
+        communicator.createObjectAdapterWithEndpoints.return_value = adapter
+        fake_ice = SimpleNamespace(
+            loadSlice=MagicMock(),
+            getSliceDir=MagicMock(return_value=None),
+            initialize=MagicMock(return_value=communicator),
+            stringToIdentity=MagicMock(side_effect=lambda identity: identity),
+        )
+        fake_mumble_server = SimpleNamespace(
+            ServerAuthenticator=object,
+            ServerAuthenticatorPrx=SimpleNamespace(uncheckedCast=MagicMock(side_effect=lambda proxy: proxy)),
+            MetaPrx=meta_proxy_class,
+        )
+        ready = MagicMock()
+        authenticator = MurmurIceAuthenticator(
+            MumbleAuthenticator(
+                MumbleIdentityRegistry(':memory:'),
+                MumbleSessionStore(),
+            ),
+            'Meta:tcp -h murmur -p 6502',
+            'ice-secret',
+            'tcp -h mumble -p 6503',
+            ready,
+        )
+        wait_count = 0
+
+        def wait_for_retry(timeout):
+            nonlocal wait_count
+            wait_count += 1
+            if wait_count == 2:
+                authenticator._stop.set()
+                return True
+            return False
+
+        authenticator._stop.wait = wait_for_retry
+        with patch.dict(
+            sys.modules,
+            {'Ice': fake_ice, 'MumbleServer': fake_mumble_server},
+        ):
+            authenticator._serve()
+
+        fake_ice.loadSlice.assert_called_once_with(str(os.path.join(os.path.dirname(__file__), 'MumbleServer.ice')))
+        self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
+        mumble_server.setAuthenticator.assert_called_once()
+        self.assertEqual(ready.set.call_count, 2)
+        ready.clear.assert_called_once()
 
 
 class TestHashEmail(unittest.TestCase):
@@ -890,6 +951,13 @@ class TestAuthProviderConfig(unittest.TestCase):
         self.assertIsNotNone(AUTH_PROVIDERS['netlify']['userEndpoint'])
         self.assertEqual(AUTH_PROVIDERS['netlify']['subjectClaim'], 'id')
         self.assertEqual(AUTH_PROVIDERS['netlify']['rolesClaim'], 'app_metadata.roles')
+
+    def test_all_providers_configure_display_name_claims(self):
+        from server import AUTH_PROVIDERS
+
+        self.assertEqual(AUTH_PROVIDERS['netlify']['displayNameClaim'], 'user_metadata.full_name')
+        self.assertEqual(AUTH_PROVIDERS['supabase']['displayNameClaim'], 'user_metadata.full_name')
+        self.assertEqual(AUTH_PROVIDERS['auth0']['displayNameClaim'], 'name')
 
     def test_supabase_provider_placeholder(self):
         from server import AUTH_PROVIDERS
