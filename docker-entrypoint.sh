@@ -63,7 +63,7 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     SUPABASE_URL="${SUPABASE_URL:-}" \
     AUTH0_DOMAIN="${AUTH0_DOMAIN:-}" \
     AUTH_ALLOWED_ORIGINS="${AUTH_ALLOWED_ORIGINS:-}" \
-    TRUSTED_PROXIES="${TRUSTED_PROXIES},127.0.0.1/32" \
+    TRUSTED_PROXIES="${TRUSTED_PROXIES}" \
     python3 "${AUTH_SERVER_DIR}/server.py" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!
