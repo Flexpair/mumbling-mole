@@ -123,9 +123,13 @@ class MumbleSessionStore:
             return identity, True
 
     def _remove_expired(self, now: float) -> None:
-        for token, (_, expires_at) in list(self._sessions.items()):
-            if expires_at <= now:
-                del self._sessions[token]
+        expired = [
+            token
+            for token, (_, expires_at) in self._sessions.items()
+            if expires_at <= now
+        ]
+        for token in expired:
+            del self._sessions[token]
 
 
 class MumbleAuthenticator:
