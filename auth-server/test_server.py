@@ -238,6 +238,51 @@ class TestMumbleIdentityAuthentication(unittest.TestCase):
 
 
 class TestMurmurIceAuthenticator(unittest.TestCase):
+    @staticmethod
+    def _ice_mocks(meta_proxy_class, slice_dir):
+        adapter = MagicMock()
+        communicator = MagicMock()
+        communicator.createObjectAdapterWithEndpoints.return_value = adapter
+        fake_ice = SimpleNamespace(
+            loadSlice=MagicMock(),
+            getSliceDir=MagicMock(return_value=slice_dir),
+            initialize=MagicMock(return_value=communicator),
+            stringToIdentity=MagicMock(side_effect=lambda identity: identity),
+        )
+        fake_mumble_server = SimpleNamespace(
+            ServerAuthenticator=object,
+            ServerAuthenticatorPrx=SimpleNamespace(uncheckedCast=MagicMock(side_effect=lambda proxy: proxy)),
+            MetaPrx=meta_proxy_class,
+        )
+        return fake_ice, fake_mumble_server
+
+    @staticmethod
+    def _authenticator(ready):
+        return MurmurIceAuthenticator(
+            MumbleAuthenticator(
+                MumbleIdentityRegistry(':memory:'),
+                MumbleSessionStore(),
+            ),
+            'Meta:tcp -h murmur -p 6502',
+            'ice-secret',
+            'tcp -h mumble -p 6503',
+            ready,
+        )
+
+    @staticmethod
+    def _stop_after_retries(authenticator, retries):
+        wait_count = 0
+
+        def wait_for_retry(timeout):
+            nonlocal wait_count
+            wait_count += 1
+            if wait_count == retries:
+                authenticator._stop.set()
+                return True
+            return False
+
+        return wait_for_retry
+
     def test_meta_checked_cast_retries_until_murmur_is_available(self):
         mumble_server = MagicMock()
         meta = MagicMock()
@@ -248,42 +293,10 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
                 meta,
             ])
         )
-        adapter = MagicMock()
-        communicator = MagicMock()
-        communicator.createObjectAdapterWithEndpoints.return_value = adapter
-        fake_ice = SimpleNamespace(
-            loadSlice=MagicMock(),
-            getSliceDir=MagicMock(return_value='/tmp'),
-            initialize=MagicMock(return_value=communicator),
-            stringToIdentity=MagicMock(side_effect=lambda identity: identity),
-        )
-        fake_mumble_server = SimpleNamespace(
-            ServerAuthenticator=object,
-            ServerAuthenticatorPrx=SimpleNamespace(uncheckedCast=MagicMock(side_effect=lambda proxy: proxy)),
-            MetaPrx=meta_proxy_class,
-        )
         ready = MagicMock()
-        authenticator = MurmurIceAuthenticator(
-            MumbleAuthenticator(
-                MumbleIdentityRegistry(':memory:'),
-                MumbleSessionStore(),
-            ),
-            'Meta:tcp -h murmur -p 6502',
-            'ice-secret',
-            'tcp -h mumble -p 6503',
-            ready,
-        )
-        wait_count = 0
-
-        def wait_for_retry(timeout):
-            nonlocal wait_count
-            wait_count += 1
-            if wait_count == 2:
-                authenticator._stop.set()
-                return True
-            return False
-
-        authenticator._stop.wait = wait_for_retry
+        fake_ice, fake_mumble_server = self._ice_mocks(meta_proxy_class, '/tmp')
+        authenticator = self._authenticator(ready)
+        authenticator._stop.wait = self._stop_after_retries(authenticator, 2)
         with patch('builtins.print') as mock_print, patch.dict(
             sys.modules,
             {'Ice': fake_ice, 'MumbleServer': fake_mumble_server},
@@ -305,42 +318,10 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         meta = MagicMock()
         meta.getBootedServers.return_value = [mumble_server]
         meta_proxy_class = SimpleNamespace(checkedCast=MagicMock(return_value=meta))
-        adapter = MagicMock()
-        communicator = MagicMock()
-        communicator.createObjectAdapterWithEndpoints.return_value = adapter
-        fake_ice = SimpleNamespace(
-            loadSlice=MagicMock(),
-            getSliceDir=MagicMock(return_value=None),
-            initialize=MagicMock(return_value=communicator),
-            stringToIdentity=MagicMock(side_effect=lambda identity: identity),
-        )
-        fake_mumble_server = SimpleNamespace(
-            ServerAuthenticator=object,
-            ServerAuthenticatorPrx=SimpleNamespace(uncheckedCast=MagicMock(side_effect=lambda proxy: proxy)),
-            MetaPrx=meta_proxy_class,
-        )
         ready = MagicMock()
-        authenticator = MurmurIceAuthenticator(
-            MumbleAuthenticator(
-                MumbleIdentityRegistry(':memory:'),
-                MumbleSessionStore(),
-            ),
-            'Meta:tcp -h murmur -p 6502',
-            'ice-secret',
-            'tcp -h mumble -p 6503',
-            ready,
-        )
-        wait_count = 0
-
-        def wait_for_retry(timeout):
-            nonlocal wait_count
-            wait_count += 1
-            if wait_count == 2:
-                authenticator._stop.set()
-                return True
-            return False
-
-        authenticator._stop.wait = wait_for_retry
+        fake_ice, fake_mumble_server = self._ice_mocks(meta_proxy_class, None)
+        authenticator = self._authenticator(ready)
+        authenticator._stop.wait = self._stop_after_retries(authenticator, 2)
         with patch.dict(
             sys.modules,
             {'Ice': fake_ice, 'MumbleServer': fake_mumble_server},
