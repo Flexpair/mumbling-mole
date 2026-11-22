@@ -16,6 +16,7 @@ import unittest
 import urllib.error
 from email.message import Message
 from time import time
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 # Import functions from server module
@@ -45,6 +46,7 @@ from server import (
     rate_limiter,
     generate_secure_password,
     _execute_auth_request,
+    _DeadlineReader,
     validate_token,
 )
 
@@ -397,6 +399,34 @@ class TestThreadedHTTPServer(unittest.TestCase):
         stalled_client.sendall(b'\r\n')
         self.assertTrue(stalled_client.recv(4096).startswith(b'HTTP/1.0 200 OK\r\n'))
         self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    @patch('server.urllib.request.build_opener')
+    def test_provider_timeout_releases_request_slot(self, mock_build_opener):
+        self.server.request_timeout = 0.1
+        mock_opener = MagicMock()
+
+        def timeout_after_budget(req, timeout):
+            time_mod.sleep(timeout)
+            raise socket.timeout('provider request timed out')
+
+        mock_opener.open.side_effect = timeout_after_budget
+        mock_build_opener.return_value = mock_opener
+        client, request = self.socket_pair()
+        client.sendall(
+            b'POST /api/credentials HTTP/1.1\r\n'
+            b'Host: example\r\n'
+            b'Authorization: ' + b'B' + b'earer test\r\n'
+            b'Content-Length: 0\r\n\r\n'
+        )
+
+        started = time_mod.monotonic()
+        self.submit(request)
+        self.finished.get(timeout=1)
+
+        self.assertLess(time_mod.monotonic() - started, 0.5)
+        mock_opener.open.assert_called_once()
+        self.assertEqual(client.recv(4096), b'')
         self.assert_health_request_succeeds()
 
     def test_failed_thread_start_releases_capacity(self):
@@ -790,7 +820,7 @@ class TestAuthProviderUrlValidation(unittest.TestCase):
             {'email': 'user@example.com'},
         )
         mock_request.assert_called_once_with(
-            'https://welcome.flexpair.com/identity-proxy/user', 'token'
+            'https://welcome.flexpair.com/identity-proxy/user', 'token', None
         )
 
 
@@ -858,7 +888,8 @@ class TestExecuteAuthRequest(unittest.TestCase):
     def _mock_response(self, status=200, body=b'{"ok": true}'):
         response = MagicMock()
         response.status = status
-        response.read.return_value = body
+        response.fp = None
+        response.read.side_effect = [bytes((byte,)) for byte in body] + [b'']
         response.__enter__.return_value = response
         response.__exit__.return_value = False
         return response
@@ -911,6 +942,103 @@ class TestExecuteAuthRequest(unittest.TestCase):
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
         self.assertEqual(mock_opener.open.call_count, 3)
+
+    def test_retry_delay_stops_at_absolute_deadline(self):
+        now = [5.0]
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.URLError('network down')
+
+        with patch('server.time_mod.monotonic', side_effect=lambda: now[0]):
+            with patch(
+                'server.time_mod.sleep',
+                side_effect=lambda delay: now.__setitem__(0, now[0] + delay),
+            ) as mock_sleep:
+                with patch(
+                    'server.urllib.request.build_opener', return_value=mock_opener
+                ):
+                    result = _execute_auth_request(
+                        'https://example.com', 'token', deadline=5.2
+                    )
+
+        self.assertIsNone(result)
+        self.assertEqual(mock_opener.open.call_count, 1)
+        self.assertAlmostEqual(mock_opener.open.call_args.kwargs['timeout'], 0.2)
+        self.assertAlmostEqual(mock_sleep.call_args.args[0], 0.2)
+        self.assertEqual(mock_sleep.call_count, 1)
+
+    def test_provider_response_reads_use_remaining_deadline(self):
+        now = [10.0]
+        response = self._mock_response()
+        response_socket = MagicMock()
+        response.fp = SimpleNamespace(
+            fp=SimpleNamespace(raw=SimpleNamespace(_sock=response_socket))
+        )
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = response
+
+        with patch('server.time_mod.monotonic', side_effect=lambda: now[0]):
+            with patch(
+                'server.urllib.request.build_opener', return_value=mock_opener
+            ):
+                result = _execute_auth_request(
+                    'https://example.com', 'token', deadline=12.0
+                )
+
+        self.assertEqual(result, {'ok': True})
+        mock_opener.open.assert_called_once()
+        self.assertEqual(mock_opener.open.call_args.kwargs['timeout'], 2.0)
+        self.assertTrue(response_socket.settimeout.called)
+        self.assertTrue(all(
+            call.args == (2.0,) for call in response_socket.settimeout.call_args_list
+        ))
+
+    def test_provider_response_read_stops_when_deadline_expires(self):
+        now = [10.0]
+        response = self._mock_response()
+        response_socket = MagicMock()
+        response.fp = SimpleNamespace(
+            fp=SimpleNamespace(raw=SimpleNamespace(_sock=response_socket))
+        )
+
+        def delayed_read(size):
+            now[0] += 0.6
+            return b'{'
+
+        response.read.side_effect = delayed_read
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = response
+
+        with patch('server.time_mod.monotonic', side_effect=lambda: now[0]):
+            with patch(
+                'server.urllib.request.build_opener', return_value=mock_opener
+            ):
+                result = _execute_auth_request(
+                    'https://example.com', 'token', deadline=11.0
+                )
+
+        self.assertIsNone(result)
+        self.assertEqual(response.read.call_count, 2)
+        timeouts = [
+            call.args[0] for call in response_socket.settimeout.call_args_list
+        ]
+        self.assertEqual(len(timeouts), 2)
+        self.assertAlmostEqual(timeouts[0], 1.0)
+        self.assertAlmostEqual(timeouts[1], 0.4)
+
+    def test_expired_deadline_suppresses_response_write(self):
+        handler = AuthHandler.__new__(AuthHandler)
+        handler.rfile = _DeadlineReader(MagicMock(), MagicMock(), timeout=1)
+        handler.rfile.deadline = 1.0
+        handler.request = MagicMock()
+        handler.close_connection = False
+        handler.send_response = MagicMock()
+
+        with patch('server.time_mod.monotonic', return_value=2.0):
+            handler.send_json(200, {'status': 'ok'})
+
+        handler.send_response.assert_not_called()
+        handler.request.settimeout.assert_not_called()
+        self.assertTrue(handler.close_connection)
 
     @patch('server.urllib.request.build_opener')
     def test_non_200_status_returns_none(self, mock_build_opener):

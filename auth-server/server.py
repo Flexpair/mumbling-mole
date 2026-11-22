@@ -336,7 +336,30 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 
-def _execute_auth_request(url: str, token: str) -> Optional[dict]:
+def _remaining_request_time(deadline: Optional[float], default_timeout: float = 10) -> float:
+    if deadline is None:
+        return default_timeout
+    remaining = deadline - time_mod.monotonic()
+    if remaining <= 0:
+        raise socket.timeout('absolute HTTP request deadline exceeded')
+    return remaining
+
+
+def _set_response_timeout(response, timeout: float):
+    stream = getattr(response, 'fp', None)
+    for _ in range(4):
+        if stream is None:
+            return
+        response_socket = getattr(stream, '_sock', None)
+        if response_socket is not None:
+            response_socket.settimeout(timeout)
+            return
+        stream = getattr(stream, 'fp', None) or getattr(stream, 'raw', None)
+
+
+def _execute_auth_request(
+    url: str, token: str, deadline: Optional[float] = None
+) -> Optional[dict]:
     """Execute the HTTP request to the auth provider with retry logic."""
     max_retries = 3
     base_delay = 0.5
@@ -352,7 +375,8 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
 
     for attempt in range(max_retries):
         try:
-            return _make_single_request(req)
+            _remaining_request_time(deadline)
+            return _make_single_request(req, deadline)
         except urllib.error.HTTPError as e:
             print(f'[AUTH] Token validation failed: {e.code}')
             return None
@@ -363,23 +387,40 @@ def _execute_auth_request(url: str, token: str) -> Optional[dict]:
 
         if attempt == max_retries - 1:
             return None
-        time_mod.sleep(base_delay * (2 ** attempt))
+        try:
+            remaining = _remaining_request_time(deadline)
+        except socket.timeout:
+            return None
+        time_mod.sleep(min(base_delay * (2 ** attempt), remaining))
     
     return None
 
 
-def _make_single_request(req: urllib.request.Request) -> Optional[dict]:
+def _make_single_request(
+    req: urllib.request.Request, deadline: Optional[float] = None
+) -> Optional[dict]:
     """Perform one provider request without following redirects."""
     opener = urllib.request.build_opener(_NoRedirectHandler())
-    with opener.open(req, timeout=10) as response:
+    with opener.open(req, timeout=_remaining_request_time(deadline)) as response:
         if response.status != 200:
             print(f'[AUTH] Token validation failed: {response.status}')
             return None
-        return json.loads(response.read().decode('utf-8'))
+        body = bytearray()
+        while True:
+            remaining = _remaining_request_time(deadline)
+            _set_response_timeout(response, remaining)
+            chunk = response.read(1)
+            _remaining_request_time(deadline)
+            if not chunk:
+                break
+            body.extend(chunk)
+        return json.loads(body.decode('utf-8'))
 
 
 
-def validate_token(token: str, provider_config: dict) -> Optional[dict]:
+def validate_token(
+    token: str, provider_config: dict, deadline: Optional[float] = None
+) -> Optional[dict]:
     """Validate JWT by calling the auth provider's user endpoint."""
     endpoint = provider_config.get('userEndpoint')
     if not endpoint:
@@ -392,7 +433,7 @@ def validate_token(token: str, provider_config: dict) -> Optional[dict]:
         return None
 
 
-    return _execute_auth_request(url, token)
+    return _execute_auth_request(url, token, deadline)
 
 
 
@@ -535,6 +576,9 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
     def send_json(self, status: int, data: dict):
         """Send JSON response with security and CORS headers."""
+        body = json.dumps(data).encode('utf-8')
+        if not self._set_response_timeout():
+            return
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         # Security headers (OWASP recommendations)
@@ -542,8 +586,22 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('X-XSS-Protection', '1; mode=block')
         self._send_cors_headers()
+        if not self._set_response_timeout():
+            return
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode('utf-8'))
+        if self._set_response_timeout():
+            self.wfile.write(body)
+
+    def _set_response_timeout(self) -> bool:
+        reader = getattr(self, 'rfile', None)
+        if not isinstance(reader, _DeadlineReader):
+            return True
+        try:
+            self.request.settimeout(_remaining_request_time(reader.deadline))
+        except socket.timeout:
+            self.close_connection = True
+            return False
+        return True
 
     def _send_cors_headers(self):
         """Send CORS headers only for an explicitly configured origin."""
@@ -552,9 +610,12 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
+        if not self._set_response_timeout():
+            return
         self.send_response(204)
         self._send_cors_headers()
-        self.end_headers()
+        if self._set_response_timeout():
+            self.end_headers()
 
     def do_GET(self):
         """Handle GET requests (health check only)."""
@@ -602,7 +663,9 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(500, {'error': 'Auth provider misconfigured'})
             return
 
-        user = validate_token(token, provider_config)
+        reader = getattr(self, 'rfile', None)
+        deadline = reader.deadline if isinstance(reader, _DeadlineReader) else None
+        user = validate_token(token, provider_config, deadline)
         if not user:
             self.send_json(401, {'error': 'Invalid or expired token'})
             return
