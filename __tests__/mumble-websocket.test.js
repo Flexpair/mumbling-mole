@@ -70,6 +70,20 @@ describe('mumble-websocket', () => {
       expect(mockWebsocketStream).toHaveBeenCalledWith('ws://localhost:64738', ['binary']);
     });
 
+    test('should send the authentication token as a websocket subprotocol', async () => {
+      setTimeout(() => mockWs._trigger('connect'), 0);
+
+      await connect('wss://localhost/murmur', {
+        username: 'testuser',
+        accessToken: 'identity.jwt.token',
+      });
+
+      expect(mockWebsocketStream).toHaveBeenCalledWith(
+        'wss://localhost/murmur',
+        ['binary', 'mumble-auth.identity.jwt.token']
+      );
+    });
+
     test('should register error and connect event handlers', async () => {
       setTimeout(() => mockWs._trigger('connect'), 0);
 
@@ -92,6 +106,18 @@ describe('mumble-websocket', () => {
       await connect('ws://localhost:64738', options);
 
       expect(MumbleClientConstructor).toHaveBeenCalledWith(options);
+    });
+
+    test('should not pass the websocket authentication token to MumbleClient', async () => {
+      const MumbleClientConstructor = (await import('../app/mumble-client/index.js')).default;
+      setTimeout(() => mockWs._trigger('connect'), 0);
+
+      await connect('wss://localhost/murmur', {
+        username: 'testuser',
+        accessToken: 'identity.jwt.token',
+      });
+
+      expect(MumbleClientConstructor).toHaveBeenCalledWith({ username: 'testuser' });
     });
 
     test('should connect MumbleClient to websocket stream', async () => {

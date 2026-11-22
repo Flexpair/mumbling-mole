@@ -87,6 +87,8 @@ Browser
 
 The browser does not connect to Mumble with WebRTC. The client sends and receives Mumble traffic through the WebSocket tunnel. The normal local path is `https://local.flexpair.app` → nginx → the application service on `8081` → websockify → the Mumble server.
 
+The WebSocket tunnel validates the logged-in identity token before forwarding traffic to Mumble and rate-limits tunnel handshakes by client IP and authenticated user. Reverse proxies in front of websockify must overwrite or securely forward `X-Forwarded-For` on the `/murmur` route so the IP limit is applied to the actual client.
+
 ### Audio invariants
 
 - Capture and playback use a `48,000 Hz` audio context.
@@ -142,7 +144,7 @@ Default production startup runs the WebSocket tunnel and authentication service 
 | `TRUSTED_PROXIES` | Comma-separated IP addresses or CIDRs of reverse proxies in front of the authentication service; required when the service starts. |
 
 All three Guacamole role passwords must be nonempty and mutually distinct. [auth-server/server.py](auth-server/server.py) rejects missing or duplicate role passwords and missing `TRUSTED_PROXIES`; these requirements apply to production as well as the Dev Container.
-Configure `TRUSTED_PROXIES` with only the actual proxy addresses so rate limits use the client addresses from their forwarded headers. A single container IP may change between rebuilds; a stable subnet such as `172.18.0.0/16` is appropriate only if every address in that subnet is trusted to forward client IPs.
+Configure `TRUSTED_PROXIES` with only the actual proxy addresses so rate limits use the client addresses from their forwarded headers. The entrypoint adds its local websockify-to-auth-server loopback hop automatically. A single container IP may change between rebuilds; a stable subnet such as `172.18.0.0/16` is appropriate only if every address in that subnet is trusted to forward client IPs.
 
 The credential endpoint now issues a short-lived, single-use Mumble session token paired with an identity-derived username. Murmur's authenticator rejects mismatched names, expired tokens, and replays for known identities; unknown names fall through to Murmur's normal authentication. The auth endpoint must remain unavailable until Murmur confirms that the authenticator is attached. Never expose the ICE ports outside the private network.
 

@@ -7,6 +7,7 @@ Or standalone: python3 auth-server/test_server.py
 """
 
 import json
+import importlib.util
 import ipaddress
 import queue
 import socket
@@ -51,6 +52,7 @@ from server import (
     MUMBLE_IDENTITIES,
     MUMBLE_SESSIONS,
     MURMUR_AUTHENTICATOR_READY,
+    tunnel_rate_limiter,
     generate_secure_password,
     _execute_auth_request,
     _DeadlineReader,
@@ -862,6 +864,250 @@ class TestCredentialRateLimitOrdering(unittest.TestCase):
         other_client.do_POST()
         other_client.send_json.assert_called_once_with(
             401, {'error': 'Invalid or expired token'}
+        )
+
+
+class TestWebsockifyAuth(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        class AuthenticationError(Exception):
+            def __init__(self, response_code, response_msg):
+                self.response_code = response_code
+                super().__init__(response_msg)
+
+        cls.AuthenticationError = AuthenticationError
+        plugins = SimpleNamespace(AuthenticationError=AuthenticationError, BasePlugin=object)
+        spec = importlib.util.spec_from_file_location(
+            'websockify_auth', os.path.join(os.path.dirname(__file__), 'websockify_auth.py')
+        )
+        cls.module = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'websockify': MagicMock(), 'websockify.auth_plugins': plugins}):
+            spec.loader.exec_module(cls.module)
+        cls.module.TRUSTED_PROXIES = _parse_trusted_proxies('172.18.0.7/32')
+
+    def setUp(self):
+        self.plugin = self.module.MumbleTokenAuth()
+        self.plugin.source = 'http://127.0.0.1:8082/api/tunnel-authorize'
+
+    def test_sends_token_and_forwarded_ip_to_auth_server(self):
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(self.module, 'urlopen', return_value=response) as urlopen:
+            self.plugin.authenticate({
+                'Sec-WebSocket-Protocol': 'binary, mumble-auth.example.token',
+                'X-Forwarded-For': '203.0.113.1',
+                'X-Websockify-Peer-IP': '172.18.0.7',
+            }, 'localhost', 64738)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header('Authorization'), 'Bearer ' + 'example.token')
+        self.assertEqual(request.get_header('X-forwarded-for'), '203.0.113.1')
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertEqual(urlopen.call_args.kwargs['timeout'], 5)
+
+    def test_untrusted_peer_cannot_forward_client_ip(self):
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(self.module, 'urlopen', return_value=response) as urlopen:
+            self.plugin.authenticate({
+                'Sec-WebSocket-Protocol': 'mumble-auth.example.token',
+                'X-Forwarded-For': '127.0.0.1',
+                'X-Websockify-Peer-IP': '203.0.113.10',
+            }, 'localhost', 64738)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header('X-forwarded-for'), '203.0.113.10')
+
+    def test_runner_supplies_actual_socket_peer_to_auth_plugin(self):
+        class ProxyRequestHandler:
+            def auth_connection(self):
+                self.authenticated_headers = self.headers
+
+        class WebSocketProxy:
+            def __init__(self, *args, **kwargs):
+                self.request_handler = kwargs['RequestHandlerClass']
+
+        websocketproxy = SimpleNamespace(
+            ProxyRequestHandler=ProxyRequestHandler,
+            WebSocketProxy=WebSocketProxy,
+            websockify_init=MagicMock(),
+        )
+        websockify = SimpleNamespace(websocketproxy=websocketproxy)
+        spec = importlib.util.spec_from_file_location(
+            'websockify_runner_test',
+            os.path.join(os.path.dirname(__file__), 'websockify_runner.py'),
+        )
+        runner = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'websockify': websockify}):
+            spec.loader.exec_module(runner)
+
+        handler = runner.PeerAwareProxyRequestHandler()
+        handler.client_address = ('172.18.0.7', 12345)
+        handler.headers = Message()
+        handler.headers['X-Websockify-Peer-IP'] = '127.0.0.1'
+        handler.headers['x-websockify-peer-ip'] = '192.0.2.10'
+        handler.auth_connection()
+        server = runner.PeerAwareWebSocketProxy()
+
+        self.assertEqual(
+            handler.authenticated_headers.get('X-Websockify-Peer-IP'),
+            '172.18.0.7',
+        )
+        self.assertEqual(
+            handler.authenticated_headers.get_all('X-Websockify-Peer-IP'),
+            ['172.18.0.7'],
+        )
+        self.assertIs(
+            server.request_handler,
+            runner.PeerAwareProxyRequestHandler,
+        )
+
+    def test_rejects_missing_or_ambiguous_tokens(self):
+        for protocols in ('binary', 'mumble-auth.', 'mumble-auth.one, mumble-auth.two'):
+            with self.subTest(protocols=protocols), patch.object(self.module, 'urlopen') as urlopen:
+                with self.assertRaises(self.AuthenticationError) as error:
+                    self.plugin.authenticate({'Sec-WebSocket-Protocol': protocols}, 'localhost', 64738)
+                self.assertEqual(error.exception.response_code, 401)
+                urlopen.assert_not_called()
+
+    def test_auth_server_errors_fail_closed(self):
+        errors = [
+            (urllib.error.HTTPError('http://127.0.0.1', 429, '', {}, None), 429),
+            (urllib.error.HTTPError('http://127.0.0.1', 500, '', {}, None), 503),
+            (urllib.error.URLError('unavailable'), 503),
+            (TimeoutError(), 503),
+            (OSError(), 503),
+        ]
+        for failure, status in errors:
+            with self.subTest(failure=failure), patch.object(self.module, 'urlopen', side_effect=failure):
+                with self.assertRaises(self.AuthenticationError) as error:
+                    self.plugin.authenticate(
+                        {
+                            'Sec-WebSocket-Protocol': 'mumble-auth.example.token',
+                            'X-Websockify-Peer-IP': '172.18.0.7',
+                        },
+                        'localhost',
+                        64738,
+                    )
+                self.assertEqual(error.exception.response_code, status)
+
+
+class TestTunnelAuthorization(unittest.TestCase):
+    """Authentication and rate limits for WebSocket tunnel handshakes."""
+
+    def setUp(self):
+        tunnel_rate_limiter.store.clear()
+
+    @staticmethod
+    def _handler(client_ip='203.0.113.10', authorization='unit-test-token'):
+        handler = AuthHandler.__new__(AuthHandler)
+        handler.path = '/api/tunnel-authorize'
+        handler.client_address = (client_ip, 12345)
+        handler.headers = Message()
+        if authorization is not None:
+            handler.headers['Authorization'] = 'Bearer ' + authorization
+        handler.send_json = MagicMock()
+        return handler
+
+    def test_missing_authorization_is_rejected(self):
+        handler = self._handler(authorization=None)
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(
+            401, {'error': 'Missing authorization header'}
+        )
+        self.assertEqual(tunnel_rate_limiter.store, {})
+
+    @patch('server.validate_token', return_value=None)
+    def test_invalid_tokens_are_rate_limited_by_client_ip(self, mock_validate):
+        for _ in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler()
+            handler.do_POST()
+            handler.send_json.assert_called_once_with(
+                401, {'error': 'Invalid or expired token'}
+            )
+
+        blocked_handler = self._handler()
+        blocked_handler.do_POST()
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+        self.assertEqual(mock_validate.call_count, tunnel_rate_limiter.max_requests)
+
+    @patch('server.validate_token', return_value=None)
+    def test_tunnel_uses_forwarded_client_ip_from_local_websockify(self, _mock_validate):
+        for _ in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler(client_ip='127.0.0.1')
+            handler.headers['X-Forwarded-For'] = '203.0.113.10'
+            handler.do_POST()
+
+        blocked_handler = self._handler(client_ip='127.0.0.1')
+        blocked_handler.headers['X-Forwarded-For'] = '203.0.113.10'
+        blocked_handler.do_POST()
+
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+
+    @patch('server.validate_token', return_value=None)
+    def test_loopback_forwarded_ip_is_rate_limited(self, mock_validate):
+        for _ in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler(client_ip='127.0.0.1')
+            handler.headers['X-Forwarded-For'] = '127.0.0.1'
+            handler.do_POST()
+
+        blocked_handler = self._handler(client_ip='127.0.0.1')
+        blocked_handler.headers['X-Forwarded-For'] = '127.0.0.1'
+        blocked_handler.do_POST()
+
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+        self.assertEqual(mock_validate.call_count, tunnel_rate_limiter.max_requests)
+
+    @patch(
+        'server.validate_token',
+        return_value={'id': 'test-user', 'app_metadata': {'roles': ['watch']}},
+    )
+    def test_authorized_user_can_open_tunnel(self, _mock_validate):
+        handler = self._handler()
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(200, {'authorized': True})
+
+    @patch(
+        'server.validate_token',
+        return_value={'id': 'test-user', 'app_metadata': {'roles': ['unknown']}},
+    )
+    def test_user_without_an_application_role_cannot_open_tunnel(self, _mock_validate):
+        handler = self._handler()
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(
+            403, {'error': 'User is not authorized'}
+        )
+
+    @patch(
+        'server.validate_token',
+        return_value={'id': 'test-user', 'app_metadata': {'roles': ['watch']}},
+    )
+    def test_authenticated_tunnel_attempts_are_rate_limited_by_user(self, _mock_validate):
+        for index in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler(client_ip=f'203.0.113.{index + 10}')
+            handler.do_POST()
+            handler.send_json.assert_called_once_with(200, {'authorized': True})
+
+        blocked_handler = self._handler(client_ip='203.0.113.99')
+        blocked_handler.do_POST()
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
         )
 
 

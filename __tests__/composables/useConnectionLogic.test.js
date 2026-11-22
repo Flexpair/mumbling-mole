@@ -279,8 +279,8 @@ describe('useConnectionLogic', () => {
       expect(mockFetchCredentials).toHaveBeenCalledTimes(2);
       expect(mockFetchCredentials).toHaveBeenNthCalledWith(1, 'test-jwt-token', { forceRefresh: true });
       expect(mockFetchCredentials).toHaveBeenNthCalledWith(2, 'test-jwt-token', { forceRefresh: true });
-      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(1, 'host', 64738, MUMBLE_USERNAME, 'first-session', []);
-      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(2, 'host', 64738, MUMBLE_USERNAME, 'second-session', []);
+      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(1, 'host', 64738, MUMBLE_USERNAME, 'first-session', [], 'test-jwt-token');
+      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(2, 'host', 64738, MUMBLE_USERNAME, 'second-session', [], 'test-jwt-token');
     });
 
     it('should alert when auth is not provided', async () => {
@@ -373,7 +373,8 @@ describe('useConnectionLogic', () => {
         64738,
         'Current User (3ff34ed40e9ac98f)',
         'current-password',
-        []
+        [],
+        'test-jwt-token'
       );
     });
 
@@ -448,7 +449,8 @@ describe('useConnectionLogic', () => {
         64738,
         MUMBLE_USERNAME,
         'test-password',
-        []
+        [],
+        'test-jwt-token'
       );
       expect(mockStartGuacamoleFrame).toHaveBeenCalledWith(
         'watcher',
@@ -577,7 +579,8 @@ describe('useConnectionLogic', () => {
         64738,
         'New User (b059c9e4af70c9f6)',
         'new-password',
-        []
+        [],
+        'new-session-token'
       );
       expect(mockStartGuacamoleFrame).toHaveBeenCalledTimes(1);
       expect(mockStartGuacamoleFrame).toHaveBeenCalledWith(
@@ -675,7 +678,8 @@ describe('useConnectionLogic', () => {
         64738,
         MUMBLE_USERNAME,
         'test-password',
-        []
+        [],
+        'current-token'
       );
     });
 
@@ -727,7 +731,8 @@ describe('useConnectionLogic', () => {
         64738,
         'Current User (3ff34ed40e9ac98f)',
         'current-password',
-        []
+        [],
+        'current-token'
       );
     });
 

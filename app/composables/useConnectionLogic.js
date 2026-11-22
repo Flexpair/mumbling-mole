@@ -112,7 +112,7 @@ export function useConnectionLogic({ auth } = {}) {
 
       const serverCredentials = await fetchCredentials(token, { forceRefresh: true });
       if (!isConnectionAttemptCurrent(attempt)) return null;
-      return serverCredentials;
+      return { serverCredentials, accessToken: token };
     } catch (error) {
       if (!isConnectionAttemptCurrent(attempt) || isConnectionCancellation(error)) return null;
       console.error('[useConnectionLogic] Failed to fetch credentials:', error);
@@ -221,21 +221,23 @@ export function useConnectionLogic({ auth } = {}) {
         return;
       }
 
-      const serverCredentials = await _fetchServerCredentials(attempt, connectionParams);
-      if (!serverCredentials) return;
+      const authenticatedCredentials = await _fetchServerCredentials(attempt, connectionParams);
+      if (!authenticatedCredentials) return;
+      const { serverCredentials, accessToken } = authenticatedCredentials;
 
       // Reset UI state
       resetUIForConnection(audioStore, userStore, voiceStore);
 
-      await _establishClientConnection(
+      await _establishClientConnection({
         host,
         port,
-        serverCredentials.mumbleUsername,
-        serverCredentials.mumblePassword,
+        username: serverCredentials.mumbleUsername,
+        password: serverCredentials.mumblePassword,
         tokens,
         serverCredentials,
-        attempt
-      );
+        accessToken,
+        attempt,
+      });
     } catch (err) {
       _handleConnectionFailure(err, connectionParams, attempt);
     }
@@ -245,8 +247,12 @@ export function useConnectionLogic({ auth } = {}) {
    * Establish client connection and setup
    * @private
    */
-  async function _establishClientConnection(host, port, username, password, tokens, serverCredentials, attempt) {
-    const client = await connectionStore.connect(host, port, username, password, tokens);
+  async function _establishClientConnection({
+    host, port, username, password, tokens = [], serverCredentials, accessToken, attempt
+  }) {
+    const client = await connectionStore.connect(
+      host, port, username, password, tokens, accessToken
+    );
     if (!isConnectionAttemptCurrent(attempt)) {
       if (connectionStore.getClient() === client) {
         connectionStore.disconnect();

@@ -64,7 +64,7 @@ export const useConnectionStore = defineStore('connection', () => {
    * @param {Array} tokens - Access tokens
    * @returns {Promise<MumbleClient>} Connected client instance
    */
-  async function connect(host, port, username, password, tokens = []) {
+  async function connect(host, port, username, password, tokens = [], accessToken = null) {
     connectionController?.abort();
     const controller = new AbortController();
     connectionController = controller;
@@ -82,7 +82,8 @@ export const useConnectionStore = defineStore('connection', () => {
     logger(translate('logentry.connecting'), host);
 
     try {
-      const wsUrl = buildWebSocketUrl(host, port);
+      const secure = globalThis.location?.protocol === 'https:' ? true : undefined;
+      const wsUrl = buildWebSocketUrl(host, port, secure);
       
       // Lazy-load connector on first connection
       const conn = await getConnector();
@@ -91,6 +92,7 @@ export const useConnectionStore = defineStore('connection', () => {
         username: username,
         password: password,
         tokens: toRaw(tokens),
+        accessToken,
       }, {
         signal: controller.signal,
       });

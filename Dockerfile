@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     apt-get update && \
     apt-get install -y --no-install-recommends \
         bash \
+        ca-certificates \
         python3.11 \
         python3.11-venv \
         tini && \
@@ -18,7 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
     /usr/bin/python3.11 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir websockify==0.13.0
+    /opt/venv/bin/pip install --no-cache-dir --only-binary :all: websockify==0.13.0 && \
+    /opt/venv/bin/websockify --help 2>&1 | grep -q -- '--auth-plugin'
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
@@ -157,11 +159,13 @@ FROM base-runtime AS prod
 COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dist
 
 # Create auth-server directory (needs 755 for directory traversal)
-RUN mkdir -p /home/node/auth-server && chown node:node /home/node/auth-server
-COPY --from=builder /opt/venv /opt/venv
+RUN mkdir -p /home/node/auth-server && chmod 755 /home/node/auth-server
 COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
+COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder --chown=root:root --chmod=644 /usr/local/share/mumble/MumbleServer.ice /usr/local/share/mumble/MumbleServer.ice
 COPY --chown=root:root --chmod=644 ./auth-server/mumble_auth.py /home/node/auth-server/mumble_auth.py
+COPY --chmod=444 ./auth-server/websockify_auth.py /home/node/auth-server/websockify_auth.py
+COPY --chmod=444 ./auth-server/websockify_runner.py /home/node/auth-server/websockify_runner.py
 
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 

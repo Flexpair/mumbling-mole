@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 from mumble_auth import MumbleIdentityRegistry, MumbleSessionStore, create_mumble_authenticator
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
+RATE_LIMIT_ERROR_MESSAGE = 'Too many authentication attempts, please try again later'
 # Binding to 0.0.0.0 is intentional - server runs in container behind nginx
 HOST = os.environ.get('AUTH_SERVER_HOST', '0.0.0.0')  # nosec B104
 
@@ -191,6 +192,7 @@ class RateLimiter:
 
 # Initialize global rate limiter
 rate_limiter = RateLimiter()
+tunnel_rate_limiter = RateLimiter(window_seconds=10, max_requests=5)
 
 
 def _normalize_origin(origin: Optional[str]) -> Optional[str]:
@@ -645,7 +647,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             TRUSTED_PROXIES,
         )
         if not rate_limiter.check(client_ip):
-            self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+            self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
             return False
         return True
 
@@ -659,18 +661,29 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests (credentials endpoint)."""
-        if self.path != '/api/credentials':
+        if self.path not in {'/api/credentials', '/api/tunnel-authorize'}:
             self.send_json(404, {'error': 'Not found'})
             return
+
+        is_tunnel_authorization = self.path == '/api/tunnel-authorize'
+        client_ip = _resolve_client_ip(
+            self.client_address[0],
+            self.headers.get('X-Forwarded-For'),
+            TRUSTED_PROXIES,
+        )
 
         token = self._get_token_from_header()
         if not token:
             return
 
-        if not self._check_rate_limit():
+        if is_tunnel_authorization:
+            if not tunnel_rate_limiter.check(f'ip:{client_ip}'):
+                self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
+                return
+        elif not self._check_rate_limit():
             return
 
-        if not MURMUR_AUTHENTICATOR_READY.is_set():
+        if not is_tunnel_authorization and not MURMUR_AUTHENTICATOR_READY.is_set():
             self.send_json(503, {'error': 'Mumble authentication is unavailable'})
             return
 
@@ -691,6 +704,15 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         guacamole_user = get_guacamole_user(roles)
         if guacamole_user is None:
             self.send_json(403, {'error': 'User is not authorized'})
+            return
+
+        if is_tunnel_authorization:
+            user_id = user.get('sub') or user.get('id') or user.get('email') or token
+            user_key = hashlib.sha256(str(user_id).encode('utf-8')).hexdigest()
+            if not tunnel_rate_limiter.check(f'user:{user_key}'):
+                self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
+                return
+            self.send_json(200, {'authorized': True})
             return
 
         subject = get_nested_property(user, provider_config['subjectClaim'])

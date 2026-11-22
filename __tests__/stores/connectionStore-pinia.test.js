@@ -125,7 +125,11 @@ describe('connectionStore', () => {
       
       await store.connect('myhost', 12345, 'user', 'pass');
 
-      expect(buildWebSocketUrl).toHaveBeenCalledWith('myhost', 12345);
+      expect(buildWebSocketUrl).toHaveBeenCalledWith(
+        'myhost',
+        12345,
+        globalThis.location?.protocol === 'https:' ? true : undefined,
+      );
     });
 
     it('should pass credentials to connector', async () => {
