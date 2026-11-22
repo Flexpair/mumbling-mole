@@ -12,7 +12,7 @@ try:
 except ImportError:
     Ice = None
 
-SLICE_PATH = Path(__file__).with_name('MumbleServer.ice')
+SLICE_PATH = Path('/usr/local/share/mumble/MumbleServer.ice')
 
 
 @unittest.skipUnless(Ice is not None and SLICE_PATH.is_file(), 'zeroc-ice and MumbleServer.ice are required')
