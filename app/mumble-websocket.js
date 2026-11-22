@@ -9,6 +9,9 @@ async function connect(address, options, { signal } = {}) {
   const { accessToken, ...clientOptions } = options;
   const protocols = ["binary"];
   if (typeof accessToken === "string" && accessToken) {
+    if (new URL(address).protocol !== "wss:") {
+      throw new Error("Authenticated WebSocket connections require wss://");
+    }
     protocols.push(`mumble-auth.${accessToken}`);
   }
 
