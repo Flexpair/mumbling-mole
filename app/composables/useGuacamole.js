@@ -15,11 +15,19 @@ export function clearGuacamoleSession(storage) {
   }
 }
 
+/**
+ * Revoke the current Guacamole server session (best effort, fire-and-forget).
+ * Never rejects: all failures are logged as warnings.
+ *
+ * @param {Storage} [storage] - Storage holding the Guacamole token (defaults to localStorage)
+ * @param {typeof fetch} [fetcher] - fetch implementation (defaults to globalThis.fetch)
+ * @returns {Promise<void>}
+ */
 export function revokeGuacamoleSession(storage, fetcher = globalThis.fetch) {
   try {
     const sessionStorage = storage ?? globalThis.localStorage;
     const token = sessionStorage?.getItem(GUACAMOLE_SESSION_STORAGE_KEY);
-    if (!token || typeof fetcher !== 'function') return;
+    if (!token || typeof fetcher !== 'function') return Promise.resolve();
 
     return Promise.resolve(fetcher('/guacamole/api/session', {
       method: 'DELETE',
@@ -34,6 +42,7 @@ export function revokeGuacamoleSession(storage, fetcher = globalThis.fetch) {
     });
   } catch (error) {
     console.warn('[Guacamole] Could not revoke server session:', error);
+    return Promise.resolve();
   }
 }
 
