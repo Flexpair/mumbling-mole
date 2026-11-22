@@ -690,6 +690,48 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     expect(result).toBeUndefined();
   });
 
+  test('clears persisted and in-memory identity session state', () => {
+    const removeItem = jest.fn();
+    const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: { removeItem },
+    });
+    adapter.netlifyIdentity.store = { user: { id: 'user-id' } };
+
+    try {
+      adapter.clearSession();
+
+      expect(removeItem).toHaveBeenCalledWith('gotrue.user');
+      expect(adapter.netlifyIdentity.store.user).toBeNull();
+    } finally {
+      if (localStorageDescriptor) {
+        Object.defineProperty(globalThis, 'localStorage', localStorageDescriptor);
+      } else {
+        delete globalThis.localStorage;
+      }
+    }
+  });
+
+  test('clearSession suppresses app-level logout handlers only during cleanup', () => {
+    const appLogout = jest.fn();
+    adapter.on('logout', appLogout);
+    let widgetUser = { id: 'user-id' };
+    adapter.netlifyIdentity.store = {};
+    Object.defineProperty(adapter.netlifyIdentity.store, 'user', {
+      get: () => widgetUser,
+      set: (value) => { widgetUser = value; emitLogout(); },
+    });
+
+    adapter.clearSession();
+
+    expect(widgetUser).toBeNull();
+    expect(appLogout).not.toHaveBeenCalled();
+
+    emitLogout();
+    expect(appLogout).toHaveBeenCalledTimes(1);
+  });
+
   test('suppresses the provider event for a reauthentication logout', async () => {
     const appLogout = jest.fn();
     adapter.on('logout', appLogout);
