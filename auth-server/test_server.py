@@ -1236,6 +1236,7 @@ class TestAuthProviderConfig(unittest.TestCase):
     """Tests for auth provider configuration."""
 
     def setUp(self):
+        rate_limiter.store.clear()
         MURMUR_AUTHENTICATOR_READY.set()
         self.addCleanup(MURMUR_AUTHENTICATOR_READY.clear)
 
