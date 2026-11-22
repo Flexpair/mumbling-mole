@@ -137,21 +137,36 @@ class Decoder extends Transform {
     this._buffer = buffer;
   }
 
+  _appendToBuffer(chunk, chunkOffset, maxBytes) {
+    const bytes = Math.min(maxBytes, chunk.length - chunkOffset);
+    this._ensureBufferCapacity(this._bufferSize + bytes);
+    chunk.copy(this._buffer, this._bufferSize, chunkOffset, chunkOffset + bytes);
+    this._bufferSize += bytes;
+    return bytes;
+  }
+
+  _decodeFrame(type, size) {
+    const name = nameById[type];
+    const data = Buffer.from(this._buffer.subarray(6, 6 + size));
+    const payload = name === 'UDPTunnel' ? data : decode(type, data);
+    return { name, payload };
+  }
+
+  _resetBuffer() {
+    this._bufferSize = 0;
+    if (this._buffer.length > MAX_RETAINED_BUFFER_SIZE) {
+      this._buffer = Buffer.allocUnsafe(INITIAL_BUFFER_SIZE);
+    }
+  }
+
   _transform(chunk, encoding, callback) {
     let chunkOffset = 0;
     while (chunkOffset < chunk.length || this._bufferSize >= 6) {
       if (this._bufferSize < 6) {
-        const headerBytes = Math.min(6 - this._bufferSize, chunk.length - chunkOffset);
-        if (headerBytes === 0) {
-          break;
-        }
-        this._ensureBufferCapacity(this._bufferSize + headerBytes);
-        chunk.copy(this._buffer, this._bufferSize, chunkOffset, chunkOffset + headerBytes);
-        this._bufferSize += headerBytes;
-        chunkOffset += headerBytes;
-        if (this._bufferSize < 6) {
-          break;
-        }
+        chunkOffset += this._appendToBuffer(chunk, chunkOffset, 6 - this._bufferSize);
+      }
+      if (this._bufferSize < 6) {
+        break;
       }
 
       const type = this._buffer.readUInt16BE(0);
@@ -161,38 +176,21 @@ class Decoder extends Transform {
       }
 
       const frameSize = 6 + size;
-      const payloadBytes = Math.min(frameSize - this._bufferSize, chunk.length - chunkOffset);
-      this._ensureBufferCapacity(this._bufferSize + payloadBytes);
-      chunk.copy(this._buffer, this._bufferSize, chunkOffset, chunkOffset + payloadBytes);
-      this._bufferSize += payloadBytes;
-      chunkOffset += payloadBytes;
+      chunkOffset += this._appendToBuffer(chunk, chunkOffset, frameSize - this._bufferSize);
 
       if (this._bufferSize < frameSize) {
         break;
       }
 
-      const typeName = nameById[type];
-      const data = Buffer.from(this._buffer.subarray(6, frameSize));
       let message;
-      if (typeName === 'UDPTunnel') {
-        message = data;
-      } else {
-        try {
-          message = decode(type, data);
-        } catch (e) {
-          return callback(e);
-        }
+      try {
+        message = this._decodeFrame(type, size);
+      } catch (e) {
+        return callback(e);
       }
 
-      this._bufferSize = 0;
-      if (this._buffer.length > MAX_RETAINED_BUFFER_SIZE) {
-        this._buffer = Buffer.allocUnsafe(INITIAL_BUFFER_SIZE);
-      }
-
-      this.push({
-        name: typeName,
-        payload: message
-      });
+      this._resetBuffer();
+      this.push(message);
     }
     callback();
   }
