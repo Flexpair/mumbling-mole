@@ -259,7 +259,6 @@ class MurmurIceAuthenticator:
         self._ready = ready
         self._stop = threading.Event()
         self._thread = None
-        self._attached_servers = set()
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._serve, daemon=True)
@@ -297,7 +296,6 @@ class MurmurIceAuthenticator:
                 try:
                     self._attach_authenticator(MumbleServer, meta_proxy, callback, context)
                 except Exception as error:
-                    self._attached_servers.clear()
                     self._ready.clear()
                     print(
                         f'[AUTH] Murmur authenticator unavailable; retrying '
@@ -315,10 +313,7 @@ class MurmurIceAuthenticator:
             raise RuntimeError('Murmur Meta proxy unavailable')
         servers = meta.getBootedServers(context)
         for server in servers:
-            server_id = server.id(context)
-            if server_id not in self._attached_servers:
-                server.setAuthenticator(callback, context)
-                self._attached_servers.add(server_id)
+            server.setAuthenticator(callback, context)
         if servers:
             self._ready.set()
         else:

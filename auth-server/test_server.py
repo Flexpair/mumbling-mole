@@ -376,11 +376,13 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         fixture.ready.set.assert_called_once()
         self.assertEqual(fixture.ready.clear.call_count, 2)
 
-    def test_server_authenticator_is_attached_once_across_successful_retries(self):
+    def test_server_authenticator_is_refreshed_across_successful_retries(self):
         mumble_server = MagicMock()
         mumble_server.id.return_value = 1
+        restarted_server = MagicMock()
+        restarted_server.id.return_value = 1
         meta = MagicMock()
-        meta.getBootedServers.return_value = [mumble_server]
+        meta.getBootedServers.side_effect = [[mumble_server], [restarted_server]]
         meta_proxy_class = SimpleNamespace(checkedCast=MagicMock(return_value=meta))
         fixture = self._build_authenticator(meta_proxy_class, slice_dir=None)
 
@@ -395,6 +397,7 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         )
         self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
         mumble_server.setAuthenticator.assert_called_once()
+        restarted_server.setAuthenticator.assert_called_once()
         self.assertEqual(fixture.ready.set.call_count, 2)
         fixture.ready.clear.assert_called_once()
 
