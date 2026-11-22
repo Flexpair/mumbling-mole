@@ -260,8 +260,8 @@ class MurmurIceAuthenticator:
             adapter.destroy()
             communicator.destroy()
 
-    def _attach_authenticator(self, MumbleServer, meta_proxy, callback, context) -> None:
-        meta = MumbleServer.MetaPrx.checkedCast(meta_proxy)
+    def _attach_authenticator(self, mumble_server_module, meta_proxy, callback, context) -> None:
+        meta = mumble_server_module.MetaPrx.checkedCast(meta_proxy)
         if meta is None:
             raise RuntimeError('Murmur Meta proxy unavailable')
         servers = meta.getBootedServers(context)
