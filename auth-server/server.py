@@ -252,15 +252,17 @@ def get_nested_property(obj: dict, path: str) -> Any:
     return result
 
 
-def get_guacamole_user(roles: Any) -> str:
-    """Determine Guacamole user from roles."""
-    if not roles or not isinstance(roles, list):
-        return 'watcher'
+def get_guacamole_user(roles: Any) -> Optional[str]:
+    """Determine Guacamole user from an explicitly assigned application role."""
+    if not isinstance(roles, list):
+        return None
     if 'admin' in roles:
         return 'admin'
     if 'edit' in roles:
         return 'editor'
-    return 'watcher'
+    if 'watch' in roles:
+        return 'watcher'
+    return None
 
 
 def _is_valid_url_scheme(url: str) -> bool:
@@ -672,6 +674,9 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
         roles = _extract_roles(user, provider_config['rolesClaim'])
         guacamole_user = get_guacamole_user(roles)
+        if guacamole_user is None:
+            self.send_json(403, {'error': 'User is not authorized'})
+            return
 
         print(
             f"[AUTH] Credentials issued for user:{hash_email(user.get('email'))} "

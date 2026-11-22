@@ -112,10 +112,10 @@ class TestGetGuacamoleUser(unittest.TestCase):
         self.assertEqual(get_guacamole_user(['watch']), 'watcher')
 
     def test_empty_roles(self):
-        self.assertEqual(get_guacamole_user([]), 'watcher')
+        self.assertIsNone(get_guacamole_user([]))
 
     def test_none_roles(self):
-        self.assertEqual(get_guacamole_user(None), 'watcher')
+        self.assertIsNone(get_guacamole_user(None))
 
     def test_admin_priority(self):
         """Admin should take priority over other roles."""
@@ -125,10 +125,10 @@ class TestGetGuacamoleUser(unittest.TestCase):
         self.assertEqual(get_guacamole_user(['watch', 'edit']), 'editor')
 
     def test_unknown_roles(self):
-        self.assertEqual(get_guacamole_user(['unknown', 'guest']), 'watcher')
+        self.assertIsNone(get_guacamole_user(['unknown', 'guest']))
 
     def test_not_a_list(self):
-        self.assertEqual(get_guacamole_user('admin'), 'watcher')
+        self.assertIsNone(get_guacamole_user('admin'))
 
 
 class TestHashEmail(unittest.TestCase):
@@ -730,7 +730,7 @@ class TestAuthProviderConfig(unittest.TestCase):
         from server import GUACAMOLE_PASSWORDS
 
         for app_roles, user_roles, expected_user in (
-            ([], ['admin'], 'watcher'),
+            (['watch'], ['admin'], 'watcher'),
             (['edit'], ['admin'], 'editor'),
             (['admin'], ['watch'], 'admin'),
         ):
@@ -746,6 +746,24 @@ class TestAuthProviderConfig(unittest.TestCase):
                 self.assertEqual(response[0], 200)
                 self.assertEqual(response[1]['guacamoleUser'], expected_user)
                 self.assertEqual(response[1]['guacamolePassword'], GUACAMOLE_PASSWORDS[expected_user])
+
+    @patch('server.AUTH_PROVIDER', 'supabase')
+    @patch('server.validate_token')
+    def test_supabase_credentials_require_an_explicit_application_role(self, mock_validate):
+        for app_metadata in ({}, {'roles': []}, {'roles': ['unknown', 'guest']}):
+            with self.subTest(app_metadata=app_metadata):
+                rate_limiter.store.clear()
+                mock_validate.return_value = {
+                    'app_metadata': app_metadata,
+                    'user_metadata': {'roles': ['admin']},
+                }
+                handler = TestCredentialRateLimitOrdering._handler(
+                    'Bearer ' + 'unit-test-token'
+                )
+                handler.do_POST()
+                handler.send_json.assert_called_once_with(
+                    403, {'error': 'User is not authorized'}
+                )
 
     def test_auth0_provider_placeholder(self):
         from server import AUTH_PROVIDERS
