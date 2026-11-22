@@ -45,6 +45,7 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    build-essential \
     git \
     libbz2-dev \
     libssl-dev \
