@@ -272,7 +272,7 @@ class MurmurIceAuthenticator:
     def _serve(self) -> None:
         import Ice
 
-        slice_path = Path(__file__).with_name('MumbleServer.ice')
+        slice_path = Path('/usr/local/share/mumble/MumbleServer.ice')
         slice_dir = Ice.getSliceDir()
         include = f'-I{slice_dir} ' if slice_dir else ''
         Ice.loadSlice(f'{include}{slice_path}')

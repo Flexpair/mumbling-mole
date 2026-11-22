@@ -393,7 +393,7 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
             fixture.authenticator._serve()
 
         fixture.fake_ice.loadSlice.assert_called_once_with(
-            str(os.path.join(os.path.dirname(__file__), 'MumbleServer.ice'))
+                '/usr/local/share/mumble/MumbleServer.ice'
         )
         self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
         mumble_server.setAuthenticator.assert_called_once()
