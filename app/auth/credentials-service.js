@@ -10,6 +10,7 @@
 /**
  * @typedef {Object} ServerCredentials
  * @property {string} mumblePassword - Password for Mumble server
+ * @property {string} mumbleUsername - Server-assigned Mumble username
  * @property {string} guacamoleUser - Guacamole username (admin/editor/watcher)
  * @property {string} guacamolePassword - Guacamole password
  */
@@ -85,7 +86,7 @@ async function _fetchCredentialsFromServer(token) {
   }
 
   const credentials = await response.json();
-  const requiredFields = ['mumblePassword', 'guacamoleUser', 'guacamolePassword'];
+  const requiredFields = ['mumblePassword', 'mumbleUsername', 'guacamoleUser', 'guacamolePassword'];
   if (!credentials || requiredFields.some(field => typeof credentials[field] !== 'string' || !credentials[field])) {
     throw new Error('Credentials response is incomplete');
   }

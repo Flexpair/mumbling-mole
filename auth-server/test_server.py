@@ -42,6 +42,7 @@ from server import (
     _normalize_origin,
     get_nested_property,
     get_guacamole_user,
+    get_mumble_username,
     hash_email,
     rate_limiter,
     generate_secure_password,
@@ -129,6 +130,25 @@ class TestGetGuacamoleUser(unittest.TestCase):
 
     def test_not_a_list(self):
         self.assertIsNone(get_guacamole_user('admin'))
+
+
+class TestGetMumbleUsername(unittest.TestCase):
+    """Tests for identity-bound Mumble usernames."""
+
+    def test_uses_stable_opaque_identity(self):
+        username = get_mumble_username({'sub': 'identity-1', 'email': 'one@example.com'})
+        self.assertEqual(username, get_mumble_username({'sub': 'identity-1'}))
+        self.assertTrue(username.startswith('user-'))
+        self.assertEqual(len(username), 21)
+
+    def test_prefers_subject_over_email(self):
+        self.assertNotEqual(
+            get_mumble_username({'sub': 'identity-1', 'email': 'one@example.com'}),
+            get_mumble_username({'sub': 'identity-2', 'email': 'one@example.com'}),
+        )
+
+    def test_requires_stable_identity(self):
+        self.assertIsNone(get_mumble_username({}))
 
 
 class TestHashEmail(unittest.TestCase):
@@ -737,6 +757,7 @@ class TestAuthProviderConfig(unittest.TestCase):
             with self.subTest(app_roles=app_roles, user_roles=user_roles):
                 rate_limiter.store.clear()
                 mock_validate.return_value = {
+                    'sub': f'identity-{expected_user}',
                     'app_metadata': {'roles': app_roles},
                     'user_metadata': {'roles': user_roles},
                 }
@@ -744,6 +765,10 @@ class TestAuthProviderConfig(unittest.TestCase):
                 handler.do_POST()
                 response = handler.send_json.call_args.args
                 self.assertEqual(response[0], 200)
+                self.assertEqual(
+                    response[1]['mumbleUsername'],
+                    get_mumble_username(mock_validate.return_value),
+                )
                 self.assertEqual(response[1]['guacamoleUser'], expected_user)
                 self.assertEqual(response[1]['guacamolePassword'], GUACAMOLE_PASSWORDS[expected_user])
 

@@ -162,6 +162,7 @@ jest.unstable_mockModule('../../app/stores/dialogStore', () => ({
 // Mock credentials service
 const mockFetchCredentials = jest.fn().mockResolvedValue({
   mumblePassword: 'test-password',
+  mumbleUsername: 'user-test',
   guacamoleUser: 'watcher',
   guacamolePassword: 'guac-password'
 });
@@ -226,6 +227,7 @@ describe('useConnectionLogic', () => {
     mockFetchCredentials.mockReset();
     mockFetchCredentials.mockResolvedValue({
       mumblePassword: 'test-password',
+      mumbleUsername: 'user-test',
       guacamoleUser: 'watcher',
       guacamolePassword: 'guac-password'
     });
@@ -1165,4 +1167,3 @@ describe('useConnectionLogic', () => {
     });
   });
 });
-

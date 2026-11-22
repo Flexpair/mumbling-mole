@@ -165,12 +165,15 @@ export function useConnectionLogic({ auth } = {}) {
     if (!serverCredentials) return;
 
     // Use server-provided password
+    const connectionUsername = isLoopback
+      ? username
+      : serverCredentials.mumbleUsername;
     const password = serverCredentials.mumblePassword;
 
     const connectionParams = {
       host,
       port,
-      username,
+      username: connectionUsername,
       password,
       tokens,
       isLoopback,

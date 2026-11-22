@@ -265,6 +265,15 @@ def get_guacamole_user(roles: Any) -> Optional[str]:
     return None
 
 
+def get_mumble_username(user: dict) -> Optional[str]:
+    """Derive a stable, opaque Mumble identity from the validated user."""
+    identity = user.get('sub') or user.get('email')
+    if not isinstance(identity, str) or not identity:
+        return None
+    digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()[:16]
+    return f'user-{digest}'
+
+
 def _is_valid_url_scheme(url: str) -> bool:
     """Validate URL scheme for security (OWASP A10 SSRF prevention).
     
@@ -678,6 +687,11 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(403, {'error': 'User is not authorized'})
             return
 
+        mumble_username = get_mumble_username(user)
+        if mumble_username is None:
+            self.send_json(401, {'error': 'Invalid identity'})
+            return
+
         print(
             f"[AUTH] Credentials issued for user:{hash_email(user.get('email'))} "
             f"(roles: {', '.join(map(str, roles))})"
@@ -685,6 +699,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
         self.send_json(200, {
             'mumblePassword': MUMBLE_PASSWORD,
+            'mumbleUsername': mumble_username,
             'guacamoleUser': guacamole_user,
             'guacamolePassword': GUACAMOLE_PASSWORDS[guacamole_user]
         })
