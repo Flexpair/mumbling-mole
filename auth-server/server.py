@@ -409,7 +409,7 @@ def _make_single_request(
         while True:
             remaining = _remaining_request_time(deadline)
             _set_response_timeout(response, remaining)
-            chunk = response.read(1)
+            chunk = response.read1(4096)
             _remaining_request_time(deadline)
             if not chunk:
                 break

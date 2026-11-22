@@ -889,7 +889,9 @@ class TestExecuteAuthRequest(unittest.TestCase):
         response = MagicMock()
         response.status = status
         response.fp = None
-        response.read.side_effect = [bytes((byte,)) for byte in body] + [b'']
+        response.read1.side_effect = [
+            body[index:index + 4096] for index in range(0, len(body), 4096)
+        ] + [b'']
         response.__enter__.return_value = response
         response.__exit__.return_value = False
         return response
@@ -1004,7 +1006,7 @@ class TestExecuteAuthRequest(unittest.TestCase):
             now[0] += 0.6
             return b'{'
 
-        response.read.side_effect = delayed_read
+        response.read1.side_effect = delayed_read
         mock_opener = MagicMock()
         mock_opener.open.return_value = response
 
@@ -1017,7 +1019,10 @@ class TestExecuteAuthRequest(unittest.TestCase):
                 )
 
         self.assertIsNone(result)
-        self.assertEqual(response.read.call_count, 2)
+        self.assertEqual(response.read1.call_count, 2)
+        self.assertTrue(all(
+            call.args == (4096,) for call in response.read1.call_args_list
+        ))
         timeouts = [
             call.args[0] for call in response_socket.settimeout.call_args_list
         ]
