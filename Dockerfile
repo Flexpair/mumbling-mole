@@ -160,7 +160,7 @@ COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dis
 RUN mkdir -p /home/node/auth-server && chown node:node /home/node/auth-server
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
-COPY --from=builder --chown=node:node --chmod=644 /usr/local/share/mumble/MumbleServer.ice /usr/local/share/mumble/MumbleServer.ice
+COPY --from=builder --chown=root:root --chmod=644 /usr/local/share/mumble/MumbleServer.ice /usr/local/share/mumble/MumbleServer.ice
 COPY --chown=root:root --chmod=644 ./auth-server/mumble_auth.py /home/node/auth-server/mumble_auth.py
 
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
