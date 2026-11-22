@@ -7,10 +7,16 @@ Or standalone: python3 auth-server/test_server.py
 """
 
 import json
+import queue
+import socket
+import socketserver
+import threading
+import time as time_mod
 import unittest
 import urllib.error
 from email.message import Message
 from time import time
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 # Import functions from server module
@@ -27,6 +33,7 @@ os.environ.update({
 from server import (
     AuthHandler,
     RateLimiter,
+    ThreadedHTTPServer,
     _parse_trusted_proxies,
     _resolve_client_ip,
     _get_cors_headers,
@@ -39,6 +46,7 @@ from server import (
     rate_limiter,
     generate_secure_password,
     _execute_auth_request,
+    _DeadlineReader,
     validate_token,
 )
 
@@ -217,6 +225,217 @@ class TestRateLimiting(unittest.TestCase):
 
         self.assertTrue(limiter.check('203.0.113.8'))
         self.assertNotIn('203.0.113.7', limiter.store)
+
+
+class TestThreadedHTTPServer(unittest.TestCase):
+    def setUp(self):
+        finished = self.finished = queue.Queue()
+
+        class TestServer(ThreadedHTTPServer):
+            max_concurrent_requests = 1
+            request_timeout = 0.1
+
+            def process_request_thread(self, request, client_address):
+                try:
+                    super().process_request_thread(request, client_address)
+                finally:
+                    finished.put(None)
+
+        self.server = TestServer(('127.0.0.1', 0), AuthHandler, bind_and_activate=False)
+        self.addCleanup(self.server.server_close)
+
+    def socket_pair(self):
+        client, request = socket.socketpair()
+        client.settimeout(2)
+        self.addCleanup(client.close)
+        self.addCleanup(request.close)
+        return client, request
+
+    def submit(self, request):
+        self.server.process_request(request, ('127.0.0.1', 12345))
+
+    def assert_health_request_succeeds(self):
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health HTTP/1.0\r\n\r\n')
+        self.submit(request)
+        self.assertTrue(client.recv(4096).startswith(b'HTTP/1.0 200 OK\r\n'))
+        self.finished.get(timeout=2)
+
+    def test_incomplete_headers_time_out_and_release_capacity(self):
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health HTTP/1.1\r\nHost: example\r\n')
+        self.submit(request)
+
+        self.assertEqual(client.recv(4096), b'')
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    def test_http_09_request_is_rejected(self):
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health\r\n\r\n')
+        self.submit(request)
+
+        response = client.recv(4096)
+        self.assertIn(b'HTTP/1.x required', response)
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    def test_disconnected_incomplete_requests_release_capacity_immediately(self):
+        self.server.request_timeout = 2
+        prefixes = (
+            b'',
+            b'GET /api/health',
+            b'GET /api/health HTTP/1.1\r\nHost: example',
+        )
+        for prefix in prefixes:
+            with self.subTest(prefix=prefix):
+                client, request = self.socket_pair()
+                self.addCleanup(client.close)
+                if prefix:
+                    client.sendall(prefix)
+                self.submit(request)
+                client.shutdown(socket.SHUT_WR)
+
+                self.finished.get(timeout=0.5)
+                self.assert_health_request_succeeds()
+
+    def test_slow_progress_times_out_during_request_line_and_headers(self):
+        self.server.request_timeout = 0.4
+        for prefix in (b'GET /api/', b'GET /api/health HTTP/1.1\r\nHost: '):
+            with self.subTest(prefix=prefix):
+                client, request = self.socket_pair()
+                client.sendall(prefix)
+                started = time_mod.monotonic()
+                self.submit(request)
+                stop = threading.Event()
+                sent_at = [started]
+
+                def send_slowly():
+                    while not stop.wait(0.03):
+                        try:
+                            client.sendall(b'a')
+                            sent_at.append(time_mod.monotonic())
+                        except OSError:
+                            return
+
+                sender = threading.Thread(target=send_slowly, daemon=True)
+                sender.start()
+                completed = False
+                try:
+                    self.finished.get(timeout=3)
+                    completed = True
+                    elapsed = time_mod.monotonic() - started
+                    self.assertGreaterEqual(elapsed, 0.3)
+                    self.assertLess(elapsed, 2.5)
+                    self.assertGreaterEqual(len(sent_at), 4)
+                    self.assertTrue(all(
+                        later - earlier < self.server.request_timeout
+                        for earlier, later in zip(sent_at, sent_at[1:])
+                    ))
+                    self.assertEqual(client.recv(4096), b'')
+                    self.assert_health_request_succeeds()
+                finally:
+                    stop.set()
+                    sender.join(timeout=1)
+                    if not completed:
+                        self.finished.get(timeout=2)
+
+    def test_timeout_setup_failure_closes_request_and_releases_capacity(self):
+        request = MagicMock()
+        request.settimeout.side_effect = OSError('timeout setup failed')
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+
+        with patch.object(self.server, 'shutdown_request') as shutdown:
+            with self.assertRaisesRegex(OSError, 'timeout setup failed'):
+                self.server.process_request_thread(request, ('127.0.0.1', 12345))
+
+        shutdown.assert_called_once_with(request)
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    def test_handler_base_exception_shuts_down_once_and_releases_capacity(self):
+        class HandlerFailure(BaseException):
+            pass
+
+        request = MagicMock()
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+
+        with patch.object(self.server, 'finish_request', side_effect=HandlerFailure):
+            with patch.object(self.server, 'shutdown_request') as shutdown:
+                with self.assertRaises(HandlerFailure):
+                    self.server.process_request_thread(request, ('127.0.0.1', 12345))
+
+        shutdown.assert_called_once_with(request)
+        self.finished.get(timeout=2)
+        self.assertTrue(self.server._request_slots.acquire(blocking=False))
+        self.server._request_slots.release()
+
+    def test_overload_receives_503_and_capacity_recovers(self):
+        stalled_client, stalled_request = self.socket_pair()
+        stalled_client.sendall(b'GET /api/health HTTP/1.1\r\nHost: example\r\n')
+        self.submit(stalled_request)
+
+        client, request = self.socket_pair()
+        client.sendall(b'GET /api/health HTTP/1.0\r\n\r\n')
+        self.submit(request)
+        expected_response = (
+            b'HTTP/1.1 503 Service Unavailable\r\n'
+            b'Connection: close\r\nContent-Length: 0\r\n\r\n'
+        )
+        response = b''
+        while len(response) < len(expected_response):
+            chunk = client.recv(len(expected_response) - len(response))
+            if not chunk:
+                break
+            response += chunk
+        self.assertEqual(response, expected_response)
+
+        # Closing with unread request bytes can yield a reset on Linux and EOF on macOS.
+        try:
+            self.assertEqual(client.recv(4096), b'')
+        except ConnectionResetError:
+            pass
+
+        stalled_client.sendall(b'\r\n')
+        self.assertTrue(stalled_client.recv(4096).startswith(b'HTTP/1.0 200 OK\r\n'))
+        self.finished.get(timeout=2)
+        self.assert_health_request_succeeds()
+
+    @patch('server.urllib.request.build_opener')
+    def test_provider_timeout_releases_request_slot(self, mock_build_opener):
+        self.server.request_timeout = 0.1
+        mock_opener = MagicMock()
+
+        def timeout_after_budget(req, timeout):
+            time_mod.sleep(timeout)
+            raise socket.timeout('provider request timed out')
+
+        mock_opener.open.side_effect = timeout_after_budget
+        mock_build_opener.return_value = mock_opener
+        client, request = self.socket_pair()
+        client.sendall(
+            b'POST /api/credentials HTTP/1.1\r\n'
+            b'Host: example\r\n'
+            b'Authorization: ' + b'B' + b'earer test\r\n'
+            b'Content-Length: 0\r\n\r\n'
+        )
+
+        started = time_mod.monotonic()
+        self.submit(request)
+        self.finished.get(timeout=1)
+
+        self.assertLess(time_mod.monotonic() - started, 0.5)
+        mock_opener.open.assert_called_once()
+        self.assertEqual(client.recv(4096), b'')
+        self.assert_health_request_succeeds()
+
+    def test_failed_thread_start_releases_capacity(self):
+        _, request = self.socket_pair()
+        with patch.object(socketserver.ThreadingMixIn, 'process_request', side_effect=RuntimeError('start failed')):
+            with self.assertRaisesRegex(RuntimeError, 'start failed'):
+                self.submit(request)
+
+        self.assert_health_request_succeeds()
 
 
 class TestCredentialRateLimitOrdering(unittest.TestCase):
@@ -503,7 +722,30 @@ class TestAuthProviderConfig(unittest.TestCase):
     def test_supabase_provider_placeholder(self):
         from server import AUTH_PROVIDERS
         self.assertIn('supabase', AUTH_PROVIDERS)
-        self.assertEqual(AUTH_PROVIDERS['supabase']['rolesClaim'], 'user_metadata.roles')
+        self.assertEqual(AUTH_PROVIDERS['supabase']['rolesClaim'], 'app_metadata.roles')
+
+    @patch('server.AUTH_PROVIDER', 'supabase')
+    @patch('server.validate_token')
+    def test_supabase_credentials_ignore_user_controlled_roles(self, mock_validate):
+        from server import GUACAMOLE_PASSWORDS
+
+        for app_roles, user_roles, expected_user in (
+            ([], ['admin'], 'watcher'),
+            (['edit'], ['admin'], 'editor'),
+            (['admin'], ['watch'], 'admin'),
+        ):
+            with self.subTest(app_roles=app_roles, user_roles=user_roles):
+                rate_limiter.store.clear()
+                mock_validate.return_value = {
+                    'app_metadata': {'roles': app_roles},
+                    'user_metadata': {'roles': user_roles},
+                }
+                handler = TestCredentialRateLimitOrdering._handler('Bearer token')
+                handler.do_POST()
+                response = handler.send_json.call_args.args
+                self.assertEqual(response[0], 200)
+                self.assertEqual(response[1]['guacamoleUser'], expected_user)
+                self.assertEqual(response[1]['guacamolePassword'], GUACAMOLE_PASSWORDS[expected_user])
 
     def test_auth0_provider_placeholder(self):
         from server import AUTH_PROVIDERS
@@ -578,7 +820,7 @@ class TestAuthProviderUrlValidation(unittest.TestCase):
             {'email': 'user@example.com'},
         )
         mock_request.assert_called_once_with(
-            'https://welcome.flexpair.com/identity-proxy/user', 'token'
+            'https://welcome.flexpair.com/identity-proxy/user', 'token', None
         )
 
 
@@ -646,7 +888,10 @@ class TestExecuteAuthRequest(unittest.TestCase):
     def _mock_response(self, status=200, body=b'{"ok": true}'):
         response = MagicMock()
         response.status = status
-        response.read.return_value = body
+        response.fp = None
+        response.read1.side_effect = [
+            body[index:index + 4096] for index in range(0, len(body), 4096)
+        ] + [b'']
         response.__enter__.return_value = response
         response.__exit__.return_value = False
         return response
@@ -699,6 +944,106 @@ class TestExecuteAuthRequest(unittest.TestCase):
         result = _execute_auth_request('https://example.com', 'token')
         self.assertIsNone(result)
         self.assertEqual(mock_opener.open.call_count, 3)
+
+    def test_retry_delay_stops_at_absolute_deadline(self):
+        now = [5.0]
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.URLError('network down')
+
+        with patch('server.time_mod.monotonic', side_effect=lambda: now[0]):
+            with patch(
+                'server.time_mod.sleep',
+                side_effect=lambda delay: now.__setitem__(0, now[0] + delay),
+            ) as mock_sleep:
+                with patch(
+                    'server.urllib.request.build_opener', return_value=mock_opener
+                ):
+                    result = _execute_auth_request(
+                        'https://example.com', 'token', deadline=5.2
+                    )
+
+        self.assertIsNone(result)
+        self.assertEqual(mock_opener.open.call_count, 1)
+        self.assertAlmostEqual(mock_opener.open.call_args.kwargs['timeout'], 0.2)
+        self.assertAlmostEqual(mock_sleep.call_args.args[0], 0.2)
+        self.assertEqual(mock_sleep.call_count, 1)
+
+    def test_provider_response_reads_use_remaining_deadline(self):
+        now = [10.0]
+        response = self._mock_response()
+        response_socket = MagicMock()
+        response.fp = SimpleNamespace(
+            fp=SimpleNamespace(raw=SimpleNamespace(_sock=response_socket))
+        )
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = response
+
+        with patch('server.time_mod.monotonic', side_effect=lambda: now[0]):
+            with patch(
+                'server.urllib.request.build_opener', return_value=mock_opener
+            ):
+                result = _execute_auth_request(
+                    'https://example.com', 'token', deadline=12.0
+                )
+
+        self.assertEqual(result, {'ok': True})
+        mock_opener.open.assert_called_once()
+        self.assertEqual(mock_opener.open.call_args.kwargs['timeout'], 2.0)
+        self.assertTrue(response_socket.settimeout.called)
+        self.assertTrue(all(
+            call.args == (2.0,) for call in response_socket.settimeout.call_args_list
+        ))
+
+    def test_provider_response_read_stops_when_deadline_expires(self):
+        now = [10.0]
+        response = self._mock_response()
+        response_socket = MagicMock()
+        response.fp = SimpleNamespace(
+            fp=SimpleNamespace(raw=SimpleNamespace(_sock=response_socket))
+        )
+
+        def delayed_read(size):
+            now[0] += 0.6
+            return b'{'
+
+        response.read1.side_effect = delayed_read
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = response
+
+        with patch('server.time_mod.monotonic', side_effect=lambda: now[0]):
+            with patch(
+                'server.urllib.request.build_opener', return_value=mock_opener
+            ):
+                result = _execute_auth_request(
+                    'https://example.com', 'token', deadline=11.0
+                )
+
+        self.assertIsNone(result)
+        self.assertEqual(response.read1.call_count, 2)
+        self.assertTrue(all(
+            call.args == (4096,) for call in response.read1.call_args_list
+        ))
+        timeouts = [
+            call.args[0] for call in response_socket.settimeout.call_args_list
+        ]
+        self.assertEqual(len(timeouts), 2)
+        self.assertAlmostEqual(timeouts[0], 1.0)
+        self.assertAlmostEqual(timeouts[1], 0.4)
+
+    def test_expired_deadline_suppresses_response_write(self):
+        handler = AuthHandler.__new__(AuthHandler)
+        handler.rfile = _DeadlineReader(MagicMock(), MagicMock(), timeout=1)
+        handler.rfile.deadline = 1.0
+        handler.request = MagicMock()
+        handler.close_connection = False
+        handler.send_response = MagicMock()
+
+        with patch('server.time_mod.monotonic', return_value=2.0):
+            handler.send_json(200, {'status': 'ok'})
+
+        handler.send_response.assert_not_called()
+        handler.request.settimeout.assert_not_called()
+        self.assertTrue(handler.close_connection)
 
     @patch('server.urllib.request.build_opener')
     def test_non_200_status_returns_none(self, mock_build_opener):
