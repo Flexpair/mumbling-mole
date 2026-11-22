@@ -356,9 +356,10 @@ describe('useConnectionLogic', () => {
       mockLogoutForReauthentication.mockReturnValueOnce(staleLogout.promise);
 
       const staleConnection = logic.connect('stale-host', 64738, 'stale-user', 'pass');
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      for (let attempt = 0; attempt < 20 && !mockLogoutForReauthentication.mock.calls.length; attempt++) {
+        await Promise.resolve();
+      }
+      expect(mockLogoutForReauthentication).toHaveBeenCalledTimes(1);
 
       await useConnectionLogic({ auth: mockAuth })
         .connect('current-host', 64738, 'current-user', 'pass');
@@ -422,6 +423,7 @@ describe('useConnectionLogic', () => {
       
       expect(mockDialogStore.showSampleRateDialog).toHaveBeenCalled();
       expect(mockDialogStore.sampleRateDialog.sampleRate).toBe(44100);
+      expect(mockFetchCredentials).not.toHaveBeenCalled();
     });
 
     it('should proceed with 48kHz sample rate', async () => {
@@ -495,7 +497,7 @@ describe('useConnectionLogic', () => {
 
       await logic.connect('host', 64738, 'user', 'pass');
 
-      expect(mockVoiceStore.setupVoiceForConnection).not.toHaveBeenCalled();
+      expect(mockVoiceStore.setupVoiceForConnection).toHaveBeenCalled();
       expect(mockConnectionStore.connect).not.toHaveBeenCalled();
       expect(mockStartGuacamoleFrame).not.toHaveBeenCalled();
     });
@@ -695,8 +697,9 @@ describe('useConnectionLogic', () => {
 
       const staleConnection = useConnectionLogic({ auth: staleAuth })
         .connect('stale-host', 64738, 'stale-user', 'pass');
-      await Promise.resolve();
-      await Promise.resolve();
+      for (let attempt = 0; attempt < 20 && !staleAuth.getAccessToken.mock.calls.length; attempt++) {
+        await Promise.resolve();
+      }
       expect(staleAuth.getAccessToken).toHaveBeenCalledTimes(1);
 
       const currentConnection = useConnectionLogic({ auth: currentAuth })
@@ -991,9 +994,11 @@ describe('useConnectionLogic', () => {
 
       expect(mockConnectionStore.connect).not.toHaveBeenCalled();
       expect(mockStartGuacamoleFrame).not.toHaveBeenCalled();
+      expect(mockFetchCredentials).not.toHaveBeenCalled();
 
       voiceReady.resolve(jest.fn());
       await connection;
+      expect(mockFetchCredentials).toHaveBeenCalledTimes(1);
       expect(mockConnectionStore.connect).toHaveBeenCalledTimes(1);
     });
 
