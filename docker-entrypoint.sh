@@ -49,6 +49,31 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     echo "Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR" >&2
     exit 1
   fi
+  if ! python3 - "${AUTH_SERVER_HOST}" <<'PY'
+import ipaddress
+import socket
+import sys
+
+try:
+    addresses = socket.getaddrinfo(sys.argv[1], None, socket.AF_INET)
+except OSError:
+    sys.exit(1)
+
+sys.exit(
+    not addresses
+    or any(
+        not (
+            ipaddress.ip_address(address[4][0]).is_loopback
+            or ipaddress.ip_address(address[4][0]).is_unspecified
+        )
+        for address in addresses
+    )
+)
+PY
+  then
+    echo "AUTH_SERVER_HOST must resolve to an IPv4 loopback or wildcard address for the local websockify callback" >&2
+    exit 1
+  fi
   # websockify auth callback comes from loopback; always trust loopback hops for X-Forwarded-For resolution
   AUTH_TRUSTED_PROXIES="${TRUSTED_PROXIES},127.0.0.1/32,::1"
   echo "[entrypoint] Starting auth server on ${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}"
