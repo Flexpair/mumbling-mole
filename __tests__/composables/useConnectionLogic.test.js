@@ -322,6 +322,7 @@ describe('useConnectionLogic', () => {
         .mockRejectedValueOnce(Object.assign(new Error('Invalid or expired token'), { status: 401 }))
         .mockResolvedValueOnce({
           mumblePassword: 'current-password',
+          mumbleUsername: 'issued-current-user',
           guacamoleUser: 'watcher',
           guacamolePassword: 'current-guac-password',
         });
@@ -342,7 +343,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'issued-current-user',
         'current-password',
         []
       );
@@ -416,7 +417,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'host',
         64738,
-        'user',
+        'user-test',
         'test-password',
         []
       );
@@ -523,6 +524,7 @@ describe('useConnectionLogic', () => {
         ? firstCredentials.promise
         : Promise.resolve({
           mumblePassword: 'new-password',
+          mumbleUsername: 'issued-new-user',
           guacamoleUser: 'watcher',
           guacamolePassword: 'new-guac-password',
         }));
@@ -533,6 +535,7 @@ describe('useConnectionLogic', () => {
       await secondConnection;
       firstCredentials.resolve({
         mumblePassword: 'old-password',
+        mumbleUsername: 'issued-old-user',
         guacamoleUser: 'watcher',
         guacamolePassword: 'old-guac-password',
       });
@@ -542,7 +545,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'new-host',
         64738,
-        'new-user',
+        'issued-new-user',
         'new-password',
         []
       );
@@ -640,7 +643,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'user-test',
         'test-password',
         []
       );
@@ -676,6 +679,7 @@ describe('useConnectionLogic', () => {
       staleToken.resolve('stale-token');
       currentCredentials.resolve({
         mumblePassword: 'current-password',
+        mumbleUsername: 'issued-current-user',
         guacamoleUser: 'watcher',
         guacamolePassword: 'current-guac-password',
       });
@@ -687,7 +691,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'issued-current-user',
         'current-password',
         []
       );
