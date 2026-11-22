@@ -150,6 +150,14 @@ Do not pass Murmur's `serverpassword` to the auth service or browser client. Rot
 
 **Breaking change:** Existing deployments without `TRUSTED_PROXIES`, Murmur ICE authentication, and persistent `MUMBLE_IDENTITY_DB` storage will not issue Mumble credentials.
 
+**Rollout checklist:**
+
+1. Enable ICE on Murmur (`ice`, `icesecretwrite`) on a private network only.
+2. Set `MURMUR_ICE_ENDPOINT`, `MURMUR_ICE_SECRET`, `MURMUR_AUTH_CALLBACK_ENDPOINT`, and `MUMBLE_IDENTITY_DB` on the app container.
+3. Mount persistent storage at `MUMBLE_IDENTITY_DB`.
+4. Rotate `serverpassword` on Murmur.
+5. Verify the credential endpoint returns 200 (not 503) before routing traffic.
+
 Supply password values through the deployment's secret configuration, never through committed files or documentation. `SKIP_TUNNEL=1` serves static files only and bypasses both the tunnel and authentication-service startup.
 
 ## CI/CD and image publishing

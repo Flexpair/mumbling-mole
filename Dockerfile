@@ -82,6 +82,8 @@ ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 COPY --chown=node:node --chmod=755 ./ /home/node/
 RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes \
       -r /home/node/auth-server/requirements-ice.txt && \
+    find /opt/venv -type d \( -name __pycache__ -o -name .cache \) -prune -exec rm -rf {} + && \
+    find /opt/venv -type f -name '*.pyc' -delete && \
     curl --proto "=https" -fsSL \
       "https://raw.githubusercontent.com/mumble-voip/mumble/fc454676e79841f1c7d22207d979754502c6297b/src/murmur/MumbleServer.ice" \
       -o /home/node/auth-server/MumbleServer.ice && \

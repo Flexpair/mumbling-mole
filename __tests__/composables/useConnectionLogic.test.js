@@ -257,6 +257,32 @@ describe('useConnectionLogic', () => {
   });
 
   describe('connect()', () => {
+    it('fetches a fresh single-use credential when connecting again after disconnect', async () => {
+      mockFetchCredentials
+        .mockResolvedValueOnce({
+          mumbleUsername: MUMBLE_USERNAME,
+          mumblePassword: 'first-session',
+          guacamoleUser: 'watcher',
+          guacamolePassword: 'guac-password',
+        })
+        .mockResolvedValueOnce({
+          mumbleUsername: MUMBLE_USERNAME,
+          mumblePassword: 'second-session',
+          guacamoleUser: 'watcher',
+          guacamolePassword: 'guac-password',
+        });
+
+      await logic.connect('host', 64738, 'user', 'pass');
+      logic.resetClient();
+      await logic.connect('host', 64738, 'user', 'pass');
+
+      expect(mockFetchCredentials).toHaveBeenCalledTimes(2);
+      expect(mockFetchCredentials).toHaveBeenNthCalledWith(1, 'test-jwt-token', { forceRefresh: true });
+      expect(mockFetchCredentials).toHaveBeenNthCalledWith(2, 'test-jwt-token', { forceRefresh: true });
+      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(1, 'host', 64738, MUMBLE_USERNAME, 'first-session', []);
+      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(2, 'host', 64738, MUMBLE_USERNAME, 'second-session', []);
+    });
+
     it('should alert when auth is not provided', async () => {
       const logicNoAuth = useConnectionLogic({});
       

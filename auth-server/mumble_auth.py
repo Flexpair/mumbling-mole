@@ -43,17 +43,31 @@ class MumbleIdentityRegistry:
             if row:
                 return MumbleIdentity(row[0] + MUMBLE_USER_ID_OFFSET, row[1])
 
-            username = get_mumble_username(subject, display_name)
-            try:
-                cursor = self._database.execute(
-                    'INSERT INTO identities (subject, username) VALUES (?, ?)',
-                    (subject, username),
-                )
-                self._database.commit()
-            except sqlite3.IntegrityError as error:
-                self._database.rollback()
-                raise ValueError('Identity username collision') from error
-            return MumbleIdentity(cursor.lastrowid + MUMBLE_USER_ID_OFFSET, username)
+            base_username = get_mumble_username(subject, display_name)
+            for attempt in range(1, 6):
+                username = base_username if attempt == 1 else f'{base_username.removesuffix(")")[:29]}-{attempt})'
+                try:
+                    cursor = self._database.execute(
+                        'INSERT INTO identities (subject, username) VALUES (?, ?)',
+                        (subject, username),
+                    )
+                    self._database.commit()
+                    return MumbleIdentity(cursor.lastrowid + MUMBLE_USER_ID_OFFSET, username)
+                except sqlite3.IntegrityError:
+                    self._database.rollback()
+                    row = self._database.execute(
+                        'SELECT user_id, username FROM identities WHERE subject = ?',
+                        (subject,),
+                    ).fetchone()
+                    if row:
+                        return MumbleIdentity(row[0] + MUMBLE_USER_ID_OFFSET, row[1])
+                    collision = self._database.execute(
+                        'SELECT 1 FROM identities WHERE username = ? COLLATE NOCASE',
+                        (username,),
+                    ).fetchone()
+                    if not collision:
+                        raise
+            raise ValueError('Identity username collision')
 
     def get_by_id(self, user_id: int) -> Optional[MumbleIdentity]:
         registry_id = user_id - MUMBLE_USER_ID_OFFSET
@@ -237,9 +251,13 @@ class MurmurIceAuthenticator:
                         self._ready.set()
                     else:
                         self._ready.clear()
-                except Exception:
+                except Exception as error:
                     self._ready.clear()
-                    print('[AUTH] Murmur authenticator unavailable; retrying')
+                    reason = str(error)
+                    for sensitive in (self._secret, self._endpoint, self._callback_endpoint):
+                        if sensitive:
+                            reason = reason.replace(sensitive, '[redacted]')
+                    print(f'[AUTH] Murmur authenticator unavailable; retrying ({type(error).__name__}: {reason})')
                 self._stop.wait(2)
         finally:
             self._ready.clear()

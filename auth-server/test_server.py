@@ -183,6 +183,15 @@ class TestMumbleIdentityAuthentication(unittest.TestCase):
             self.assertEqual(second.get_by_id(identity.user_id), identity)
             self.assertEqual(second.get_by_username(identity.username), identity)
 
+    def test_identity_username_collision_is_disambiguated(self):
+        with patch('mumble_auth.get_mumble_username', return_value='Authenticated (1234567890123456)'):
+            identities = [self.identities.get_or_create(f'collision-{i}') for i in range(5)]
+            self.assertEqual(len({identity.username for identity in identities}), 5)
+            self.assertTrue(all(len(identity.username) <= 32 for identity in identities))
+            self.assertEqual(self.identities.get_or_create('collision-1'), identities[1])
+            with self.assertRaisesRegex(ValueError, 'Identity username collision'):
+                self.identities.get_or_create('collision-5')
+
     def test_session_token_authenticates_only_its_assigned_username_once(self):
         token = self.sessions.issue(self.identity)
 
@@ -227,7 +236,10 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         meta = MagicMock()
         meta.getBootedServers.return_value = [mumble_server]
         meta_proxy_class = SimpleNamespace(
-            checkedCast=MagicMock(side_effect=[RuntimeError('Murmur is starting'), meta])
+            checkedCast=MagicMock(side_effect=[
+                RuntimeError('Murmur is starting: ice-secret Meta:tcp -h murmur -p 6502 tcp -h mumble -p 6503'),
+                meta,
+            ])
         )
         adapter = MagicMock()
         communicator = MagicMock()
@@ -265,12 +277,16 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
             return False
 
         authenticator._stop.wait = wait_for_retry
-        with patch.dict(
+        with patch('builtins.print') as mock_print, patch.dict(
             sys.modules,
             {'Ice': fake_ice, 'MumbleServer': fake_mumble_server},
         ):
             authenticator._serve()
 
+        mock_print.assert_called_once_with(
+            '[AUTH] Murmur authenticator unavailable; retrying '
+            '(RuntimeError: Murmur is starting: [redacted] [redacted] [redacted])'
+        )
         self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
         mumble_server.setAuthenticator.assert_called_once()
         ready.set.assert_called_once()
