@@ -42,6 +42,7 @@ rather than duplicating them elsewhere.
 12. **Git remote policy** – Never interact with the `upstream` repo/remote. Assume all git operations (push/PR base/merge targets) refer to the Flexpair fork (`origin`, e.g. `Flexpair/mumbling-mole`) unless explicitly instructed otherwise.
 13. **Jest CI dependencies** – Do not omit optional npm dependencies for Jest 30.x CI. Clean Linux CI reproduced resolver failures for local `<rootDir>` config paths when using `npm ci --omit=optional`; prefer the workflow pattern `npm ci || npm i` unless a new clean-container test proves otherwise.
 14. **Dependabot PR search** – Dependabot development-dependency PRs use the title prefix `build(deps-dev)`, not `build(deps/dev)`. Search both variants only when investigating historical mentions.
+15. **Mumble identity authentication** – Never return Murmur's shared `serverpassword` to the browser. Authenticated connections must use the auth-server-issued username and short-lived, single-use token verified by Murmur's private ICE authenticator.
 
 ## 🎯 Quick Start
 

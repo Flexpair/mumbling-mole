@@ -40,6 +40,7 @@ const createJsonErrorResponse = (status) => ({
 describe('credentials-service', () => {
   const validCredentials = {
     mumblePassword: 'test-password',
+    mumbleUsername: 'Test User (3ff34ed40e9ac98f)',
     guacamoleUser: 'editor',
     guacamolePassword: 'guac-password'
   };
@@ -77,9 +78,10 @@ describe('credentials-service', () => {
     });
 
     it.each([
-      ['mumblePassword', { guacamoleUser: 'editor', guacamolePassword: 'guac-password' }],
-      ['guacamoleUser', { mumblePassword: 'test-password', guacamolePassword: 'guac-password' }],
-      ['guacamolePassword', { mumblePassword: 'test-password', guacamoleUser: 'editor' }],
+      ['mumblePassword', { mumbleUsername: 'user', guacamoleUser: 'editor', guacamolePassword: 'guac-password' }],
+      ['mumbleUsername', { mumblePassword: 'test-password', guacamoleUser: 'editor', guacamolePassword: 'guac-password' }],
+      ['guacamoleUser', { mumblePassword: 'test-password', mumbleUsername: 'user', guacamolePassword: 'guac-password' }],
+      ['guacamolePassword', { mumblePassword: 'test-password', mumbleUsername: 'user', guacamoleUser: 'editor' }],
     ])('should reject credentials missing %s', async (_field, credentials) => {
       mockFetch.mockResolvedValueOnce(createMockResponse(credentials));
 
@@ -180,6 +182,21 @@ describe('credentials-service', () => {
       await fetchCredentials('token', { forceRefresh: true });
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(getCachedCredentials()).toEqual(validCredentials);
+    });
+
+    it('should not cache or share single-use credentials when forceRefresh is true', async () => {
+      mockFetch
+        .mockResolvedValueOnce(createMockResponse({ ...validCredentials, mumblePassword: 'first-token' }))
+        .mockResolvedValueOnce(createMockResponse({ ...validCredentials, mumblePassword: 'second-token' }));
+
+      const first = await fetchCredentials('token', { forceRefresh: true });
+      const second = await fetchCredentials('token', { forceRefresh: true });
+
+      expect(first.mumblePassword).toBe('first-token');
+      expect(second.mumblePassword).toBe('second-token');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(getCachedCredentials()).toBeNull();
     });
 
     it('should prevent concurrent requests', async () => {

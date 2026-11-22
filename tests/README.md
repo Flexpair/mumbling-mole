@@ -8,10 +8,11 @@ The recommended environment is the Dev Container defined in `.devcontainer/`. It
 
 - the development container (`mumble`),
 - the Murmur server (`murmur`) at `murmur:64738`,
+- Murmur's private ICE interface and the auth server's callback endpoint,
 - nginx at the browser-facing local URL, and
 - the supporting Guacamole services.
 
-The Playwright suite needs the Murmur service. If `murmur:64738` refuses connections, restart the complete Compose/Codespaces environment rather than trying to start Murmur from inside the development container.
+The Playwright suite needs the Murmur service and the ICE authenticator to be attached before Mumble credentials can be issued. If `murmur:64738` refuses connections or the auth endpoint returns 503, restart the complete Compose/Codespaces environment rather than trying to start Murmur from inside the development container.
 
 Keep test credentials in the untracked `.env.test` file. The Playwright configuration loads that file but does not provide credential values in the repository.
 

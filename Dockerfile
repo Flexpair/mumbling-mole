@@ -26,6 +26,8 @@ ENV PATH="/opt/venv/bin:${PATH}"
 RUN useradd -m -U -s /bin/bash node && \
     chown -R node:node /home/node
 
+RUN mkdir -p /var/lib/mumble-auth && chown node:node /var/lib/mumble-auth
+
 WORKDIR /home/node
 
 
@@ -44,6 +46,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
+    libbz2-dev \
+    libssl-dev \
+    python3.11-dev \
     xz-utils && \
     rm -rf /var/lib/apt/lists/* && \
     set -eux; \
@@ -74,6 +79,14 @@ ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 
 # Projekt-Files kopieren und builden
 COPY --chown=node:node --chmod=755 ./ /home/node/
+RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes \
+      -r /home/node/auth-server/requirements-ice.txt && \
+    curl --proto "=https" -fsSL \
+      "https://raw.githubusercontent.com/mumble-voip/mumble/fc454676e79841f1c7d22207d979754502c6297b/src/murmur/MumbleServer.ice" \
+      -o /home/node/auth-server/MumbleServer.ice && \
+    printf '%s  %s\n' \
+      '6c0284627106d3a0acc4a3b9a9d2a762b1e30e54950e876057f71c5c8c67c750' \
+      /home/node/auth-server/MumbleServer.ice | sha256sum -c -
 USER node
 WORKDIR /home/node
 
@@ -141,7 +154,10 @@ COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dis
 
 # Create auth-server directory (needs 755 for directory traversal)
 RUN mkdir -p /home/node/auth-server && chown node:node /home/node/auth-server
+COPY --from=builder /opt/venv /opt/venv
 COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
+COPY --from=builder --chown=node:node --chmod=644 /home/node/auth-server/MumbleServer.ice /home/node/auth-server/MumbleServer.ice
+COPY --chown=node:node --chmod=644 ./auth-server/mumble_auth.py /home/node/auth-server/mumble_auth.py
 
 COPY --chown=node:node --chmod=555 ./docker-entrypoint.sh /home/node/docker-entrypoint.sh
 

@@ -110,7 +110,7 @@ export function useConnectionLogic({ auth } = {}) {
       if (!isConnectionAttemptCurrent(attempt)) return null;
       if (!token) throw new Error('No access token available');
 
-      const serverCredentials = await fetchCredentials(token);
+      const serverCredentials = await fetchCredentials(token, { forceRefresh: true });
       if (!isConnectionAttemptCurrent(attempt)) return null;
       return serverCredentials;
     } catch (error) {
@@ -170,7 +170,7 @@ export function useConnectionLogic({ auth } = {}) {
     const connectionParams = {
       host,
       port,
-      username,
+      username: serverCredentials.mumbleUsername,
       password,
       tokens,
       isLoopback,

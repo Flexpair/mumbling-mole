@@ -16,6 +16,7 @@ import secrets
 import select
 import socket
 import socketserver
+import sqlite3
 import threading
 import time as time_mod
 import urllib.request
@@ -24,6 +25,7 @@ from collections import defaultdict
 from time import time
 from typing import Any, Optional
 from urllib.parse import urlsplit
+from mumble_auth import MumbleIdentityRegistry, MumbleSessionStore, create_mumble_authenticator
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
 # Binding to 0.0.0.0 is intentional - server runs in container behind nginx
@@ -88,9 +90,11 @@ def generate_secure_password(length: int = 32) -> str:
     return secrets.token_urlsafe(length)[:length]
 
 
-MUMBLE_PASSWORD = os.environ.get('MUMBLE_PASSWORD')
-if not MUMBLE_PASSWORD:
-    raise RuntimeError('MUMBLE_PASSWORD must be configured')
+MUMBLE_IDENTITIES = MumbleIdentityRegistry(
+    os.environ.get('MUMBLE_IDENTITY_DB', '/var/lib/mumble-auth/identities.sqlite3')
+)
+MUMBLE_SESSIONS = MumbleSessionStore()
+MURMUR_AUTHENTICATOR_READY = threading.Event()
 
 _GUACAMOLE_PASSWORD_ENV = {
     'admin': 'GUAC_ADMIN_PASSWORD',
@@ -110,17 +114,20 @@ AUTH_PROVIDER = os.environ.get('AUTH_PROVIDER', 'netlify')
 AUTH_PROVIDERS = {
     'netlify': {
         'userEndpoint': os.environ.get('NETLIFY_IDENTITY_URL', 'https://welcome.flexpair.com/identity-proxy'),
+        'subjectClaim': 'id',
         'rolesClaim': 'app_metadata.roles',
         'allowedHosts': ('welcome.flexpair.com',)
     },
     'supabase': {
         'userEndpoint': f"{os.environ.get('SUPABASE_URL')}/auth/v1" if os.environ.get('SUPABASE_URL') else None,
+        'subjectClaim': 'id',
         'rolesClaim': 'app_metadata.roles',
         'allowedHostSuffixes': ('.supabase.co', '.supabase.in'),
         'allowedHostPrefixLabels': (1,)
     },
     'auth0': {
         'userEndpoint': f"https://{os.environ.get('AUTH0_DOMAIN')}" if os.environ.get('AUTH0_DOMAIN') else None,
+        'subjectClaim': 'sub',
         'rolesClaim': 'https://flexpair.com/roles',
         'allowedHostSuffixes': ('.auth0.com',),
         'allowedHostPrefixLabels': (1, 2)
@@ -653,12 +660,15 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(404, {'error': 'Not found'})
             return
 
-
         token = self._get_token_from_header()
         if not token:
             return
 
         if not self._check_rate_limit():
+            return
+
+        if not MURMUR_AUTHENTICATOR_READY.is_set():
+            self.send_json(503, {'error': 'Mumble authentication is unavailable'})
             return
 
         provider_config = AUTH_PROVIDERS.get(AUTH_PROVIDER)
@@ -680,13 +690,30 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(403, {'error': 'User is not authorized'})
             return
 
+        subject = get_nested_property(user, provider_config['subjectClaim'])
+        display_name = get_nested_property(user, 'user_metadata.full_name')
+        if not isinstance(subject, str) or not subject:
+            self.send_json(401, {'error': 'Invalid identity'})
+            return
+
+        try:
+            mumble_identity = MUMBLE_IDENTITIES.get_or_create(subject, display_name)
+            mumble_password = MUMBLE_SESSIONS.issue(mumble_identity)
+        except ValueError:
+            self.send_json(401, {'error': 'Invalid identity'})
+            return
+        except (RuntimeError, sqlite3.Error):
+            self.send_json(503, {'error': 'Mumble authentication is unavailable'})
+            return
+
         print(
             f"[AUTH] Credentials issued for user:{hash_email(user.get('email'))} "
             f"(roles: {', '.join(map(str, roles))})"
         )
 
         self.send_json(200, {
-            'mumblePassword': MUMBLE_PASSWORD,
+            'mumblePassword': mumble_password,
+            'mumbleUsername': mumble_identity.username,
             'guacamoleUser': guacamole_user,
             'guacamolePassword': GUACAMOLE_PASSWORDS[guacamole_user]
         })
@@ -739,8 +766,13 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 def main():
     print(f'[AUTH] Server listening on {HOST}:{PORT}')
     print(f'[AUTH] Provider: {AUTH_PROVIDER}')
-    print(f"[AUTH] Mumble password configured: {'yes' if MUMBLE_PASSWORD else 'no'}")
 
+    mumble_authenticator = create_mumble_authenticator(
+        MUMBLE_IDENTITIES,
+        MUMBLE_SESSIONS,
+        MURMUR_AUTHENTICATOR_READY,
+    )
+    mumble_authenticator.start()
     server = ThreadedHTTPServer((HOST, PORT), AuthHandler)
     try:
         server.serve_forever()
@@ -748,6 +780,7 @@ def main():
         print('\n[AUTH] Shutting down...')
     finally:
         server.shutdown()
+        mumble_authenticator.stop()
         server.server_close()
 
 

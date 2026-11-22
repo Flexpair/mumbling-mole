@@ -9,6 +9,9 @@ networks:
         - subnet: 172.18.0.0/24
         # gateway is then 172.18.0.1 by convention
 
+volumes:
+  mumble_auth_data:
+
 services:
   guacamole:
     container_name: guacamole_container
@@ -37,6 +40,7 @@ services:
     working_dir: /workspaces/mumbling-mole
     volumes:
       - ..:/workspaces/mumbling-mole:cached
+      - mumble_auth_data:/var/lib/mumble-auth
     networks:
       guacamole_net:
         ipv4_address: 172.18.0.6
@@ -47,7 +51,10 @@ services:
       - "murmur:172.18.0.5"
     environment:
       - MUMBLE_SERVER=murmur:${MURMUR_PORT:-64738}
-      - MUMBLE_PASSWORD=${MUMBLE_PASSWORD:?Set MUMBLE_PASSWORD in .devcontainer/.env}
+      - MURMUR_ICE_ENDPOINT=Meta:tcp -h murmur -p 6502
+      - MURMUR_ICE_SECRET=${MURMUR_ICE_SECRET:?Set MURMUR_ICE_SECRET in .devcontainer/.env}
+      - MURMUR_AUTH_CALLBACK_ENDPOINT=tcp -h mumble -p 6503
+      - MUMBLE_IDENTITY_DB=/var/lib/mumble-auth/identities.sqlite3
       - GUAC_ADMIN_PASSWORD=${GUAC_ADMIN_PASSWORD:?Set GUAC_ADMIN_PASSWORD in .devcontainer/.env}
       - GUAC_EDITOR_PASSWORD=${GUAC_EDITOR_PASSWORD:?Set GUAC_EDITOR_PASSWORD in .devcontainer/.env}
       - GUAC_WATCHER_PASSWORD=${GUAC_WATCHER_PASSWORD:?Set GUAC_WATCHER_PASSWORD in .devcontainer/.env}
@@ -92,3 +99,5 @@ services:
     environment:
       - TZ=UTC
       - MUMBLE_CONFIG_SERVER_PASSWORD=${MUMBLE_PASSWORD:?Set MUMBLE_PASSWORD in .devcontainer/.env}
+      - MUMBLE_CONFIG_ICE=tcp -h 0.0.0.0 -p 6502
+      - MUMBLE_CONFIG_ICESECRETWRITE=${MURMUR_ICE_SECRET:?Set MURMUR_ICE_SECRET in .devcontainer/.env}

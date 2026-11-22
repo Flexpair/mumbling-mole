@@ -6,7 +6,7 @@ Mumbling Mole uses a provider boundary so application code does not depend direc
 
 - `NetlifyIdentityAdapter.js` wraps the Netlify Identity widget.
 - `AuthFactory.js` creates the configured provider.
-- `credentials-service.js` requests server-side credentials after the server validates the Identity JWT.
+- `credentials-service.js` requests server-side credentials after the server validates the Identity JWT. Each connection fetches a fresh, single-use Mumble token and uses the identity-bound username returned by the server.
 - The adapter is configured by `app/config.js` and initialized from `app/index.js`.
 
 The current provider configuration uses the Flexpair identity proxy:
@@ -100,7 +100,7 @@ Check that the early script in `app/index.html` stores the hash and that `hasIde
 
 ### Credentials are not returned after login
 
-The server-side credential endpoint requires a valid Identity JWT. Check the authentication-service logs and the configured allowed origins, but do not log or publish the JWT or any returned credential values.
+The server-side credential endpoint requires a valid Identity JWT and an active Murmur ICE authenticator. Check the authentication-service and Murmur configuration, including private ICE connectivity and the persistent identity database, but do not log or publish the JWT or any returned credential values.
 
 ## Adding another provider
 

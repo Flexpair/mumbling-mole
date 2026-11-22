@@ -125,14 +125,17 @@ docker build --target prod -t mumbling-mole:prod \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)" .
 ```
 
-The Dev Container uses [.devcontainer/docker-compose.yml](.devcontainer/docker-compose.yml). It starts the development service together with Murmur, nginx, and the Guacamole services, installs dependencies and Chromium during creation, and forwards port `443`. The Compose file requires the local Mumble and Guacamole password variables but their values must remain outside the repository.
+The Dev Container uses [.devcontainer/docker-compose.yml](.devcontainer/docker-compose.yml). It starts the development service together with Murmur, nginx, and the Guacamole services, installs dependencies and Chromium during creation, and forwards port `443`. The Compose file requires local Mumble, Murmur ICE, and Guacamole secrets; keep their values outside the repository.
 
-Default production startup runs both the WebSocket tunnel and the authentication service through [docker-entrypoint.sh](docker-entrypoint.sh). Configure these runtime settings:
+Default production startup runs the WebSocket tunnel and authentication service through [docker-entrypoint.sh](docker-entrypoint.sh). Murmur must have its ICE interface enabled on a private network, and the auth service must be registered as its external authenticator. Configure these runtime settings:
 
 | Variable | Purpose |
 | --- | --- |
 | `MUMBLE_SERVER` | Mumble TCP endpoint as `host:port`; the Dev Container uses `murmur:64738`. |
-| `MUMBLE_PASSWORD` | Server password matching the Mumble server configuration; also supplied to the authentication service. |
+| `MURMUR_ICE_ENDPOINT` | Murmur Meta ICE proxy, reachable only on the private container network. |
+| `MURMUR_ICE_SECRET` | Murmur ICE write secret. Configure the matching `icesecretwrite` value on Murmur. |
+| `MURMUR_AUTH_CALLBACK_ENDPOINT` | Private endpoint Murmur uses to reach the auth service's ICE authenticator. |
+| `MUMBLE_IDENTITY_DB` | Path to a persistent SQLite identity registry; mount persistent storage at this path. |
 | `GUAC_ADMIN_PASSWORD` | Guacamole credential for the `admin` role, required when the authentication service starts. |
 | `GUAC_EDITOR_PASSWORD` | Guacamole credential for the `editor` role, required when the authentication service starts. |
 | `GUAC_WATCHER_PASSWORD` | Guacamole credential for the `watcher` role, required when the authentication service starts. |
@@ -141,7 +144,11 @@ Default production startup runs both the WebSocket tunnel and the authentication
 All three Guacamole role passwords must be nonempty and mutually distinct. [auth-server/server.py](auth-server/server.py) rejects missing or duplicate role passwords and missing `TRUSTED_PROXIES`; these requirements apply to production as well as the Dev Container.
 Configure `TRUSTED_PROXIES` with only the actual proxy addresses so rate limits use the client addresses from their forwarded headers. A single container IP may change between rebuilds; a stable subnet such as `172.18.0.0/16` is appropriate only if every address in that subnet is trusted to forward client IPs.
 
-**Breaking change:** Existing deployments without `TRUSTED_PROXIES` will fail to start the authentication service.
+The credential endpoint now issues a short-lived, single-use Mumble session token paired with an identity-derived username. Murmur's authenticator rejects mismatched names, expired tokens, and replays for known identities; unknown names fall through to Murmur's normal authentication. The auth endpoint must remain unavailable until Murmur confirms that the authenticator is attached. Never expose the ICE ports outside the private network.
+
+Do not pass Murmur's `serverpassword` to the auth service or browser client. Rotate it when deploying this change because existing users may already know the old shared password. Native Mumble clients cannot connect with a username and password alone; they need an authenticated session token and the server-assigned username. The current UI does not provide a separate native-client token exchange. This session-token design does not terminate already connected sessions when an identity is disabled; that remains part of the revocation work tracked in issue #460.
+
+**Breaking change:** Existing deployments without `TRUSTED_PROXIES`, Murmur ICE authentication, and persistent `MUMBLE_IDENTITY_DB` storage will not issue Mumble credentials.
 
 Supply password values through the deployment's secret configuration, never through committed files or documentation. `SKIP_TUNNEL=1` serves static files only and bypasses both the tunnel and authentication-service startup.
 

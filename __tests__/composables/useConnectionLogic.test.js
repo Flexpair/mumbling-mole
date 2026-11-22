@@ -160,8 +160,10 @@ jest.unstable_mockModule('../../app/stores/dialogStore', () => ({
 }));
 
 // Mock credentials service
+const MUMBLE_USERNAME = 'Test User (3ff34ed40e9ac98f)';
 const mockFetchCredentials = jest.fn().mockResolvedValue({
   mumblePassword: 'test-password',
+  mumbleUsername: MUMBLE_USERNAME,
   guacamoleUser: 'watcher',
   guacamolePassword: 'guac-password'
 });
@@ -226,6 +228,7 @@ describe('useConnectionLogic', () => {
     mockFetchCredentials.mockReset();
     mockFetchCredentials.mockResolvedValue({
       mumblePassword: 'test-password',
+      mumbleUsername: MUMBLE_USERNAME,
       guacamoleUser: 'watcher',
       guacamolePassword: 'guac-password'
     });
@@ -320,6 +323,7 @@ describe('useConnectionLogic', () => {
         .mockRejectedValueOnce(Object.assign(new Error('Invalid or expired token'), { status: 401 }))
         .mockResolvedValueOnce({
           mumblePassword: 'current-password',
+          mumbleUsername: 'Current User (3ff34ed40e9ac98f)',
           guacamoleUser: 'watcher',
           guacamolePassword: 'current-guac-password',
         });
@@ -340,7 +344,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'Current User (3ff34ed40e9ac98f)',
         'current-password',
         []
       );
@@ -414,7 +418,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'host',
         64738,
-        'user',
+        MUMBLE_USERNAME,
         'test-password',
         []
       );
@@ -457,6 +461,7 @@ describe('useConnectionLogic', () => {
         logic.resetClient();
         return {
           mumblePassword: 'old-password',
+          mumbleUsername: MUMBLE_USERNAME,
           guacamoleUser: 'watcher',
           guacamolePassword: 'old-guac-password',
         };
@@ -521,6 +526,7 @@ describe('useConnectionLogic', () => {
         ? firstCredentials.promise
         : Promise.resolve({
           mumblePassword: 'new-password',
+          mumbleUsername: 'New User (b059c9e4af70c9f6)',
           guacamoleUser: 'watcher',
           guacamolePassword: 'new-guac-password',
         }));
@@ -531,6 +537,7 @@ describe('useConnectionLogic', () => {
       await secondConnection;
       firstCredentials.resolve({
         mumblePassword: 'old-password',
+        mumbleUsername: 'Old User (3ff34ed40e9ac98f)',
         guacamoleUser: 'watcher',
         guacamolePassword: 'old-guac-password',
       });
@@ -540,7 +547,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'new-host',
         64738,
-        'new-user',
+        'New User (b059c9e4af70c9f6)',
         'new-password',
         []
       );
@@ -638,7 +645,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        MUMBLE_USERNAME,
         'test-password',
         []
       );
@@ -674,18 +681,22 @@ describe('useConnectionLogic', () => {
       staleToken.resolve('stale-token');
       currentCredentials.resolve({
         mumblePassword: 'current-password',
+        mumbleUsername: 'Current User (3ff34ed40e9ac98f)',
         guacamoleUser: 'watcher',
         guacamolePassword: 'current-guac-password',
       });
       await Promise.all([staleConnection, currentConnection]);
 
       expect(mockFetchCredentials).toHaveBeenCalledTimes(1);
-      expect(mockFetchCredentials).toHaveBeenCalledWith('current-token');
+      expect(mockFetchCredentials).toHaveBeenCalledWith(
+        'current-token',
+        { forceRefresh: true }
+      );
       expect(mockConnectionStore.connect).toHaveBeenCalledTimes(1);
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'Current User (3ff34ed40e9ac98f)',
         'current-password',
         []
       );
@@ -1165,4 +1176,3 @@ describe('useConnectionLogic', () => {
     });
   });
 });
-
