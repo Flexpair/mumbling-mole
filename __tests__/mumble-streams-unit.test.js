@@ -592,6 +592,57 @@ describe('mumble-streams Unit Tests', () => {
         expect(decoder).toBeDefined();
       });
 
+      test('rejects oversized messages before buffering their payload', async () => {
+        const decoder = new data.Decoder();
+        const chunk = Buffer.alloc(6 + 1024);
+        chunk.writeUInt16BE(3, 0);
+        chunk.writeUInt32BE(16 * 1024 * 1024 + 1, 2);
+
+        const errorPromise = new Promise((resolve) => decoder.once('error', resolve));
+        decoder.write(chunk);
+        const error = await errorPromise;
+
+        expect(error.message).toMatch(/Message size exceeds maximum/);
+        expect(decoder._bufferSize).toBe(6);
+        expect(decoder._buffer.length).toBe(1024);
+      });
+
+      test('shrinks the buffer after a large fragmented frame and decodes the next frame', async () => {
+        const decoder = new data.Decoder();
+        const payload = Buffer.alloc(1024 * 1024, 0x5a);
+        const frame = Buffer.alloc(6 + payload.length);
+        frame.writeUInt16BE(1, 0);
+        frame.writeUInt32BE(payload.length, 2);
+        payload.copy(frame, 6);
+        const nextFrame = Buffer.from([0, 1, 0, 0, 0, 1, 0x42]);
+        const messagesPromise = collectDecoderOutputs(decoder, 2);
+
+        decoder.write(frame.subarray(0, frame.length - 1));
+        expect(decoder._buffer.length).toBeGreaterThan(64 * 1024);
+        decoder.write(Buffer.concat([frame.subarray(frame.length - 1), nextFrame]));
+        const messages = await messagesPromise;
+
+        expect(messages[0].payload).toEqual(payload);
+        expect(messages[1].payload).toEqual(Buffer.from([0x42]));
+        expect(decoder._bufferSize).toBe(0);
+        expect(decoder._buffer.length).toBe(1024);
+      });
+
+      test('preserves decoded bytes when the receive buffer is reused', async () => {
+        const encoder = new data.Encoder();
+        const decoder = new data.Decoder();
+        const key = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+        const messagesPromise = collectDecoderOutputs(decoder, 2);
+        encoder.pipe(decoder);
+        encoder.write({ name: 'CryptSetup', payload: { key } });
+        encoder.write({ name: 'UDPTunnel', payload: Buffer.alloc(1024 - 6, 0xff) });
+        const messages = await messagesPromise;
+
+        expect(messages[0].name).toBe('CryptSetup');
+        expect(Buffer.from(messages[0].payload.key)).toEqual(key);
+        expect(messages[1].payload).toEqual(Buffer.alloc(1024 - 6, 0xff));
+      });
+
       test('decodes encoded message (round-trip)', async () => {
         const encoder = new data.Encoder();
         const decoder = new data.Decoder();
