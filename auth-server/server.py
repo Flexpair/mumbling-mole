@@ -41,6 +41,8 @@ def _parse_trusted_proxies(config: str) -> tuple:
 
 
 TRUSTED_PROXIES = _parse_trusted_proxies(os.environ.get('TRUSTED_PROXIES', ''))
+if not TRUSTED_PROXIES:
+    raise RuntimeError('TRUSTED_PROXIES must be configured with the reverse proxy IP(s) or CIDR(s)')
 
 
 def _is_trusted_proxy(address, trusted_proxies: tuple) -> bool:

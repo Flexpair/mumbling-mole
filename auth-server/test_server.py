@@ -7,6 +7,7 @@ Or standalone: python3 auth-server/test_server.py
 """
 
 import json
+import ipaddress
 import queue
 import socket
 import socketserver
@@ -28,6 +29,7 @@ os.environ.update({
     'GUAC_ADMIN_PASSWORD': 'test-guac-admin-password',
     'GUAC_EDITOR_PASSWORD': 'test-guac-editor-password',
     'GUAC_WATCHER_PASSWORD': 'test-guac-watcher-password',
+    'TRUSTED_PROXIES': '127.0.0.1',
 })
 
 from server import (
@@ -858,7 +860,7 @@ class TestCredentialGeneration(unittest.TestCase):
 
     def test_server_requires_mumble_password(self):
         with self.assertRaisesRegex(RuntimeError, 'MUMBLE_PASSWORD must be configured'):
-            import_server_with_environment({})
+            import_server_with_environment({'TRUSTED_PROXIES': '127.0.0.1'})
 
     def test_server_requires_every_guacamole_password(self):
         for missing_name in (
@@ -872,6 +874,7 @@ class TestCredentialGeneration(unittest.TestCase):
                     'GUAC_ADMIN_PASSWORD': 'admin-password',
                     'GUAC_EDITOR_PASSWORD': 'editor-password',
                     'GUAC_WATCHER_PASSWORD': 'watcher-password',
+                    'TRUSTED_PROXIES': '127.0.0.1',
                 }
                 environment[missing_name] = ''
                 with self.assertRaisesRegex(RuntimeError, f'{missing_name} must be configured'):
@@ -883,6 +886,7 @@ class TestCredentialGeneration(unittest.TestCase):
             'GUAC_ADMIN_PASSWORD': 'admin-password',
             'GUAC_EDITOR_PASSWORD': 'editor-password',
             'GUAC_WATCHER_PASSWORD': 'watcher-password',
+            'TRUSTED_PROXIES': '127.0.0.1',
         })
         self.assertEqual(module.GUACAMOLE_PASSWORDS, {
             'admin': 'admin-password',
@@ -897,7 +901,41 @@ class TestCredentialGeneration(unittest.TestCase):
                 'GUAC_ADMIN_PASSWORD': 'same-password',
                 'GUAC_EDITOR_PASSWORD': 'same-password',
                 'GUAC_WATCHER_PASSWORD': 'watcher-password',
+                'TRUSTED_PROXIES': '127.0.0.1',
             })
+
+
+class TestTrustedProxyConfiguration(unittest.TestCase):
+    def setUp(self):
+        self.environment = {
+            'MUMBLE_PASSWORD': 'mumble-password',
+            'GUAC_ADMIN_PASSWORD': 'admin-password',
+            'GUAC_EDITOR_PASSWORD': 'editor-password',
+            'GUAC_WATCHER_PASSWORD': 'watcher-password',
+        }
+
+    def test_server_requires_trusted_proxies(self):
+        for value in (None, '', ' \t\n ', ' , , '):
+            with self.subTest(value=value):
+                environment = self.environment.copy()
+                if value is not None:
+                    environment['TRUSTED_PROXIES'] = value
+                with self.assertRaisesRegex(RuntimeError, 'TRUSTED_PROXIES must be configured'):
+                    import_server_with_environment(environment)
+
+    def test_server_rejects_invalid_trusted_proxy(self):
+        with self.assertRaises(ValueError):
+            import_server_with_environment({**self.environment, 'TRUSTED_PROXIES': 'foo'})
+
+    def test_server_parses_trusted_proxies(self):
+        for value, expected in (
+            ('192.0.2.1', ('192.0.2.1/32',)),
+            ('192.0.2.0/24', ('192.0.2.0/24',)),
+            ('192.0.2.1, 2001:db8::/32', ('192.0.2.1/32', '2001:db8::/32')),
+        ):
+            with self.subTest(value=value):
+                module = import_server_with_environment({**self.environment, 'TRUSTED_PROXIES': value})
+                self.assertEqual(module.TRUSTED_PROXIES, tuple(map(ipaddress.ip_network, expected)))
 
 
 class TestExecuteAuthRequest(unittest.TestCase):

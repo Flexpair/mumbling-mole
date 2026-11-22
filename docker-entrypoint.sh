@@ -45,8 +45,7 @@ fi
 
 # Start Auth Server in background (if available and not skipped)
 if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" ]]; then
-  : "${TRUSTED_PROXIES:?Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR}"
-  if [[ -z "${TRUSTED_PROXIES//[[:space:]]/}" ]]; then
+  if [[ -z "${TRUSTED_PROXIES:-}" || -z "${TRUSTED_PROXIES//[[:space:]]/}" ]]; then
     echo "Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR" >&2
     exit 1
   fi

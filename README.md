@@ -138,8 +138,10 @@ Default production startup runs both the WebSocket tunnel and the authentication
 | `GUAC_WATCHER_PASSWORD` | Guacamole credential for the `watcher` role, required when the authentication service starts. |
 | `TRUSTED_PROXIES` | Comma-separated IP addresses or CIDRs of reverse proxies in front of the authentication service; required when the service starts. |
 
-All three Guacamole role passwords must be nonempty and mutually distinct. [auth-server/server.py](auth-server/server.py) rejects missing or duplicate role passwords; these requirements apply to production as well as the Dev Container.
-Configure `TRUSTED_PROXIES` with only the actual proxy addresses so rate limits use the client addresses from their forwarded headers. The authentication service will not start if this setting is missing.
+All three Guacamole role passwords must be nonempty and mutually distinct. [auth-server/server.py](auth-server/server.py) rejects missing or duplicate role passwords and missing `TRUSTED_PROXIES`; these requirements apply to production as well as the Dev Container.
+Configure `TRUSTED_PROXIES` with only the actual proxy addresses so rate limits use the client addresses from their forwarded headers. A single container IP may change between rebuilds; a stable subnet such as `172.18.0.0/16` is appropriate only if every address in that subnet is trusted to forward client IPs.
+
+**Breaking change:** Existing deployments without `TRUSTED_PROXIES` will fail to start the authentication service.
 
 Supply password values through the deployment's secret configuration, never through committed files or documentation. `SKIP_TUNNEL=1` serves static files only and bypasses both the tunnel and authentication-service startup.
 
