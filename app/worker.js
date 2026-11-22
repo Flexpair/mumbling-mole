@@ -91,8 +91,9 @@ function pushProp(id, obj, prop, transform) {
   });
 }
 
-function setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget) {
+function setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget, clientId) {
   let resampler = new PassThrough();
+  resampler.clientId = clientId;
 
   let buffer2PCMData = new Transform({
     transform(data, _, callback) {
@@ -111,6 +112,14 @@ function setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget) {
     .pipe(stream);
 
   voiceStreams[voiceId] = resampler;
+}
+
+function releaseOutboundVoiceStreams(clientId) {
+  for (const [voiceId, stream] of Object.entries(voiceStreams)) {
+    if (!stream || stream.clientId !== clientId) continue;
+    stream.end();
+    Reflect.deleteProperty(voiceStreams, voiceId);
+  }
 }
 
 function setupChannel(id, channel, visited = new Set()) {
@@ -389,8 +398,10 @@ function setupClient(id, client) {
     ROOT_CHECK_TIMEOUT_SECONDS
   );
   
-  client.on("disconnect", () => {
+  client.on("disconnected", () => {
     initializer.cleanup();
+    releaseOutboundVoiceStreams(id.client);
+    clients[id.client] = null;
   });
 
   initializer.initialize();
@@ -471,6 +482,13 @@ function handleClientMessage(data) {
   const { clientId, userId, channelId, method, payload } = data;
   let client = clients[clientId];
 
+  // A disconnect leaves a tombstone in `clients`; late UI commands must not
+  // be dereferenced against it.
+  if (!client) {
+    console.warn('[WORKER] Ignoring command for disconnected client:', clientId);
+    return;
+  }
+
   let target;
   let allowedMethods;
   let args = payload; // Local variable for potentially modified arguments
@@ -489,10 +507,11 @@ function handleClientMessage(data) {
       let samplesPerPacket = payload.shift();
       let voiceTarget = payload[0];
       let stream = target.createVoiceStream(...payload);
-      setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget);
+      setupOutboundVoice(voiceId, samplesPerPacket, stream, voiceTarget, clientId);
       return;
     }
     if (method === "disconnect") {
+      releaseOutboundVoiceStreams(clientId);
       clients[clientId] = null;
     }
   } else {
@@ -538,11 +557,15 @@ function handleClientMessage(data) {
 
 function handleVoiceStream(data) {
   let stream = voiceStreams[data.voiceId];
+  if (!stream) {
+    console.warn('[WORKER] Ignoring voice data for unknown stream:', data.voiceId);
+    return;
+  }
   let buffer = data.chunk;
   if (buffer) {
     stream.write(Buffer.from(buffer));
   } else {
-    voiceStreams[data.voiceId] = null;
+    Reflect.deleteProperty(voiceStreams, data.voiceId);
     stream.end();
   }
 }

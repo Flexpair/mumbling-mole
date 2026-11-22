@@ -690,75 +690,6 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     expect(result).toBeUndefined();
   });
 
-  test('clears the provider and stored session without emitting a logout event', async () => {
-    const onLogout = jest.fn();
-    adapter.on('logout', onLogout);
-    const logoutHandler = adapter._logoutHandlerWrappers.get(onLogout);
-    let widgetUser = { id: '123' };
-    adapter.netlifyIdentity.store = {};
-    Object.defineProperty(adapter.netlifyIdentity.store, 'user', {
-      get: () => widgetUser,
-      set: (value) => { widgetUser = value; logoutHandler(); },
-    });
-    localStorage.setItem('gotrue.user', 'saved session');
-    localStorage.setItem('unrelated', 'keep');
-    const clearSession = jest.fn(async () => {
-      await Promise.resolve();
-      logoutHandler();
-    });
-    widgetUser.clearSession = clearSession;
-    adapter.netlifyIdentity.currentUser.mockImplementation(() => widgetUser);
-
-    await expect(adapter.clearLocalSession()).resolves.toBe(true);
-
-    expect(clearSession).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem('gotrue.user')).toBeNull();
-    expect(localStorage.getItem('unrelated')).toBe('keep');
-    expect(widgetUser).toBeNull();
-    expect(onLogout).not.toHaveBeenCalled();
-    localStorage.removeItem('unrelated');
-  });
-
-  test('reports failure and clears the widget user when storage access fails', async () => {
-    adapter.netlifyIdentity.store = { user: { id: '123' } };
-    const removeItem = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-      throw new DOMException('Access denied');
-    });
-
-    await expect(adapter.clearLocalSession()).resolves.toBe(false);
-
-    expect(adapter.netlifyIdentity.store.user).toBeNull();
-    expect(consoleWarnSpy).toHaveBeenCalled();
-    removeItem.mockRestore();
-  });
-
-  test('reports provider session cleanup failure while still clearing storage', async () => {
-    adapter.netlifyIdentity.currentUser.mockReturnValue({
-      clearSession: jest.fn().mockRejectedValue(new Error('cleanup failed')),
-    });
-    localStorage.setItem('gotrue.user', 'saved session');
-
-    await expect(adapter.clearLocalSession()).resolves.toBe(false);
-
-    expect(localStorage.getItem('gotrue.user')).toBeNull();
-  });
-
-  test('reports failure when the session is still present after cleanup', async () => {
-    const stubbornUser = { id: '123' };
-    adapter.netlifyIdentity.currentUser.mockReturnValue(stubbornUser);
-    adapter.netlifyIdentity.store = {};
-    Object.defineProperty(adapter.netlifyIdentity.store, 'user', {
-      get: () => stubbornUser,
-      set: () => {},
-    });
-    localStorage.setItem('gotrue.user', 'saved session');
-
-    await expect(adapter.clearLocalSession()).resolves.toBe(false);
-
-    expect(localStorage.getItem('gotrue.user')).toBeNull();
-    expect(consoleWarnSpy).toHaveBeenCalled();
-  });
-
   test('suppresses the provider event for a reauthentication logout', async () => {
     const appLogout = jest.fn();
     adapter.on('logout', appLogout);
@@ -794,7 +725,7 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
   });
 
-  test('aborting a stalled logout preserves event ownership until its late event', async () => {
+  test('aborting a stalled logout releases the queue and does not suppress its late event', async () => {
     const appLogout = jest.fn();
     const controller = new AbortController();
     adapter.on('logout', appLogout);
@@ -810,47 +741,12 @@ describe('NetlifyIdentityAdapter - logout()', () => {
     controller.abort();
 
     await expect(stalledLogout).rejects.toMatchObject({ name: 'AbortError' });
-    const explicitLogout = adapter.logout();
-    await Promise.resolve();
-    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(1);
-
     emitLogout();
-    expect(appLogout).not.toHaveBeenCalled();
-    await explicitLogout;
-    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
     expect(appLogout).toHaveBeenCalledTimes(1);
+
+    await adapter.logout();
+    expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
   });
-
-  test.each(['resolve', 'reject'])(
-    'keeps a timed-out logout ahead of a later logout until provider %s',
-    async (outcome) => {
-      const controller = new AbortController();
-      let finishProviderLogout;
-      adapter.netlifyIdentity.logout
-        .mockImplementationOnce(() => new Promise((resolve, reject) => {
-          finishProviderLogout = outcome === 'resolve' ? resolve : reject;
-        }))
-        .mockImplementationOnce(() => emitLogout());
-
-      const timedOutLogout = adapter.logout({
-        suppressProviderEvent: true,
-        signal: controller.signal,
-      });
-      await Promise.resolve();
-      controller.abort();
-      await expect(timedOutLogout).rejects.toMatchObject({ name: 'AbortError' });
-
-      const explicitLogout = adapter.logout();
-      await Promise.resolve();
-      expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(1);
-
-      finishProviderLogout(outcome === 'reject' ? new Error('logout failed') : undefined);
-      if (outcome === 'reject') await Promise.resolve();
-      await explicitLogout;
-
-      expect(adapter.netlifyIdentity.logout).toHaveBeenCalledTimes(2);
-    },
-  );
 
 });
 

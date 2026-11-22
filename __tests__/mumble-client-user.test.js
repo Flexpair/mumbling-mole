@@ -98,6 +98,11 @@ describe('mumble-client User', () => {
     test('should get id property', () => {
       expect(user.id).toBe(31);
     });
+
+    test('should expose the same value as session for UI voice streams', () => {
+      expect(user.session).toBe(31);
+      expect(user.session).toBe(user.id);
+    });
   });
 
   describe('Property Getters', () => {

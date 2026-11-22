@@ -31,6 +31,7 @@ class WorkerBasedMumbleConnector {
     this._reqId = 1;
     this._requests = {};
     this._clients = {};
+    this._retiredClients = new Set();
     this._nextVoiceId = 1;
     this._voiceStreams = {};
   }
@@ -110,6 +111,10 @@ class WorkerBasedMumbleConnector {
   }
 
   _client(id) {
+    if (this._retiredClients.has(id)) {
+      return undefined;
+    }
+
     let client = this._clients[id];
     if (!client) {
       client = new WorkerBasedMumbleClient(this, id);
@@ -149,7 +154,14 @@ class WorkerBasedMumbleConnector {
   }
 
   _handleEventDispatch(data) {
+    if (this._retiredClients.has(data.clientId)) {
+      return;
+    }
+
     let client = this._client(data.clientId);
+    if (!client) {
+      return;
+    }
 
     let target;
     if (data.userId !== null && data.userId !== undefined) {
@@ -170,6 +182,9 @@ class WorkerBasedMumbleConnector {
   _handleVoiceData(data) {
     let stream = this._voiceStreams[data.voiceId];
     let buffer = data.buffer;
+    if (!stream) {
+      return;
+    }
     if (buffer) {
       stream.write({
         target: data.target,
@@ -199,7 +214,8 @@ class WorkerBasedMumbleClient extends EventEmitter {
     let _disconnect = this.disconnect;
     this.disconnect = () => {
       _disconnect.call(this);
-      delete connector._clients[id];
+      connector._retiredClients.add(this._id);
+      delete connector._clients[this._id];
     };
 
     connector._addCall(this, "createVoiceStream", id);
@@ -399,7 +415,8 @@ class WorkerBasedMumbleUser extends EventEmitter {
     connector._addCall(this, "setDeaf", id);
     connector._addCall(this, "sendMessage", id);
     this.setChannel = (channel) => {
-      connector._call(id, "setChannel", channel._id);
+      // Worker methods receive an argument array; worker.js reads payload[0].
+      connector._call(id, "setChannel", [channel._id]);
     };
   }
 
@@ -434,6 +451,12 @@ class WorkerBasedMumbleUser extends EventEmitter {
   }
 
   get id() {
+    return this._id;
+  }
+
+  // Mumble calls the session ID "session"; UI voice-stream bookkeeping uses
+  // that name, so keep both accessors pointing at the same value.
+  get session() {
     return this._id;
   }
 

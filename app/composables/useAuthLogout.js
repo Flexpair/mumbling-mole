@@ -28,28 +28,15 @@ export function resetSessionState({
   uiStore.reset();
 }
 
-async function clearLocalSessionOrFail(auth) {
-  try {
-    const cleared = await auth.clearLocalSession?.();
-    if (cleared === true) return true;
-  } catch (error) {
-    console.error('[Auth] Local session cleanup failed:', error);
-  }
-  console.error('[Auth] Logout could not confirm that the local session was cleared.');
-  globalThis.alert?.('Logout could not be completed. Close this browser window and clear its site data before sharing this device.');
-  return false;
-}
-
 export async function logoutSession(dependencies, reload = () => globalThis.location.reload()) {
   suppressNextProviderLogout = false;
   clearCredentials();
   resetSessionState(dependencies);
 
   let timeoutId;
-  let logoutSucceeded = false;
   try {
-    logoutSucceeded = await Promise.race([
-      Promise.resolve().then(() => dependencies.auth.logout()).then(() => true),
+    await Promise.race([
+      Promise.resolve().then(() => dependencies.auth.logout()),
       new Promise(resolve => {
         timeoutId = setTimeout(resolve, LOGOUT_TIMEOUT_MS);
       }),
@@ -60,9 +47,7 @@ export async function logoutSession(dependencies, reload = () => globalThis.loca
     clearTimeout(timeoutId);
   }
 
-  if (!logoutSucceeded && !await clearLocalSessionOrFail(dependencies.auth)) return false;
   reload();
-  return true;
 }
 
 export async function logoutForReauthentication(
@@ -100,9 +85,6 @@ export async function logoutForReauthentication(
     if (!suppressProviderEvent && !providerLogoutObserved) suppressNextProviderLogout = false;
   }
 
-  if (timedOut || !providerLogoutObserved) {
-    if (!await clearLocalSessionOrFail(auth)) return false;
-  }
   if (timedOut) {
     reload();
     return false;

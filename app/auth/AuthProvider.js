@@ -95,18 +95,6 @@ class AuthProvider {
   }
 
   /**
-   * Best-effort cleanup of the local session after a failed or timed-out logout.
-   * Recovery callers rely on the result, so resolve true only when the provider
-   * session, its persisted storage entry, and any in-memory user state are
-   * confirmed cleared. Resolve false whenever that cannot be proven, so callers
-   * can warn the user instead of reloading a potentially intact session.
-   * @returns {Promise<boolean>} true if the local session is confirmed cleared
-   */
-  async clearLocalSession() {
-    throw new Error('Method clearLocalSession() must be implemented by subclass');
-  }
-
-  /**
    * Register event listener
    * Standard events: 'init', 'login', 'logout', 'error', 'open', 'close'
    * @param {string} event - Event name

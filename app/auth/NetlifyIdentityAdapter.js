@@ -245,103 +245,40 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<void>}
    */
   async logout({ suppressProviderEvent = false, signal } = {}) {
-    const run = () => {
+    const run = () => new Promise((resolve, reject) => {
+      const operation = { suppressProviderEvent };
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        this.netlifyIdentity.off('logout', done);
+        signal?.removeEventListener('abort', abort);
+        if (this._activeLogoutOperation === operation) this._activeLogoutOperation = null;
+        if (error) reject(error);
+        else resolve();
+      };
+      const done = () => finish();
+      const abort = () => finish(new DOMException('Logout aborted', 'AbortError'));
+
+      this._activeLogoutOperation = operation;
+      this.netlifyIdentity.on('logout', done);
       if (signal?.aborted) {
-        return Promise.reject(new DOMException('Logout aborted', 'AbortError'));
+        abort();
+        return;
       }
-
-      return new Promise((resolve, reject) => {
-        const operation = { suppressProviderEvent };
-        let settled = false;
-        const finish = (error) => {
-          if (settled) return;
-          settled = true;
-          this.netlifyIdentity.off('logout', done);
-          if (this._activeLogoutOperation === operation) this._activeLogoutOperation = null;
-          if (error) reject(error);
-          else resolve();
-        };
-        const done = () => finish();
-
-        this._activeLogoutOperation = operation;
-        this.netlifyIdentity.on('logout', done);
-        try {
-          const providerLogout = this.netlifyIdentity.logout();
-          if (providerLogout && typeof providerLogout.then === 'function') {
-            Promise.resolve(providerLogout).then(() => {
-              if (settled) return;
-              if (this.netlifyIdentity.currentUser() || this.netlifyIdentity.store?.user) {
-                finish(new Error('Netlify Identity session was not cleared'));
-              } else {
-                finish();
-              }
-            }).catch(finish);
-          }
-        } catch (error) {
-          finish(error);
-        }
-      });
-    };
+      signal?.addEventListener('abort', abort, { once: true });
+      try {
+        Promise.resolve(this.netlifyIdentity.logout()).catch(finish);
+      } catch (error) {
+        finish(error);
+      }
+    });
 
     const operation = this._logoutQueue
       ? this._logoutQueue.then(run, run)
       : run();
     this._logoutQueue = operation.catch(() => {});
-    if (!signal) return operation;
-
-    let abort;
-    const aborted = new Promise((_, reject) => {
-      abort = () => reject(new DOMException('Logout aborted', 'AbortError'));
-      signal.addEventListener('abort', abort, { once: true });
-      if (signal.aborted) abort();
-    });
-    return Promise.race([operation, aborted]).finally(() => {
-      signal.removeEventListener('abort', abort);
-    });
-  }
-
-  /**
-   * Best-effort cleanup of the local session after a failed or timed-out logout.
-   * Clears the provider user session, the persisted session entry, and the
-   * in-memory widget user without emitting an application logout event.
-   * @returns {Promise<boolean>} true only if the local session is confirmed cleared
-   */
-  async clearLocalSession() {
-    let cleanupSucceeded = true;
-    const user = this.netlifyIdentity?.currentUser?.();
-    if (typeof user?.clearSession === 'function') {
-      this._suppressSessionCleanupLogout = true;
-      try {
-        await user.clearSession();
-      } catch (error) {
-        cleanupSucceeded = false;
-        console.warn('[Auth] Could not clear provider session:', error);
-      } finally {
-        this._suppressSessionCleanupLogout = false;
-      }
-    }
-
-    try {
-      globalThis.localStorage?.removeItem('gotrue.user');
-    } catch (error) {
-      cleanupSucceeded = false;
-      console.warn('[Auth] Could not clear stored session:', error);
-    }
-
-    if (this.netlifyIdentity?.store) {
-      this._suppressSessionCleanupLogout = true;
-      try {
-        this.netlifyIdentity.store.user = null;
-      } finally {
-        this._suppressSessionCleanupLogout = false;
-      }
-    }
-
-    if (cleanupSucceeded && (this.netlifyIdentity?.currentUser?.() || this.netlifyIdentity?.store?.user)) {
-      cleanupSucceeded = false;
-      console.warn('[Auth] Session still present after local cleanup');
-    }
-    return cleanupSucceeded;
+    return operation;
   }
 
   _wrapLogoutHandler(event, callback) {
