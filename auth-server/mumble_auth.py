@@ -82,7 +82,6 @@ def get_mumble_username(subject: str, display_name: Optional[str] = None) -> str
         character for character in display_value
         if character.isalnum() or character in ' _.-'
     ).strip()
-    display = display[:13].strip()
     display = display[:13].strip() or 'user'
     suffix = hashlib.sha256(subject.encode('utf-8')).hexdigest()[:16]
     return f'{display} ({suffix})'

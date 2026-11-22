@@ -43,9 +43,9 @@ USER root
 
 # Build-Tools + Node.js Installation in einem Layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
     curl \
-    build-essential \
     git \
     libbz2-dev \
     libssl-dev \
