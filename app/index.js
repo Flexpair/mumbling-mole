@@ -188,7 +188,7 @@ function applyQueryParamsToConnectDialog() {
     dialogStore.connectDialog.address = address;
   }
 
-  if (queryParams.port) {
+  if (address && queryParams.port) {
     const portMatch = /^(\d{1,5})(?:\/[^?#]*)?$/.exec(String(queryParams.port));
     const portNumber = portMatch ? Number.parseInt(portMatch[1], 10) : 0;
     const allowedPort = portMatch !== null && portNumber >= 1 && portNumber <= 65535;
