@@ -11,6 +11,7 @@ import ipaddress
 import queue
 import socket
 import socketserver
+import sqlite3
 import threading
 import time as time_mod
 import tempfile
@@ -174,6 +175,40 @@ class TestMumbleIdentityAuthentication(unittest.TestCase):
             self.identities.get_or_create('identity-3', ['not', 'a', 'name']).username.startswith('user (')
         )
 
+    def test_identity_username_lookup_uses_unicode_casefold(self):
+        identity = self.identities.get_or_create('identity-unicode', 'Jürgen')
+
+        self.assertEqual(
+            self.identities.get_by_username(identity.username),
+            identity,
+        )
+        self.assertEqual(
+            self.identities.get_by_username(
+                identity.username.replace('Jürgen', 'JÜRGEN')
+            ),
+            identity,
+        )
+
+    def test_unicode_case_variant_requires_registered_token(self):
+        identity = self.identities.get_or_create('identity-unicode', 'Jürgen')
+
+        self.assertEqual(
+            self.authenticator.authenticate(
+                identity.username.replace('Jürgen', 'JÜRGEN'),
+                'invalid-token',
+            ),
+            -1,
+        )
+
+        valid_token = self.sessions.issue(identity)
+        self.assertEqual(
+            self.authenticator.authenticate(
+                identity.username.replace('Jürgen', 'JÜRGEN'),
+                valid_token,
+            ),
+            identity,
+        )
+
     def test_identity_registry_persists_numeric_user_ids(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, 'identities.sqlite3')
@@ -182,6 +217,34 @@ class TestMumbleIdentityAuthentication(unittest.TestCase):
             second = MumbleIdentityRegistry(path)
             self.assertEqual(second.get_by_id(identity.user_id), identity)
             self.assertEqual(second.get_by_username(identity.username), identity)
+
+    def test_identity_registry_migrates_unicode_username_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'identities.sqlite3')
+            database = sqlite3.connect(path)
+            database.execute(
+                'CREATE TABLE identities ('
+                'user_id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'subject TEXT NOT NULL UNIQUE, '
+                'username TEXT NOT NULL COLLATE NOCASE UNIQUE)'
+            )
+            database.execute(
+                'INSERT INTO identities (subject, username) VALUES (?, ?)',
+                ('identity-1', 'Jürgen (1234567890123456)'),
+            )
+            database.execute(
+                'INSERT INTO identities (subject, username) VALUES (?, ?)',
+                ('identity-2', 'JÜRGEN (1234567890123456)'),
+            )
+            database.commit()
+            database.close()
+
+            migrated = MumbleIdentityRegistry(path)
+            identity = migrated.get_by_username('Jürgen (1234567890123456)')
+            self.assertIsNotNone(identity)
+            self.assertIsNotNone(
+                migrated.get_by_username('JÜRGEN (1234567890123456)')
+            )
 
     def test_identity_username_collision_is_disambiguated(self):
         with patch('mumble_auth.get_mumble_username', return_value='Authenticated (1234567890123456)'):

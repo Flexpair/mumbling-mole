@@ -17,19 +17,67 @@ class MumbleIdentity(NamedTuple):
     username: str
 
 
+def _unicode_casefold(value: str) -> str:
+    return unicodedata.normalize('NFC', value).casefold()
+
+
 class MumbleIdentityRegistry:
     def __init__(self, database_path: str):
         if database_path != ':memory:':
             Path(database_path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._database = sqlite3.connect(database_path, check_same_thread=False)
+        table = self._database.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'identities'"
+        ).fetchone()
+        if not table:
+            self._database.execute(
+                'CREATE TABLE identities ('
+                'user_id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'subject TEXT NOT NULL UNIQUE, '
+                'username TEXT NOT NULL UNIQUE, '
+                'username_key TEXT NOT NULL UNIQUE)'
+            )
+        else:
+            columns = {
+                row[1]
+                for row in self._database.execute('PRAGMA table_info(identities)')
+            }
+            if 'username_key' not in columns:
+                self._migrate_username_keys()
+        self._database.commit()
+
+    def _migrate_username_keys(self) -> None:
+        self._database.execute('ALTER TABLE identities RENAME TO identities_legacy')
         self._database.execute(
-            'CREATE TABLE IF NOT EXISTS identities ('
+            'CREATE TABLE identities ('
             'user_id INTEGER PRIMARY KEY AUTOINCREMENT, '
             'subject TEXT NOT NULL UNIQUE, '
-            'username TEXT NOT NULL COLLATE NOCASE UNIQUE)'
+            'username TEXT NOT NULL UNIQUE, '
+            'username_key TEXT NOT NULL UNIQUE)'
         )
-        self._database.commit()
+        used_keys = set()
+        used_usernames = set()
+        rows = self._database.execute(
+            'SELECT user_id, subject, username FROM identities_legacy '
+            'ORDER BY user_id'
+        ).fetchall()
+        for user_id, subject, username in rows:
+            key = _unicode_casefold(username)
+            candidate = username
+            attempt = 2
+            while candidate in used_usernames or key in used_keys:
+                candidate = f'{username.removesuffix(")")[:29]}-{attempt})'
+                key = _unicode_casefold(candidate)
+                attempt += 1
+            self._database.execute(
+                'INSERT INTO identities '
+                '(user_id, subject, username, username_key) VALUES (?, ?, ?, ?)',
+                (user_id, subject, candidate, key),
+            )
+            used_keys.add(key)
+            used_usernames.add(candidate)
+        self._database.execute('DROP TABLE identities_legacy')
 
     def get_or_create(self, subject: str, display_name: Optional[str] = None) -> MumbleIdentity:
         if not isinstance(subject, str) or not subject or len(subject) > 512:
@@ -48,8 +96,9 @@ class MumbleIdentityRegistry:
                 username = base_username if attempt == 1 else f'{base_username.removesuffix(")")[:29]}-{attempt})'
                 try:
                     cursor = self._database.execute(
-                        'INSERT INTO identities (subject, username) VALUES (?, ?)',
-                        (subject, username),
+                        'INSERT INTO identities (subject, username, username_key) '
+                        'VALUES (?, ?, ?)',
+                        (subject, username, _unicode_casefold(username)),
                     )
                     self._database.commit()
                     return MumbleIdentity(cursor.lastrowid + MUMBLE_USER_ID_OFFSET, username)
@@ -62,8 +111,8 @@ class MumbleIdentityRegistry:
                     if row:
                         return MumbleIdentity(row[0] + MUMBLE_USER_ID_OFFSET, row[1])
                     collision = self._database.execute(
-                        'SELECT 1 FROM identities WHERE username = ? COLLATE NOCASE',
-                        (username,),
+                        'SELECT 1 FROM identities WHERE username_key = ?',
+                        (_unicode_casefold(username),),
                     ).fetchone()
                     if not collision:
                         raise
@@ -83,8 +132,8 @@ class MumbleIdentityRegistry:
     def get_by_username(self, username: str) -> Optional[MumbleIdentity]:
         with self._lock:
             row = self._database.execute(
-                'SELECT user_id, username FROM identities WHERE username = ? COLLATE NOCASE',
-                (username,),
+                'SELECT user_id, username FROM identities WHERE username_key = ?',
+                (_unicode_casefold(username),),
             ).fetchone()
         return MumbleIdentity(row[0] + MUMBLE_USER_ID_OFFSET, row[1]) if row else None
 
@@ -129,8 +178,8 @@ class MumbleSessionStore:
                 return None, False
             identity, expires_at = session
             if expires_at <= now or not hmac.compare_digest(
-                username.casefold().encode('utf-8'),
-                identity.username.casefold().encode('utf-8'),
+                _unicode_casefold(username).encode('utf-8'),
+                _unicode_casefold(identity.username).encode('utf-8'),
             ):
                 return None, True
             return identity, True
