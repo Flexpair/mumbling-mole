@@ -830,6 +830,18 @@ class TestAuthProviderConfig(unittest.TestCase):
                     403, {'error': 'User is not authorized'}
                 )
 
+    @patch('server.AUTH_PROVIDER', 'supabase')
+    @patch('server.validate_token')
+    def test_credentials_require_a_stable_identity(self, mock_validate):
+        rate_limiter.store.clear()
+        mock_validate.return_value = {
+            'app_metadata': {'roles': ['watch']},
+            'user_metadata': {'full_name': 'Test User'},
+        }
+        handler = TestCredentialRateLimitOrdering._handler('Bearer ' + 'unit-test-token')
+        handler.do_POST()
+        handler.send_json.assert_called_once_with(401, {'error': 'Invalid identity'})
+
     def test_auth0_provider_placeholder(self):
         from server import AUTH_PROVIDERS
         self.assertIn('auth0', AUTH_PROVIDERS)
