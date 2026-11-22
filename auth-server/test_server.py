@@ -238,8 +238,7 @@ class TestMumbleIdentityAuthentication(unittest.TestCase):
 
 
 class TestMurmurIceAuthenticator(unittest.TestCase):
-    @staticmethod
-    def _ice_mocks(meta_proxy_class, slice_dir):
+    def _build_authenticator(self, meta_proxy_class, slice_dir='/tmp'):
         adapter = MagicMock()
         communicator = MagicMock()
         communicator.createObjectAdapterWithEndpoints.return_value = adapter
@@ -254,11 +253,8 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
             ServerAuthenticatorPrx=SimpleNamespace(uncheckedCast=MagicMock(side_effect=lambda proxy: proxy)),
             MetaPrx=meta_proxy_class,
         )
-        return fake_ice, fake_mumble_server
-
-    @staticmethod
-    def _authenticator(ready):
-        return MurmurIceAuthenticator(
+        ready = MagicMock()
+        authenticator = MurmurIceAuthenticator(
             MumbleAuthenticator(
                 MumbleIdentityRegistry(':memory:'),
                 MumbleSessionStore(),
@@ -268,20 +264,27 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
             'tcp -h mumble -p 6503',
             ready,
         )
+        self._stop_after_second_wait(authenticator)
+        return SimpleNamespace(
+            authenticator=authenticator,
+            fake_ice=fake_ice,
+            fake_mumble_server=fake_mumble_server,
+            ready=ready,
+        )
 
     @staticmethod
-    def _stop_after_retries(authenticator, retries):
+    def _stop_after_second_wait(authenticator):
         wait_count = 0
 
         def wait_for_retry(timeout):
             nonlocal wait_count
             wait_count += 1
-            if wait_count == retries:
+            if wait_count == 2:
                 authenticator._stop.set()
                 return True
             return False
 
-        return wait_for_retry
+        authenticator._stop.wait = wait_for_retry
 
     def test_meta_checked_cast_retries_until_murmur_is_available(self):
         mumble_server = MagicMock()
@@ -293,15 +296,13 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
                 meta,
             ])
         )
-        ready = MagicMock()
-        fake_ice, fake_mumble_server = self._ice_mocks(meta_proxy_class, '/tmp')
-        authenticator = self._authenticator(ready)
-        authenticator._stop.wait = self._stop_after_retries(authenticator, 2)
+        fixture = self._build_authenticator(meta_proxy_class, slice_dir='/tmp')
+
         with patch('builtins.print') as mock_print, patch.dict(
             sys.modules,
-            {'Ice': fake_ice, 'MumbleServer': fake_mumble_server},
+            {'Ice': fixture.fake_ice, 'MumbleServer': fixture.fake_mumble_server},
         ):
-            authenticator._serve()
+            fixture.authenticator._serve()
 
         mock_print.assert_called_once_with(
             '[AUTH] Murmur authenticator unavailable; retrying '
@@ -309,8 +310,8 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         )
         self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
         mumble_server.setAuthenticator.assert_called_once()
-        ready.set.assert_called_once()
-        self.assertEqual(ready.clear.call_count, 2)
+        fixture.ready.set.assert_called_once()
+        self.assertEqual(fixture.ready.clear.call_count, 2)
 
     def test_server_authenticator_is_attached_once_across_successful_retries(self):
         mumble_server = MagicMock()
@@ -318,21 +319,21 @@ class TestMurmurIceAuthenticator(unittest.TestCase):
         meta = MagicMock()
         meta.getBootedServers.return_value = [mumble_server]
         meta_proxy_class = SimpleNamespace(checkedCast=MagicMock(return_value=meta))
-        ready = MagicMock()
-        fake_ice, fake_mumble_server = self._ice_mocks(meta_proxy_class, None)
-        authenticator = self._authenticator(ready)
-        authenticator._stop.wait = self._stop_after_retries(authenticator, 2)
+        fixture = self._build_authenticator(meta_proxy_class, slice_dir=None)
+
         with patch.dict(
             sys.modules,
-            {'Ice': fake_ice, 'MumbleServer': fake_mumble_server},
+            {'Ice': fixture.fake_ice, 'MumbleServer': fixture.fake_mumble_server},
         ):
-            authenticator._serve()
+            fixture.authenticator._serve()
 
-        fake_ice.loadSlice.assert_called_once_with(str(os.path.join(os.path.dirname(__file__), 'MumbleServer.ice')))
+        fixture.fake_ice.loadSlice.assert_called_once_with(
+            str(os.path.join(os.path.dirname(__file__), 'MumbleServer.ice'))
+        )
         self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
         mumble_server.setAuthenticator.assert_called_once()
-        self.assertEqual(ready.set.call_count, 2)
-        ready.clear.assert_called_once()
+        self.assertEqual(fixture.ready.set.call_count, 2)
+        fixture.ready.clear.assert_called_once()
 
 
 class TestHashEmail(unittest.TestCase):
