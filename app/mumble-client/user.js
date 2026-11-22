@@ -365,12 +365,6 @@ class User extends EventEmitter {
     return this._id
   }
 
-  // Mumble calls the session ID "session"; UI voice-stream bookkeeping uses
-  // that name, so keep both accessors pointing at the same value.
-  get session () {
-    return this._id
-  }
-
   get username () {
     return this._username
   }

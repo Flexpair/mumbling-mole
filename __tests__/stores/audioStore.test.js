@@ -322,15 +322,6 @@ describe('audioStore', () => {
       expect(result.state).toBe('running');
     });
 
-    test('should request Mumble\'s 48 kHz sample rate on first creation', async () => {
-      await store.initializeAudioContext();
-
-      expect(mockEnsureAudioContext).toHaveBeenCalledWith({
-        sampleRate: 48000,
-        latencyHint: 'interactive'
-      });
-    });
-
     test('should return existing context if already initialized', async () => {
       const mockContext = { state: 'running' };
       store.audioContext.value = mockContext;

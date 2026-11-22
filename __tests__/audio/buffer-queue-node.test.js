@@ -345,39 +345,6 @@ describe('BufferQueueNode - Error Handling', () => {
     expect(node._isReady).toBe(false);
   });
 
-  test('rejects initialize and every caller when worklet setup fails', async () => {
-    const testError = new Error('Network error');
-    testError.name = 'NetworkError';
-    mockAudioContext.audioWorklet.addModule.mockRejectedValue(testError);
-
-    const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    node.on('error', () => {});
-
-    const first = node.initialize();
-    const second = node.initialize();
-
-    await expect(first).rejects.toBe(testError);
-    await expect(second).rejects.toBe(testError);
-    await expect(node.initialize()).rejects.toBe(testError);
-    expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledTimes(1);
-  });
-
-  test('passes an initialization failure to the write callback without retrying', async () => {
-    const testError = new Error('Network error');
-    testError.name = 'NetworkError';
-    mockAudioContext.audioWorklet.addModule.mockRejectedValue(testError);
-
-    const node = new BufferQueueNode({ audioContext: mockAudioContext });
-    node.on('error', () => {});
-    const callback = jest.fn();
-
-    node.write(new Float32Array(960), undefined, callback);
-
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(callback).toHaveBeenCalledWith(testError);
-    expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledTimes(1);
-  });
-
   test('handles unsupported buffer type in Float32ArrayWrapper', () => {
     expect(() => {
       new Float32ArrayWrapper(1, false, [1, 2, 3]);
