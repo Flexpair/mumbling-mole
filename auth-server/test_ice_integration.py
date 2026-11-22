@@ -64,7 +64,7 @@ class TestMurmurIceIntegration(unittest.TestCase):
         try:
             authenticator.start()
             self.assertTrue(attached.wait(5), 'Murmur authenticator was not attached')
-            self.assertTrue(ready.is_set())
+            self.assertTrue(ready.wait(5), 'Murmur authenticator was not ready')
             token = sessions.issue(identity)
             self.assertEqual(
                 server.authenticator_proxy.authenticate(identity.username, token, [], '', False),
