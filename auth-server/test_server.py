@@ -609,6 +609,7 @@ class TestWebsockifyAuth(unittest.TestCase):
         cls.module = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, {'websockify': MagicMock(), 'websockify.auth_plugins': plugins}):
             spec.loader.exec_module(cls.module)
+        cls.module.TRUSTED_PROXIES = _parse_trusted_proxies('172.18.0.7/32')
 
     def setUp(self):
         self.plugin = self.module.MumbleTokenAuth()
@@ -621,6 +622,7 @@ class TestWebsockifyAuth(unittest.TestCase):
             self.plugin.authenticate({
                 'Sec-WebSocket-Protocol': 'binary, mumble-auth.example.token',
                 'X-Forwarded-For': '203.0.113.1',
+                'X-Websockify-Peer-IP': '172.18.0.7',
             }, 'localhost', 64738)
 
         request = urlopen.call_args.args[0]
@@ -628,6 +630,57 @@ class TestWebsockifyAuth(unittest.TestCase):
         self.assertEqual(request.get_header('X-forwarded-for'), '203.0.113.1')
         self.assertEqual(request.get_method(), 'POST')
         self.assertEqual(urlopen.call_args.kwargs['timeout'], 5)
+
+    def test_untrusted_peer_cannot_forward_client_ip(self):
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(self.module, 'urlopen', return_value=response) as urlopen:
+            self.plugin.authenticate({
+                'Sec-WebSocket-Protocol': 'mumble-auth.example.token',
+                'X-Forwarded-For': '127.0.0.1',
+                'X-Websockify-Peer-IP': '203.0.113.10',
+            }, 'localhost', 64738)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header('X-forwarded-for'), '203.0.113.10')
+
+    def test_runner_supplies_actual_socket_peer_to_auth_plugin(self):
+        class ProxyRequestHandler:
+            def auth_connection(self):
+                self.authenticated_headers = self.headers
+
+        class WebSocketProxy:
+            def __init__(self, *args, **kwargs):
+                self.request_handler = kwargs['RequestHandlerClass']
+
+        websocketproxy = SimpleNamespace(
+            ProxyRequestHandler=ProxyRequestHandler,
+            WebSocketProxy=WebSocketProxy,
+            websockify_init=MagicMock(),
+        )
+        websockify = SimpleNamespace(websocketproxy=websocketproxy)
+        spec = importlib.util.spec_from_file_location(
+            'websockify_runner_test',
+            os.path.join(os.path.dirname(__file__), 'websockify_runner.py'),
+        )
+        runner = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'websockify': websockify}):
+            spec.loader.exec_module(runner)
+
+        handler = runner.PeerAwareProxyRequestHandler()
+        handler.client_address = ('172.18.0.7', 12345)
+        handler.headers = Message()
+        handler.auth_connection()
+        server = runner.PeerAwareWebSocketProxy()
+
+        self.assertEqual(
+            handler.authenticated_headers.get('X-Websockify-Peer-IP'),
+            '172.18.0.7',
+        )
+        self.assertIs(
+            server.request_handler,
+            runner.PeerAwareProxyRequestHandler,
+        )
 
     def test_rejects_missing_or_ambiguous_tokens(self):
         for protocols in ('binary', 'mumble-auth.', 'mumble-auth.one, mumble-auth.two'):
@@ -649,7 +702,12 @@ class TestWebsockifyAuth(unittest.TestCase):
             with self.subTest(failure=failure), patch.object(self.module, 'urlopen', side_effect=failure):
                 with self.assertRaises(self.AuthenticationError) as error:
                     self.plugin.authenticate(
-                        {'Sec-WebSocket-Protocol': 'mumble-auth.example.token'}, 'localhost', 64738
+                        {
+                            'Sec-WebSocket-Protocol': 'mumble-auth.example.token',
+                            'X-Websockify-Peer-IP': '172.18.0.7',
+                        },
+                        'localhost',
+                        64738,
                     )
                 self.assertEqual(error.exception.response_code, status)
 
@@ -713,6 +771,23 @@ class TestTunnelAuthorization(unittest.TestCase):
             429,
             {'error': 'Too many authentication attempts, please try again later'},
         )
+
+    @patch('server.validate_token', return_value=None)
+    def test_loopback_forwarded_ip_is_rate_limited(self, mock_validate):
+        for _ in range(tunnel_rate_limiter.max_requests):
+            handler = self._handler(client_ip='127.0.0.1')
+            handler.headers['X-Forwarded-For'] = '127.0.0.1'
+            handler.do_POST()
+
+        blocked_handler = self._handler(client_ip='127.0.0.1')
+        blocked_handler.headers['X-Forwarded-For'] = '127.0.0.1'
+        blocked_handler.do_POST()
+
+        blocked_handler.send_json.assert_called_once_with(
+            429,
+            {'error': 'Too many authentication attempts, please try again later'},
+        )
+        self.assertEqual(mock_validate.call_count, tunnel_rate_limiter.max_requests)
 
     @patch(
         'server.validate_token',

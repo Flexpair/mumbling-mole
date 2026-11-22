@@ -1,7 +1,16 @@
+import ipaddress
+import os
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from websockify.auth_plugins import AuthenticationError, BasePlugin
+
+
+TRUSTED_PROXIES = tuple(
+    ipaddress.ip_network(value.strip(), strict=False)
+    for value in os.environ.get('TRUSTED_PROXIES', '').split(',')
+    if value.strip()
+)
 
 
 class MumbleTokenAuth(BasePlugin):
@@ -23,10 +32,25 @@ class MumbleTokenAuth(BasePlugin):
                 response_msg='WebSocket authentication required',
             )
 
+        peer_ip = headers.get('X-Websockify-Peer-IP')
+        try:
+            peer_address = ipaddress.ip_address(peer_ip)
+        except (TypeError, ValueError):
+            raise AuthenticationError(
+                response_code=503,
+                response_msg='WebSocket authorization unavailable',
+            )
+
         request_headers = {'Authorization': 'Bearer ' + tokens[0]}
         forwarded_for = headers.get('X-Forwarded-For')
-        if forwarded_for and len(forwarded_for) <= 256:
+        if (
+            forwarded_for
+            and len(forwarded_for) <= 256
+            and any(peer_address in network for network in TRUSTED_PROXIES)
+        ):
             request_headers['X-Forwarded-For'] = forwarded_for
+        else:
+            request_headers['X-Forwarded-For'] = str(peer_address)
 
         request = Request(self.source, headers=request_headers, method='POST')
         try:

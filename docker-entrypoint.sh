@@ -3,8 +3,9 @@ set -euo pipefail
 
 PORT="${PORT:-${SMOKE_HTTP_PORT:-8081}}"
 AUTH_SERVER_PORT="${AUTH_SERVER_PORT:-8082}"
-# Keep websockify private by default; override HOST explicitly if external access is intended
-HOST="${HOST:-127.0.0.1}"
+# Dynamically get container IP, fallback to 0.0.0.0 if not found
+CONTAINER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "0.0.0.0")
+HOST="${HOST:-${CONTAINER_IP:-0.0.0.0}}"
 AUTH_SERVER_HOST="${AUTH_SERVER_HOST:-0.0.0.0}"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 WEBROOT="${SCRIPT_DIR}/dist"
@@ -90,7 +91,7 @@ if [[ -n "${SSL_TARGET_FLAG}" ]]; then
   SSL_ARGS=("${SSL_TARGET_FLAG}")
 fi
 exec env PYTHONPATH="${AUTH_SERVER_DIR}${PYTHONPATH:+:${PYTHONPATH}}" \
-  websockify "${SSL_ARGS[@]}" \
+  python3 "${AUTH_SERVER_DIR}/websockify_runner.py" "${SSL_ARGS[@]}" \
   --auth-plugin=websockify_auth.MumbleTokenAuth \
   --auth-source="http://127.0.0.1:${AUTH_SERVER_PORT}/api/tunnel-authorize" \
   --web="${WEBROOT}" "${HOST}:${PORT}" "${MUMBLE_SERVER}"

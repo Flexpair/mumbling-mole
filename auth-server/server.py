@@ -667,9 +667,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if is_tunnel_authorization:
-            if client_ip not in {'127.0.0.1', '::1'} and not tunnel_rate_limiter.check(
-                f'ip:{client_ip}'
-            ):
+            if not tunnel_rate_limiter.check(f'ip:{client_ip}'):
                 self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
                 return
         elif not self._check_rate_limit():
