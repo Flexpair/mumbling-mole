@@ -1,6 +1,8 @@
 import AuthProvider from './AuthProvider.js';
 import { validateIdentitySession } from './identity-session.js';
 
+const IDENTITY_STORAGE_KEY = 'gotrue.user';
+
 /**
  * Netlify Identity Authentication Adapter
  * 
@@ -88,7 +90,7 @@ class NetlifyIdentityAdapter extends AuthProvider {
       // links fail in browsers that already have a logged-in session because
       // the server sees the conflicting Bearer token.
       try {
-        globalThis.localStorage?.removeItem('gotrue.user');
+        globalThis.localStorage?.removeItem(IDENTITY_STORAGE_KEY);
       } catch (e) {
         console.warn('[Auth] Could not clear stored session:', e);
       }
@@ -112,16 +114,11 @@ class NetlifyIdentityAdapter extends AuthProvider {
    * @returns {Promise<Object|null>}
    */
   async getCurrentUser() {
-    return validateIdentitySession(this.netlifyIdentity, () => {
-      globalThis.localStorage?.removeItem('gotrue.user');
-    }, () => {
-      this._suppressSessionCleanupLogout = true;
-      try {
-        this.netlifyIdentity.store.user = null;
-      } finally {
-        this._suppressSessionCleanupLogout = false;
-      }
-    });
+    return validateIdentitySession(
+      this.netlifyIdentity,
+      () => this._clearStoredSession(),
+      () => this._clearWidgetUser(),
+    );
   }
 
   /**
@@ -281,14 +278,28 @@ class NetlifyIdentityAdapter extends AuthProvider {
     return operation;
   }
 
+  /**
+   * Clear the persisted Netlify Identity session (`gotrue.user`) and in-memory widget store.
+   * Called by logoutSession() regardless of the provider logout outcome.
+   * netlifyIdentity.store.user is not public widget API; clearing it suppresses app logout handlers.
+   * @returns {void}
+   */
   clearSession() {
     try {
-      globalThis.localStorage?.removeItem('gotrue.user');
+      this._clearStoredSession();
     } catch (error) {
       console.warn('[Auth] Could not clear stored session:', error);
     }
 
     if (!this.netlifyIdentity?.store) return;
+    this._clearWidgetUser();
+  }
+
+  _clearStoredSession() {
+    globalThis.localStorage?.removeItem(IDENTITY_STORAGE_KEY);
+  }
+
+  _clearWidgetUser() {
     this._suppressSessionCleanupLogout = true;
     try {
       this.netlifyIdentity.store.user = null;
