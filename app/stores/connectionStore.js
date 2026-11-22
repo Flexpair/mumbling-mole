@@ -82,7 +82,8 @@ export const useConnectionStore = defineStore('connection', () => {
     logger(translate('logentry.connecting'), host);
 
     try {
-      const wsUrl = buildWebSocketUrl(host, port);
+      const secure = globalThis.location?.protocol === 'https:' ? true : undefined;
+      const wsUrl = buildWebSocketUrl(host, port, secure);
       
       // Lazy-load connector on first connection
       const conn = await getConnector();

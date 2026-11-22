@@ -42,6 +42,11 @@ describe('buildWebSocketUrl', () => {
     ])('should build URL with path: %s:%s → %s', (host, port, expected) => {
       expect(buildWebSocketUrl(host, port)).toBe(expected);
     });
+
+    test('should use TLS on a non-standard port when requested', () => {
+      expect(buildWebSocketUrl('example.com', '8443/murmur', true))
+        .toBe('wss://example.com:8443/murmur');
+    });
   });
 
   describe('Protocol Selection', () => {
@@ -55,6 +60,13 @@ describe('buildWebSocketUrl', () => {
       ['port 80 with path', 'example.com', '80/path', 'ws://'],
     ])('should use correct protocol for %s', (desc, host, port, protocol) => {
       expect(buildWebSocketUrl(host, port)).toContain(protocol);
+    });
+
+    test('should use TLS independently of the port when requested', () => {
+      expect(buildWebSocketUrl('example.com', '8443', true))
+        .toBe('wss://example.com:8443');
+      expect(buildWebSocketUrl('example.com', '443', false))
+        .toBe('ws://example.com:443');
     });
   });
 

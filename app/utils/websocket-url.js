@@ -10,6 +10,7 @@
  * @param {string|number} port - Server port, can be:
  *   - Plain port: '64738' or 64738
  *   - Port with path: '443/murmur' or '443/ws/path'
+ * @param {boolean} [secure] - Whether to use TLS. Defaults to true for port 443.
  * @returns {string} Complete WebSocket URL (wss:// or ws://)
  * 
  * @example
@@ -22,7 +23,7 @@
  * buildWebSocketUrl('localhost', '80')
  * // => 'ws://localhost'
  */
-export function buildWebSocketUrl(host, port) {
+export function buildWebSocketUrl(host, port, secure) {
   const portStr = String(port);
   
   if (portStr.includes('/')) {
@@ -30,19 +31,21 @@ export function buildWebSocketUrl(host, port) {
     const slashIndex = portStr.indexOf('/');
     const portNum = portStr.substring(0, slashIndex);
     const path = portStr.substring(slashIndex + 1);
-    const protocol = portNum === '443' ? 'wss' : 'ws';
+    const useTls = secure ?? portNum === '443';
+    const protocol = useTls ? 'wss' : 'ws';
     
     // Omit port for standard ports.
-    if (portNum === '443' || portNum === '80') {
+    if ((useTls && portNum === '443') || (!useTls && portNum === '80')) {
       return `${protocol}://${host}/${path}`;
     }
     return `${protocol}://${host}:${portNum}/${path}`;
   } else {
     // Format: "64738" → ws://host:64738
-    const protocol = portStr === '443' ? 'wss' : 'ws';
+    const useTls = secure ?? portStr === '443';
+    const protocol = useTls ? 'wss' : 'ws';
     
     // Omit port for standard ports
-    if (portStr === '443' || portStr === '80') {
+    if ((useTls && portStr === '443') || (!useTls && portStr === '80')) {
       return `${protocol}://${host}`;
     }
     return `${protocol}://${host}:${portStr}`;
