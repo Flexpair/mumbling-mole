@@ -3,9 +3,8 @@ set -euo pipefail
 
 PORT="${PORT:-${SMOKE_HTTP_PORT:-8081}}"
 AUTH_SERVER_PORT="${AUTH_SERVER_PORT:-8082}"
-# Dynamically get container IP, fallback to 0.0.0.0 if not found
-CONTAINER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "0.0.0.0")
-HOST="${HOST:-${CONTAINER_IP:-0.0.0.0}}"
+# Keep websockify private by default; override HOST explicitly if external access is intended
+HOST="${HOST:-127.0.0.1}"
 AUTH_SERVER_HOST="${AUTH_SERVER_HOST:-0.0.0.0}"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 WEBROOT="${SCRIPT_DIR}/dist"
@@ -49,6 +48,8 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     echo "Must set TRUSTED_PROXIES to the reverse proxy IP or CIDR" >&2
     exit 1
   fi
+  # websockify auth callback comes from loopback; always trust loopback hops for X-Forwarded-For resolution
+  AUTH_TRUSTED_PROXIES="${TRUSTED_PROXIES},127.0.0.1/32,::1"
   echo "[entrypoint] Starting auth server on ${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}"
   
   nohup env \
@@ -63,7 +64,7 @@ if [[ -f "${AUTH_SERVER_DIR}/server.py" ]] && [[ "${SKIP_AUTH_SERVER:-}" != "1" 
     SUPABASE_URL="${SUPABASE_URL:-}" \
     AUTH0_DOMAIN="${AUTH0_DOMAIN:-}" \
     AUTH_ALLOWED_ORIGINS="${AUTH_ALLOWED_ORIGINS:-}" \
-    TRUSTED_PROXIES="${TRUSTED_PROXIES}" \
+    TRUSTED_PROXIES="${AUTH_TRUSTED_PROXIES}" \
     python3 "${AUTH_SERVER_DIR}/server.py" > /tmp/auth-server.log 2>&1 &
   
   AUTH_SERVER_PID=$!
