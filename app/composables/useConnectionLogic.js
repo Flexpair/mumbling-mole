@@ -213,9 +213,7 @@ export function useConnectionLogic({ auth } = {}) {
    * @private
    */
   async function _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const {
-      host, port, username, password, tokens = [], serverCredentials, accessToken, attempt
-    } = connectionParams;
+    const { attempt } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
 
     if (!attempt || !isConnectionAttemptCurrent(attempt)) return;
@@ -237,9 +235,7 @@ export function useConnectionLogic({ auth } = {}) {
       // Reset UI state
       resetUIForConnection(audioStore, userStore, voiceStore);
 
-      await _establishClientConnection(
-        host, port, username, password, tokens, serverCredentials, accessToken, attempt
-      );
+      await _establishClientConnection(connectionParams);
     } catch (err) {
       _handleConnectionFailure(err, connectionParams, attempt);
     }
@@ -249,9 +245,9 @@ export function useConnectionLogic({ auth } = {}) {
    * Establish client connection and setup
    * @private
    */
-  async function _establishClientConnection(
-    host, port, username, password, tokens, serverCredentials, accessToken, attempt
-  ) {
+  async function _establishClientConnection({
+    host, port, username, password, tokens = [], serverCredentials, accessToken, attempt
+  }) {
     const client = await connectionStore.connect(
       host, port, username, password, tokens, accessToken
     );

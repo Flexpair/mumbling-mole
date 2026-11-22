@@ -26,6 +26,7 @@ from typing import Any, Optional
 from urllib.parse import urlsplit
 
 PORT = int(os.environ.get('AUTH_SERVER_PORT', 8082))
+RATE_LIMIT_ERROR_MESSAGE = 'Too many authentication attempts, please try again later'
 # Binding to 0.0.0.0 is intentional - server runs in container behind nginx
 HOST = os.environ.get('AUTH_SERVER_HOST', '0.0.0.0')  # nosec B104
 
@@ -636,7 +637,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             TRUSTED_PROXIES,
         )
         if not rate_limiter.check(client_ip):
-            self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+            self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
             return False
         return True
 
@@ -669,7 +670,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             if client_ip not in {'127.0.0.1', '::1'} and not tunnel_rate_limiter.check(
                 f'ip:{client_ip}'
             ):
-                self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+                self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
                 return
         elif not self._check_rate_limit():
             return
@@ -697,7 +698,7 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             user_id = user.get('sub') or user.get('id') or user.get('email') or token
             user_key = hashlib.sha256(str(user_id).encode('utf-8')).hexdigest()
             if not tunnel_rate_limiter.check(f'user:{user_key}'):
-                self.send_json(429, {'error': 'Too many authentication attempts, please try again later'})
+                self.send_json(429, {'error': RATE_LIMIT_ERROR_MESSAGE})
                 return
             self.send_json(200, {'authorized': True})
             return

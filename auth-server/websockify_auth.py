@@ -1,4 +1,4 @@
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from websockify.auth_plugins import AuthenticationError, BasePlugin
@@ -23,7 +23,7 @@ class MumbleTokenAuth(BasePlugin):
                 response_msg='WebSocket authentication required',
             )
 
-        request_headers = {'Authorization': f'******'}
+        request_headers = {'Authorization': 'Bearer ' + tokens[0]}
         forwarded_for = headers.get('X-Forwarded-For')
         if forwarded_for and len(forwarded_for) <= 256:
             request_headers['X-Forwarded-For'] = forwarded_for
@@ -42,7 +42,7 @@ class MumbleTokenAuth(BasePlugin):
                 response_code=status,
                 response_msg='WebSocket authorization denied',
             ) from error
-        except (URLError, TimeoutError, OSError) as error:
+        except OSError as error:
             raise AuthenticationError(
                 response_code=503,
                 response_msg='WebSocket authorization unavailable',

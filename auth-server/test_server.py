@@ -7,6 +7,7 @@ Or standalone: python3 auth-server/test_server.py
 """
 
 import json
+import importlib.util
 import ipaddress
 import queue
 import socket
@@ -590,6 +591,67 @@ class TestCredentialRateLimitOrdering(unittest.TestCase):
         other_client.send_json.assert_called_once_with(
             401, {'error': 'Invalid or expired token'}
         )
+
+
+class TestWebsockifyAuth(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        class AuthenticationError(Exception):
+            def __init__(self, response_code, response_msg):
+                self.response_code = response_code
+                super().__init__(response_msg)
+
+        cls.AuthenticationError = AuthenticationError
+        plugins = SimpleNamespace(AuthenticationError=AuthenticationError, BasePlugin=object)
+        spec = importlib.util.spec_from_file_location(
+            'websockify_auth', os.path.join(os.path.dirname(__file__), 'websockify_auth.py')
+        )
+        cls.module = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'websockify': MagicMock(), 'websockify.auth_plugins': plugins}):
+            spec.loader.exec_module(cls.module)
+
+    def setUp(self):
+        self.plugin = self.module.MumbleTokenAuth()
+        self.plugin.source = 'http://127.0.0.1:8082/api/tunnel-authorize'
+
+    def test_sends_token_and_forwarded_ip_to_auth_server(self):
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(self.module, 'urlopen', return_value=response) as urlopen:
+            self.plugin.authenticate({
+                'Sec-WebSocket-Protocol': 'binary, mumble-auth.example.token',
+                'X-Forwarded-For': '203.0.113.1',
+            }, 'localhost', 64738)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header('Authorization'), 'Bearer ' + 'example.token')
+        self.assertEqual(request.get_header('X-forwarded-for'), '203.0.113.1')
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertEqual(urlopen.call_args.kwargs['timeout'], 5)
+
+    def test_rejects_missing_or_ambiguous_tokens(self):
+        for protocols in ('binary', 'mumble-auth.', 'mumble-auth.one, mumble-auth.two'):
+            with self.subTest(protocols=protocols), patch.object(self.module, 'urlopen') as urlopen:
+                with self.assertRaises(self.AuthenticationError) as error:
+                    self.plugin.authenticate({'Sec-WebSocket-Protocol': protocols}, 'localhost', 64738)
+                self.assertEqual(error.exception.response_code, 401)
+                urlopen.assert_not_called()
+
+    def test_auth_server_errors_fail_closed(self):
+        errors = [
+            (urllib.error.HTTPError('http://127.0.0.1', 429, '', {}, None), 429),
+            (urllib.error.HTTPError('http://127.0.0.1', 500, '', {}, None), 503),
+            (urllib.error.URLError('unavailable'), 503),
+            (TimeoutError(), 503),
+            (OSError(), 503),
+        ]
+        for failure, status in errors:
+            with self.subTest(failure=failure), patch.object(self.module, 'urlopen', side_effect=failure):
+                with self.assertRaises(self.AuthenticationError) as error:
+                    self.plugin.authenticate(
+                        {'Sec-WebSocket-Protocol': 'mumble-auth.example.token'}, 'localhost', 64738
+                    )
+                self.assertEqual(error.exception.response_code, status)
 
 
 class TestTunnelAuthorization(unittest.TestCase):
