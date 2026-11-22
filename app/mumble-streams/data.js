@@ -3,6 +3,8 @@
 import { MumbleProto } from './mumble-proto-minimal.js';
 import { Transform } from 'node:stream';
 
+const INITIAL_BUFFER_SIZE = 1024;
+const MAX_RETAINED_BUFFER_SIZE = 64 * 1024;
 const MAX_MESSAGE_SIZE = 16 * 1024 * 1024;
 const MAX_FRAME_SIZE = MAX_MESSAGE_SIZE + 6;
 
@@ -116,7 +118,7 @@ class Decoder extends Transform {
       readableObjectMode: true
     });
 
-    this._buffer = Buffer.allocUnsafe(1024);
+    this._buffer = Buffer.allocUnsafe(INITIAL_BUFFER_SIZE);
     this._bufferSize = 0;
   }
 
@@ -170,10 +172,10 @@ class Decoder extends Transform {
       }
 
       const typeName = nameById[type];
-      const data = this._buffer.subarray(6, frameSize);
+      const data = Buffer.from(this._buffer.subarray(6, frameSize));
       let message;
       if (typeName === 'UDPTunnel') {
-        message = Buffer.from(data);
+        message = data;
       } else {
         try {
           message = decode(type, data);
@@ -183,6 +185,9 @@ class Decoder extends Transform {
       }
 
       this._bufferSize = 0;
+      if (this._buffer.length > MAX_RETAINED_BUFFER_SIZE) {
+        this._buffer = Buffer.allocUnsafe(INITIAL_BUFFER_SIZE);
+      }
 
       this.push({
         name: typeName,
