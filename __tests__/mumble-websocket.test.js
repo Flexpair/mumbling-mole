@@ -112,7 +112,7 @@ describe('mumble-websocket', () => {
       const MumbleClientConstructor = (await import('../app/mumble-client/index.js')).default;
       setTimeout(() => mockWs._trigger('connect'), 0);
 
-      await connect('ws://localhost:64738', {
+      await connect('wss://localhost/murmur', {
         username: 'testuser',
         accessToken: 'identity.jwt.token',
       });
