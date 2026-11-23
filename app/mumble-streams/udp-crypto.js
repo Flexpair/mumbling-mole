@@ -70,6 +70,7 @@ class UdpCrypt {
     }
     // AES-128-ECB is required by Mumble's OCB-compatible protocol;
     // replacing it breaks wire compatibility.
+    // nosemgrep: javascript.crypto.weak-symmetric-mode.weak-symmetric-mode
     const cipher = crypto.createCipheriv('aes-128-ecb', this._key, null)
       .setAutoPadding(false);
 
@@ -185,8 +186,10 @@ class UdpCrypt {
   _verifyAndDecryptPacket(cipherText, saveiv) {
     // AES-128-ECB is required by Mumble's OCB-compatible protocol;
     // replacing it breaks wire compatibility.
+    // nosemgrep: javascript.crypto.weak-symmetric-mode.weak-symmetric-mode
     const encrypt = crypto.createCipheriv('aes-128-ecb', this._key, null)
       .setAutoPadding(false);
+    // nosemgrep: javascript.crypto.weak-symmetric-mode.weak-symmetric-mode
     const decrypt = crypto.createDecipheriv('aes-128-ecb', this._key, null)
       .setAutoPadding(false);
 
