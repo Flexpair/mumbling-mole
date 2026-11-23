@@ -146,6 +146,18 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
 
+      - name: Run Murmur Ice integration test
+        run: |
+          docker run --rm \
+            --entrypoint /bin/sh \
+            --volume "$GITHUB_WORKSPACE/auth-server:/tmp/auth-server-tests:ro" \
+            "$TEST_TAG" \
+            -c '
+              set -eu
+              python3 -c "import Ice; from pathlib import Path; assert Path(\"/usr/local/share/mumble/MumbleServer.ice\").is_file()"
+              python3 -m unittest discover -s /tmp/auth-server-tests -p test_ice_integration.py -v
+            '
+
       - name: Verify unauthenticated WebSocket tunnel is rejected
         run: |
           set -euo pipefail
