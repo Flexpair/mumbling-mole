@@ -146,6 +146,18 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
 
+      - name: Run Murmur Ice integration test
+        run: |
+          docker run --rm \
+            --entrypoint /bin/sh \
+            --volume "$GITHUB_WORKSPACE/auth-server:/tmp/auth-server-tests:ro" \
+            "$TEST_TAG" \
+            -c '
+              set -eu
+              python3 -c "import Ice; from pathlib import Path; assert Path(\"/usr/local/share/mumble/MumbleServer.ice\").is_file()"
+              python3 -m unittest discover -s /tmp/auth-server-tests -p test_ice_integration.py -v
+            '
+
       - name: Verify unauthenticated WebSocket tunnel is rejected
         run: |
           set -euo pipefail
@@ -161,6 +173,10 @@ jobs:
             --publish 127.0.0.1:18081:8081 \
             --env MUMBLE_SERVER=127.0.0.1:64738 \
             --env MUMBLE_PASSWORD=smoke-mumble-password \
+            --env "MURMUR_ICE_ENDPOINT=Meta:tcp -h 127.0.0.1 -p 6502" \
+            --env MURMUR_ICE_SECRET=smoke-murmur-ice-secret \
+            --env "MURMUR_AUTH_CALLBACK_ENDPOINT=tcp -h 127.0.0.1 -p 6503" \
+            --env MUMBLE_IDENTITY_DB=/tmp/mumble-auth/identities.sqlite3 \
             --env GUAC_ADMIN_PASSWORD=smoke-guac-admin-password \
             --env GUAC_EDITOR_PASSWORD=smoke-guac-editor-password \
             --env GUAC_WATCHER_PASSWORD=smoke-guac-watcher-password \

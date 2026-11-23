@@ -110,7 +110,7 @@ export function useConnectionLogic({ auth } = {}) {
       if (!isConnectionAttemptCurrent(attempt)) return null;
       if (!token) throw new Error('No access token available');
 
-      const serverCredentials = await fetchCredentials(token);
+      const serverCredentials = await fetchCredentials(token, { forceRefresh: true });
       if (!isConnectionAttemptCurrent(attempt)) return null;
       return { serverCredentials, accessToken: token };
     } catch (error) {
@@ -160,23 +160,12 @@ export function useConnectionLogic({ auth } = {}) {
 
     if (!(await _ensureAuthenticated(attempt))) return;
 
-    // Fetch credentials from auth server (validates JWT server-side)
-    const authenticatedCredentials = await _fetchServerCredentials(attempt, { host, port, username });
-    if (!authenticatedCredentials) return;
-    const { serverCredentials, accessToken } = authenticatedCredentials;
-
-    // Use server-provided password
-    const password = serverCredentials.mumblePassword;
-
     const connectionParams = {
       host,
       port,
       username,
-      password,
       tokens,
       isLoopback,
-      serverCredentials,
-      accessToken,
       attempt,
     };
 
@@ -213,7 +202,7 @@ export function useConnectionLogic({ auth } = {}) {
    * @private
    */
   async function _performConnect(connectionParams, { audioEnabled = true, sampleRate = null } = {}) {
-    const { attempt } = connectionParams;
+    const { host, port, tokens = [], attempt } = connectionParams;
     const isLoopback = connectionParams.isLoopback || false;
 
     if (!attempt || !isConnectionAttemptCurrent(attempt)) return;
@@ -232,10 +221,23 @@ export function useConnectionLogic({ auth } = {}) {
         return;
       }
 
+      const authenticatedCredentials = await _fetchServerCredentials(attempt, connectionParams);
+      if (!authenticatedCredentials) return;
+      const { serverCredentials, accessToken } = authenticatedCredentials;
+
       // Reset UI state
       resetUIForConnection(audioStore, userStore, voiceStore);
 
-      await _establishClientConnection(connectionParams);
+      await _establishClientConnection({
+        host,
+        port,
+        username: serverCredentials.mumbleUsername,
+        password: serverCredentials.mumblePassword,
+        tokens,
+        serverCredentials,
+        accessToken,
+        attempt,
+      });
     } catch (err) {
       _handleConnectionFailure(err, connectionParams, attempt);
     }

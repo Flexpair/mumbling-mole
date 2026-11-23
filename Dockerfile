@@ -5,16 +5,20 @@ FROM ubuntu:24.04 AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Runtime-Pakete + Python venv + websockify in one layer
-RUN apt-get update && \
+# Deadsnakes PPA für Python 3.11 + Runtime-Pakete + Python venv + websockify in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         bash \
         ca-certificates \
-        python3 \
-        python3-venv \
+        python3.11 \
+        python3.11-venv \
         tini && \
+    apt-get remove -y software-properties-common && \
+    apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
-    python3 -m venv /opt/venv && \
+    /usr/bin/python3.11 -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir --only-binary :all: websockify==0.13.0 && \
     /opt/venv/bin/websockify --help 2>&1 | grep -q -- '--auth-plugin'
 
@@ -22,7 +26,9 @@ ENV PATH="/opt/venv/bin:${PATH}"
 
 # User node anlegen
 RUN useradd -m -U -s /bin/bash node && \
-    chown -R node:node /home/node
+    chown -R node:node /home/node && \
+    mkdir -p /var/lib/mumble-auth && \
+    chown node:node /var/lib/mumble-auth
 
 WORKDIR /home/node
 
@@ -39,9 +45,13 @@ USER root
 
 # Build-Tools + Node.js Installation in einem Layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
     curl \
     git \
+    libbz2-dev \
+    libssl-dev \
+    python3.11-dev \
     xz-utils && \
     rm -rf /var/lib/apt/lists/* && \
     set -eux; \
@@ -72,6 +82,17 @@ ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 
 # Projekt-Files kopieren und builden
 COPY --chown=node:node --chmod=755 ./ /home/node/
+RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes \
+      -r /home/node/auth-server/requirements-ice.txt && \
+    find /opt/venv -type d \( -name __pycache__ -o -name .cache \) -prune -exec rm -rf {} + && \
+    find /opt/venv -type f -name '*.pyc' -delete && \
+    mkdir -p /usr/local/share/mumble && \
+    curl --proto "=https" -fsSL \
+      "https://raw.githubusercontent.com/mumble-voip/mumble/fc454676e79841f1c7d22207d979754502c6297b/src/murmur/MumbleServer.ice" \
+      -o /usr/local/share/mumble/MumbleServer.ice && \
+    printf '%s  %s\n' \
+      '6c0284627106d3a0acc4a3b9a9d2a762b1e30e54950e876057f71c5c8c67c750' \
+      /usr/local/share/mumble/MumbleServer.ice | sha256sum -c -
 USER node
 WORKDIR /home/node
 
@@ -140,6 +161,9 @@ COPY --from=builder --chown=node:node --chmod=555 /home/node/dist /home/node/dis
 # Create auth-server directory (needs 755 for directory traversal)
 RUN mkdir -p /home/node/auth-server && chmod 755 /home/node/auth-server
 COPY --chown=node:node --chmod=644 ./auth-server/server.py /home/node/auth-server/server.py
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder --chown=root:root --chmod=644 /usr/local/share/mumble/MumbleServer.ice /usr/local/share/mumble/MumbleServer.ice
+COPY --chown=root:root --chmod=644 ./auth-server/mumble_auth.py /home/node/auth-server/mumble_auth.py
 COPY --chmod=444 ./auth-server/websockify_auth.py /home/node/auth-server/websockify_auth.py
 COPY --chmod=444 ./auth-server/websockify_runner.py /home/node/auth-server/websockify_runner.py
 

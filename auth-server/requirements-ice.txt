@@ -1,0 +1,2 @@
+zeroc-ice==3.7.11 \
+    --hash=sha256:eaeb261022de73199baf7fbaf6c401c835704e3354c72e1c62e16bfd793dc0dc

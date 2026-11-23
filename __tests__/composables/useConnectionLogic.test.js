@@ -160,8 +160,10 @@ jest.unstable_mockModule('../../app/stores/dialogStore', () => ({
 }));
 
 // Mock credentials service
+const MUMBLE_USERNAME = 'Test User (3ff34ed40e9ac98f)';
 const mockFetchCredentials = jest.fn().mockResolvedValue({
   mumblePassword: 'test-password',
+  mumbleUsername: MUMBLE_USERNAME,
   guacamoleUser: 'watcher',
   guacamolePassword: 'guac-password'
 });
@@ -226,6 +228,7 @@ describe('useConnectionLogic', () => {
     mockFetchCredentials.mockReset();
     mockFetchCredentials.mockResolvedValue({
       mumblePassword: 'test-password',
+      mumbleUsername: MUMBLE_USERNAME,
       guacamoleUser: 'watcher',
       guacamolePassword: 'guac-password'
     });
@@ -254,6 +257,32 @@ describe('useConnectionLogic', () => {
   });
 
   describe('connect()', () => {
+    it('fetches a fresh single-use credential when connecting again after disconnect', async () => {
+      mockFetchCredentials
+        .mockResolvedValueOnce({
+          mumbleUsername: MUMBLE_USERNAME,
+          mumblePassword: 'first-session',
+          guacamoleUser: 'watcher',
+          guacamolePassword: 'guac-password',
+        })
+        .mockResolvedValueOnce({
+          mumbleUsername: MUMBLE_USERNAME,
+          mumblePassword: 'second-session',
+          guacamoleUser: 'watcher',
+          guacamolePassword: 'guac-password',
+        });
+
+      await logic.connect('host', 64738, 'user', 'pass');
+      logic.resetClient();
+      await logic.connect('host', 64738, 'user', 'pass');
+
+      expect(mockFetchCredentials).toHaveBeenCalledTimes(2);
+      expect(mockFetchCredentials).toHaveBeenNthCalledWith(1, 'test-jwt-token', { forceRefresh: true });
+      expect(mockFetchCredentials).toHaveBeenNthCalledWith(2, 'test-jwt-token', { forceRefresh: true });
+      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(1, 'host', 64738, MUMBLE_USERNAME, 'first-session', [], 'test-jwt-token');
+      expect(mockConnectionStore.connect).toHaveBeenNthCalledWith(2, 'host', 64738, MUMBLE_USERNAME, 'second-session', [], 'test-jwt-token');
+    });
+
     it('should alert when auth is not provided', async () => {
       const logicNoAuth = useConnectionLogic({});
       
@@ -320,15 +349,17 @@ describe('useConnectionLogic', () => {
         .mockRejectedValueOnce(Object.assign(new Error('Invalid or expired token'), { status: 401 }))
         .mockResolvedValueOnce({
           mumblePassword: 'current-password',
+          mumbleUsername: 'Current User (3ff34ed40e9ac98f)',
           guacamoleUser: 'watcher',
           guacamolePassword: 'current-guac-password',
         });
       mockLogoutForReauthentication.mockReturnValueOnce(staleLogout.promise);
 
       const staleConnection = logic.connect('stale-host', 64738, 'stale-user', 'pass');
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      for (let attempt = 0; attempt < 20 && !mockLogoutForReauthentication.mock.calls.length; attempt++) {
+        await Promise.resolve();
+      }
+      expect(mockLogoutForReauthentication).toHaveBeenCalledTimes(1);
 
       await useConnectionLogic({ auth: mockAuth })
         .connect('current-host', 64738, 'current-user', 'pass');
@@ -340,7 +371,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'Current User (3ff34ed40e9ac98f)',
         'current-password',
         [],
         'test-jwt-token'
@@ -393,6 +424,7 @@ describe('useConnectionLogic', () => {
       
       expect(mockDialogStore.showSampleRateDialog).toHaveBeenCalled();
       expect(mockDialogStore.sampleRateDialog.sampleRate).toBe(44100);
+      expect(mockFetchCredentials).not.toHaveBeenCalled();
     });
 
     it('should proceed with 48kHz sample rate', async () => {
@@ -415,7 +447,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'host',
         64738,
-        'user',
+        MUMBLE_USERNAME,
         'test-password',
         [],
         'test-jwt-token'
@@ -459,6 +491,7 @@ describe('useConnectionLogic', () => {
         logic.resetClient();
         return {
           mumblePassword: 'old-password',
+          mumbleUsername: MUMBLE_USERNAME,
           guacamoleUser: 'watcher',
           guacamolePassword: 'old-guac-password',
         };
@@ -466,7 +499,7 @@ describe('useConnectionLogic', () => {
 
       await logic.connect('host', 64738, 'user', 'pass');
 
-      expect(mockVoiceStore.setupVoiceForConnection).not.toHaveBeenCalled();
+      expect(mockVoiceStore.setupVoiceForConnection).toHaveBeenCalled();
       expect(mockConnectionStore.connect).not.toHaveBeenCalled();
       expect(mockStartGuacamoleFrame).not.toHaveBeenCalled();
     });
@@ -523,6 +556,7 @@ describe('useConnectionLogic', () => {
         ? firstCredentials.promise
         : Promise.resolve({
           mumblePassword: 'new-password',
+          mumbleUsername: 'New User (b059c9e4af70c9f6)',
           guacamoleUser: 'watcher',
           guacamolePassword: 'new-guac-password',
         }));
@@ -533,6 +567,7 @@ describe('useConnectionLogic', () => {
       await secondConnection;
       firstCredentials.resolve({
         mumblePassword: 'old-password',
+        mumbleUsername: 'Old User (3ff34ed40e9ac98f)',
         guacamoleUser: 'watcher',
         guacamolePassword: 'old-guac-password',
       });
@@ -542,7 +577,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'new-host',
         64738,
-        'new-user',
+        'New User (b059c9e4af70c9f6)',
         'new-password',
         [],
         'new-session-token'
@@ -641,7 +676,7 @@ describe('useConnectionLogic', () => {
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        MUMBLE_USERNAME,
         'test-password',
         [],
         'current-token'
@@ -666,8 +701,9 @@ describe('useConnectionLogic', () => {
 
       const staleConnection = useConnectionLogic({ auth: staleAuth })
         .connect('stale-host', 64738, 'stale-user', 'pass');
-      await Promise.resolve();
-      await Promise.resolve();
+      for (let attempt = 0; attempt < 20 && !staleAuth.getAccessToken.mock.calls.length; attempt++) {
+        await Promise.resolve();
+      }
       expect(staleAuth.getAccessToken).toHaveBeenCalledTimes(1);
 
       const currentConnection = useConnectionLogic({ auth: currentAuth })
@@ -678,18 +714,22 @@ describe('useConnectionLogic', () => {
       staleToken.resolve('stale-token');
       currentCredentials.resolve({
         mumblePassword: 'current-password',
+        mumbleUsername: 'Current User (3ff34ed40e9ac98f)',
         guacamoleUser: 'watcher',
         guacamolePassword: 'current-guac-password',
       });
       await Promise.all([staleConnection, currentConnection]);
 
       expect(mockFetchCredentials).toHaveBeenCalledTimes(1);
-      expect(mockFetchCredentials).toHaveBeenCalledWith('current-token');
+      expect(mockFetchCredentials).toHaveBeenCalledWith(
+        'current-token',
+        { forceRefresh: true }
+      );
       expect(mockConnectionStore.connect).toHaveBeenCalledTimes(1);
       expect(mockConnectionStore.connect).toHaveBeenCalledWith(
         'current-host',
         64738,
-        'current-user',
+        'Current User (3ff34ed40e9ac98f)',
         'current-password',
         [],
         'current-token'
@@ -959,9 +999,11 @@ describe('useConnectionLogic', () => {
 
       expect(mockConnectionStore.connect).not.toHaveBeenCalled();
       expect(mockStartGuacamoleFrame).not.toHaveBeenCalled();
+      expect(mockFetchCredentials).not.toHaveBeenCalled();
 
       voiceReady.resolve(jest.fn());
       await connection;
+      expect(mockFetchCredentials).toHaveBeenCalledTimes(1);
       expect(mockConnectionStore.connect).toHaveBeenCalledTimes(1);
     });
 

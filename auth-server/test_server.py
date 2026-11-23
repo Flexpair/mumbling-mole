@@ -12,8 +12,10 @@ import ipaddress
 import queue
 import socket
 import socketserver
+import sqlite3
 import threading
 import time as time_mod
+import tempfile
 import unittest
 import urllib.error
 from email.message import Message
@@ -26,11 +28,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.update({
-    'MUMBLE_PASSWORD': 'test-mumble-password',
     'GUAC_ADMIN_PASSWORD': 'test-guac-admin-password',
     'GUAC_EDITOR_PASSWORD': 'test-guac-editor-password',
     'GUAC_WATCHER_PASSWORD': 'test-guac-watcher-password',
     'TRUSTED_PROXIES': '127.0.0.1',
+    'MUMBLE_IDENTITY_DB': ':memory:',
 })
 
 from server import (
@@ -47,11 +49,20 @@ from server import (
     get_guacamole_user,
     hash_email,
     rate_limiter,
+    MUMBLE_IDENTITIES,
+    MUMBLE_SESSIONS,
+    MURMUR_AUTHENTICATOR_READY,
     tunnel_rate_limiter,
     generate_secure_password,
     _execute_auth_request,
     _DeadlineReader,
     validate_token,
+)
+from mumble_auth import (
+    MumbleAuthenticator,
+    MumbleIdentityRegistry,
+    MumbleSessionStore,
+    MurmurIceAuthenticator,
 )
 
 
@@ -63,6 +74,7 @@ def import_server_with_environment(environment):
     try:
         os.environ.clear()
         os.environ.update(environment)
+        os.environ.setdefault('MUMBLE_IDENTITY_DB', ':memory:')
         return __import__(module_name)
     finally:
         os.environ.clear()
@@ -133,6 +145,263 @@ class TestGetGuacamoleUser(unittest.TestCase):
 
     def test_not_a_list(self):
         self.assertIsNone(get_guacamole_user('admin'))
+
+
+class TestMumbleIdentityAuthentication(unittest.TestCase):
+    def setUp(self):
+        self.identities = MumbleIdentityRegistry(':memory:')
+        self.clock_value = 100
+        self.sessions = MumbleSessionStore(
+            ttl_seconds=60,
+            clock=lambda: self.clock_value,
+        )
+        self.authenticator = MumbleAuthenticator(self.identities, self.sessions)
+        self.identity = self.identities.get_or_create(
+            'identity-1',
+            'Authenticated Person',
+        )
+
+    def test_identity_username_is_stable_and_not_client_supplied(self):
+        expected = self.identities.get_or_create('identity-1', 'Changed Name')
+        self.assertEqual(expected, self.identity)
+        self.assertEqual(self.identity.username, 'Authenticated (3ff34ed40e9ac98f)')
+        self.assertNotEqual(
+            self.identities.get_or_create('identity-2', 'Authenticated Person').username,
+            self.identity.username,
+        )
+
+    def test_identity_username_preserves_unicode_letters_and_ignores_invalid_metadata(self):
+        identity = self.identities.get_or_create('identity-2', 'Jürgen ☃')
+        self.assertTrue(identity.username.startswith('Jürgen ('))
+        self.assertTrue(
+            self.identities.get_or_create('identity-3', ['not', 'a', 'name']).username.startswith('user (')
+        )
+
+    def test_identity_username_lookup_uses_unicode_casefold(self):
+        identity = self.identities.get_or_create('identity-unicode', 'Jürgen')
+
+        self.assertEqual(
+            self.identities.get_by_username(identity.username),
+            identity,
+        )
+        self.assertEqual(
+            self.identities.get_by_username(
+                identity.username.replace('Jürgen', 'JÜRGEN')
+            ),
+            identity,
+        )
+
+    def test_unicode_case_variant_requires_registered_token(self):
+        identity = self.identities.get_or_create('identity-unicode', 'Jürgen')
+
+        self.assertEqual(
+            self.authenticator.authenticate(
+                identity.username.replace('Jürgen', 'JÜRGEN'),
+                'invalid-token',
+            ),
+            -1,
+        )
+
+        valid_token = self.sessions.issue(identity)
+        self.assertEqual(
+            self.authenticator.authenticate(
+                identity.username.replace('Jürgen', 'JÜRGEN'),
+                valid_token,
+            ),
+            identity,
+        )
+
+    def test_identity_registry_persists_numeric_user_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'identities.sqlite3')
+            first = MumbleIdentityRegistry(path)
+            identity = first.get_or_create('identity-1', 'Authenticated Person')
+            second = MumbleIdentityRegistry(path)
+            self.assertEqual(second.get_by_id(identity.user_id), identity)
+            self.assertEqual(second.get_by_username(identity.username), identity)
+
+    def test_identity_registry_migrates_unicode_username_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'identities.sqlite3')
+            database = sqlite3.connect(path)
+            database.execute(
+                'CREATE TABLE identities ('
+                'user_id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'subject TEXT NOT NULL UNIQUE, '
+                'username TEXT NOT NULL COLLATE NOCASE UNIQUE)'
+            )
+            database.execute(
+                'INSERT INTO identities (subject, username) VALUES (?, ?)',
+                ('identity-1', 'Jürgen (1234567890123456)'),
+            )
+            database.execute(
+                'INSERT INTO identities (subject, username) VALUES (?, ?)',
+                ('identity-2', 'JÜRGEN (1234567890123456)'),
+            )
+            database.commit()
+            database.close()
+
+            migrated = MumbleIdentityRegistry(path)
+            identity = migrated.get_by_username('Jürgen (1234567890123456)')
+            self.assertIsNotNone(identity)
+            self.assertIsNotNone(
+                migrated.get_by_username('JÜRGEN (1234567890123456)')
+            )
+
+    def test_identity_username_collision_is_disambiguated(self):
+        with patch('mumble_auth.get_mumble_username', return_value='Authenticated (1234567890123456)'):
+            identities = [self.identities.get_or_create(f'collision-{i}') for i in range(5)]
+            self.assertEqual(len({identity.username for identity in identities}), 5)
+            self.assertTrue(all(len(identity.username) <= 32 for identity in identities))
+            self.assertEqual(self.identities.get_or_create('collision-1'), identities[1])
+            with self.assertRaisesRegex(ValueError, 'Identity username collision'):
+                self.identities.get_or_create('collision-5')
+
+    def test_identity_username_collision_creates_distinct_usernames(self):
+        with patch('mumble_auth.get_mumble_username', return_value='Shared Name (1234567890123456)'):
+            first = self.identities.get_or_create('first-subject')
+            second = self.identities.get_or_create('second-subject')
+
+        self.assertNotEqual(first.username, second.username)
+
+    def test_session_token_authenticates_only_its_assigned_username_once(self):
+        token = self.sessions.issue(self.identity)
+
+        self.assertEqual(self.authenticator.authenticate('Another User', token), -1)
+        self.assertEqual(self.authenticator.authenticate(self.identity.username, token), -1)
+
+        valid_token = self.sessions.issue(self.identity)
+        self.assertEqual(
+            self.authenticator.authenticate(self.identity.username, valid_token),
+            self.identity,
+        )
+        self.assertEqual(
+            self.authenticator.authenticate(self.identity.username, valid_token),
+            -1,
+        )
+
+    def test_expired_session_token_is_rejected(self):
+        token = self.sessions.issue(self.identity)
+        self.clock_value += 61
+
+        self.assertEqual(
+            self.authenticator.authenticate(self.identity.username, token),
+            -1,
+        )
+
+    def test_unknown_username_falls_through_to_murmur_database_authentication(self):
+        self.assertEqual(
+            self.authenticator.authenticate('Unknown User', 'invalid-token'),
+            -2,
+        )
+
+    def test_identity_requires_nonempty_bounded_subject(self):
+        for subject in ('', 'x' * 513, None):
+            with self.subTest(subject=subject):
+                with self.assertRaises(ValueError):
+                    self.identities.get_or_create(subject)
+
+
+class TestMurmurIceAuthenticator(unittest.TestCase):
+    def _build_authenticator(self, meta_proxy_class, slice_dir='/tmp'):
+        adapter = MagicMock()
+        communicator = MagicMock()
+        communicator.createObjectAdapterWithEndpoints.return_value = adapter
+        fake_ice = SimpleNamespace(
+            loadSlice=MagicMock(),
+            getSliceDir=MagicMock(return_value=slice_dir),
+            initialize=MagicMock(return_value=communicator),
+            stringToIdentity=MagicMock(side_effect=lambda identity: identity),
+        )
+        fake_mumble_server = SimpleNamespace(
+            ServerAuthenticator=object,
+            ServerAuthenticatorPrx=SimpleNamespace(uncheckedCast=MagicMock(side_effect=lambda proxy: proxy)),
+            MetaPrx=meta_proxy_class,
+        )
+        ready = MagicMock()
+        authenticator = MurmurIceAuthenticator(
+            MumbleAuthenticator(
+                MumbleIdentityRegistry(':memory:'),
+                MumbleSessionStore(),
+            ),
+            'Meta:tcp -h murmur -p 6502',
+            'ice-secret',
+            'tcp -h mumble -p 6503',
+            ready,
+        )
+        self._stop_after_second_wait(authenticator)
+        return SimpleNamespace(
+            authenticator=authenticator,
+            fake_ice=fake_ice,
+            fake_mumble_server=fake_mumble_server,
+            ready=ready,
+        )
+
+    @staticmethod
+    def _stop_after_second_wait(authenticator):
+        wait_count = 0
+
+        def wait_for_retry(timeout):
+            nonlocal wait_count
+            wait_count += 1
+            if wait_count == 2:
+                authenticator._stop.set()
+                return True
+            return False
+
+        authenticator._stop.wait = wait_for_retry
+
+    def test_meta_checked_cast_retries_until_murmur_is_available(self):
+        mumble_server = MagicMock()
+        meta = MagicMock()
+        meta.getBootedServers.return_value = [mumble_server]
+        meta_proxy_class = SimpleNamespace(
+            checkedCast=MagicMock(side_effect=[
+                RuntimeError('Murmur is starting: ice-secret Meta:tcp -h murmur -p 6502 tcp -h mumble -p 6503'),
+                meta,
+            ])
+        )
+        fixture = self._build_authenticator(meta_proxy_class, slice_dir='/tmp')
+
+        with patch('builtins.print') as mock_print, patch.dict(
+            sys.modules,
+            {'Ice': fixture.fake_ice, 'MumbleServer': fixture.fake_mumble_server},
+        ):
+            fixture.authenticator._serve()
+
+        mock_print.assert_called_once_with(
+            '[AUTH] Murmur authenticator unavailable; retrying '
+            '(RuntimeError: Murmur is starting: [redacted] [redacted] [redacted])'
+        )
+        self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
+        mumble_server.setAuthenticator.assert_called_once()
+        fixture.ready.set.assert_called_once()
+        self.assertEqual(fixture.ready.clear.call_count, 2)
+
+    def test_server_authenticator_is_refreshed_across_successful_retries(self):
+        mumble_server = MagicMock()
+        mumble_server.id.return_value = 1
+        restarted_server = MagicMock()
+        restarted_server.id.return_value = 1
+        meta = MagicMock()
+        meta.getBootedServers.side_effect = [[mumble_server], [restarted_server]]
+        meta_proxy_class = SimpleNamespace(checkedCast=MagicMock(return_value=meta))
+        fixture = self._build_authenticator(meta_proxy_class, slice_dir=None)
+
+        with patch.dict(
+            sys.modules,
+            {'Ice': fixture.fake_ice, 'MumbleServer': fixture.fake_mumble_server},
+        ):
+            fixture.authenticator._serve()
+
+        fixture.fake_ice.loadSlice.assert_called_once_with(
+                '/usr/local/share/mumble/MumbleServer.ice'
+        )
+        self.assertEqual(meta_proxy_class.checkedCast.call_count, 2)
+        mumble_server.setAuthenticator.assert_called_once()
+        restarted_server.setAuthenticator.assert_called_once()
+        self.assertEqual(fixture.ready.set.call_count, 2)
+        fixture.ready.clear.assert_called_once()
 
 
 class TestHashEmail(unittest.TestCase):
@@ -407,6 +676,8 @@ class TestThreadedHTTPServer(unittest.TestCase):
 
     @patch('server.urllib.request.build_opener')
     def test_provider_timeout_releases_request_slot(self, mock_build_opener):
+        MURMUR_AUTHENTICATOR_READY.set()
+        self.addCleanup(MURMUR_AUTHENTICATOR_READY.clear)
         self.server.request_timeout = 0.1
         mock_opener = MagicMock()
 
@@ -447,6 +718,9 @@ class TestCredentialRateLimitOrdering(unittest.TestCase):
 
     def setUp(self):
         rate_limiter.store.clear()
+        MUMBLE_SESSIONS._sessions.clear()
+        MURMUR_AUTHENTICATOR_READY.set()
+        self.addCleanup(MURMUR_AUTHENTICATOR_READY.clear)
 
     @staticmethod
     def _handler(authorization=None):
@@ -961,16 +1235,45 @@ class TestCorsAllowlist(unittest.TestCase):
 class TestAuthProviderConfig(unittest.TestCase):
     """Tests for auth provider configuration."""
 
+    def setUp(self):
+        rate_limiter.store.clear()
+        MURMUR_AUTHENTICATOR_READY.set()
+        self.addCleanup(MURMUR_AUTHENTICATOR_READY.clear)
+
     def test_netlify_provider_configured(self):
         from server import AUTH_PROVIDERS
         self.assertIn('netlify', AUTH_PROVIDERS)
         self.assertIsNotNone(AUTH_PROVIDERS['netlify']['userEndpoint'])
+        self.assertEqual(AUTH_PROVIDERS['netlify']['subjectClaim'], 'id')
         self.assertEqual(AUTH_PROVIDERS['netlify']['rolesClaim'], 'app_metadata.roles')
+
+    def test_all_providers_configure_display_name_claims(self):
+        from server import AUTH_PROVIDERS
+
+        self.assertEqual(AUTH_PROVIDERS['netlify']['displayNameClaim'], 'user_metadata.full_name')
+        self.assertEqual(AUTH_PROVIDERS['supabase']['displayNameClaim'], 'user_metadata.full_name')
+        self.assertEqual(AUTH_PROVIDERS['auth0']['displayNameClaim'], 'name')
 
     def test_supabase_provider_placeholder(self):
         from server import AUTH_PROVIDERS
         self.assertIn('supabase', AUTH_PROVIDERS)
+        self.assertEqual(AUTH_PROVIDERS['supabase']['subjectClaim'], 'id')
         self.assertEqual(AUTH_PROVIDERS['supabase']['rolesClaim'], 'app_metadata.roles')
+
+    @patch('server.validate_token')
+    def test_netlify_credentials_use_stable_id_claim(self, mock_validate):
+        mock_validate.return_value = {
+            'id': 'netlify-identity-123',
+            'app_metadata': {'roles': ['watch']},
+            'user_metadata': {'full_name': 'Netlify User'},
+        }
+        handler = TestCredentialRateLimitOrdering._handler('Bearer ' + 'unit-test-token')
+
+        handler.do_POST()
+
+        response = handler.send_json.call_args.args
+        self.assertEqual(response[0], 200)
+        self.assertTrue(response[1]['mumbleUsername'].startswith('Netlify User ('))
 
     @patch('server.AUTH_PROVIDER', 'supabase')
     @patch('server.validate_token')
@@ -985,6 +1288,7 @@ class TestAuthProviderConfig(unittest.TestCase):
             with self.subTest(app_roles=app_roles, user_roles=user_roles):
                 rate_limiter.store.clear()
                 mock_validate.return_value = {
+                    'id': f'identity-{expected_user}',
                     'app_metadata': {'roles': app_roles},
                     'user_metadata': {'roles': user_roles},
                 }
@@ -992,8 +1296,32 @@ class TestAuthProviderConfig(unittest.TestCase):
                 handler.do_POST()
                 response = handler.send_json.call_args.args
                 self.assertEqual(response[0], 200)
+                self.assertNotEqual(response[1]['mumblePassword'], 'test-mumble-password')
+                self.assertTrue(response[1]['mumbleUsername'])
                 self.assertEqual(response[1]['guacamoleUser'], expected_user)
                 self.assertEqual(response[1]['guacamolePassword'], GUACAMOLE_PASSWORDS[expected_user])
+
+    def test_credentials_fail_closed_when_murmur_authenticator_is_unavailable(self):
+        MURMUR_AUTHENTICATOR_READY.clear()
+        handler = TestCredentialRateLimitOrdering._handler('Bearer ' + 'unit-test-token')
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(
+            503, {'error': 'Mumble authentication is unavailable'}
+        )
+
+    @patch('server.validate_token')
+    def test_credentials_require_a_stable_identity_subject(self, mock_validate):
+        mock_validate.return_value = {
+            'app_metadata': {'roles': ['watch']},
+            'user_metadata': {'full_name': 'Test User'},
+        }
+        handler = TestCredentialRateLimitOrdering._handler('Bearer ' + 'unit-test-token')
+
+        handler.do_POST()
+
+        handler.send_json.assert_called_once_with(401, {'error': 'Invalid identity'})
 
     @patch('server.AUTH_PROVIDER', 'supabase')
     @patch('server.validate_token')
@@ -1016,6 +1344,7 @@ class TestAuthProviderConfig(unittest.TestCase):
     def test_auth0_provider_placeholder(self):
         from server import AUTH_PROVIDERS
         self.assertIn('auth0', AUTH_PROVIDERS)
+        self.assertEqual(AUTH_PROVIDERS['auth0']['subjectClaim'], 'sub')
         self.assertEqual(AUTH_PROVIDERS['auth0']['rolesClaim'], 'https://flexpair.com/roles')
 
 
@@ -1093,10 +1422,9 @@ class TestAuthProviderUrlValidation(unittest.TestCase):
 class TestCredentialGeneration(unittest.TestCase):
     """Tests for credential configuration."""
 
-    def test_mumble_password_exists(self):
-        from server import MUMBLE_PASSWORD
-        self.assertIsNotNone(MUMBLE_PASSWORD)
-        self.assertGreater(len(MUMBLE_PASSWORD), 0)
+    def test_auth_server_does_not_configure_a_shared_mumble_password(self):
+        import server
+        self.assertFalse(hasattr(server, 'MUMBLE_PASSWORD'))
 
     def test_guacamole_passwords_exist(self):
         from server import GUACAMOLE_PASSWORDS
@@ -1104,9 +1432,14 @@ class TestCredentialGeneration(unittest.TestCase):
         self.assertIn('editor', GUACAMOLE_PASSWORDS)
         self.assertIn('watcher', GUACAMOLE_PASSWORDS)
 
-    def test_server_requires_mumble_password(self):
-        with self.assertRaisesRegex(RuntimeError, 'MUMBLE_PASSWORD must be configured'):
-            import_server_with_environment({'TRUSTED_PROXIES': '127.0.0.1'})
+    def test_server_does_not_require_a_shared_mumble_password(self):
+        module = import_server_with_environment({
+            'GUAC_ADMIN_PASSWORD': 'admin-password',
+            'GUAC_EDITOR_PASSWORD': 'editor-password',
+            'GUAC_WATCHER_PASSWORD': 'watcher-password',
+            'TRUSTED_PROXIES': '127.0.0.1',
+        })
+        self.assertFalse(hasattr(module, 'MUMBLE_PASSWORD'))
 
     def test_server_requires_every_guacamole_password(self):
         for missing_name in (
@@ -1116,7 +1449,6 @@ class TestCredentialGeneration(unittest.TestCase):
         ):
             with self.subTest(missing_name=missing_name):
                 environment = {
-                    'MUMBLE_PASSWORD': 'mumble-password',
                     'GUAC_ADMIN_PASSWORD': 'admin-password',
                     'GUAC_EDITOR_PASSWORD': 'editor-password',
                     'GUAC_WATCHER_PASSWORD': 'watcher-password',
@@ -1128,7 +1460,6 @@ class TestCredentialGeneration(unittest.TestCase):
 
     def test_guacamole_passwords_never_fall_back_to_mumble_password(self):
         module = import_server_with_environment({
-            'MUMBLE_PASSWORD': 'mumble-password',
             'GUAC_ADMIN_PASSWORD': 'admin-password',
             'GUAC_EDITOR_PASSWORD': 'editor-password',
             'GUAC_WATCHER_PASSWORD': 'watcher-password',
@@ -1143,7 +1474,6 @@ class TestCredentialGeneration(unittest.TestCase):
     def test_server_rejects_duplicate_guacamole_passwords(self):
         with self.assertRaisesRegex(RuntimeError, 'Guacamole role passwords must be distinct'):
             import_server_with_environment({
-                'MUMBLE_PASSWORD': 'mumble-password',
                 'GUAC_ADMIN_PASSWORD': 'same-password',
                 'GUAC_EDITOR_PASSWORD': 'same-password',
                 'GUAC_WATCHER_PASSWORD': 'watcher-password',
@@ -1154,7 +1484,6 @@ class TestCredentialGeneration(unittest.TestCase):
 class TestTrustedProxyConfiguration(unittest.TestCase):
     def setUp(self):
         self.environment = {
-            'MUMBLE_PASSWORD': 'mumble-password',
             'GUAC_ADMIN_PASSWORD': 'admin-password',
             'GUAC_EDITOR_PASSWORD': 'editor-password',
             'GUAC_WATCHER_PASSWORD': 'watcher-password',

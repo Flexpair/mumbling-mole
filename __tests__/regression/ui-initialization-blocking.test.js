@@ -322,6 +322,17 @@ describe('UI Freeze Regression (3.16.1)', () => {
     expect(dialogContent).toContain('await connectionLogic.connect(');
   });
 
+  test('VERIFICATION: authenticated Connect dialog shows the server-assigned username hint', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const dialogPath = path.join(process.cwd(), 'app', 'components', 'ConnectDialog.vue');
+    const dialogContent = await fs.readFile(dialogPath, 'utf-8');
+
+    expect(dialogContent).toContain('<div v-if="auth" class="form-field">');
+    expect(dialogContent).toContain('Username wird vom Server vergeben');
+    expect(dialogContent).toContain('<div v-else-if="config.connectDialog?.username" class="form-field">');
+  });
+
   test('VERIFICATION: cancelling sample-rate warning cancels the stored attempt', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');

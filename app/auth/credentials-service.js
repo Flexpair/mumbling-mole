@@ -9,7 +9,8 @@
 
 /**
  * @typedef {Object} ServerCredentials
- * @property {string} mumblePassword - Password for Mumble server
+ * @property {string} mumblePassword - One-time Mumble session token
+ * @property {string} mumbleUsername - Server-assigned identity username
  * @property {string} guacamoleUser - Guacamole username (admin/editor/watcher)
  * @property {string} guacamolePassword - Guacamole password
  */
@@ -85,7 +86,12 @@ async function _fetchCredentialsFromServer(token) {
   }
 
   const credentials = await response.json();
-  const requiredFields = ['mumblePassword', 'guacamoleUser', 'guacamolePassword'];
+  const requiredFields = [
+    'mumblePassword',
+    'mumbleUsername',
+    'guacamoleUser',
+    'guacamolePassword'
+  ];
   if (!credentials || requiredFields.some(field => typeof credentials[field] !== 'string' || !credentials[field])) {
     throw new Error('Credentials response is incomplete');
   }
@@ -105,6 +111,10 @@ async function _fetchCredentialsFromServer(token) {
 export async function fetchCredentials(token, { forceRefresh = false } = {}) {
   if (!token) {
     throw new Error('No authentication token provided');
+  }
+
+  if (forceRefresh) {
+    return _fetchCredentialsFromServer(token);
   }
 
   // Return cached credentials if available, not expired, and not forcing refresh

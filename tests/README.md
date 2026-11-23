@@ -8,10 +8,11 @@ The recommended environment is the Dev Container defined in `.devcontainer/`. It
 
 - the development container (`mumble`),
 - the Murmur server (`murmur`) at `murmur:64738`,
+- Murmur's private ICE interface and the auth server's callback endpoint,
 - nginx at the browser-facing local URL, and
 - the supporting Guacamole services.
 
-The Playwright suite needs the Murmur service. If `murmur:64738` refuses connections, restart the complete Compose/Codespaces environment rather than trying to start Murmur from inside the development container.
+The Playwright suite needs the Murmur service and the ICE authenticator to be attached before Mumble credentials can be issued. If `murmur:64738` refuses connections or the auth endpoint returns 503, restart the complete Compose/Codespaces environment rather than trying to start Murmur from inside the development container.
 
 Keep test credentials in the untracked `.env.test` file. The Playwright configuration loads that file but does not provide credential values in the repository.
 
@@ -85,6 +86,20 @@ The main scenarios are:
 - muting in loopback mode and clearing the frequency display.
 
 See [tests/playwright/README.md](playwright/README.md) for the browser-specific workflow.
+
+## Verify ICE authenticator
+
+From the running Dev Container:
+
+1. Run `docker compose up` and confirm Murmur's log contains `Registered authenticator`.
+2. Set `IDENTITY_AUTH_HEADER` to an Authorization header containing a valid identity JWT, send it to the credential endpoint, and confirm HTTP 200 with `mumbleUsername` and `mumblePassword`:
+
+   ```bash
+   curl -i -X POST https://local.flexpair.app/api/credentials \
+    -H "$IDENTITY_AUTH_HEADER"
+   ```
+
+3. Connect with the returned username and token in the web client; confirm login succeeds. Retry with that same username and token and confirm the second login is rejected.
 
 ## CI gates
 

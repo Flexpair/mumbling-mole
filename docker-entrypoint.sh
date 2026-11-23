@@ -35,7 +35,11 @@ fi
 
 # Normalfall: WebSocket-Tunnel + Static Web via websockify
 : "${MUMBLE_SERVER:?Must set MUMBLE_SERVER (e.g. host:port)}"
-: "${MUMBLE_PASSWORD:?Must set MUMBLE_PASSWORD to match the Mumble server}"
+: "${MURMUR_ICE_ENDPOINT:?Must set MURMUR_ICE_ENDPOINT for Murmur authentication}"
+: "${MURMUR_ICE_SECRET:?Must set MURMUR_ICE_SECRET for Murmur authentication}"
+: "${MURMUR_AUTH_CALLBACK_ENDPOINT:?Must set MURMUR_AUTH_CALLBACK_ENDPOINT for Murmur authentication}"
+: "${MUMBLE_IDENTITY_DB:?Must set MUMBLE_IDENTITY_DB for persistent Mumble identities}"
+mkdir -p "$(dirname -- "${MUMBLE_IDENTITY_DB}")"
 
 # Für E2E-Tests ggf. TLS am Ziel deaktivieren (Echo-Server ist Plain-TCP)
 SSL_TARGET_FLAG="--ssl-target"
@@ -81,7 +85,10 @@ PY
   nohup env \
     AUTH_SERVER_HOST="${AUTH_SERVER_HOST}" \
     AUTH_SERVER_PORT="${AUTH_SERVER_PORT}" \
-    MUMBLE_PASSWORD="${MUMBLE_PASSWORD:-}" \
+    MURMUR_ICE_ENDPOINT="${MURMUR_ICE_ENDPOINT}" \
+    MURMUR_ICE_SECRET="${MURMUR_ICE_SECRET}" \
+    MURMUR_AUTH_CALLBACK_ENDPOINT="${MURMUR_AUTH_CALLBACK_ENDPOINT}" \
+    MUMBLE_IDENTITY_DB="${MUMBLE_IDENTITY_DB}" \
     GUAC_ADMIN_PASSWORD="${GUAC_ADMIN_PASSWORD:-}" \
     GUAC_EDITOR_PASSWORD="${GUAC_EDITOR_PASSWORD:-}" \
     GUAC_WATCHER_PASSWORD="${GUAC_WATCHER_PASSWORD:-}" \
