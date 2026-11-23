@@ -280,7 +280,10 @@ class MurmurIceAuthenticator:
         Ice.loadSlice(f'{include}{slice_path}')
         import MumbleServer
 
-        communicator = Ice.initialize()
+        communicator = Ice.initialize([
+            '--Ice.Default.InvocationTimeout=5000',
+            '--Ice.Override.ConnectTimeout=5000',
+        ])
         adapter = communicator.createObjectAdapterWithEndpoints(
             'MumbleAuthenticator', self._callback_endpoint
         )
