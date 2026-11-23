@@ -51,7 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       arm64) node_arch="arm64" ;; \
       *) echo "Unsupported arch: $arch" >&2; exit 1 ;; \
     esac; \
-    NODE_VERSION=22.20.0; \
+    NODE_VERSION=22.23.4; \
     curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
     curl --proto "=https" -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" -o /tmp/SHASUMS256.txt; \
     expected_checksum="$(awk \
