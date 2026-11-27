@@ -341,7 +341,8 @@ function fromVarint(b) {
             return null;
         }
     } else if ((v & 0xF0) === 0xE0) {
-        i = (v & 0x0F) << 24 | b[1] << 16 | b[2] << 8 | b[3];
+        if (b.length < 4) return null;
+        i = (v & 0x0F) * 0x1000000 + b.readUIntBE(1, 3);
         length = 4;
     } else if ((v & 0xE0) === 0xC0) {
         i = (v & 0x1F) << 16 | b[1] << 8 | b[2];
