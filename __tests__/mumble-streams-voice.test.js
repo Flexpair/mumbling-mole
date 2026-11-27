@@ -221,6 +221,24 @@ describe('Voice Decoder', () => {
       decoder = new Decoder('server');
     });
 
+    it.each([0, 0x1fffff, 0x200000, 0x7ffffff, 0x8000000, 0xfffffff])(
+      'should decode four-byte timestamp %i exactly',
+      (timestamp) => {
+        const packet = Buffer.alloc(5);
+        packet[0] = 0x20;
+        packet[1] = 0xe0 + Math.floor(timestamp / 0x1000000);
+        packet.writeUIntBE(timestamp % 0x1000000, 2, 3);
+
+        expect(decoder._parsePingPacket(packet)).toEqual({ packet: { timestamp } });
+      }
+    );
+
+    it.each([0, 1, 2])('should reject a four-byte timestamp with only %i payload bytes', (length) => {
+      const packet = Buffer.from([0x20, 0xef, 0xff, 0xff, 0xff]).subarray(0, 2 + length);
+
+      expect(decoder._parsePingPacket(packet)).toEqual({ error: 'invalid timestamp' });
+    });
+
     it('should decode ping packet', (done) => {
       decoder.on('data', (packet) => {
         expect(packet.timestamp).toBeDefined();
